@@ -764,6 +764,22 @@ describe('Kunden und Objekte', () => {
 			await expect(listeLoad({ ...ort(admin), url } as never)).rejects.toMatchObject({ status: 403 });
 		});
 
+		it('Liste: überlange Suche wird auf 100 Zeichen gekürzt statt Fehlerseite (R19)', async () => {
+			const url = new URL('http://localhost/kunden');
+			url.searchParams.set('suche', 'x'.repeat(150));
+			const d = (await listeLoad({ ...ort(chefA), url } as never)) as any;
+			expect(d.suche).toHaveLength(100);
+			expect(d.kunden).toEqual([]);
+		});
+
+		it('Protokoll eines Kunden: einstellungen ohne kunden.lesen → 403 (R19)', async () => {
+			const id = await seedKunde(betriebA);
+			const nurEinstellungen = nutzerVon(chefAId, betriebA, ['einstellungen', 'benutzer.verwalten']);
+			expect((await protokoll(nurEinstellungen, 'kunden', id)).status).toBe(403);
+			expect((await protokoll(nurEinstellungen, 'objekte', id)).status).toBe(403);
+			expect((await protokoll(nurEinstellungen, 'rollen', UNBEKANNT)).status).toBe(200);
+		});
+
 		it('Neu: Anlegen leitet auf die Detailseite weiter; Fehler bleiben mit Eingaben sichtbar; Monteur 403', async () => {
 			await expect(
 				neuAktionen.anlegen({

@@ -6,8 +6,9 @@ import type { Modul } from '../tarife';
 /**
  * Lesezugriff auf das Änderungsprotokoll (`app.aenderungen`, geschrieben vom Trigger `app.protokolliere()`).
  *
- * Positivliste der abfragbaren Tabellen mit dem Recht, das sie lesen darf. Wer `einstellungen` hat, darf immer
- * alles lesen. Neue protokollierte Tabellen (z. B. Task 11: `kunden`, `objekte`) werden hier eingetragen.
+ * Positivliste der abfragbaren Tabellen mit dem Recht, das sie lesen darf. Bei Verwaltungstabellen genügt auch
+ * `einstellungen`; Tabellen eines Tarif-Moduls (`PROTOKOLL_MODULE`, z. B. Kundendaten) verlangen immer ihr eigenes
+ * Recht (Ruling R19, Datenschutz). Neue protokollierte Tabellen werden hier eingetragen.
  */
 export const PROTOKOLL_TABELLEN = {
 	rollen: 'einstellungen',
@@ -66,9 +67,14 @@ export function pruefeSuche(params: URLSearchParams): ProtokollSuche {
 	return { tabelle: tabelle as ProtokollTabelle, datensatz, vor };
 }
 
-/** Darf dieser Nutzer das Protokoll der Tabelle lesen? `einstellungen` genügt immer. */
+/**
+ * Darf dieser Nutzer das Protokoll der Tabelle lesen? Das Leserecht der Tabelle genügt immer. `einstellungen` genügt
+ * nur bei Verwaltungstabellen – nicht bei Tabellen eines Moduls (Kundendaten): Wer Kunden nicht sehen darf, soll
+ * ihre Daten auch nicht über den Verlauf lesen (Ruling R19).
+ */
 export function darfProtokollLesen(nutzer: Nutzer, tabelle: ProtokollTabelle): boolean {
-	return hatRecht(nutzer, 'einstellungen') || hatRecht(nutzer, PROTOKOLL_TABELLEN[tabelle]);
+	if (hatRecht(nutzer, PROTOKOLL_TABELLEN[tabelle])) return true;
+	return !Object.hasOwn(PROTOKOLL_MODULE, tabelle) && hatRecht(nutzer, 'einstellungen');
 }
 
 /**

@@ -8,8 +8,9 @@ import { pruefeModul } from '$lib/server/tarif';
 /**
  * Änderungsverlauf eines Datensatzes: `GET /api/protokoll?tabelle=rollen&datensatz=<uuid>[&vor=<id>]`.
  * Antwort `{ eintraege, naechsteVor }` – 50 Einträge, neueste zuerst; `naechsteVor` für die nächste Seite (sonst null).
- * Lesen darf, wer `einstellungen` hat oder das Leserecht der Tabelle (siehe `PROTOKOLL_TABELLEN`); bei Tabellen eines
- * Tarif-Moduls (kunden, objekte) muss der Betrieb außerdem das Modul haben (402, siehe `PROTOKOLL_MODULE`).
+ * Lesen darf, wer das Leserecht der Tabelle hat (siehe `PROTOKOLL_TABELLEN`) – bei Verwaltungstabellen auch mit
+ * `einstellungen`. Tabellen eines Tarif-Moduls (kunden, objekte) verlangen immer ihr eigenes Recht (R19), und der
+ * Betrieb muss das Modul haben (402, siehe `PROTOKOLL_MODULE`).
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
 	try {
