@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import postgres from 'postgres';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { frischeTestDb, type TestDb } from './setup';
 import { initDb, schliesseDb } from '../../src/lib/server/db';
 import { alsAntwort, ApiFehler } from '../../src/lib/server/fehler';
@@ -170,6 +170,58 @@ describe('Tarife und Freischaltungen', () => {
 			await expect(pruefeGrenze(betriebBasis, 'benutzer')).resolves.toBeUndefined();
 			await benutzerAnlegen(betriebBasis, 5, false);
 			await expect(pruefeGrenze(betriebBasis, 'benutzer')).resolves.toBeUndefined();
+		});
+
+		describe('schlägt geschlossen fehl (Konfigurationsfehler statt „unbegrenzt“)', () => {
+			/** Legt einen eigenen Tarif mit den gegebenen Grenzen und einen Betrieb dazu an. */
+			const betriebMitGrenzen = async (grenzen: string) => {
+				const [t] = await root`
+					insert into app.tarife (schluessel, name, grenzen)
+					values (${`g${randomBytes(4).toString('hex')}`}, 'G', ${root.json(JSON.parse(grenzen))}) returning id`;
+				const [b] = await root`
+					insert into app.betriebe (name, tarif_id, abo_status) values ('G GmbH', ${t.id}, 'aktiv') returning id`;
+				return b.id as string;
+			};
+			afterEach(async () => {
+				await root`delete from app.benutzer where betrieb_id in (select id from app.betriebe where name = 'G GmbH')`;
+				await root`delete from app.betriebe where name = 'G GmbH'`;
+				await root`delete from app.tarife where name = 'G'`;
+			});
+
+			it('Schlüssel fehlt → Error, kein ApiFehler', async () => {
+				const b = await betriebMitGrenzen('{"ki_pro_monat": 5}');
+				const e = await pruefeGrenze(b, 'benutzer').then(() => null, (x) => x);
+				expect(e).toBeInstanceOf(Error);
+				expect(e).not.toBeInstanceOf(ApiFehler);
+				expect(e.message).toMatch(/keine gültige Grenze/);
+			});
+
+			it('Text "3", negative Zahl, Liste, Objekt → Error', async () => {
+				for (const wert of ['"3"', '-1', '[3]', '{"a":1}', 'true']) {
+					const b = await betriebMitGrenzen(`{"benutzer": ${wert}}`);
+					const e = await pruefeGrenze(b, 'benutzer').then(() => null, (x) => x);
+					expect(e, wert).toBeInstanceOf(Error);
+					expect(e, wert).not.toBeInstanceOf(ApiFehler);
+				}
+			});
+
+			it('Betrieb existiert nicht → Error', async () => {
+				const e = await pruefeGrenze('11111111-1111-4111-8111-111111111111', 'benutzer').then(
+					() => null,
+					(x) => x
+				);
+				expect(e).toBeInstanceOf(Error);
+				expect(e).not.toBeInstanceOf(ApiFehler);
+				expect(e.message).toMatch(/nicht gefunden/);
+			});
+
+			it('ausdrücklich null = unbegrenzt → erlaubt; Zahl 0 sperrt sofort', async () => {
+				const frei = await betriebMitGrenzen('{"benutzer": null}');
+				await benutzerAnlegen(frei, 5);
+				await expect(pruefeGrenze(frei, 'benutzer')).resolves.toBeUndefined();
+				const null_ = await betriebMitGrenzen('{"benutzer": 0}');
+				await expect(pruefeGrenze(null_, 'benutzer')).rejects.toMatchObject({ status: 409 });
+			});
 		});
 
 		it('zählt nur den eigenen Betrieb', async () => {

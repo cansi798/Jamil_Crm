@@ -58,8 +58,12 @@ export async function pruefeModul(locals: { nutzer: Nutzer | null }, modul: Modu
 
 /**
  * Wirft 409 `Benutzergrenze des Tarifs erreicht`, wenn der Betrieb schon so viele aktive Benutzer hat, wie sein
- * Tarif erlaubt (ein weiterer wäre einer zu viel). Deaktivierte Benutzer zählen nicht mit. Ohne Grenze im Tarif
- * ist alles erlaubt.
+ * Tarif erlaubt (ein weiterer wäre einer zu viel). Deaktivierte Benutzer zählen nicht mit.
+ *
+ * Schlägt geschlossen fehl: Gibt es den Betrieb nicht, oder fehlt die Grenze im Tarif bzw. ist sie keine Zahl
+ * ≥ 0 (z. B. der Text "3"), wirft die Funktion einen gewöhnlichen `Error` (Konfigurationsfehler, für den Client
+ * ein allgemeiner 500) – die Aktion wird nie erlaubt. „Unbegrenzt“ gibt es nur ausdrücklich: `grenzen.benutzer`
+ * ist JSON `null`.
  *
  * Wer den Benutzer anschließend anlegt oder aktiviert, übergibt seine eigene Transaktion `tx` (aus `mitBetrieb`
  * für denselben Betrieb): Dann wird für die Dauer der Transaktion eine Sperre pro Betrieb gehalten, und zwei
@@ -80,8 +84,13 @@ export async function pruefeGrenze(
 			from app.betriebe b
 			join app.tarife t on t.id = b.tarif_id
 			where b.id = ${betriebId}`;
-		const erlaubt: unknown = z?.grenzen?.[grenze];
-		if (typeof erlaubt !== 'number') return;
+		// Fail closed: fehlender Betrieb oder unbrauchbare Grenze ist ein Konfigurationsfehler (500), nie „unbegrenzt“.
+		if (!z) throw new Error(`pruefeGrenze: Betrieb ${betriebId} nicht gefunden`);
+		const erlaubt: unknown = z.grenzen?.[grenze];
+		if (erlaubt === null) return; // ausdrücklich „unbegrenzt“
+		if (typeof erlaubt !== 'number' || !Number.isFinite(erlaubt) || erlaubt < 0) {
+			throw new Error(`pruefeGrenze: Tarif des Betriebs ${betriebId} hat keine gültige Grenze "${grenze}"`);
+		}
 		if (z.anzahl >= erlaubt) throw new ApiFehler(409, 'Benutzergrenze des Tarifs erreicht');
 	};
 	if (tx) return lauf(tx);
