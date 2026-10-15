@@ -157,6 +157,14 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 9. Das Änderungsprotokoll (`app.aenderungen`) wird nur von einem Trigger geschrieben; die Anwendung darf es lesen,
    nie beschreiben. Geheime Spalten sind ausgeschlossen.
 10. Die Anwendung versendet keine E-Mails: Einladungslinks werden in der Oberfläche angezeigt und weitergegeben.
+11. Sicherheits-Kopfzeilen: Seiten tragen eine Content-Security-Policy (`kit.csp` in `svelte.config.js`, Modus
+    `auto`): nur eigene Quellen, Skripte nur mit Nonce (kein `unsafe-inline`/`eval`), `frame-ancestors 'none'`,
+    Bilder zusätzlich `data:` (QR-Code). Einzige Inline-Ausnahme sind Stil-Attribute (`style-src-attr
+    'unsafe-inline'`), weil SvelteKits Ansager für Seitenwechsel und die Hülle in `app.html` sie benutzen.
+    Jede Antwort bekommt in `hooks.server.ts` außerdem `X-Content-Type-Options: nosniff`,
+    `Referrer-Policy: same-origin` (Einladungsseite strenger: `no-referrer`), `X-Frame-Options: DENY` und eine
+    `Permissions-Policy`, die Kamera, Mikrofon, Standort, Bezahlen und USB abschaltet. Statische Dateien
+    (`/_app/…`, Symbole) liefert `adapter-node` ohne diese Kopfzeilen aus. HSTS gehört in den Reverse-Proxy (nicht gesetzt).
 
 ## Betriebshinweise / Deploy
 

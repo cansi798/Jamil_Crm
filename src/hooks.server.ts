@@ -8,6 +8,7 @@ import {
 import { istNurLesen } from '$lib/server/tarif';
 import { schliesseDb } from '$lib/server/db';
 import { istAdminPfad, nichtGefundenAntwort, nurLesenAntwort } from '$lib/server/sperren';
+import { mitSicherheitsKopfzeilen } from '$lib/server/sicherheit';
 
 // adapter-node meldet das geordnete Beenden (SIGTERM/SIGINT) mit diesem Ereignis, nachdem der Server keine Anfragen
 // mehr annimmt. Dann die Datenbank-Pools schließen – offene Verbindungen hielten den Prozess sonst am Leben.
@@ -36,7 +37,7 @@ const IMMER_ERLAUBT = (pfad: string) =>
  * für künftige Routen, ohne dass jede einzeln daran denken muss. Die Antwort passt zum Aufrufer (JSON für die API,
  * ActionResult für `use:enhance`, HTML für Formulare ohne JavaScript; siehe `sperren.ts`).
  */
-export const handle: Handle = async ({ event, resolve }) => {
+const pruefeZugang: Handle = async ({ event, resolve }) => {
 	event.locals.nutzer = null;
 	const token = event.cookies.get(COOKIE_NAME);
 	if (token) {
@@ -63,3 +64,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	return resolve(event);
 };
+
+/**
+ * Jede Antwort – auch Weiterleitungen und die Sperr-Antworten oben – bekommt die Grundschutz-Kopfzeilen
+ * (`sicherheit.ts`); die Content-Security-Policy der Seiten setzt SvelteKit selbst (`kit.csp` in `svelte.config.js`).
+ */
+export const handle: Handle = async (eingabe) => mitSicherheitsKopfzeilen(await pruefeZugang(eingabe));

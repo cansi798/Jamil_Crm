@@ -5,7 +5,31 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		// Content-Security-Policy für alle Seiten. `mode: 'auto'`: SvelteKit versieht seine eigenen Inline-Skripte
+		// (Start der App, Registrierung des Service Workers) mit einer Nonce je Antwort – sonst laufen nur Skripte
+		// vom eigenen Server, nie Inline-Skripte oder eval. Weitere Kopfzeilen für alle Antworten: hooks.server.ts.
+		csp: {
+			mode: 'auto',
+			directives: {
+				'default-src': ['self'],
+				'script-src': ['self'],
+				'style-src': ['self'],
+				// Nur Stil-ATTRIBUTE inline (keine <style>-Elemente, keine Skripte): SvelteKits Ansager für Seitenwechsel
+				// (#svelte-announcer, versteckt per style="…") und die Hülle in app.html brauchen sie – ohne diese
+				// Ausnahme meldet der Browser Verstöße und der Ansager wäre nicht mehr versteckt.
+				'style-src-attr': ['unsafe-inline'],
+				'img-src': ['self', 'data:'], // QR-Code der Zwei-Faktor-Einrichtung ist ein data:-Bild
+				'font-src': ['self'],
+				'connect-src': ['self'],
+				'manifest-src': ['self'],
+				'worker-src': ['self'],
+				'object-src': ['none'],
+				'base-uri': ['self'],
+				'form-action': ['self'],
+				'frame-ancestors': ['none']
+			}
+		}
 	}
 };
 
