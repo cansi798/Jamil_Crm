@@ -1,6 +1,7 @@
 import { mitBetrieb, type Kontext } from './db';
 import { ApiFehler } from './fehler';
 import { hatRecht, type Recht } from './rechte';
+import type { Modul } from '../tarife';
 
 /**
  * Lesezugriff auf das Änderungsprotokoll (`app.aenderungen`, geschrieben vom Trigger `app.protokolliere()`).
@@ -17,6 +18,15 @@ export const PROTOKOLL_TABELLEN = {
 } as const satisfies Record<string, Recht>;
 
 export type ProtokollTabelle = keyof typeof PROTOKOLL_TABELLEN;
+
+/**
+ * Tabellen, die zu einem Tarif-Modul gehören: Der Verlauf ist nur lesbar, wenn der Betrieb das Modul hat
+ * (`pruefeModul`, 402) – zusätzlich zum Leserecht, damit er nicht am Modul vorbei Daten verrät.
+ */
+export const PROTOKOLL_MODULE: Partial<Record<ProtokollTabelle, Modul>> = {
+	kunden: 'kunden',
+	objekte: 'kunden'
+};
 
 export const SEITENGROESSE = 50;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
