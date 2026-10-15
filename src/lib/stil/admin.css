@@ -1,0 +1,214 @@
+/* Plattform-Verwaltung (mobil zuerst: eine Spalte, Tippflächen ab 44 px = 2,75 rem; Tabelle wird auf schmalen
+   Bildschirmen zu Karten). */
+.ad-seite {
+	box-sizing: border-box;
+	max-width: 64rem;
+	margin: 0 auto;
+	padding: 1rem;
+	overflow-wrap: anywhere;
+}
+.ad-seite *,
+.ad-seite *::before,
+.ad-seite *::after {
+	box-sizing: border-box;
+}
+.ad-kopf {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.5rem 1rem;
+	background: #1f2937;
+	color: #fff;
+}
+.ad-kopf a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2.75rem;
+	color: #fff;
+	font-weight: 600;
+	text-decoration: none;
+}
+.ad-seite h1 {
+	font-size: 1.5rem;
+	margin: 0.5rem 0 1rem;
+}
+.ad-seite h2 {
+	font-size: 1.15rem;
+	margin: 1.75rem 0 0.5rem;
+}
+.ad-zurueck {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2.75rem;
+	color: #1d4ed8;
+}
+.ad-knopf {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 2.75rem;
+	padding: 0.5rem 1rem;
+	border: 1px solid #1d4ed8;
+	border-radius: 0.5rem;
+	background: #1d4ed8;
+	color: #fff;
+	font: inherit;
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+}
+.ad-knopf.hell {
+	background: #fff;
+	color: #1d4ed8;
+}
+.ad-formular {
+	display: grid;
+	gap: 1rem;
+	max-width: 40rem;
+}
+.ad-formular label {
+	display: grid;
+	gap: 0.25rem;
+}
+.ad-seite input,
+.ad-seite select {
+	width: 100%;
+	max-width: 100%;
+	min-height: 2.75rem;
+	padding: 0.5rem;
+	border: 1px solid #8a8a8a;
+	border-radius: 0.4rem;
+	font: inherit;
+	font-size: 1rem;
+}
+.ad-info {
+	color: #555;
+	font-size: 0.9rem;
+}
+.ad-leer {
+	color: #555;
+}
+.ad-fehler {
+	color: #b00020;
+	margin: 0 0 0.5rem;
+}
+.ad-erfolg {
+	color: #1b6e2d;
+	margin: 0 0 0.5rem;
+}
+.ad-link {
+	display: grid;
+	gap: 0.5rem;
+	margin-top: 1rem;
+	padding: 0.75rem;
+	border: 1px solid #1b6e2d;
+	border-radius: 0.5rem;
+	max-width: 40rem;
+}
+.ad-link p {
+	margin: 0;
+}
+.ad-status {
+	display: inline-block;
+	padding: 0.1rem 0.5rem;
+	border-radius: 1rem;
+	background: #e5e7eb;
+	font-size: 0.9rem;
+}
+.ad-status.gesperrt {
+	background: #fde2e4;
+	color: #8a0018;
+}
+.ad-status.ueberfaellig,
+.ad-status.gekuendigt {
+	background: #fff4d6;
+	color: #6b4e00;
+}
+.ad-daten {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.35rem 1rem;
+	margin: 0;
+}
+.ad-daten dt {
+	color: #555;
+}
+.ad-daten dd {
+	margin: 0;
+}
+.ad-verlauf {
+	list-style: none;
+	margin: 0.5rem 0;
+	padding: 0;
+	display: grid;
+	gap: 0.5rem;
+}
+.ad-verlauf li {
+	display: grid;
+	gap: 0.15rem;
+	padding: 0.6rem 0.75rem;
+	border: 1px solid #c8c8c8;
+	border-radius: 0.5rem;
+}
+
+/* Betriebstabelle: ab 48 rem eine Tabelle, darunter Karten (jede Zeile ein Block, Spaltenname aus data-titel). */
+.ad-tabelle {
+	width: 100%;
+	border-collapse: collapse;
+}
+.ad-tabelle th,
+.ad-tabelle td {
+	padding: 0.5rem;
+	text-align: left;
+	border-bottom: 1px solid #ddd;
+	vertical-align: middle;
+}
+.ad-tabelle td a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2.75rem;
+	color: #1d4ed8;
+	font-weight: 600;
+}
+@media (max-width: 48rem) {
+	.ad-tabelle thead {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+	.ad-tabelle,
+	.ad-tabelle tbody,
+	.ad-tabelle tr,
+	.ad-tabelle td {
+		display: block;
+		width: 100%;
+	}
+	.ad-tabelle tr {
+		margin-bottom: 0.75rem;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid #c8c8c8;
+		border-radius: 0.5rem;
+	}
+	.ad-tabelle td {
+		display: grid;
+		grid-template-columns: 9rem minmax(0, 1fr);
+		gap: 0.5rem;
+		padding: 0.25rem 0;
+		border: 0;
+	}
+	.ad-tabelle td::before {
+		content: attr(data-titel);
+		color: #555;
+	}
+	.ad-tabelle td.ad-name {
+		grid-template-columns: 1fr;
+	}
+	.ad-tabelle td.ad-name::before {
+		content: none;
+	}
+}
