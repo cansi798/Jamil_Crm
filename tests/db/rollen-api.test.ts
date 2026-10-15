@@ -50,7 +50,7 @@ describe('Rollen-API', () => {
 		db = await frischeTestDb();
 		initDb({ urlApp: db.urlApp, urlAdmin: db.urlAdmin, urlAuth: db.urlAuth });
 		root = postgres(db.urlSuper, { max: 4, onnotice: () => {} });
-		const [tarif] = await root`insert into app.tarife (schluessel, name) values ('basis', 'Basis') returning id`;
+		const [tarif] = await root`select id from app.tarife where schluessel = 'basis'`;
 		[{ id: betriebA }] = await root`
 			insert into app.betriebe (name, tarif_id, abo_status) values ('Betrieb A', ${tarif.id}, 'aktiv') returning id`;
 		[{ id: betriebB }] = await root`

@@ -82,7 +82,7 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 		initDb({ urlApp: db.urlApp, urlAdmin: db.urlAdmin, urlAuth: db.urlAuth });
 		root = postgres(db.urlSuper, { max: 2, onnotice: () => {} });
 		const hash = await hashePasswort(PASSWORT);
-		const [tarif] = await root`insert into app.tarife (schluessel, name) values ('basis', 'Basis') returning id`;
+		const [tarif] = await root`select id from app.tarife where schluessel = 'basis'`;
 		[{ id: betriebA }] = await root`
 			insert into app.betriebe (name, tarif_id, abo_status) values ('Betrieb A', ${tarif.id}, 'aktiv') returning id`;
 		[{ id: betriebGesperrt }] = await root`
@@ -441,7 +441,12 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 	describe('hooks.server handle', () => {
 		async function mitCookie(token: string | undefined) {
 			const cookies = fakeCookies(token ? { [COOKIE_NAME]: token } : {});
-			const event = { cookies, locals: {} as { nutzer?: unknown }, url: new URL('http://localhost/') };
+			const event = {
+				cookies,
+				locals: {} as { nutzer?: unknown },
+				url: new URL('http://localhost/'),
+				request: new Request('http://localhost/')
+			};
 			await handle({ event: event as never, resolve: async () => new Response('ok') });
 			return { event, cookies };
 		}

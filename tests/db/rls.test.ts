@@ -33,8 +33,7 @@ describe('Kernschema und Mandantentrennung (RLS)', () => {
 		app = postgres(db.urlApp, { max: 1, onnotice: () => {} });
 		admin = postgres(db.urlAdmin, { max: 1, onnotice: () => {} });
 
-		const [tarif] = await root`
-			insert into app.tarife (schluessel, name) values ('basis', 'Basis') returning id`;
+		const [tarif] = await root`select id from app.tarife where schluessel = 'basis'`; // aus 004_tarife_seed
 		tarifId = tarif.id;
 		[{ id: betriebA }] = await root`
 			insert into app.betriebe (name, tarif_id, abo_status)
@@ -284,7 +283,7 @@ describe('Kernschema und Mandantentrennung (RLS)', () => {
 	describe('Tabelle tarife', () => {
 		it('ist für crm_app lesbar, aber nicht änderbar', async () => {
 			const zeilen = await alsApp(null, (tx) => tx`select schluessel from app.tarife`);
-			expect(zeilen.map((z) => z.schluessel)).toEqual(['basis']);
+			expect(zeilen.map((z) => z.schluessel).sort()).toEqual(['basis', 'premium', 'profi', 'test']);
 			await expect(
 				alsApp(betriebA, (tx) => tx`update app.tarife set name = 'X'`)
 			).rejects.toThrow(/permission denied/);
