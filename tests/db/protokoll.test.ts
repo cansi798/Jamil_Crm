@@ -183,14 +183,73 @@ describe('Änderungsprotokoll', () => {
 			expect(z.map((e) => e.quelle)).toEqual(['sprache', 'oberflaeche']);
 		});
 
-		it('ein unbrauchbarer app.benutzer_id lässt die Änderung nicht scheitern (benutzer_id NULL)', async () => {
+		it('ein nicht-leerer app.benutzer_id, der keine UUID ist, bricht die Änderung ab (fail closed)', async () => {
+			for (const wert of ['kein-uuid', ' ', `${chefAId}x`, "' or 1=1 --"]) {
+				await expect(
+					root.begin(async (tx) => {
+						await tx`select set_config('app.benutzer_id', ${wert}, true)`;
+						await tx`update app.rollen set name = 'Trotzdem' where id = ${monteurRolleA}`;
+					}),
+					wert
+				).rejects.toThrow(/app\.benutzer_id ist keine UUID/);
+			}
+			expect(await protokoll('rollen', monteurRolleA)).toHaveLength(0);
+			expect((await root`select name from app.rollen where id = ${monteurRolleA}`)[0].name).toBe('Monteur');
+		});
+
+		it('Betriebskontext, der nicht zum Betrieb der Zeile passt, bricht die Änderung ab (fail closed)', async () => {
+			const [{ id: leereRolle }] = await root`insert into app.rollen (betrieb_id, name) values (${betriebA}, 'Leer') returning id`;
+			await root`delete from app.aenderungen`;
+			for (const aktion of ['update', 'delete'] as const) {
+				await expect(
+					root.begin(async (tx) => {
+						await tx`select set_config('app.betrieb_id', ${betriebB}, true)`;
+						if (aktion === 'update') await tx`update app.rollen set name = 'Fremd' where id = ${monteurRolleA}`;
+						else await tx`delete from app.rollen where id = ${leereRolle}`;
+					}),
+					aktion
+				).rejects.toThrow(/Betriebskontext passt nicht/);
+			}
+			await expect(
+				root.begin(async (tx) => {
+					await tx`select set_config('app.betrieb_id', ${betriebB}, true)`;
+					await tx`insert into app.rollen (betrieb_id, name) values (${betriebA}, 'Eingeschmuggelt')`;
+				})
+			).rejects.toThrow(/Betriebskontext passt nicht/);
+			expect(await root`select 1 from app.aenderungen`).toHaveLength(0);
+			// passender Kontext funktioniert
 			await root.begin(async (tx) => {
-				await tx`select set_config('app.benutzer_id', 'kein-uuid', true)`;
-				await tx`update app.rollen set name = 'Trotzdem' where id = ${monteurRolleA}`;
+				await tx`select set_config('app.betrieb_id', ${betriebA}, true)`;
+				await tx`update app.rollen set name = 'Eigen' where id = ${monteurRolleA}`;
 			});
-			const z = await protokoll('rollen', monteurRolleA);
-			expect(z).toHaveLength(1);
-			expect(z[0].benutzer_id).toBeNull();
+			expect(await protokoll('rollen', monteurRolleA)).toHaveLength(1);
+		});
+
+		it('zeit ist immer der Zeitpunkt der Änderung (now() der Transaktion)', async () => {
+			await alsApp(betriebA, chefAId, (tx) => tx`update app.rollen set name = 'Jetzt' where id = ${monteurRolleA}`);
+			const [e] = await root`
+				select abs(extract(epoch from (now() - zeit))) as sek from app.aenderungen where datensatz_id = ${monteurRolleA}`;
+			expect(Number(e.sek)).toBeLessThan(60);
+		});
+
+		it('Trigger ist SECURITY DEFINER mit festem search_path; EXECUTE nicht für crm_app/public', async () => {
+			const [f] = await root`
+				select p.prosecdef, pg_get_userbyid(p.proowner) as eigentuemer, p.proconfig,
+					has_function_privilege('crm_app', p.oid, 'execute') as app_darf,
+					has_function_privilege('crm_admin', p.oid, 'execute') as admin_darf,
+					has_function_privilege('crm_auth', p.oid, 'execute') as auth_darf,
+					has_function_privilege('public', p.oid, 'execute') as public_darf
+				from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+				where n.nspname = 'app' and p.proname = 'protokolliere'`;
+			expect(f).toMatchObject({
+				prosecdef: true,
+				eigentuemer: 'crm',
+				app_darf: false,
+				admin_darf: false,
+				auth_darf: false,
+				public_darf: false
+			});
+			expect(f.proconfig).toContain('search_path=app, pg_temp');
 		});
 
 		it('Änderungen, die nur ausgeschlossene Spalten betreffen, erzeugen keinen Eintrag', async () => {
@@ -348,25 +407,24 @@ describe('Änderungsprotokoll', () => {
 			}
 		});
 
-		it('crm_app kann keine Einträge für einen fremden Betrieb oder im Namen eines anderen Benutzers anlegen', async () => {
+		it('crm_app kann nicht direkt in aenderungen schreiben (kein INSERT, keine Sequenz): nichts unterschieben, nichts zurückdatieren', async () => {
+			for (const betrieb of [betriebA, betriebB]) {
+				await expect(
+					alsApp(
+						betriebA,
+						chefAId,
+						(tx) => tx`
+							insert into app.aenderungen (betrieb_id, benutzer_id, tabelle, datensatz_id, aktion, nachher, zeit, quelle)
+							values (${betrieb}, ${chefAId}, 'rollen', ${monteurRolleA}, 'angelegt', '{}', '2001-01-01', 'sprache')`
+					),
+					betrieb
+				).rejects.toThrow(/permission denied/);
+			}
 			await expect(
-				alsApp(
-					betriebA,
-					chefAId,
-					(tx) => tx`
-						insert into app.aenderungen (betrieb_id, benutzer_id, tabelle, datensatz_id, aktion, nachher)
-						values (${betriebB}, ${chefAId}, 'rollen', ${chefRolleB}, 'angelegt', '{}')`
-				)
-			).rejects.toThrow(/row-level security/);
-			await expect(
-				alsApp(
-					betriebA,
-					chefAId,
-					(tx) => tx`
-						insert into app.aenderungen (betrieb_id, benutzer_id, tabelle, datensatz_id, aktion, nachher)
-						values (${betriebA}, ${monteurAId}, 'rollen', ${monteurRolleA}, 'angelegt', '{}')`
-				)
-			).rejects.toThrow(/row-level security/);
+				alsApp(betriebA, chefAId, (tx) => tx`select nextval('app.aenderungen_id_seq')`)
+			).rejects.toThrow(/permission denied/);
+			const policies = await root`select polname from pg_policy where polrelid = 'app.aenderungen'::regclass`;
+			expect(policies.map((p) => p.polname)).toEqual(['aenderungen_lesen']);
 		});
 
 		it('crm_admin und crm_auth haben keinen Zugriff', async () => {
