@@ -24,7 +24,7 @@ Lastenheft und Pflichtenheft: `docs/spec/`.
 | `src/hooks.server.ts` | Sitzungsprüfung, Admin-Pfad, Nur-Lese-Sperre |
 | `db/migrations/` | SQL-Migrationen (`001` bis `008`, dazu `003a`/`003b`), werden nach Dateiname sortiert angewendet |
 | `scripts/` | `migrate.ts`, `admin-anlegen.ts`, `seed-dev.ts`, `start-vorschau.sh`, `erzeuge-icons.ts` |
-| `tests/unit`, `tests/db`, `tests/e2e` | Unit-Tests, Datenbank-Tests (je Test eine frische Datenbank), Browser-Tests |
+| `tests/unit`, `tests/db`, `tests/e2e` | Unit-Tests, Datenbank-Tests (je Testdatei eine frische Datenbank), Browser-Tests |
 | `static/` | Manifest, Symbole der PWA |
 
 ## Entwicklung in der Sandbox
@@ -52,11 +52,34 @@ Werte gehören in `.env` (nicht committen, Vorlage: `.env.example`) oder in die 
 
 - Datenbank: entweder `DATABASE_URL_APP`, `DATABASE_URL_ADMIN`, `DATABASE_URL_AUTH` oder `PGHOST`, `PGPORT`,
   `PGDATABASE` zusammen mit `CRM_APP_PASSWORT`, `CRM_ADMIN_PASSWORT`, `CRM_AUTH_PASSWORT`.
-  Die Anwendung verweigert den Start, wenn eine dieser Verbindungen den Superuser `crm` nennt.
-- `PGUSER`, `PGPASSWORD`: Superuser nur für Migrationen, Seed und Tests, nie für die laufende Anwendung.
-- `ORIGIN`: öffentliche Adresse der Anwendung (SvelteKit prüft damit Formular-Anfragen), z. B. `http://127.0.0.1:8300`.
+  Nennt eine dieser Verbindungen den Superuser `crm`, verweigert die Anwendung jeden Datenbankzugriff.
+- `PGUSER`, `PGPASSWORD`: Superuser nur für Migrationen, `admin:anlegen`, Seed und Tests, nie für die laufende
+  Anwendung.
+- `ORIGIN`: öffentliche Adresse der Anwendung (SvelteKit prüft damit Formular-Anfragen), z. B.
+  `https://crm.beispiel.de`; Vorschau: `http://127.0.0.1:8300`.
 - `NODE_ENV`: `production` im Betrieb. Dann schreibt der Seed nie Daten.
 - `HOST`, `PORT`: Adresse des Node-Servers (Vorschau: `0.0.0.0` und `3000`).
+
+**Wer liest `.env`?** Nur die Skripte: `npm run migrate`, `seed:dev`, `admin:anlegen`, die Datenbank-Tests und
+`start-vorschau.sh`. Die gebaute Anwendung (`node build`, `src/lib/server/db.ts`) liest **keine** `.env`-Datei,
+sondern nur die Umgebung des Prozesses. Start in Produktion daher z. B.:
+
+```sh
+node --env-file=/pfad/zu/app.env build        # Node ≥ 20.6; mit Node 22 geprüft
+```
+
+oder als systemd-Dienst mit `EnvironmentFile=/pfad/zu/app.env` und `ExecStart=/usr/bin/node build`. Die Datei für
+die Anwendung sollte `PGUSER`/`PGPASSWORD` (Superuser) **nicht** enthalten – die braucht nur `npm run migrate`
+bzw. `admin:anlegen`. (`start-vorschau.sh` entfernt sie deshalb vor dem Start.)
+
+**Was passiert, wenn etwas fehlt?**
+
+- Fehlen Datenbank-Variablen, startet die Anwendung trotzdem (die Pools werden erst beim ersten Zugriff geöffnet).
+  Die erste Anfrage, die die Datenbank braucht (Anmeldung, jede Seite mit Sitzungs-Cookie), endet mit **500**; im
+  Log steht `Umgebungsvariable … fehlt`. `/api/gesundheit` antwortet weiter mit 200 – er prüft die Datenbank nicht.
+- Fehlt `ORIGIN`, nimmt `adapter-node` als Adresse `https://` plus den `Host`-Header der Anfrage. Über
+  `http://` (z. B. Vorschau) werden dann alle Formulare mit 403 abgewiesen; hinter einem Proxy hängt die
+  CSRF-Prüfung vom weitergereichten `Host` ab. **In Produktion `ORIGIN` immer setzen** (öffentliche https-Adresse).
 
 ## Migrationen
 
@@ -105,12 +128,14 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
   Vom Host aus:
 
   ```sh
-  sudo docker run --rm --network host -v /home/can/projekte/crm-system:/w -w /w \
+  sudo docker run --rm --network host -v <pfad-zum-repo>:/w -w /w \
     mcr.microsoft.com/playwright:v1.48.2-jammy bash -lc 'npx -y playwright@1.48.2 test'
   ```
 
-  Die Tests laufen mit einem Arbeiter in zwei Projekten (mobil 390 px, Desktop 1280 px) und legen Testkunden in der
-  Entwicklungsdatenbank an.
+  Die Tests laufen mit einem Arbeiter in zwei Projekten (mobil 390 px, Desktop 1280 px). Sie schreiben in die
+  **Entwicklungsdatenbank** der Vorschau: Sie legen Testkunden an (und löschen sie am Ende wieder – bricht ein Test
+  vorher ab, bleiben sie liegen; die Einträge im Änderungsprotokoll bleiben immer), melden sich an und richten ggf.
+  Zwei-Faktor ein. Nie gegen eine Produktionsumgebung laufen lassen.
 - Bildschirmfotos für die Abnahme: dieselbe Zeile mit `BILDSCHIRMFOTOS=/w/<ordner> npx -y playwright@1.48.2 test bildschirmfotos`.
 - Vor einem Abschluss alles zusammen: `npm test`, `npm run test:db`, `npm run check`, `npm run build`, E2E.
 
@@ -135,18 +160,35 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 
 ## Betriebshinweise / Deploy
 
-- **Alle Variablen sind Pflicht.** Jede Umgebung braucht `CRM_APP_PASSWORT`, `CRM_ADMIN_PASSWORT` und
-  `CRM_AUTH_PASSWORT` (bzw. `DATABASE_URL_APP`/`_ADMIN`/`_AUTH`) sowie `ORIGIN`; fehlt eine, startet die Anwendung
-  nicht. Die URLs dürfen nie den Superuser `crm` nennen.
-- **Frische Datenbank.** Die Migrationen `001`, `003`, `003a`, `005` und `006` wurden vor der ersten Auslieferung
-  direkt geändert. Bestehende Entwicklungs-Datenbanken aus früheren Ständen müssen neu angelegt und neu migriert
-  werden (Daten gehen dabei verloren). Neue Umgebungen sind nicht betroffen.
+- **Variablen setzen, `.env` wird von `node build` nicht gelesen.** Jede Umgebung braucht `CRM_APP_PASSWORT`,
+  `CRM_ADMIN_PASSWORT` und `CRM_AUTH_PASSWORT` (bzw. `DATABASE_URL_APP`/`_ADMIN`/`_AUTH`) sowie `ORIGIN` in der
+  Umgebung des Prozesses (siehe „Umgebungsvariablen“: `node --env-file=… build` oder systemd `EnvironmentFile`).
+  Fehlende Datenbank-Variablen fallen erst bei der ersten Anfrage auf (500), ein fehlendes `ORIGIN` als abgewiesene
+  Formulare bzw. als vom `Host`-Header abhängige CSRF-Prüfung. Die URLs dürfen nie den Superuser `crm` nennen (dann
+  verweigert die Anwendung jeden Datenbankzugriff).
+- **Erster Admin.** Nach der Migration gibt es keinen Benutzer: `npm run admin:anlegen` (siehe oben).
+- **Frische Datenbank.** Die Migrationen `001`, `002`, `003`, `003a` und `006` wurden vor der ersten Auslieferung
+  direkt geändert (`005` nicht). Bestehende Entwicklungs-Datenbanken aus früheren Ständen müssen neu angelegt und neu
+  migriert werden (Daten gehen dabei verloren); `npm run migrate` erkennt geänderte Dateien nicht. Neue Umgebungen
+  sind nicht betroffen.
 - **Abmeldung beim Ausrollen.** Die Sicherheitshärtung für den Zwei-Faktor-Login (`sitzungen.mit_zweitem_faktor`,
   Ruling R13) meldet beim ersten Ausrollen alle bestehenden Sitzungen von Chefs und Admins einmalig ab. Das ist
   gewollt; sie melden sich neu an.
-- **pgcrypto im Schema `public`.** Migration `008` legt `pgcrypto` (und `007` `unaccent`) mit `with schema public`
-  an. Der Funktionsaufruf muss das Schema `public` auflösen können; die Funktionen dürfen nicht in ein anderes Schema
-  wandern.
+- **pgcrypto im Schema `public`.** Migration `008` legt `pgcrypto` (und `007` `unaccent`) mit
+  `create extension if not exists … with schema public` an und ruft `public.gen_random_bytes` auf. Ist `pgcrypto` in
+  der Ziel-Datenbank schon in einem anderen Schema installiert (z. B. `extensions`), tut `create extension` nichts,
+  die Migration läuft trotzdem durch – aber „Betrieb anlegen“ in der Plattform-Verwaltung
+  (`app.admin_betrieb_anlegen`) scheitert dann mit „function public.gen_random_bytes(integer) does not exist“.
+  Ebenso brechen Kundenlisten ab, wenn `unaccent` nicht in `public` liegt (`public.unaccent` in `kunden.ts`).
+  Abhilfe vor der Migration: `alter extension pgcrypto set schema public;` bzw. `alter extension unaccent set schema
+  public;`. Die Funktionen sind für `PUBLIC` ausführbar (Standard bei Extensions).
+- **Zwei-Faktor-Geheimnisse im Klartext (bekannte Einschränkung).** `app.benutzer.totp_geheim` steht unverschlüsselt
+  in der Datenbank (nur über SECURITY-DEFINER-Funktionen erreichbar, nie im Protokoll). Wer die Datenbank oder ein
+  Backup liest, kann Codes erzeugen – Backups entsprechend schützen. Verschlüsselung ist für eine spätere Härtung
+  vorgesehen.
+- **Rollen-Passwörter und Server-Log.** `npm run migrate` setzt die Passwörter mit `ALTER ROLE … PASSWORD '…'`. Ist
+  in PostgreSQL `log_statement` (`ddl`/`all`) oder `log_min_duration_statement = 0` aktiv, landet das Passwort im
+  Klartext im Server-Log. Statement-Logging während der Migration abschalten (oder das Log danach bereinigen).
 - **Der Migrationsbenutzer `crm` bleibt Superuser oder BYPASSRLS.** Der Protokoll-Trigger und die SECURITY-DEFINER-
   Funktionen gehören `crm` und schreiben an der RLS vorbei. Wird `crm` zu einer normalen Rolle, schlagen
   Protokoll, Anmeldung und Admin-Funktionen fehl.
