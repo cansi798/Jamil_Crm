@@ -9,16 +9,22 @@
 		"preview": "vite preview --host 0.0.0.0 --port 3000",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"test": "vitest run tests/unit",
-		"test:db": "vitest run tests/db --passWithNoTests"
+		"test:db": "vitest run tests/db --passWithNoTests --no-file-parallelism",
+		"migrate": "tsx scripts/migrate.ts"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^5.5.7",
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"@types/node": "^22.20.5",
 		"svelte": "^5.57.2",
 		"svelte-check": "^4.7.6",
+		"tsx": "^4.23.15",
 		"typescript": "^6.0.3",
 		"vite": "^8.3.4",
 		"vitest": "^5.0.5"
+	},
+	"dependencies": {
+		"postgres": "^3.4.9"
 	}
 }
