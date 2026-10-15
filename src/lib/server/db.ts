@@ -49,12 +49,44 @@ function urlsAusUmgebung(): DbUrls {
 	};
 }
 
+/**
+ * Verweigert den Start, wenn eine Verbindung den Superuser `crm` benutzt (der umgeht Row Level Security
+ * komplett). Die Meldung nennt nur den Namen der Variable, nie die URL oder das Passwort.
+ */
+function pruefeKeinSuperuser(url: string, variable: string): void {
+	let benutzer: string;
+	let ueberschrieben: string | null;
+	try {
+		const u = new URL(url);
+		benutzer = decodeURIComponent(u.username);
+		ueberschrieben = u.searchParams.get('user');
+	} catch {
+		throw new Error(`${variable} ist keine gültige Verbindungs-URL`);
+	}
+	if (benutzer === '') {
+		throw new Error(`${variable} muss einen Benutzer enthalten (crm_app bzw. crm_admin)`);
+	}
+	for (const name of [benutzer, ueberschrieben]) {
+		if (name !== null && name.trim().toLowerCase() === 'crm') {
+			throw new Error(
+				`${variable} darf nicht den Superuser "crm" verwenden – nur die eingeschränkten Rollen crm_app bzw. crm_admin`
+			);
+		}
+	}
+}
+
+function pruefeUrls(urls: DbUrls): void {
+	pruefeKeinSuperuser(urls.urlApp, 'DATABASE_URL_APP');
+	pruefeKeinSuperuser(urls.urlAdmin, 'DATABASE_URL_ADMIN');
+}
+
 function oeffnePool(url: string): Sql {
 	return postgres(url, { max: 10, onnotice: () => {} });
 }
 
 /** Wichtig für Tests: legt die Verbindungs-URLs explizit fest. Bereits offene Pools werden verworfen (siehe `schliesseDb`). */
 export function initDb(urls: DbUrls): void {
+	pruefeUrls(urls); // vor allem anderen: bei Fehlkonfiguration bleibt der bisherige Zustand unverändert
 	if (pools) {
 		// Alte Pools im Hintergrund schließen; Aufrufer, die sauber wechseln wollen, rufen vorher schliesseDb().
 		void pools.app.end({ timeout: 5 }).catch(() => {});
@@ -73,7 +105,12 @@ export async function schliesseDb(): Promise<void> {
 
 function hole(): Pools {
 	if (!pools) {
-		const urls = (konfiguration ??= urlsAusUmgebung());
+		if (!konfiguration) {
+			const ausUmgebung = urlsAusUmgebung();
+			pruefeUrls(ausUmgebung);
+			konfiguration = ausUmgebung;
+		}
+		const urls = konfiguration;
 		pools = { app: oeffnePool(urls.urlApp), admin: oeffnePool(urls.urlAdmin) };
 	}
 	return pools;
