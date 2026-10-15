@@ -23,7 +23,7 @@ Lastenheft und Pflichtenheft: `docs/spec/`.
 | `src/lib/components/`, `src/lib/stil/` | Wiederverwendbare Svelte-Bausteine und Stil |
 | `src/hooks.server.ts` | Sitzungsprüfung, Admin-Pfad, Nur-Lese-Sperre |
 | `db/migrations/` | SQL-Migrationen (`001` bis `008`, dazu `003a`/`003b`), werden nach Dateiname sortiert angewendet |
-| `scripts/` | `migrate.ts`, `seed-dev.ts`, `start-vorschau.sh`, `erzeuge-icons.ts` |
+| `scripts/` | `migrate.ts`, `admin-anlegen.ts`, `seed-dev.ts`, `start-vorschau.sh`, `erzeuge-icons.ts` |
 | `tests/unit`, `tests/db`, `tests/e2e` | Unit-Tests, Datenbank-Tests (je Test eine frische Datenbank), Browser-Tests |
 | `static/` | Manifest, Symbole der PWA |
 
@@ -75,6 +75,26 @@ an. Er ist idempotent (mehrfaches Ausführen erzeugt keine Duplikate).
   Datenbank muss ausdrücklich genannt werden: `npm run seed:dev -- --erlaube-db=<name>`.
 - Passwörter sind zufällig und stehen nur in `.zugangsdaten-dev` (gitignored, Modus 600), nie in der Ausgabe.
   Dort steht auch das TOTP-Geheimnis des Admins; der Chef richtet Zwei-Faktor bei der ersten Anmeldung selbst ein.
+
+## Erster Plattform-Admin (echte Umgebungen)
+
+Ohne Entwicklungsdaten gibt es nach der Migration keinen Benutzer. Den ersten Plattform-Admin legt
+`npm run admin:anlegen` an – wie die Migrationen als Superuser (`PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE`,
+`PGPASSWORD` aus der Umgebung bzw. `.env`):
+
+```sh
+npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
+```
+
+- Das Passwort (mindestens 10, höchstens 1024 Zeichen) fragt das Skript verdeckt im Terminal ab, zweimal zur
+  Kontrolle. Es wird nie als Argument angenommen (stünde sonst in Shell-Historie und Prozessliste) und nie
+  ausgegeben; gespeichert wird nur der Argon2id-Hash.
+- Für Automatisierung: Passwort über die Standardeingabe und `--passwort-stdin`, z. B.
+  `printf '%s\n' "$ADMIN_PASSWORT" | npm run admin:anlegen -- --email … --name … --passwort-stdin`.
+- Benutzer (ohne Betrieb) und Eintrag in `plattform_admins` entstehen in einer Transaktion. Gibt es die E-Mail schon,
+  bricht das Skript mit Meldung und Exit-Code 1 ab und ändert nichts.
+- Zwei-Faktor: Bei der ersten Anmeldung landet der Admin nach dem Passwort zwingend auf der Einrichtung
+  (`/konto/zwei-faktor`, QR-Code für die Authenticator-App); erst mit gültigem Code entsteht eine Sitzung.
 
 ## Tests
 
