@@ -41,6 +41,7 @@ const EMAIL_MUSTER = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const MELDUNG_REGISTRIERT = 'Diese E-Mail ist bereits registriert.';
+export const MELDUNG_DOPPELTE_EINLADUNG = 'Für diese E-Mail gibt es bereits eine offene Einladung.';
 export const MELDUNG_ROLLE_ZU_HOCH = 'Sie können nur Rollen vergeben, deren Rechte Sie selbst haben.';
 export const MELDUNG_BENUTZER_ZU_HOCH =
 	'Diesen Benutzer können Sie nicht ändern, weil er Rechte hat, die Sie selbst nicht haben.';
@@ -131,6 +132,26 @@ export async function ladeEin(
 	const email = pruefeEmail(eingabe.email);
 	const rolleId = pruefeRolleId(eingabe.rolleId);
 	const token = randomBytes(32).toString('base64url');
+	try {
+		return await legeEinladungAn(k, akteurRechte, email, rolleId, token);
+	} catch (e) {
+		// Zwei gleichzeitige Einladungen derselben E-Mail: die zweite scheitert an der eindeutigen Prüfung
+		// einladungen_offen_email_idx (die Transaktion ist dann zurückgerollt, die erste Einladung bleibt bestehen).
+		const f = e as { code?: string; constraint_name?: string };
+		if (f.code === '23505' && f.constraint_name === 'einladungen_offen_email_idx') {
+			throw new ApiFehler(409, MELDUNG_DOPPELTE_EINLADUNG);
+		}
+		throw e;
+	}
+}
+
+function legeEinladungAn(
+	k: Kontext,
+	akteurRechte: readonly string[],
+	email: string,
+	rolleId: string,
+	token: string
+): Promise<{ token: string; email: string; laeuftAb: string }> {
 	return mitBetrieb(k, async (tx) => {
 		const [rolle] = await tx`select id, rechte from app.rollen where id = ${rolleId}`;
 		if (!rolle) throw new ApiFehler(400, 'Rolle nicht gefunden.');

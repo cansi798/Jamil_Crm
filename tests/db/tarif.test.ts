@@ -446,6 +446,16 @@ describe('Tarife und Freischaltungen', () => {
 			expect(a.status).toBe(401);
 		});
 
+		it('die Einladungsseite (/einladung/…) bleibt auch im Nur-Lesezugriff erreichbar, andere Seiten nicht', async () => {
+			await setzeAbo('gekuendigt', -1);
+			const einladung = await anfrage('POST', '/einladung/irgendein-token', { form: { name: 'x' } });
+			expect(einladung).toMatchObject({ status: 200, aufgerufen: true });
+			const andere = await anfrage('POST', '/einladungen-anders', { form: { name: 'x' } });
+			expect(andere).toMatchObject({ status: 403, aufgerufen: false });
+			const api = await anfrage('POST', '/api/einladungen', { koerper: { email: 'a@b.test' } });
+			expect(api).toMatchObject({ status: 403, aufgerufen: false });
+		});
+
 		it('PUT und DELETE auf Rollen laufen bei aktivem Abo durch den Hook', async () => {
 			const [r] = await root`select id from app.rollen limit 1`;
 			const put = await anfrage('PUT', `/api/rollen/${r.id}`, {

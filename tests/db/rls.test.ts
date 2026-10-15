@@ -196,18 +196,24 @@ describe('Kernschema und Mandantentrennung (RLS)', () => {
 			expect(r.count).toBe(0);
 		});
 
-		it('UPDATE des eigenen Benutzers auf fremden Betrieb → Fehler (RLS, WITH CHECK)', async () => {
+		it('UPDATE des eigenen Benutzers auf fremden Betrieb → Fehler (seit R17 schon mangels Spaltenrecht auf betrieb_id)', async () => {
 			await expect(
 				alsApp(
 					betriebA,
 					(tx) => tx`update app.benutzer set betrieb_id = ${betriebB} where id = ${benutzerA}`
 				)
-			).rejects.toThrow(/row-level security/);
+			).rejects.toThrow(/permission denied/);
 		});
 
-		it('DELETE eines B-Benutzers im Kontext A → 0 betroffene Zeilen', async () => {
-			const r = await alsApp(betriebA, (tx) => tx`delete from app.benutzer where id = ${benutzerB}`);
+		it('UPDATE eines B-Benutzers im Kontext A → 0 betroffene Zeilen (RLS)', async () => {
+			const r = await alsApp(betriebA, (tx) => tx`update app.benutzer set name = 'Fremd' where id = ${benutzerB}`);
 			expect(r.count).toBe(0);
+		});
+
+		it('DELETE von Benutzern ist für crm_app gesperrt (R17), erst recht fremde', async () => {
+			await expect(
+				alsApp(betriebA, (tx) => tx`delete from app.benutzer where id = ${benutzerB}`)
+			).rejects.toThrow(/permission denied/);
 		});
 
 		it('INSERT eines A-Benutzers mit rolle_id einer B-Rolle → Fehler (Fremdschlüssel, gilt auch für den Eigentümer)', async () => {

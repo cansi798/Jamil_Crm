@@ -10,9 +10,12 @@ import { istNurLesen } from '$lib/server/tarif';
 /** Lesende Methoden; alles andere ist eine Schreibanfrage. */
 const LESEND = new Set(['GET', 'HEAD']);
 
-/** Auch bei Nur-Lesezugriff erlaubt: Abmelden und die Anmeldeseiten (dort ist niemand „drin“, sondern wechselt das Konto). */
+/**
+ * Auch bei Nur-Lesezugriff erlaubt: Abmelden, die Anmeldeseiten und die Einladungsseite (dort ist niemand „drin“,
+ * sondern wechselt das Konto bzw. richtet ein neues ein; die Annahme berührt nur das neue Konto).
+ */
 const IMMER_ERLAUBT = (pfad: string) =>
-	pfad === '/api/abmelden' || pfad === '/anmelden' || pfad.startsWith('/anmelden/');
+	pfad === '/api/abmelden' || pfad === '/anmelden' || pfad.startsWith('/anmelden/') || pfad.startsWith('/einladung/');
 
 /**
  * Liest das Sitzungs-Cookie und setzt `locals.nutzer` (oder `null`). Hat die Datenbank die Sitzung verlängert
