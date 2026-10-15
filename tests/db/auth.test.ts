@@ -88,7 +88,7 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 		[{ id: betriebGesperrt }] = await root`
 			insert into app.betriebe (name, tarif_id, abo_status) values ('Gesperrt GmbH', ${tarif.id}, 'gesperrt') returning id`;
 		const [rolleA] = await root`
-			insert into app.rollen (betrieb_id, name, rechte) values (${betriebA}, 'Chef', ${['kunden', 'einstellungen']}) returning id`;
+			insert into app.rollen (betrieb_id, name, rechte) values (${betriebA}, 'Monteur', ${['kunden']}) returning id`;
 		const [rolleG] = await root`
 			insert into app.rollen (betrieb_id, name, rechte) values (${betriebGesperrt}, 'Chef', ${['kunden']}) returning id`;
 		[{ id: benutzerA }] = await root`
@@ -144,7 +144,7 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 					alsApp((tx) => tx`update app.benutzer set passwort_hash = 'x' where id = ${benutzerA}`)
 				).rejects.toThrow(/permission denied/);
 				// übrige Spalten bleiben nutzbar
-				const [z] = await alsApp((tx) => tx`select id, email, name, totp_geheim, totp_aktiv from app.benutzer where id = ${benutzerA}`);
+				const [z] = await alsApp((tx) => tx`select id, email, name from app.benutzer where id = ${benutzerA}`);
 				expect(z.name).toBe('Anna');
 				const r = await alsApp((tx) => tx`update app.benutzer set name = 'Anna' where id = ${benutzerA}`);
 				expect(r.count).toBe(1);
@@ -219,7 +219,7 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 			);
 			expect(z).toEqual({
 				benutzer_id: benutzerA, betrieb_id: betriebA, ist_admin: false,
-				rolle_rechte: ['kunden', 'einstellungen'], betrieb_status: 'aktiv', verlaengert: true
+				rolle_rechte: ['kunden'], betrieb_status: 'aktiv', verlaengert: true
 			});
 			const [tage] = await root`
 				select extract(epoch from (laeuft_ab - now())) / 86400 as tage from app.sitzungen where token_hash = ${sha256(token)}`;
@@ -313,7 +313,7 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 			const token = await neueSitzung(benutzerA);
 			expect(await pruefeSitzung(token)).toEqual({
 				id: benutzerA, betriebId: betriebA, istAdmin: false,
-				rechte: ['kunden', 'einstellungen'], betriebStatus: 'aktiv'
+				rechte: ['kunden'], betriebStatus: 'aktiv'
 			});
 			await loescheSitzung(token);
 			expect(await pruefeSitzung(token)).toBeNull();
@@ -433,8 +433,8 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 		});
 
 		it('load: angemeldete Nutzer werden von der Anmeldeseite weggeleitet', () => {
-			expect(() => load({ locals: { nutzer: { id: 'x' } } } as never)).toThrow();
-			expect(load({ locals: { nutzer: null } } as never)).toBeUndefined();
+			expect(() => load({ locals: { nutzer: { id: 'x' } }, url: new URL('http://localhost/anmelden') } as never)).toThrow();
+			expect(load({ locals: { nutzer: null }, url: new URL('http://localhost/anmelden') } as never)).toEqual({ hinweis: null });
 		});
 	});
 

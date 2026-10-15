@@ -3,12 +3,12 @@ import { systemAbfrage } from '../db';
 
 export const COOKIE_NAME = 'crm_sitzung';
 export const SITZUNG_TAGE = 30;
-const SITZUNG_SEKUNDEN = SITZUNG_TAGE * 24 * 60 * 60;
+export const SITZUNG_SEKUNDEN = SITZUNG_TAGE * 24 * 60 * 60;
 /** 32 Byte Zufall als base64url = 43 Zeichen. */
-const TOKEN_MUSTER = /^[A-Za-z0-9_-]{43}$/;
+export const TOKEN_MUSTER = /^[A-Za-z0-9_-]{43}$/;
 
 /** Der Server kennt nur den SHA-256 des Tokens; das Token selbst steht nur im Cookie des Browsers. */
-function hashe(token: string): Buffer {
+export function hashe(token: string): Buffer {
 	return createHash('sha256').update(token).digest();
 }
 
@@ -22,7 +22,9 @@ export class SitzungVerweigert extends Error {
 
 /**
  * Legt eine Sitzung an und liefert das Token (für das Cookie). Gespeichert wird nur der Hash.
- * Wirft `SitzungVerweigert`, wenn der Benutzer inaktiv oder sein Betrieb gesperrt ist.
+ * Wirft `SitzungVerweigert`, wenn der Benutzer inaktiv oder sein Betrieb gesperrt ist – und auch, wenn für das Konto
+ * ein zweiter Faktor nötig ist (aktives TOTP, Plattform-Admin, Recht „einstellungen“): Diese Konten bekommen eine
+ * volle Sitzung nur über `meldeAn` (vorsitzung.ts) und den Code.
  */
 export async function neueSitzung(benutzerId: string): Promise<string> {
 	const token = randomBytes(32).toString('base64url');

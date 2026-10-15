@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { ActionData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { form }: { form: ActionData } = $props();
+	let { form, data }: { form: ActionData; data: PageData } = $props();
 </script>
 
 <svelte:head>
@@ -14,6 +14,8 @@
 	<form method="POST" use:enhance>
 		{#if form?.fehler}
 			<p role="alert" class="fehler">{form.fehler}</p>
+		{:else if data.hinweis}
+			<p role="status" class="hinweis">{data.hinweis}</p>
 		{/if}
 		<label>
 			E-Mail
@@ -49,6 +51,9 @@
 	}
 	.fehler {
 		color: #b00020;
+		margin: 0;
+	}
+	.hinweis {
 		margin: 0;
 	}
 </style>
