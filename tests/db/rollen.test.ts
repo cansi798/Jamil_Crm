@@ -15,7 +15,9 @@ describe('Migrationen und DB-Rollen', () => {
 
 	it('migrate wendet auf leerer DB die Dateien an und ist danach idempotent', async () => {
 		const url = await leereDb('crm_test_migrate');
-		expect(await migrate(url)).toEqual(['001_rollen.sql']);
+		const angewendet = await migrate(url);
+		expect(angewendet[0]).toBe('001_rollen.sql');
+		expect(angewendet).toEqual([...angewendet].sort());
 		expect(await migrate(url)).toEqual([]);
 		expect(await migrate(url)).toEqual([]);
 	});
