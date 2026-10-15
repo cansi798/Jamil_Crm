@@ -25,7 +25,8 @@ import { totpUri } from '../src/lib/server/auth/totp';
  * Authenticator-App) in der Zugangsdatei – so kann sich das Team als Admin anmelden und der E2E-Test mit einem
  * echten Code arbeiten. Ein Code ist trotzdem bei jeder Admin-Anmeldung nötig.
  *
- * Aufruf: `npm run seed:dev` (im Container crm-dev).
+ * Aufruf: `npm run seed:dev` (im Container crm-dev). Läuft nur gegen die Sandbox-Datenbank `crm` und nie mit
+ * NODE_ENV=production (siehe `pruefeSandbox`).
  */
 
 export const STANDARD_DATEI = fileURLToPath(new URL('../.zugangsdaten-dev', import.meta.url));
@@ -260,9 +261,37 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 	return ergebnis;
 }
 
-// Aufruf als Skript: `npm run seed:dev`
+/** Name der Datenbank in der Entwicklungs-Sandbox (Container crm-db). */
+const SANDBOX_DB = 'crm';
+
+/**
+ * Schutz vor dem Lauf außerhalb der Sandbox: Liefert eine Meldung, warum nicht geseedet werden darf – oder `null`.
+ * Verboten bei `NODE_ENV=production` (immer) und für jede Datenbank außer `crm`, es sei denn, sie wird mit
+ * `--erlaube-db=<name>` ausdrücklich genannt.
+ */
+export function pruefeSandbox(env: Record<string, string | undefined>, argumente: readonly string[]): string | null {
+	if (env.NODE_ENV === 'production') {
+		return 'Abbruch: NODE_ENV=production – Entwicklungsdaten werden nie in eine Produktionsumgebung geschrieben.';
+	}
+	const db = env.PGDATABASE ?? '';
+	const erlaubt = argumente.find((a) => a.startsWith('--erlaube-db='))?.slice('--erlaube-db='.length);
+	if (db !== SANDBOX_DB && db !== erlaubt) {
+		return (
+			`Abbruch: Datenbank „${db}“ ist nicht die Entwicklungsdatenbank „${SANDBOX_DB}“. ` +
+			`Wenn das wirklich gewollt ist: --erlaube-db=${db || '<name>'} angeben.`
+		);
+	}
+	return null;
+}
+
+// Aufruf als Skript: `npm run seed:dev` (andere Datenbank: `npm run seed:dev -- --erlaube-db=<name>`)
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
 	ladeEnv();
+	const grund = pruefeSandbox(process.env, process.argv.slice(2));
+	if (grund) {
+		console.error(grund);
+		process.exit(1);
+	}
 	seedDev(urlAusUmgebung()).catch((fehler) => {
 		console.error(fehler instanceof Error ? fehler.message : fehler);
 		process.exit(1);

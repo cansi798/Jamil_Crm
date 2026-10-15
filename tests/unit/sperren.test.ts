@@ -26,6 +26,8 @@ describe('nurLesenAntwort', () => {
 		const ergebnis = deserialize(await r.text());
 		expect(ergebnis).toMatchObject({ type: 'failure', status: 403 });
 		expect((ergebnis as { data: { fehler: string } }).data.fehler).toMatch(/^Nur Lesezugriff/);
+		// Kennzeichen für den Hinweis im (app)-Layout – auch Seiten, die Fehler nur je Aktion zeigen, melden es so
+		expect(ergebnis.data).toMatchObject({ nurLesen: true });
 	});
 
 	it('Formular ohne JavaScript: deutsche HTML-Seite statt rohem JSON', async () => {
@@ -46,6 +48,15 @@ describe('Admin-Bereich', () => {
 		for (const p of ['/administration', '/api/administrator', '/kunden/admin', '/']) {
 			expect(istAdminPfad(p), p).toBe(false);
 		}
+	});
+
+	it('istAdminPfad dekodiert den Pfad (SvelteKit routet /%61dmin wie /admin)', () => {
+		for (const p of ['/%61dmin', '/%61dmin/betriebe/x', '/api/%61dmin/betriebe', '/%61%64%6D%69%6E']) {
+			expect(istAdminPfad(p), p).toBe(true);
+		}
+		// kaputte Kodierung: kein Fehler, roher Pfad gilt
+		expect(istAdminPfad('/admin/%E0%A4%A')).toBe(true);
+		expect(istAdminPfad('/%E0%A4%A')).toBe(false);
 	});
 
 	it('nichtGefundenAntwort: 404, API als JSON, sonst Text', async () => {

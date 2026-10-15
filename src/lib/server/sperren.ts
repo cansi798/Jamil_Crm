@@ -11,7 +11,19 @@ const NUR_LESEN_TEXT =
 	'Nur Lesezugriff: Das Abo dieses Betriebs ist abgelaufen. Daten können angesehen, aber nicht geändert werden.';
 const NICHT_GEFUNDEN = 'Nicht gefunden.';
 
-const istApi = (pfad: string) => pfad === '/api' || pfad.startsWith('/api/');
+/** Pfad so, wie SvelteKit ihn zum Routen benutzt (`/%61dmin` → `/admin`); kaputte Kodierung → roher Pfad. */
+function dekodiert(pfad: string): string {
+	try {
+		return decodeURI(pfad);
+	} catch {
+		return pfad;
+	}
+}
+
+const istApi = (pfad: string) => {
+	const p = dekodiert(pfad);
+	return p === '/api' || p.startsWith('/api/');
+};
 
 /** Kommt die Anfrage von `use:enhance` (SvelteKit setzt dann diesen Header)? */
 const istEnhance = (request: Request) => request.headers.get('x-sveltekit-action') === 'true';
@@ -38,13 +50,19 @@ export function nurLesenAntwort(request: Request): Response {
 	if (istApi(pfad)) return json(403, { fehler: NUR_LESEN_API });
 	if (istEnhance(request)) {
 		// Format eines ActionResult (wie `fail(403, { fehler })` aus einer Formular-Aktion)
-		return json(403, { type: 'failure', status: 403, data: devalue.stringify({ fehler: NUR_LESEN_TEXT }) });
+		// `nurLesen` lässt das (app)-Layout einen Hinweis zeigen – auch auf Seiten, die Fehler nur je Aktion anzeigen.
+		return json(403, {
+			type: 'failure',
+			status: 403,
+			data: devalue.stringify({ fehler: NUR_LESEN_TEXT, nurLesen: true })
+		});
 	}
 	return html(403, 'Nur Lesezugriff', NUR_LESEN_TEXT);
 }
 
 /** Bereich der Plattform-Verwaltung (Seiten und API). */
-export function istAdminPfad(pfad: string): boolean {
+export function istAdminPfad(roh: string): boolean {
+	const pfad = dekodiert(roh);
 	return pfad === '/admin' || pfad.startsWith('/admin/') || pfad === '/api/admin' || pfad.startsWith('/api/admin/');
 }
 

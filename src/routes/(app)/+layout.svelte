@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { istAktiv } from '$lib/navigation';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
+	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -62,6 +63,7 @@
 			</form>
 		</nav>
 		<div class="inhalt">
+			<NurLesenHinweis form={page.form} />
 			{@render children()}
 		</div>
 	</div>

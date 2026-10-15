@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import postgres from 'postgres';
 import { frischeTestDb, type TestDb } from './setup';
-import { leseZugangsdaten, seedDev } from '../../scripts/seed-dev';
+import { leseZugangsdaten, pruefeSandbox, seedDev } from '../../scripts/seed-dev';
+import { spawnSync } from 'node:child_process';
 import { pruefePasswort } from '../../src/lib/server/auth/passwort';
 
 const EMAILS = ['chef@bauwelt.test', 'buero@bauwelt.test', 'monteur@bauwelt.test', 'admin@crm.test'];
@@ -116,5 +117,33 @@ describe('seed-dev', () => {
 		expect(b).toEqual({ abo_status: 'test', schluessel: 'test' });
 		const kunden = await sql`select coalesce(firma, nachname) as name from app.kunden`;
 		expect(kunden.some((k) => /[äöüÄÖÜß]/.test(k.name))).toBe(true);
+	});
+
+	describe('läuft nur in der Entwicklungs-Sandbox', () => {
+		it('pruefeSandbox: NODE_ENV=production oder fremde Datenbank → Meldung, sonst null', () => {
+			expect(pruefeSandbox({ PGDATABASE: 'crm' }, [])).toBeNull();
+			expect(pruefeSandbox({ PGDATABASE: 'crm', NODE_ENV: 'production' }, [])).toMatch(/NODE_ENV=production/);
+			expect(pruefeSandbox({ PGDATABASE: 'crm_prod' }, [])).toMatch(/Datenbank „crm_prod“/);
+			expect(pruefeSandbox({}, [])).toMatch(/Datenbank/);
+			// ausdrücklich erlaubt
+			expect(pruefeSandbox({ PGDATABASE: 'crm_demo' }, ['--erlaube-db=crm_demo'])).toBeNull();
+			expect(pruefeSandbox({ PGDATABASE: 'crm_demo' }, ['--erlaube-db=andere'])).toMatch(/crm_demo/);
+			// production bleibt auch mit Flag verboten
+			expect(
+				pruefeSandbox({ PGDATABASE: 'crm_demo', NODE_ENV: 'production' }, ['--erlaube-db=crm_demo'])
+			).toMatch(/NODE_ENV=production/);
+		});
+
+		it('Skript bricht mit Meldung und Exit-Code ≠ 0 ab, ohne etwas zu schreiben', () => {
+			for (const env of [{ NODE_ENV: 'production' }, { PGDATABASE: 'crm_test' }]) {
+				const r = spawnSync('npx', ['tsx', 'scripts/seed-dev.ts'], {
+					env: { ...process.env, ...env },
+					encoding: 'utf8'
+				});
+				expect(r.status, JSON.stringify(env)).not.toBe(0);
+				expect(r.stderr).toMatch(/Abbruch/);
+				expect(r.stdout).not.toMatch(/Entwicklungsdaten bereit/);
+			}
+		}, 60_000);
 	});
 });

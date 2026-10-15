@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { anmelden, erwarteKeinQuerScrollen, hauptnavigation } from './hilfe';
+import { nurLesenAntwort } from '../../src/lib/server/sperren';
 
 const BUERO = 'buero@bauwelt.test';
 const MONTEUR = 'monteur@bauwelt.test';
@@ -156,4 +157,31 @@ test('Service Worker speichert nur die App-Hülle, nie Seiten oder API', async (
 	expect(inhalt).toContain('/manifest.webmanifest');
 	expect(inhalt.some((u) => u.startsWith('/_app/'))).toBe(true);
 	expect(inhalt.filter((u) => u.startsWith('/api') || u === '/' || u.startsWith('/kunden'))).toEqual([]);
+});
+
+test('Nur-Lesezugriff: Formular mit use:enhance zeigt den Hinweis im Layout (Carry T8)', async ({ page }) => {
+	// Den Betrieb hier wirklich auf „gekündigt“ zu setzen ginge nur über die Datenbank (aus diesem Container nicht
+	// erreichbar). Deshalb liefert die Anfrage genau die Antwort, die hooks.server.ts dann schickt (sperren.ts).
+	await anmelden(page, BUERO);
+	await page.goto('/kunden/neu');
+	let abgefangen = false;
+	await page.route('**/kunden/neu?/anlegen', async (route) => {
+		abgefangen = true;
+		const antwort = nurLesenAntwort(
+			new Request(route.request().url(), { method: 'POST', headers: route.request().headers() })
+		);
+		await route.fulfill({
+			status: antwort.status,
+			contentType: antwort.headers.get('content-type') ?? undefined,
+			body: await antwort.text()
+		});
+	});
+	await page.getByLabel('Nachname').fill('Nur-Lesen-Test');
+	await page.getByRole('button', { name: 'Kunde anlegen' }).click();
+	const hinweis = page.getByRole('alert').filter({ hasText: 'Ihr Abo ist abgelaufen' });
+	await expect(hinweis).toBeVisible();
+	await expect(hinweis).toContainText('Nur Lesezugriff');
+	expect(abgefangen).toBe(true);
+	await expect(page).toHaveURL(/\/kunden\/neu$/);
+	await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 });

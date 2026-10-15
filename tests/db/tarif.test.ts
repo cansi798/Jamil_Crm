@@ -441,6 +441,13 @@ describe('Tarife und Freischaltungen', () => {
 			expect(b).toMatchObject({ status: 403, koerper: { type: 'failure', status: 403 }, aufgerufen: false });
 			expect(devalue.parse(b.koerper.data).fehler).toMatch(/^Nur Lesezugriff/);
 			expect(await anzahlRollen()).toBe(1);
+			// Benutzerverwaltung (Fehler dort nur je Aktion sichtbar): Kennzeichen nurLesen für den Layout-Hinweis
+			const c = await anfrage('POST', '/einstellungen/benutzer?/einladen', {
+				form: { email: 'neu@beispiel.test', rolle: 'x' },
+				headers: { accept: 'application/json', 'x-sveltekit-action': 'true' }
+			});
+			expect(c).toMatchObject({ status: 403, koerper: { type: 'failure', status: 403 }, aufgerufen: false });
+			expect(devalue.parse(c.koerper.data)).toMatchObject({ nurLesen: true });
 			// Gegenprobe: ohne Schreibschutz läuft dieselbe Aktion durch (redirect wirft)
 			await setzeAbo('aktiv', null);
 			await expect(
