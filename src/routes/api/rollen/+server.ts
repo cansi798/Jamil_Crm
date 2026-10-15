@@ -1,13 +1,19 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { alsAntwort, leseJson } from '$lib/server/fehler';
-import { betriebKontext, pruefeRecht } from '$lib/server/rechte';
+import { ApiFehler, alsAntwort, leseJson } from '$lib/server/fehler';
+import { betriebKontext, hatRecht, pruefeRecht } from '$lib/server/rechte';
 import { legeRolleAn, listeRollen } from '$lib/server/rollen';
 
-/** Alle Rollen des Betriebs (mit Anzahl der Benutzer). */
+/**
+ * Alle Rollen des Betriebs (mit Anzahl der Benutzer). Lesen darf, wer Rollen verwaltet (`einstellungen`) oder sie
+ * Benutzern zuweist (`benutzer.verwalten`); ändern nur `einstellungen`.
+ */
 export const GET: RequestHandler = async ({ locals }) => {
 	try {
-		pruefeRecht(locals, 'einstellungen');
+		if (!locals.nutzer) throw new ApiFehler(401, 'Nicht angemeldet');
+		if (!hatRecht(locals.nutzer, 'einstellungen') && !hatRecht(locals.nutzer, 'benutzer.verwalten')) {
+			throw new ApiFehler(403, 'Keine Berechtigung');
+		}
 		return json(await listeRollen(betriebKontext(locals)));
 	} catch (e) {
 		return alsAntwort(e);

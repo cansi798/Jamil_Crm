@@ -57,8 +57,11 @@ export async function pruefeModul(locals: { nutzer: Nutzer | null }, modul: Modu
 }
 
 /**
- * Wirft 409 `Benutzergrenze des Tarifs erreicht`, wenn der Betrieb schon so viele aktive Benutzer hat, wie sein
- * Tarif erlaubt (ein weiterer wäre einer zu viel). Deaktivierte Benutzer zählen nicht mit.
+ * Wirft 409 `Benutzergrenze des Tarifs erreicht`, wenn der Betrieb schon so viele Plätze belegt, wie sein Tarif
+ * erlaubt (ein weiterer wäre einer zu viel). Einen Platz belegen aktive Benutzer und offene Einladungen (nicht
+ * angenommen, nicht abgelaufen) – so führt keine ausgegebene Einladung über die Grenze. Deaktivierte Benutzer zählen
+ * nicht mit. Die Annahme einer Einladung prüft die Grenze (aktive Benutzer) in der Datenbank noch einmal atomar
+ * (`app.einladung_annehmen`, gleiche Sperre).
  *
  * Schlägt geschlossen fehl: Gibt es den Betrieb nicht, oder fehlt die Grenze im Tarif bzw. ist sie keine Zahl
  * ≥ 0 (z. B. der Text "3"), wirft die Funktion einen gewöhnlichen `Error` (Konfigurationsfehler, für den Client
@@ -80,7 +83,9 @@ export async function pruefeGrenze(
 		await t`select pg_advisory_xact_lock(hashtextextended(${'benutzergrenze:' + betriebId}, 0))`;
 		const [z] = await t`
 			select t.grenzen,
-				(select count(*)::int from app.benutzer u where u.betrieb_id = b.id and u.aktiv) as anzahl
+				(select count(*)::int from app.benutzer u where u.betrieb_id = b.id and u.aktiv)
+					+ (select count(*)::int from app.einladungen e
+						where e.betrieb_id = b.id and e.angenommen is null and e.laeuft_ab > now()) as anzahl
 			from app.betriebe b
 			join app.tarife t on t.id = b.tarif_id
 			where b.id = ${betriebId}`;

@@ -23,7 +23,8 @@ const ZU_VIELE_CODES =
 /** Hinweise, mit denen die Seiten der Zwei-Faktor-Anmeldung hierher zurückleiten (feste Liste, kein freier Text). */
 const HINWEISE: Record<string, string> = {
 	abgelaufen: 'Die Anmeldung ist abgelaufen. Bitte erneut anmelden.',
-	gesperrt: ZU_VIELE_CODES
+	gesperrt: ZU_VIELE_CODES,
+	eingerichtet: 'Ihr Konto ist eingerichtet. Bitte melden Sie sich jetzt an.'
 };
 
 /**

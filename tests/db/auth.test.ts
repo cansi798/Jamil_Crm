@@ -231,8 +231,9 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 
 		it('sitzung_pruefen: Plattform-Admin ohne Betrieb', async () => {
 			const token = randomBytes(32).toString('base64url');
-			await root`insert into app.sitzungen (token_hash, benutzer_id, laeuft_ab)
-				values (${sha256(token)}, ${adminId}, now() + interval '1 day')`;
+			// R13: Admin-Sitzungen gelten nur mit zweitem Faktor (Kennzeichen setzt sonst zweiten_faktor_abschliessen)
+			await root`insert into app.sitzungen (token_hash, benutzer_id, laeuft_ab, mit_zweitem_faktor)
+				values (${sha256(token)}, ${adminId}, now() + interval '1 day', true)`;
 			const [z] = await systemAbfrage(
 				(sql) => sql`select * from app.sitzung_pruefen(${sha256(token)}::bytea)`
 			);

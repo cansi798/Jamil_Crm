@@ -178,6 +178,9 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			expect(umleitung).toEqual({ status: 303, location: '/' });
 			expect(cookies.gesetzt.map((c) => c.name)).toEqual([COOKIE_NAME]);
 			expect((await pruefeSitzung(cookies.gesetzt[0].wert))?.id).toBe(monteur);
+			// R13: ohne zweiten Faktor entstanden → Kennzeichen false (für den Monteur unschädlich)
+			const [s] = await root`select mit_zweitem_faktor from app.sitzungen where token_hash = ${sha256(cookies.gesetzt[0].wert)}`;
+			expect(s.mit_zweitem_faktor).toBe(false);
 			expect(await vorsitzungen(monteur)).toHaveLength(0);
 		});
 
@@ -587,6 +590,9 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			expect(b.totp_geheim).toBe(roh); // erst jetzt wird der Entwurf zum Geheimnis des Benutzers
 			const voll = cookies.gesetzt.find((c) => c.name === COOKIE_NAME);
 			expect((await pruefeSitzung(voll!.wert))?.id).toBe(chefOhne);
+			// R13: die nach dem Code entstandene Sitzung trägt das Kennzeichen (sonst wiese sitzung_pruefen den Chef ab)
+			const [s] = await root`select mit_zweitem_faktor from app.sitzungen where token_hash = ${sha256(voll!.wert)}`;
+			expect(s.mit_zweitem_faktor).toBe(true);
 			expect(await pruefeSitzung(vorToken)).toBeNull();
 			expect(await vorsitzungen(chefOhne)).toHaveLength(0);
 			expect(cookies.geloescht).toContain(VORSITZUNG_COOKIE);

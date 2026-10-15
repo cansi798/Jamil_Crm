@@ -234,13 +234,16 @@ describe('Tarife und Freischaltungen', () => {
 			await benutzerAnlegen(betriebBasis, 1); // 2 von 3 → genau ein weiterer Benutzer ist erlaubt
 			const { mitBetrieb } = await import('../../src/lib/server/db');
 			const k = { betriebId: betriebBasis, benutzerId: benutzerBasis };
+			const [rolle] = await root`
+				insert into app.rollen (betrieb_id, name, rechte) values (${betriebBasis}, 'R', ${['kunden.lesen']}) returning id`;
+			// crm_app legt keine Benutzer an (R6, T9); der Platz wird wie beim Einladen durch eine offene Einladung belegt.
 			const versuch = (n: number) =>
 				mitBetrieb(k, async (tx) => {
 					await pruefeGrenze(betriebBasis, 'benutzer', tx);
 					await new Promise((r) => setTimeout(r, 50));
 					await tx`
-						insert into app.benutzer (betrieb_id, email, name, passwort_hash)
-						values (${betriebBasis}, ${`rennen${n}@beispiel.test`}, 'R', 'x')`;
+						insert into app.einladungen (betrieb_id, email, rolle_id, token_hash)
+						values (${betriebBasis}, ${`rennen${n}@beispiel.test`}, ${rolle.id}, ${hashe(`rennen${n}`)})`;
 				}).then(
 					() => 'ok',
 					(e) => (e instanceof ApiFehler ? e.status : 'fehler')
@@ -326,10 +329,10 @@ describe('Tarife und Freischaltungen', () => {
 			await root`update app.benutzer set rolle_id = ${rolle.id} where id = ${benutzerBasis}`;
 			chefId = benutzerBasis;
 			token = randomBytes(32).toString('base64url');
-			// Direkt eingefügte volle Sitzung (die Vor-Sitzung/2FA-Logik ist hier nicht das Thema).
+			// Direkt eingefügte volle Sitzung (die Vor-Sitzung/2FA-Logik ist hier nicht das Thema; R13: mit Kennzeichen).
 			await root`
-				insert into app.sitzungen (token_hash, benutzer_id, laeuft_ab)
-				values (${hashe(token)}, ${chefId}, now() + interval '1 day')`;
+				insert into app.sitzungen (token_hash, benutzer_id, laeuft_ab, mit_zweitem_faktor)
+				values (${hashe(token)}, ${chefId}, now() + interval '1 day', true)`;
 		});
 
 		const rollenAnlegen = (name = 'Neu') =>

@@ -166,24 +166,26 @@ describe('Kernschema und Mandantentrennung (RLS)', () => {
 			}
 		});
 
-		it('INSERT eines Benutzers ohne Betrieb (NULL) durch crm_app → Fehler (RLS)', async () => {
+		// Seit Task 9 (Ruling R6) hat crm_app gar kein INSERT mehr auf benutzer: Konten entstehen nur über
+		// app.einladung_annehmen. Die RLS-Policy bleibt als zweite Linie bestehen.
+		it('INSERT eines Benutzers ohne Betrieb (NULL) durch crm_app → Fehler (kein INSERT-Recht)', async () => {
 			await expect(
 				alsApp(
 					betriebA,
 					(tx) => tx`insert into app.benutzer (betrieb_id, email, name, passwort_hash)
 						values (null, 'x@example.test', 'X', 'hash')`
 				)
-			).rejects.toThrow(/row-level security/);
+			).rejects.toThrow(/permission denied/);
 		});
 
-		it('INSERT mit betrieb_id B im Kontext A → Fehler (RLS)', async () => {
+		it('INSERT mit betrieb_id B im Kontext A → Fehler (kein INSERT-Recht)', async () => {
 			await expect(
 				alsApp(
 					betriebA,
 					(tx) => tx`insert into app.benutzer (betrieb_id, email, name, passwort_hash)
 						values (${betriebB}, 'y@example.test', 'Y', 'hash')`
 				)
-			).rejects.toThrow(/row-level security/);
+			).rejects.toThrow(/permission denied/);
 		});
 
 		it('UPDATE eines B-Benutzers im Kontext A → 0 betroffene Zeilen', async () => {
@@ -208,13 +210,11 @@ describe('Kernschema und Mandantentrennung (RLS)', () => {
 			expect(r.count).toBe(0);
 		});
 
-		it('INSERT eines A-Benutzers mit rolle_id einer B-Rolle → Fehler (Fremdschlüssel)', async () => {
+		it('INSERT eines A-Benutzers mit rolle_id einer B-Rolle → Fehler (Fremdschlüssel, gilt auch für den Eigentümer)', async () => {
+			// als Superuser: crm_app darf seit Task 9 nicht mehr einfügen; der Fremdschlüssel greift für jeden
 			await expect(
-				alsApp(
-					betriebA,
-					(tx) => tx`insert into app.benutzer (betrieb_id, email, name, passwort_hash, rolle_id)
-						values (${betriebA}, 'z@example.test', 'Z', 'hash', ${rolleB})`
-				)
+				root`insert into app.benutzer (betrieb_id, email, name, passwort_hash, rolle_id)
+					values (${betriebA}, 'z@example.test', 'Z', 'hash', ${rolleB})`
 			).rejects.toThrow(/foreign key|violates/i);
 		});
 
