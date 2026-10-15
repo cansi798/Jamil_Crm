@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<style>
+@page { size: A4; margin: 18mm 18mm 18mm 20mm; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 10.1pt; line-height: 1.45; color: #1a1a1a; }
+h1 { font-size: 20pt; margin: 0 0 1mm; color: #05346B; }
+.unter { color: #555; margin: 0 0 5mm; }
+h2 { font-size: 12.5pt; color: #05346B; border-bottom: 2px solid #e2ecf5; padding-bottom: 1mm; margin: 6mm 0 2mm; page-break-after: avoid; }
+h3 { font-size: 10.6pt; margin: 3.5mm 0 1mm; page-break-after: avoid; }
+p { margin: 0 0 2mm; }
+ul, ol { margin: 0 0 2mm 5mm; padding-left: 4mm; } li { margin-bottom: .7mm; }
+table { border-collapse: collapse; width: 100%; margin: 2mm 0 3mm; font-size: 9.4pt; page-break-inside: avoid; }
+th, td { border: 1px solid #c7d3de; padding: 1.5mm 2.2mm; text-align: left; vertical-align: top; }
+th { background: #eef4f9; }
+.kasten { background: #f4f8fb; border-left: 4px solid #0a7a76; padding: 2.5mm 4mm; margin: 3mm 0; }
+.warn { background: #fff7e0; border-left: 4px solid #d9a400; padding: 2.5mm 4mm; margin: 3mm 0; page-break-inside: avoid; }
+.go { background: #e9f6ee; border-left: 4px solid #1f8a4c; padding: 2.5mm 4mm; margin: 3mm 0; page-break-inside: avoid; }
+.stufe { display: inline-block; background: #05346B; color: #fff; border-radius: 3px; padding: 0 2mm; font-size: 8.5pt; font-weight: bold; }
+.s2 { background: #0a7a76; } .s3 { background: #7a5a0a; }
+code { font-family: Consolas, monospace; font-size: 9pt; background: #f1f3f5; padding: 0 1mm; }
+.klein { font-size: 9pt; color: #555; }
+</style></head><body>
+
+<h1>CRM System – Pflichtenheft</h1>
+<p class="unter">Software für Handwerksbetriebe · Version 1.1 · 15.10.2026 · erstellt von Jan Sievert (KI-Assistent) auf Basis des von Jamil Iqbal freigegebenen Lastenhefts v1.1 · <b>zur Freigabe durch Can Siebert</b></p>
+
+<div class="kasten"><b>Worum geht es?</b> Das Lastenheft beschreibt, <i>was</i> die Software können soll. Dieses Pflichtenheft beschreibt, <i>wie</i> wir es umsetzen: Technik, Datenschutz, Abnahmekriterien je Stufe sowie Kosten und Risiken. <b>Erst nach deinem „Go“ und Jamils Erlaubnis wird programmiert</b>, und zwar ausschließlich in der abgeschotteten Sandbox. Die Abschnitte 1, 7, 9 und 10 sind für die Entscheidung am wichtigsten. <b>Neu in Version 1.1</b> (Cans Ergänzung vom 15.10.2026): Abschnitt 7 zu Tarifen, Bezahlung über Stripe und Plattform-Verwaltung.</div>
+
+<h2>1. Kurzfassung</h2>
+<ul>
+  <li><b>Produkt:</b> eigenständige, mobile Web-App für Handwerksbetriebe (Arbeitstitel „CRM System“), komplett per Sprache bedienbar. Testbetrieb: <b>Bauwelt</b>.</li>
+  <li><b>Vorgehen:</b> 3 Stufen. Bauwelt arbeitet schon ab Stufe 1 damit. Jede Stufe endet mit einer Abnahme durch Jamil (und dich).</li>
+  <li><b>Datenschutz:</b> Server in Deutschland, Spracherkennung auf dem eigenen Server, KI nur mit EU-Datenverarbeitung, strikte Trennung der Daten je Betrieb.</li>
+  <li><b>Tarife und Bezahlung:</b> Betriebe zahlen per Abo über <b>Stripe</b>. Je nach Tarif sind mehr Funktionen freigeschaltet. Ein <b>Admin-Bereich</b> für waybuild zeigt alle Betriebe, Tarife und Zahlungen. Die Datenbank wird von Anfang an dafür gebaut, Stripe wird später angeschlossen.</li>
+  <li><b>Sicherheit für unsere Nextcloud:</b> Entwicklung und Testbetrieb laufen getrennt von Nextcloud, mit festen Ressourcen-Grenzen (Nextcloud hat immer Vorrang).</li>
+</ul>
+
+<h2>2. Systemaufbau</h2>
+<table>
+  <tr><th style="width:24%">Baustein</th><th>Umsetzung</th></tr>
+  <tr><td>Web-App (Oberfläche)</td><td>SvelteKit + TypeScript als <b>Progressive Web App</b>: auf den Startbildschirm legbar, mobil zuerst gestaltet, große Bedienelemente. Die Termine des Tages und offene Fotos/Notizen bleiben auch bei schlechtem Netz verfügbar und werden nachgesendet.</td></tr>
+  <tr><td>Server-Logik / Schnittstelle</td><td>Node.js 22 (SvelteKit-Server), klar getrennte API für alle Aktionen. Die Sprachsteuerung und die Oberfläche nutzen dieselbe API.</td></tr>
+  <tr><td>Datenbank</td><td>PostgreSQL 16. <b>Mandantentrennung per Row Level Security</b>: jede Zeile gehört einem Betrieb, die Datenbank selbst verhindert Zugriffe auf fremde Betriebe (gleiches Prinzip wie in unserer Koordinations-App).</td></tr>
+  <tr><td>Spracherkennung</td><td>Eigener Dienst mit <b>faster-whisper</b> auf unserem Server (wie bei den Talk-Sprachnachrichten). Audio verlässt den Server nicht und wird nach der Umwandlung gelöscht.</td></tr>
+  <tr><td>KI (Text)</td><td>KI-Modell mit EU-Datenverarbeitung und Auftragsverarbeitungsvertrag (Anbieterwahl siehe 8). Die KI bekommt nur Text und nur die für die Aufgabe nötigen Daten.</td></tr>
+  <tr><td>Dokumente</td><td>PDF-Erzeugung (Angebote, Protokolle) serverseitig. Dateien und Fotos je Betrieb getrennt gespeichert.</td></tr>
+  <tr><td>Anbindungen</td><td>Lexware Office (Stufe 2), Nextcloud per WebDAV/CalDAV/Talk (Stufe 3), E-Mail/SMS/WhatsApp-Dienst (Stufe 3).</td></tr>
+</table>
+
+<h2>3. Benutzer, Rollen und Anmeldung</h2>
+<ul>
+  <li><b>Anmeldung:</b> eigene Konten (E-Mail + Passwort, sicher gespeichert mit Argon2id). Zwei-Faktor-Anmeldung für Chef-Konten. Mitarbeiter werden per Einladungslink hinzugefügt. Ab Stufe 3 ist optional die Anmeldung über Nextcloud möglich.</li>
+  <li><b>Rechte-System:</b> Es gibt einzelne Rechte (z. B. „Kunden bearbeiten“, „Preise sehen“, „Plantafel bearbeiten“, „Einstellungen“). Eine Rolle ist eine Sammlung von Rechten. <b>Vorlagen:</b> Chef, Büro, Monteur. Der Chef kann sie ändern und eigene Rollen anlegen.</li>
+  <li>Jede Änderung wird protokolliert: wer, wann, was, auch bei Aktionen per Sprache.</li>
+</ul>
+
+<h2>4. Sprachsteuerung und KI: so funktioniert es</h2>
+<ol>
+  <li>Der Nutzer tippt auf das Mikrofon und spricht, z. B. „Neuer Auftrag für Montag, Ali und Mehmet, Badsanierung bei Müller“.</li>
+  <li>Unser Server wandelt die Sprache in Text um.</li>
+  <li>Die KI übersetzt den Text in eine <b>fest definierte Aktion</b> (z. B. Auftrag anlegen, Kunde anlegen, Angebotsentwurf, Protokoll ausfüllen, To-do, Zeit stempeln, Termin verschieben).</li>
+  <li>Die App zeigt eine <b>Bestätigungskarte</b> („Auftrag Badsanierung, Kunde Müller, Montag 20.10., Ali + Mehmet – speichern?“). Erst mit „Ja“ bzw. einem Tipp wird gespeichert.</li>
+</ol>
+<ul>
+  <li><b>Die KI darf nie mehr als der Nutzer selbst:</b> Jede Aktion läuft mit den Rechten des angemeldeten Nutzers. Ein Monteur kann also auch per Sprache keine Preise sehen.</li>
+  <li><b>KI-Angebotsentwurf:</b> Die KI wählt nur Positionen aus dem Leistungskatalog des Betriebs und schlägt Mengen vor. <b>Preise kommen immer aus dem Katalog</b>, die KI erfindet keine. Unklare Positionen werden gelb als „bitte prüfen“ markiert.</li>
+  <li>Bei Unsicherheit fragt die App nach („Meinst du Kunde Müller in Norderstedt oder in Hamburg?“).</li>
+</ul>
+
+<h2>5. Datenmodell (vereinfacht)</h2>
+<p>Betrieb · Benutzer · Rolle/Rechte · Kunde · Objekt/Baustelle · Auftrag (mit Status) · Einsatz (Mitarbeiter × Zeitraum) · Abwesenheit (Urlaub/Krankheit) · To-do · Leistungskatalog (Position, Einheit, Lohn, Material, Gewerk-Vorlage) · Angebot + Angebotspositionen · Protokoll (Typ, Inhalte, Unterschrift) · Foto/Datei · Zeitbuchung · Änderungsprotokoll · <b>Tarif</b> (Funktionen + Grenzen) · <b>Abo</b> (Status, Laufzeit, Stripe-Kennungen) · <b>Plattform-Admin</b>. <b>Jeder Datensatz trägt die Betriebs-Kennung.</b></p>
+
+<h2>6. Stufen und Abnahmekriterien</h2>
+
+<h3><span class="stufe">Stufe 1</span> Kernsystem: Bauwelt arbeitet damit</h3>
+<table>
+  <tr><th style="width:30%">Funktion</th><th>Abnahmekriterium (wird geprüft)</th></tr>
+  <tr><td>Kunden, Objekte</td><td>Anlegen, suchen, bearbeiten am Handy und am PC. Verlauf je Kunde sichtbar.</td></tr>
+  <tr><td>Aufträge, To-dos</td><td>Statuskette Anfrage → Angebot → beauftragt → in Arbeit → abgenommen → abgerechnet. To-dos mit Zuständigem und Fälligkeit.</td></tr>
+  <tr><td>Plantafel</td><td>Mitarbeiter × Tage/Wochen, Ziehen und Ablegen am PC und Tablet. Warnung bei Doppelbelegung, Urlaub und Krankheit. Monteure sehen am Handy „Meine Einsätze heute“.</td></tr>
+  <tr><td>Rollen</td><td>Vorlagen Chef/Büro/Monteur. Eigene Rolle anlegbar. Ein Monteur sieht nachweislich keine Preise.</td></tr>
+  <tr><td>Leistungskatalog</td><td>Eigene Positionen, Startvorlagen für mindestens Bad/Sanitär, Fliesen, Maler, Trockenbau.</td></tr>
+  <tr><td>Angebote + KI</td><td>Angebot als PDF mit Bauwelt-Logo. KI-Entwurf aus Stichworten/Sprache/Foto mit Preisen nur aus dem Katalog.</td></tr>
+  <tr><td>Sprachsteuerung</td><td>Mindestens: Kunde, Auftrag, To-do und Termin anlegen/verschieben sowie Angebotsentwurf, immer mit Bestätigungskarte. Trefferquote ≥ 90 % bei einem Satz von 50 Test-Sprachbefehlen.</td></tr>
+  <tr><td>Tarif-Grundlage + Admin-Bereich (Basis)</td><td>Tarife mit Funktionen und Grenzen in der Datenbank, jede Funktion wird serverseitig gegen den Tarif geprüft. Admin-Bereich zeigt alle Betriebe, Tarif und Status. Bauwelt erhält manuell den Tarif „Test“ (alle Funktionen, kostenlos).</td></tr>
+  <tr><td>Mobil / PWA</td><td>Bedienbar auf aktuellen iPhones und Android-Handys, installierbar auf dem Startbildschirm.</td></tr>
+</table>
+
+<h3><span class="stufe s2">Stufe 2</span> Baustelle und Abrechnung</h3>
+<ul>
+  <li>Fotos und Notizen. Protokolle (Abnahme, Regiebericht, Aufmaß, Mängelliste) mit <b>Unterschrift des Kunden auf dem Handy</b>, PDF automatisch per E-Mail an den Kunden. Protokolle lassen sich per Sprache ausfüllen.</li>
+  <li>Zeiterfassung Start/Pause/Ende pro Auftrag (auch per Sprache). Korrekturen nur nachvollziehbar mit Änderungsprotokoll. Stundenzettel und Nachkalkulation geplant ↔ tatsächlich.</li>
+  <li><b>Lexware Office:</b> Aus einem abgenommenen Auftrag entsteht per Knopfdruck ein Rechnungsentwurf in Lexware Office. Kunde und Positionen werden übertragen.</li>
+</ul>
+
+<h3><span class="stufe s3">Stufe 3</span> Kunden, Nextcloud, weitere Betriebe</h3>
+<ul>
+  <li>Online-Angebotsannahme per Link (Klick/Unterschrift) → Auftrag entsteht automatisch. Erinnerungen bei fehlender Rückmeldung.</li>
+  <li>Kundenportal (Auftragsstand, Termine, Fotos, Dokumente) über einen sicheren persönlichen Link. Benachrichtigungen per E-Mail/SMS/WhatsApp.</li>
+  <li>Optionale Nextcloud-Verbindung je Betrieb: Dateien/Fotos ablegen, Termine in den Kalender, Hinweise in Talk.</li>
+  <li>Registrierung bzw. Einrichtung weiterer Betriebe, Nachweis der Datentrennung durch automatische Tests.</li>
+  <li><b>Stripe-Bezahlung:</b> Tarif wählen, per Abo bezahlen, automatische Freischaltung. Admin-Bereich mit Zahlungen und Umsätzen (Details in Abschnitt 7).</li>
+</ul>
+
+<h2>7. Tarife, Bezahlung (Stripe) und Plattform-Verwaltung</h2>
+<p class="klein">Ergänzung nach Cans Vorgabe vom 15.10.2026: „Zahlungsmethoden/Abo-Systeme mit Stripe, wird später eingerichtet. Je nach Modell mehr Rechte in der Datenbank. Admin-Bereich, der alle CRM-Systeme sieht und mit jeder Zahlung mehr Freigaben ermöglicht.“</p>
+<h3>7.1 Tarife und Freischaltungen (Datenbank ab Stufe 1)</h3>
+<ul>
+  <li>Tarife werden in der Datenbank definiert, nicht fest im Programm. Beispiel (Namen und Preise legst du später fest): <i>Basis</i>, <i>Profi</i>, <i>Premium</i>, dazu intern <i>Test</i> (alles frei, z. B. für Bauwelt).</li>
+  <li>Je Tarif wird festgelegt: <b>welche Module</b> freigeschaltet sind (z. B. Plantafel, KI-Angebote, Sprachsteuerung, Zeiterfassung, Kundenportal, Lexware-Anbindung, Nextcloud-Anbindung) und <b>welche Grenzen</b> gelten (z. B. Anzahl Benutzer, KI-Nutzungen pro Monat, Speicherplatz).</li>
+  <li><b>Zwei Ebenen von Rechten:</b> Der <b>Tarif</b> bestimmt, was ein Betrieb überhaupt hat. Die <b>Rolle</b> bestimmt, wer im Betrieb es nutzen darf. Beides wird bei jeder Aktion auf dem Server geprüft, auch bei Sprachbefehlen. Nicht freigeschaltete Funktionen erscheinen mit Hinweis „Im Tarif Profi enthalten“.</li>
+  <li>Zusatzpakete sind möglich, z. B. zusätzliche Benutzer oder mehr KI-Kontingent.</li>
+</ul>
+<h3>7.2 Bezahlung über Stripe (Anschluss später, spätestens Stufe 3)</h3>
+<ul>
+  <li><b>Stripe Billing</b> für Abos (monatlich/jährlich) mit den Zahlungsarten, die Stripe anbietet (z. B. Karte, SEPA-Lastschrift). Stripe Checkout für den Abschluss, Stripe-Kundenportal für Tarifwechsel, Zahlungsdaten und Rechnungen.</li>
+  <li><b>Automatische Freischaltung:</b> Stripe meldet jede Zahlung, jeden Tarifwechsel und jede Kündigung an das CRM (Webhooks, signaturgeprüft). Das CRM schaltet die Funktionen des Tarifs sofort frei bzw. passt sie an.</li>
+  <li><b>Zahlungsausfall:</b> Erinnerungen, danach eine Schonfrist (z. B. 14 Tage), dann nur noch Lesezugriff. <b>Daten werden nie automatisch gelöscht</b>, der Betrieb kann sie jederzeit exportieren.</li>
+  <li>Kartendaten liegen nur bei Stripe, nie bei uns. Rechnungen mit Umsatzsteuer erstellt Stripe (für EU-Firmenkunden ggf. Reverse-Charge, mit dem Steuerberater klären).</li>
+  <li>Bis Stripe angeschlossen ist, vergibt der Admin Tarife manuell, z. B. für Bauwelt.</li>
+</ul>
+<h3>7.3 Admin-Bereich für waybuild (Basis ab Stufe 1, voll ab Stufe 3)</h3>
+<ul>
+  <li>Eigener, abgesicherter Bereich nur für waybuild-Admins (z. B. Can, Jamil), Zwei-Faktor-Anmeldung Pflicht.</li>
+  <li><b>Übersicht aller Betriebe</b> (also aller CRM-Systeme): Tarif, Abo-Status (Test, aktiv, überfällig, gekündigt), Anzahl Benutzer, KI-Verbrauch, Speicher, letzte Aktivität.</li>
+  <li><b>Zahlungen und Umsätze:</b> Zahlungsverlauf je Betrieb, monatlicher Gesamtumsatz, offene Zahlungen.</li>
+  <li><b>Aktionen:</b> Tarif manuell ändern, Testzeitraum verlängern, Zusatzfreigaben vergeben, Betrieb sperren bzw. entsperren. Jede Admin-Aktion wird protokolliert.</li>
+  <li><b>Datenschutz:</b> Der Admin sieht Verwaltungsdaten (Tarif, Zahlungen, Nutzung), aber <b>nicht die Kundendaten der Betriebe</b>. Ein Einblick für den Support ist nur mit Zustimmung des Betriebs möglich, zeitlich begrenzt und protokolliert.</li>
+</ul>
+
+<h2>8. Betrieb, Sicherheit und Datenschutz</h2>
+<ul>
+  <li><b>Entwicklung:</b> nur in der Sandbox <code>/opt/crm-sandbox</code>: eigene Container, eigene Netze, kein Zugriff auf Nextcloud-Daten, feste CPU-/Speicher-Grenzen, Nextcloud hat Vorrang.</li>
+  <li><b>Testbetrieb Bauwelt (Stufe 1–2):</b> erreichbar unter einer eigenen Adresse (z. B. <code>crm.waybuild.de</code>), verschlüsselt (HTTPS). Er läuft weiter getrennt von Nextcloud (siehe Entscheidung 9.1).</li>
+  <li><b>Vor weiteren Betrieben (Stufe 3):</b> eigener Server in Deutschland, damit fremde Betriebe nichts mit unserer Firmen-Nextcloud teilen.</li>
+  <li><b>Datensicherung:</b> tägliche verschlüsselte Sicherung, 30 Tage aufbewahrt, Wiederherstellung wird getestet.</li>
+  <li><b>DSGVO:</b> Auftragsverarbeitungsverträge mit KI- und Nachrichtendienst, Verarbeitungsverzeichnis, Lösch- und Exportfunktion je Betrieb, keine Nutzung der Daten zum KI-Training. Für den späteren Verkauf: Muster-AV-Vertrag zwischen uns und den Betrieben (juristisch prüfen lassen).</li>
+  <li><b>Qualitätssicherung:</b> automatische Tests für Logik und Schnittstellen, Tests der Datentrennung („Betrieb A sieht nie Daten von Betrieb B“), Klick-Tests im Handy-Format, Test-Satz von Sprachbefehlen. Jede Stufe wird erst nach bestandenen Tests zur Abnahme vorgelegt.</li>
+</ul>
+
+<h2>9. Entscheidungen für dich, Can</h2>
+<div class="warn">
+<p><b>9.1 Wo läuft der Testbetrieb für Bauwelt?</b></p>
+<ul>
+  <li><b>a) Auf unserem Server</b> in der Sandbox, mit eigener Adresse <code>crm.waybuild.de</code>: keine Zusatzkosten. Ich muss dafür einmalig eine Weiterleitung im Webserver eintragen (nur außerhalb laufender Meetings).</li>
+  <li><b>b) Eigener kleiner Server in Deutschland</b> (z. B. Hetzner, ca. 10–20 € im Monat): komplett getrennt von Nextcloud, sofort die spätere Struktur.</li>
+</ul>
+<p><b>Meine Empfehlung:</b> a) für den Test (Stufe 1–2), b) spätestens vor Stufe 3 (weitere Betriebe).</p>
+<p><b>9.2 KI-Anbieter mit EU-Datenverarbeitung</b></p>
+<ul>
+  <li><b>a) Mistral AI</b> (Unternehmen aus Frankreich, Verarbeitung in der EU): datenschutzrechtlich am einfachsten, gutes Verkaufsargument</li>
+  <li><b>b) Claude oder GPT über europäische Rechenzentren</b> großer Cloud-Anbieter (z. B. Frankfurt): sehr leistungsfähig, aber US-Konzerne</li>
+</ul>
+<p><b>Meine Empfehlung:</b> a) Mistral. Ein Wechsel ist später möglich, weil die KI austauschbar angebunden wird.</p>
+<p><b>9.3 Tarife und Preise:</b> Namen, Preise und Funktionsumfang der Tarife legst du fest, bevor Stripe angeschlossen wird. Für den Start reicht es, dass die Datenbank dafür vorbereitet ist. Stripe-Konto: Einrichtung später durch dich, ich leite dich dann an.</p>
+<p><b>9.4 Laufende Kosten im Test (Schätzung):</b> KI je nach Nutzung ca. 5–30 € im Monat. Spracherkennung läuft kostenlos auf unserem Server. SMS/WhatsApp wird erst in Stufe 3 relevant und dann vorher mit dir abgestimmt. Stripe kostet keine Grundgebühr, sondern einen Anteil je Zahlung (laut Stripe-Preisliste).</p>
+</div>
+
+<h2>10. Risiken und Gegenmaßnahmen</h2>
+<table>
+  <tr><th style="width:34%">Risiko</th><th>Gegenmaßnahme</th></tr>
+  <tr><td>Spracherkennung bei Baustellenlärm/Dialekt ungenau</td><td>Drücken-und-Sprechen, Bestätigungskarte vor jedem Speichern, Nachfragen bei Unklarheit, Test-Satz mit echten Bauwelt-Aufnahmen.</td></tr>
+  <tr><td>KI schlägt falsche Angebotspositionen vor</td><td>Nur Katalogpositionen, Preise nie von der KI, Prüfmarkierung, ein Mensch gibt frei.</td></tr>
+  <tr><td>Großer Umfang</td><td>Strikte Stufen mit Abnahme, keine Funktionen außerhalb des Lastenhefts ohne Freigabe.</td></tr>
+  <tr><td>Belastung unseres Servers</td><td>Feste Ressourcen-Grenzen in der Sandbox, Nextcloud hat Vorrang. Eigener Server vor Stufe 3.</td></tr>
+  <tr><td>Fehler bei Freischaltung nach Zahlung</td><td>Stripe-Meldungen werden signaturgeprüft und doppelt abgesichert (tägliche Abgleichprüfung mit Stripe). Freischaltungen sind im Admin-Bereich sichtbar und manuell korrigierbar.</td></tr>
+  <tr><td>Rechtliches beim späteren Verkauf</td><td>AV-Vertrag, AGB und Datenschutzerklärung vor dem ersten externen Betrieb juristisch prüfen lassen.</td></tr>
+</table>
+
+<div class="go"><b>Freigabe:</b> Wenn du einverstanden bist, schreib im Raum „CRM System“ <b>„Go“</b> (gern mit deinen Entscheidungen zu 9.1 und 9.2, z. B. „Go, 9.1 a, 9.2 a“). Danach hole ich Jamils Erlaubnis ein und beginne mit Stufe 1 in der Sandbox. Über den Fortschritt berichte ich im Raum.</div>
+<p class="klein">Grundlage: Lastenheft v1.1 (Team → CRM System), freigegeben von Jamil Iqbal am 15.10.2026, 12:24 Uhr.</p>
+</body></html>

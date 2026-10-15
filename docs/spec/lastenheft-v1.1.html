@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<style>
+@page { size: A4; margin: 18mm 18mm 18mm 20mm; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 10.3pt; line-height: 1.45; color: #1a1a1a; }
+h1 { font-size: 20pt; margin: 0 0 1mm; color: #05346B; }
+.unter { color: #555; margin: 0 0 6mm; }
+h2 { font-size: 12.5pt; color: #05346B; border-bottom: 2px solid #e2ecf5; padding-bottom: 1mm; margin: 5.5mm 0 2mm; page-break-after: avoid; }
+h3 { font-size: 10.8pt; margin: 4mm 0 1mm; page-break-after: avoid; }
+p { margin: 0 0 2mm; }
+ul { margin: 0 0 2mm 5mm; padding-left: 4mm; } li { margin-bottom: .8mm; }
+table { border-collapse: collapse; width: 100%; margin: 2mm 0 3mm; font-size: 9.6pt; page-break-inside: avoid; }
+th, td { border: 1px solid #c7d3de; padding: 1.6mm 2.2mm; text-align: left; vertical-align: top; }
+th { background: #eef4f9; }
+.kasten { background: #f4f8fb; border-left: 4px solid #0a7a76; padding: 2.5mm 4mm; margin: 3mm 0; }
+.warn { background: #fff7e0; border-left: 4px solid #d9a400; padding: 2.5mm 4mm; margin: 3mm 0; }
+.stufe { display: inline-block; background: #05346B; color: #fff; border-radius: 3px; padding: 0 2mm; font-size: 8.5pt; font-weight: bold; }
+.s2 { background: #0a7a76; } .s3 { background: #7a5a0a; }
+.fuss { margin-top: 4mm; font-size: 8.5pt; color: #666; }
+</style></head><body>
+
+<h1>CRM System – Lastenheft</h1>
+<p class="unter">Software für Handwerksbetriebe · Stand 15.10.2026 · erarbeitet von Jamil Iqbal mit Jan Sievert (KI-Assistent) · Version 1.1 zur Prüfung</p>
+
+<div class="kasten"><b>Was ist ein Lastenheft?</b> Es beschreibt, <i>was</i> die Software können soll, aus Sicht der Auftraggeber. Daraus entsteht im nächsten Schritt das Pflichtenheft (<i>wie</i> es umgesetzt wird). Erst nach Cans Go zum Pflichtenheft und Jamils Erlaubnis wird entwickelt, und zwar ausschließlich in der abgeschotteten Sandbox.</div>
+
+<h2>1. Ziel und Rahmen</h2>
+<ul>
+  <li><b>Eigenständiges Testprojekt</b>: gehört weder zu waybuild IT noch zur waybuild Akademie.</li>
+  <li><b>Zielgruppe:</b> vor allem Handwerksbetriebe (z. B. Bad/Sanitär, Fliesen, Maler, Elektro, Trockenbau).</li>
+  <li><b>Zweck:</b> alles, was ein Betrieb im Arbeitsalltag braucht: Kunden verwalten, Aufträge planen, Mitarbeiter zuweisen, Angebote erstellen, To-dos.</li>
+  <li><b>Freigaben:</b> Vor dem Start der Entwicklung fragt Jan Jamil um Erlaubnis, und Can gibt sein Go zum Pflichtenheft.</li>
+</ul>
+
+<h2>2. Nutzer, Betriebe und Rollen</h2>
+<table>
+  <tr><th style="width:28%">Thema</th><th>Festlegung</th><th style="width:14%">Frage</th></tr>
+  <tr><td>Wer nutzt die Software?</td><td>Start mit <b>einem Testbetrieb: Bauwelt</b>. Von Anfang an so gebaut, dass später <b>viele Betriebe</b> mit strikt getrennten Daten dazukommen können (mandantenfähig).</td><td>2 → C</td></tr>
+  <tr><td>Rollen und Rechte</td><td><b>Frei einstellbar</b> durch den Chef. Mitgeliefert werden die Vorlagen <i>Chef</i> (alles inkl. Preise/Umsätze/Einstellungen), <i>Büro</i> (Kunden, Angebote, Planung) und <i>Monteur</i> (nur eigene Aufträge/To-dos, keine Preise). Eigene Rollen sind möglich.</td><td>4 → C</td></tr>
+</table>
+
+<h2>3. Geräte und Bedienung</h2>
+<ul>
+  <li><b>Web-Anwendung im Browser</b> am PC und auf Handy/Tablet. Sie lässt sich wie eine App auf den Startbildschirm legen, ohne App Store. <i>(Frage 3 → B)</i></li>
+  <li><b>Mobil optimiert („mobile first“)</b>: große Schaltflächen, gut lesbar, mit einer Hand auf der Baustelle bedienbar. Am PC wird der größere Bildschirm genutzt.</li>
+  <li><b>Komplett per Sprache bedienbar</b> <i>(Frage 6)</i>: Kunden anlegen, Angebote erstellen, Aufträge anlegen, Protokolle ausfüllen lassen usw. Beispiel: „Neuer Auftrag für Montag, Ali und Mehmet, Badsanierung bei Müller“. Vor dem Speichern zeigt die Software an, was sie verstanden hat, und der Nutzer bestätigt.</li>
+</ul>
+
+<h2>4. Funktionen</h2>
+
+<h3>4.1 Kunden <span class="stufe">Stufe 1</span></h3>
+<ul><li>Kundenkartei (Privat- und Firmenkunden), Kontaktdaten, Objekte/Baustellenadressen, Notizen, Verlauf aller Angebote, Aufträge und Dokumente.</li></ul>
+
+<h3>4.2 Aufträge und To-dos <span class="stufe">Stufe 1</span></h3>
+<ul><li>Aufträge mit Status (z. B. Anfrage → Angebot → beauftragt → in Arbeit → abgenommen → abgerechnet), zugewiesene Mitarbeiter, Termine und To-dos (mit Zuständigem und Fälligkeit).</li></ul>
+
+<h3>4.3 Plantafel <span class="stufe">Stufe 1</span></h3>
+<ul>
+  <li>Übersicht <b>Mitarbeiter × Tage/Wochen</b>. Aufträge per Ziehen und Ablegen verteilen. <i>(Frage 8 → B)</i></li>
+  <li>Warnungen bei Doppelbelegung, Urlaub und Krankheit. Abgleich mit dem Kalender (Nextcloud/Handy).</li>
+</ul>
+
+<h3>4.4 Leistungskatalog <span class="stufe">Stufe 1</span></h3>
+<ul><li>Jeder Betrieb hat seinen <b>eigenen Katalog</b> (Positionen mit Einheit, Lohn- und Materialpreis), dazu <b>fertige Startvorlagen je Gewerk</b>, bei denen nur die eigenen Preise angepasst werden. <i>(Frage 12 → B)</i></li></ul>
+
+<h3>4.5 Angebote mit KI <span class="stufe">Stufe 1</span></h3>
+<ul>
+  <li>Angebote aus dem Katalog mit Firmenlogo als PDF.</li>
+  <li><b>KI-Angebotsentwurf</b> aus Stichworten, Aufmaß, Fotos oder Sprache. Ein Mensch prüft und bestätigt. <i>(Frage 6 → B)</i></li>
+</ul>
+
+<h3>4.6 Baustellen-Dokumentation <span class="stufe s2">Stufe 2</span></h3>
+<ul>
+  <li>Fotos und Notizen zum Auftrag. <i>(Frage 9 → C)</i></li>
+  <li>Digitale Protokolle auf dem Handy: Abnahmeprotokoll, Regiebericht, Aufmaß, Mängelliste. Der <b>Kunde unterschreibt auf dem Handy</b>, das PDF geht automatisch an ihn und in die Ablage.</li>
+</ul>
+
+<h3>4.7 Zeiterfassung und Nachkalkulation <span class="stufe s2">Stufe 2</span></h3>
+<ul><li>Mitarbeiter stempeln Start/Pause/Ende pro Auftrag (auch per Sprache). Daraus entstehen Stundenzettel und ein Vergleich geplant ↔ tatsächlich je Auftrag.</li></ul>
+
+<h3>4.8 Rechnungen <span class="stufe s2">Stufe 2</span></h3>
+<ul><li>Angebot und Auftrag laufen im CRM. Die <b>Rechnung wird per Knopfdruck an das Buchhaltungsprogramm des Betriebs übergeben</b> (zuerst <b>Lexware Office</b>, später z. B. sevDesk), das sich um E-Rechnung und Steuer kümmert. Eine eigene Buchhaltung bauen wir nicht. <i>(Frage 7 → C)</i></li></ul>
+
+<h3>4.9 Endkunden und Kundenportal <span class="stufe s3">Stufe 3</span></h3>
+<ul>
+  <li><b>Online-Angebotsannahme</b> per Link mit Klick/Unterschrift. Der Auftrag entsteht automatisch, und es gibt Erinnerungen bei fehlender Rückmeldung. <i>(Frage 11 → C)</i></li>
+  <li><b>Kundenportal:</b> Auftragsstand, Termine, Fotos, Dokumente. Benachrichtigungen per E-Mail, SMS oder WhatsApp.</li>
+</ul>
+
+<h3>4.10 Nextcloud-Anbindung <span class="stufe s3">Stufe 3</span></h3>
+<ul><li>Das CRM ist eigenständig, mit eigener Anmeldung, und lässt sich <b>optional mit der Nextcloud eines Betriebs verbinden</b>: Dateien/Fotos, Kalender, Talk-Benachrichtigungen. Betriebe ohne Nextcloud können es trotzdem nutzen. Der Testbetrieb wird voll angebunden. <i>(Frage 5 → B)</i></li></ul>
+
+<h2>5. KI und Datenschutz</h2>
+<ul>
+  <li><b>Server in Deutschland.</b> <i>(Frage 10 → C)</i></li>
+  <li><b>Spracherkennung (Sprache → Text) läuft auf dem eigenen Server</b>, Audio verlässt ihn nicht.</li>
+  <li>Nur Text geht an ein <b>KI-Modell mit EU-Datenverarbeitung</b> und Auftragsverarbeitungsvertrag. Keine Nutzung der Daten zum Trainieren.</li>
+  <li>Strikte Datentrennung zwischen den Betrieben. Die KI macht nur Vorschläge, ein Mensch bestätigt.</li>
+</ul>
+
+<h2>6. Stufenplan <i style="font-weight:normal;font-size:10pt">(Frage 13 → B)</i></h2>
+<table>
+  <tr><th style="width:16%">Stufe</th><th>Inhalt</th><th style="width:24%">Ergebnis</th></tr>
+  <tr><td><span class="stufe">Stufe 1</span></td><td>Kunden, Aufträge und To-dos, Plantafel, Rollen, Leistungskatalog mit Gewerk-Vorlagen, Angebote mit KI-Entwurf, Sprachsteuerung, mobile Web-App</td><td>Der Testbetrieb arbeitet damit im Alltag</td></tr>
+  <tr><td><span class="stufe s2">Stufe 2</span></td><td>Baustellen-Doku mit Protokollen und Kundenunterschrift, Zeiterfassung und Nachkalkulation, Rechnungsübergabe an Lexware Office</td><td>Kompletter Ablauf bis zur Rechnung</td></tr>
+  <tr><td><span class="stufe s3">Stufe 3</span></td><td>Online-Angebotsannahme und Kundenportal, Nextcloud-Anbindung, Freischaltung für weitere Betriebe</td><td>Bereit für weitere Betriebe</td></tr>
+</table>
+
+<h2>7. Vorerst nicht enthalten (spätere Ausbaustufen)</h2>
+<ul>
+  <li>Eigene Apps im Apple App Store / Google Play Store</li>
+  <li>Eigene Buchhaltung/E-Rechnung im CRM (übernimmt das Buchhaltungsprogramm)</li>
+  <li>Planung von Fahrzeugen, Werkzeugen und Maschinen, Routenvorschläge</li>
+  <li>Großhändler-Anbindung (Datanorm/IDS)</li>
+</ul>
+
+<h2>8. Entscheidungen zu den offenen Punkten (Jamil, 15.10.2026)</h2>
+<table>
+  <tr><th style="width:40%">Punkt</th><th>Entscheidung</th></tr>
+  <tr><td>Testbetrieb</td><td><b>Bauwelt</b></td></tr>
+  <tr><td>Name der Software</td><td>noch offen, Arbeitstitel „CRM System“</td></tr>
+  <tr><td>Buchhaltungsprogramm zuerst</td><td><b>Lexware Office</b> (sevDesk später möglich)</td></tr>
+</table>
+<div class="warn"><b>Noch offen fürs Pflichtenheft:</b> Auswahl des KI-Anbieters mit EU-Datenverarbeitung und des SMS-/WhatsApp-Dienstes (Kosten), später das Preismodell für weitere Betriebe.</div>
+
+</body></html>
