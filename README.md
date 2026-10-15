@@ -22,7 +22,7 @@ Lastenheft und Pflichtenheft: `docs/spec/`.
 | `src/lib/server/` | Serverlogik: `db.ts` (Pools, Mandantenkontext), `auth/` (Sitzung, Passwort, TOTP, Begrenzung), `rechte.ts`, `tarif.ts`, `kunden.ts`, `benutzer.ts`, `admin.ts`, `protokoll.ts` |
 | `src/lib/components/`, `src/lib/stil/` | Wiederverwendbare Svelte-Bausteine und Stil |
 | `src/hooks.server.ts` | Sitzungsprüfung, Admin-Pfad, Nur-Lese-Sperre |
-| `db/migrations/` | SQL-Migrationen (`001` bis `008`, dazu `003a`/`003b`), werden nach Dateiname sortiert angewendet |
+| `db/migrations/` | SQL-Migrationen (`001` bis `009`, dazu `003a`/`003b`), werden nach Dateiname sortiert angewendet |
 | `scripts/` | `migrate.ts`, `admin-anlegen.ts`, `seed-dev.ts`, `start-vorschau.sh`, `erzeuge-icons.ts` |
 | `tests/unit`, `tests/db`, `tests/e2e` | Unit-Tests, Datenbank-Tests (je Testdatei eine frische Datenbank), Browser-Tests |
 | `static/` | Manifest, Symbole der PWA |
@@ -87,6 +87,12 @@ bzw. `admin:anlegen`. (`start-vorschau.sh` entfernt sie deshalb vor dem Start.)
 Advisory Lock gegen parallele Läufe, Buchführung in einer eigenen Tabelle). Er läuft als Superuser und setzt die
 Passwörter der Rollen aus den `CRM_*_PASSWORT`-Variablen; in den SQL-Dateien stehen nie Passwörter. Ein zweiter Lauf
 tut nichts.
+
+- `tsx` ist eine normale Abhängigkeit (nicht nur für Entwicklung): `npm run migrate` und `npm run admin:anlegen`
+  gehören zum Ausrollen und laufen auch nach `npm ci --omit=dev`.
+- Migration `009` setzt für `crm_app`, `crm_admin` und `crm_auth` `statement_timeout = 30s` und
+  `idle_in_transaction_session_timeout = 60s` (clusterweite Rolleneinstellung, gilt für neue Verbindungen; nach dem
+  Ausrollen die Anwendung neu starten). Der Superuser bleibt ohne Limit.
 
 ## Entwicklungsdaten (Seed)
 
