@@ -4,6 +4,7 @@ build/
 .env
 .zugangsdaten-dev
 vorschau.log
+.vorschau.pid
 test-results/
 playwright-report/
 

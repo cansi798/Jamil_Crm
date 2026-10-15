@@ -95,7 +95,8 @@ async function setzePasswoerter(
 	}
 }
 
-function urlAusUmgebung(): string {
+/** Superuser-URL aus PGHOST/PGPORT/PGUSER/PGDATABASE/PGPASSWORD (für Migrationen und Entwicklungsdaten). */
+export function urlAusUmgebung(): string {
 	const { PGHOST = 'localhost', PGPORT = '5432', PGUSER, PGDATABASE, PGPASSWORD } = process.env;
 	if (!PGUSER || !PGDATABASE || !PGPASSWORD) {
 		throw new Error('PGUSER, PGDATABASE und PGPASSWORD müssen gesetzt sein.');
