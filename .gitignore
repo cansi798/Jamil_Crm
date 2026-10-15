@@ -6,3 +6,8 @@ build/
 vorschau.log
 test-results/
 playwright-report/
+
+.env.*
+!.env.example
+.DS_Store
+vite.config.ts.timestamp-*

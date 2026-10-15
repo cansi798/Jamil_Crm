@@ -1,0 +1,24 @@
+{
+	"name": "crm-system",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev --host 0.0.0.0 --port 3000",
+		"build": "vite build",
+		"preview": "vite preview --host 0.0.0.0 --port 3000",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"test": "vitest run tests/unit",
+		"test:db": "vitest run tests/db --passWithNoTests"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-node": "^5.5.7",
+		"@sveltejs/kit": "^2.70.3",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"svelte": "^5.57.2",
+		"svelte-check": "^4.7.6",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.4",
+		"vitest": "^5.0.5"
+	}
+}
