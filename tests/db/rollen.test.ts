@@ -64,13 +64,13 @@ describe('Migrationen und DB-Rollen', () => {
 		}
 	});
 
-	it('crm_app und crm_admin sind weder Superuser noch umgehen sie RLS', async () => {
+	it('crm_app, crm_admin und crm_auth sind weder Superuser noch umgehen sie RLS', async () => {
 		const sql = postgres(db.urlSuper, { max: 1 });
 		try {
 			const zeilen = await sql`
 				select rolname, rolsuper, rolbypassrls, rolcanlogin, rolcreatedb, rolcreaterole
-				from pg_roles where rolname in ('crm_app', 'crm_admin') order by rolname`;
-			expect(zeilen).toHaveLength(2);
+				from pg_roles where rolname in ('crm_app', 'crm_admin', 'crm_auth') order by rolname`;
+			expect(zeilen).toHaveLength(3);
 			for (const z of zeilen) {
 				expect(z.rolsuper).toBe(false);
 				expect(z.rolbypassrls).toBe(false);
@@ -83,10 +83,11 @@ describe('Migrationen und DB-Rollen', () => {
 		}
 	});
 
-	it('crm_app und crm_admin können sich mit ihren Passwörtern anmelden', async () => {
+	it('crm_app, crm_admin und crm_auth können sich mit ihren Passwörtern anmelden', async () => {
 		for (const [url, erwartet] of [
 			[db.urlApp, 'crm_app'],
-			[db.urlAdmin, 'crm_admin']
+			[db.urlAdmin, 'crm_admin'],
+			[db.urlAuth, 'crm_auth']
 		] as const) {
 			const sql = postgres(url, { max: 1 });
 			try {
@@ -95,6 +96,25 @@ describe('Migrationen und DB-Rollen', () => {
 			} finally {
 				await sql.end();
 			}
+		}
+	});
+
+	it('crm_auth hat nur USAGE auf Schema app und keinerlei Tabellenrechte', async () => {
+		const sql = postgres(db.urlSuper, { max: 1 });
+		try {
+			const [s] = await sql`
+				select has_schema_privilege('crm_auth', 'app', 'usage') as nutzbar,
+					has_schema_privilege('crm_auth', 'app', 'create') as anlegen`;
+			expect(s).toEqual({ nutzbar: true, anlegen: false });
+			const tabellen = await sql`
+				select c.relname,
+					has_table_privilege('crm_auth', c.oid, 'select, insert, update, delete, truncate, references, trigger') as irgendeins
+				from pg_class c join pg_namespace n on n.oid = c.relnamespace
+				where n.nspname = 'app' and c.relkind = 'r'`;
+			expect(tabellen.length).toBeGreaterThan(0);
+			for (const t of tabellen) expect(t.irgendeins, t.relname).toBe(false);
+		} finally {
+			await sql.end();
 		}
 	});
 

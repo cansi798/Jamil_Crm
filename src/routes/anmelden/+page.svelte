@@ -45,6 +45,7 @@
 	button {
 		font: inherit;
 		padding: 0.5rem;
+		min-height: 2.75rem;
 	}
 	.fehler {
 		color: #b00020;

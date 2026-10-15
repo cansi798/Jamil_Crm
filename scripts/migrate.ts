@@ -9,7 +9,8 @@ const SPERR_SCHLUESSEL = 748_113_001;
 
 const PASSWORT_VARIABLEN: Record<string, string> = {
 	crm_app: 'CRM_APP_PASSWORT',
-	crm_admin: 'CRM_ADMIN_PASSWORT'
+	crm_admin: 'CRM_ADMIN_PASSWORT',
+	crm_auth: 'CRM_AUTH_PASSWORT'
 };
 
 export type MigrateOptionen = {
@@ -19,6 +20,8 @@ export type MigrateOptionen = {
 	appPasswort?: string;
 	/** Passwort der Rolle crm_admin (Standard: Umgebungsvariable CRM_ADMIN_PASSWORT). */
 	adminPasswort?: string;
+	/** Passwort der Rolle crm_auth (Standard: Umgebungsvariable CRM_AUTH_PASSWORT). */
+	authPasswort?: string;
 };
 
 /** Lädt `.env` im Projektverzeichnis (falls vorhanden); bereits gesetzte Variablen bleiben unverändert. */
@@ -61,7 +64,8 @@ export async function migrate(url: string, opts: MigrateOptionen = {}): Promise<
 		}
 		await setzePasswoerter(sql, {
 			crm_app: opts.appPasswort ?? process.env.CRM_APP_PASSWORT,
-			crm_admin: opts.adminPasswort ?? process.env.CRM_ADMIN_PASSWORT
+			crm_admin: opts.adminPasswort ?? process.env.CRM_ADMIN_PASSWORT,
+			crm_auth: opts.authPasswort ?? process.env.CRM_AUTH_PASSWORT
 		});
 	} finally {
 		await sql.unsafe('select pg_advisory_unlock($1)', [SPERR_SCHLUESSEL]).catch(() => {});

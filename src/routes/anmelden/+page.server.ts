@@ -4,7 +4,13 @@ import type { Actions, PageServerLoad } from './$types';
 import { systemAbfrage } from '$lib/server/db';
 import { hashePasswort, pruefePasswort } from '$lib/server/auth/passwort';
 import { pruefeVersuch, zuruecksetzen } from '$lib/server/auth/ratelimit';
-import { neueSitzung, setzeSitzungsCookie } from '$lib/server/auth/sitzung';
+import {
+	COOKIE_NAME,
+	loescheSitzung,
+	neueSitzung,
+	SitzungVerweigert,
+	setzeSitzungsCookie
+} from '$lib/server/auth/sitzung';
 
 /** Eine einzige Meldung für alle Fehlgründe, damit nicht erkennbar ist, ob die E-Mail existiert. */
 const FALSCH = 'E-Mail oder Passwort ist falsch.';
@@ -50,8 +56,18 @@ export const actions: Actions = {
 		if (!konto || !passt || !konto.aktiv) return fail(400, { fehler: FALSCH, email });
 
 		// Hinweis Stufe 1a/Task 6: totp_aktiv wird dort ausgewertet (zweiter Faktor vor Vollsitzung).
+		// Gesperrter Betrieb: die Datenbank verweigert die Sitzung -> dieselbe neutrale Meldung.
+		let token: string;
+		try {
+			token = await neueSitzung(konto.id);
+		} catch (fehler) {
+			if (fehler instanceof SitzungVerweigert) return fail(400, { fehler: FALSCH, email });
+			throw fehler;
+		}
 		zuruecksetzen(email);
-		const token = await neueSitzung(konto.id);
+		// Bestand an Sitzungen nicht anwachsen lassen: eine noch vorhandene alte Sitzung dieses Browsers beenden.
+		const alt = cookies.get(COOKIE_NAME);
+		if (alt) await loescheSitzung(alt);
 		setzeSitzungsCookie(cookies, token);
 		redirect(303, '/');
 	}

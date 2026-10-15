@@ -3,7 +3,7 @@ import { ladeEnv, migrate } from '../../scripts/migrate';
 
 const TEST_DB = 'crm_test';
 
-export type TestDb = { urlSuper: string; urlApp: string; urlAdmin: string };
+export type TestDb = { urlSuper: string; urlApp: string; urlAdmin: string; urlAuth: string };
 
 function url(benutzer: string, passwort: string, datenbank: string): string {
 	const host = process.env.PGHOST ?? 'localhost';
@@ -55,6 +55,7 @@ export async function frischeTestDb(): Promise<TestDb> {
 	return {
 		urlSuper,
 		urlApp: url('crm_app', pflicht('CRM_APP_PASSWORT'), TEST_DB),
-		urlAdmin: url('crm_admin', pflicht('CRM_ADMIN_PASSWORT'), TEST_DB)
+		urlAdmin: url('crm_admin', pflicht('CRM_ADMIN_PASSWORT'), TEST_DB),
+		urlAuth: url('crm_auth', pflicht('CRM_AUTH_PASSWORT'), TEST_DB)
 	};
 }

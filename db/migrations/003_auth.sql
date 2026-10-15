@@ -2,7 +2,9 @@
 -- Die Funktionen sind SECURITY DEFINER und gehören dem Migrations-Superuser crm (umgeht RLS). Deshalb:
 --   * fester search_path (app, pg_temp), damit niemand Objekte unterschieben kann,
 --   * jede Abfrage filtert ausdrücklich nach der übergebenen E-Mail bzw. dem Token-Hash,
---   * EXECUTE nur für crm_app (nie für public), passwort_hash liefert nur anmeldung_finden.
+--   * EXECUTE nur für die eigene Rolle crm_auth (nie für public, nie für crm_app): Wer fachlichen Code als crm_app
+--     ausführt (SQL-Injection, Bug), kann so keine Sitzung für fremde Benutzer erzeugen.
+--   * passwort_hash liefert nur anmeldung_finden.
 
 -- Ruling R6: crm_app darf passwort_hash weder lesen noch ändern (Anmeldung läuft über anmeldung_finden).
 -- INSERT bleibt tabellenweit (neue Benutzer brauchen einen Hash); Passwortwechsel später über eine eigene Funktion.
@@ -30,23 +32,41 @@ as $$
 	where b.email operator(public.=) p_email;
 $$;
 
--- Legt eine Sitzung an (nur der SHA-256 des Tokens wird gespeichert) und räumt abgelaufene Sitzungen desselben Benutzers weg.
+-- Legt eine Sitzung an (nur der SHA-256 des Tokens wird gespeichert) und räumt abgelaufene Sitzungen desselben
+-- Benutzers weg. Gibt false zurück (und legt nichts an), wenn der Benutzer unbekannt oder inaktiv ist oder sein
+-- Betrieb gesperrt ist.
 create function app.sitzung_anlegen(p_benutzer uuid, p_hash bytea, p_ablauf timestamptz)
-returns void
+returns boolean
 language plpgsql
 security definer
 set search_path = app, pg_temp
 as $$
 begin
+	if not exists (
+		select 1
+		from app.benutzer b
+		left join app.betriebe bt on bt.id = b.betrieb_id
+		where b.id = p_benutzer
+			and b.aktiv
+			and (b.betrieb_id is null or bt.abo_status <> 'gesperrt')
+	) then
+		return false;
+	end if;
 	delete from app.sitzungen s where s.benutzer_id = p_benutzer and s.laeuft_ab <= now();
 	insert into app.sitzungen (token_hash, benutzer_id, laeuft_ab) values (p_hash, p_benutzer, p_ablauf);
+	return true;
 end;
 $$;
 
 -- Prüft eine Sitzung. Liefert nichts, wenn sie unbekannt oder abgelaufen ist, der Benutzer inaktiv
--- oder der Betrieb gesperrt ist. Verlängert gültige Sitzungen gleitend auf +30 Tage.
+-- oder der Betrieb gesperrt ist. Verlängert die Sitzung gleitend auf +30 Tage, aber höchstens einmal pro Tag
+-- (nur wenn laeuft_ab unter +29 Tage liegt); dann wird auch letzte_aktivitaet gesetzt und verlaengert ist true.
+-- Der Aufrufer setzt nur bei verlaengert = true das Cookie neu, so bleiben Cookie und Datenbank im Gleichlauf.
 create function app.sitzung_pruefen(p_hash bytea)
-returns table (benutzer_id uuid, betrieb_id uuid, ist_admin boolean, rolle_rechte text[], betrieb_status text)
+returns table (
+	benutzer_id uuid, betrieb_id uuid, ist_admin boolean, rolle_rechte text[], betrieb_status text,
+	verlaengert boolean
+)
 language plpgsql
 security definer
 set search_path = app, pg_temp
@@ -54,8 +74,10 @@ as $$
 #variable_conflict use_column
 declare
 	v_benutzer uuid;
+	v_ablauf timestamptz;
+	v_verlaengert boolean := false;
 begin
-	select s.benutzer_id into v_benutzer
+	select s.benutzer_id, s.laeuft_ab into v_benutzer, v_ablauf
 	from app.sitzungen s
 	join app.benutzer b on b.id = s.benutzer_id
 	left join app.betriebe bt on bt.id = b.betrieb_id
@@ -67,15 +89,19 @@ begin
 		return;
 	end if;
 
-	update app.sitzungen s set laeuft_ab = now() + interval '30 days' where s.token_hash = p_hash;
-	update app.benutzer b set letzte_aktivitaet = now() where b.id = v_benutzer;
+	if v_ablauf < now() + interval '29 days' then
+		update app.sitzungen s set laeuft_ab = now() + interval '30 days' where s.token_hash = p_hash;
+		update app.benutzer b set letzte_aktivitaet = now() where b.id = v_benutzer;
+		v_verlaengert := true;
+	end if;
 
 	return query
 		select b.id,
 			b.betrieb_id,
 			exists (select 1 from app.plattform_admins pa where pa.benutzer_id = b.id),
 			coalesce(r.rechte, '{}'::text[]),
-			bt.abo_status
+			bt.abo_status,
+			v_verlaengert
 		from app.benutzer b
 		left join app.rollen r on r.id = b.rolle_id and r.betrieb_id = b.betrieb_id
 		left join app.betriebe bt on bt.id = b.betrieb_id
@@ -92,11 +118,11 @@ as $$
 	delete from app.sitzungen s where s.token_hash = p_hash;
 $$;
 
-revoke execute on function app.anmeldung_finden(public.citext) from public;
-revoke execute on function app.sitzung_anlegen(uuid, bytea, timestamptz) from public;
-revoke execute on function app.sitzung_pruefen(bytea) from public;
-revoke execute on function app.sitzung_loeschen(bytea) from public;
-grant execute on function app.anmeldung_finden(public.citext) to crm_app;
-grant execute on function app.sitzung_anlegen(uuid, bytea, timestamptz) to crm_app;
-grant execute on function app.sitzung_pruefen(bytea) to crm_app;
-grant execute on function app.sitzung_loeschen(bytea) to crm_app;
+revoke execute on function app.anmeldung_finden(public.citext) from public, crm_app;
+revoke execute on function app.sitzung_anlegen(uuid, bytea, timestamptz) from public, crm_app;
+revoke execute on function app.sitzung_pruefen(bytea) from public, crm_app;
+revoke execute on function app.sitzung_loeschen(bytea) from public, crm_app;
+grant execute on function app.anmeldung_finden(public.citext) to crm_auth;
+grant execute on function app.sitzung_anlegen(uuid, bytea, timestamptz) to crm_auth;
+grant execute on function app.sitzung_pruefen(bytea) to crm_auth;
+grant execute on function app.sitzung_loeschen(bytea) to crm_auth;

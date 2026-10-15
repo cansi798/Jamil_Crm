@@ -12,18 +12,36 @@ function hashe(token: string): Buffer {
 	return createHash('sha256').update(token).digest();
 }
 
-/** Legt eine Sitzung an und liefert das Token (für das Cookie). Gespeichert wird nur der Hash. */
+/** Die Datenbank hat die Sitzung abgelehnt: Benutzer inaktiv oder unbekannt, oder Betrieb gesperrt. */
+export class SitzungVerweigert extends Error {
+	constructor() {
+		super('Sitzung nicht erlaubt');
+		this.name = 'SitzungVerweigert';
+	}
+}
+
+/**
+ * Legt eine Sitzung an und liefert das Token (für das Cookie). Gespeichert wird nur der Hash.
+ * Wirft `SitzungVerweigert`, wenn der Benutzer inaktiv oder sein Betrieb gesperrt ist.
+ */
 export async function neueSitzung(benutzerId: string): Promise<string> {
 	const token = randomBytes(32).toString('base64url');
 	const ablauf = new Date(Date.now() + SITZUNG_SEKUNDEN * 1000);
-	await systemAbfrage(
-		(sql) => sql`select app.sitzung_anlegen(${benutzerId}::uuid, ${hashe(token)}::bytea, ${ablauf}::timestamptz)`
+	const [z] = await systemAbfrage(
+		(sql) =>
+			sql`select app.sitzung_anlegen(${benutzerId}::uuid, ${hashe(token)}::bytea, ${ablauf}::timestamptz) as ok`
 	);
+	if (z?.ok !== true) throw new SitzungVerweigert();
 	return token;
 }
 
-/** Prüft ein Token (verlängert dabei die Sitzung gleitend). `null`, wenn ungültig, abgelaufen oder gesperrt. */
-export async function pruefeSitzung(token: string): Promise<Nutzer | null> {
+/**
+ * Prüft ein Token. `null`, wenn ungültig, abgelaufen oder gesperrt. `verlaengert` ist true, wenn die Datenbank
+ * die Sitzung gerade (höchstens einmal pro Tag) auf +30 Tage verlängert hat – dann muss das Cookie neu gesetzt werden.
+ */
+export async function pruefeSitzungMitStatus(
+	token: string
+): Promise<{ nutzer: Nutzer; verlaengert: boolean } | null> {
 	if (!TOKEN_MUSTER.test(token)) return null;
 	const zeilen = await systemAbfrage(
 		(sql) => sql`select * from app.sitzung_pruefen(${hashe(token)}::bytea)`
@@ -31,12 +49,20 @@ export async function pruefeSitzung(token: string): Promise<Nutzer | null> {
 	const z = zeilen[0];
 	if (!z) return null;
 	return {
-		id: z.benutzer_id,
-		betriebId: z.betrieb_id,
-		istAdmin: z.ist_admin,
-		rechte: z.rolle_rechte,
-		betriebStatus: z.betrieb_status
+		nutzer: {
+			id: z.benutzer_id,
+			betriebId: z.betrieb_id,
+			istAdmin: z.ist_admin,
+			rechte: z.rolle_rechte,
+			betriebStatus: z.betrieb_status
+		},
+		verlaengert: z.verlaengert === true
 	};
+}
+
+/** Wie `pruefeSitzungMitStatus`, aber nur der Nutzer. */
+export async function pruefeSitzung(token: string): Promise<Nutzer | null> {
+	return (await pruefeSitzungMitStatus(token))?.nutzer ?? null;
 }
 
 export async function loescheSitzung(token: string): Promise<void> {

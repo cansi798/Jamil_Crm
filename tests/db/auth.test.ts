@@ -1,14 +1,20 @@
 import { createHash, randomBytes } from 'node:crypto';
 import postgres from 'postgres';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { frischeTestDb, type TestDb } from './setup';
 import { initDb, schliesseDb, systemAbfrage } from '../../src/lib/server/db';
-import { hashePasswort } from '../../src/lib/server/auth/passwort';
+import { hashePasswort, pruefePasswort } from '../../src/lib/server/auth/passwort';
 import { leereVersuche } from '../../src/lib/server/auth/ratelimit';
-import { COOKIE_NAME, loescheSitzung, neueSitzung, pruefeSitzung } from '../../src/lib/server/auth/sitzung';
+import { COOKIE_NAME, loescheSitzung, neueSitzung, pruefeSitzung, SitzungVerweigert } from '../../src/lib/server/auth/sitzung';
 import { actions, load } from '../../src/routes/anmelden/+page.server';
 import { POST as abmelden } from '../../src/routes/api/abmelden/+server';
 import { handle } from '../../src/hooks.server';
+
+// Wrapper um pruefePasswort, damit ein Test sehen kann, womit die Anmelde-Aktion gerufen hat.
+vi.mock('../../src/lib/server/auth/passwort', async (original) => {
+	const echt = await original<typeof import('../../src/lib/server/auth/passwort')>();
+	return { ...echt, pruefePasswort: vi.fn(echt.pruefePasswort) };
+});
 
 const PASSWORT = 'richtiges-Passwort-1';
 const FALSCH_MELDUNG = 'E-Mail oder Passwort ist falsch.';
@@ -37,11 +43,11 @@ function fakeCookies(start: Record<string, string> = {}) {
 	};
 }
 
-function loginEvent(email: string, passwort: string) {
+function loginEvent(email: string, passwort: string, cookieStart: Record<string, string> = {}) {
 	const form = new FormData();
 	form.set('email', email);
 	form.set('passwort', passwort);
-	const cookies = fakeCookies();
+	const cookies = fakeCookies(cookieStart);
 	const event = {
 		request: new Request('http://localhost/anmelden', { method: 'POST', body: form }),
 		cookies,
@@ -51,8 +57,8 @@ function loginEvent(email: string, passwort: string) {
 }
 
 /** Führt die Anmelde-Aktion aus; redirect() wirft, fail() wird zurückgegeben. */
-async function anmelden(email: string, passwort: string) {
-	const { event, cookies } = loginEvent(email, passwort);
+async function anmelden(email: string, passwort: string, cookieStart: Record<string, string> = {}) {
+	const { event, cookies } = loginEvent(email, passwort, cookieStart);
 	try {
 		const ergebnis = await actions.default(event);
 		return { ergebnis, umleitung: null as null | { status: number; location: string }, cookies };
@@ -73,7 +79,7 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 
 	beforeAll(async () => {
 		db = await frischeTestDb();
-		initDb({ urlApp: db.urlApp, urlAdmin: db.urlAdmin });
+		initDb({ urlApp: db.urlApp, urlAdmin: db.urlAdmin, urlAuth: db.urlAuth });
 		root = postgres(db.urlSuper, { max: 2, onnotice: () => {} });
 		const hash = await hashePasswort(PASSWORT);
 		const [tarif] = await root`insert into app.tarife (schluessel, name) values ('basis', 'Basis') returning id`;
@@ -147,9 +153,10 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 			}
 		});
 
-		it('Funktionen: Eigentümer crm, SECURITY DEFINER, fester search_path, nur crm_app darf ausführen', async () => {
+		it('Funktionen: Eigentümer crm, SECURITY DEFINER, fester search_path, nur crm_auth darf ausführen', async () => {
 			const funktionen = await root`
 				select p.proname, pg_get_userbyid(p.proowner) as eigentuemer, p.prosecdef, p.proconfig,
+					has_function_privilege('crm_auth', p.oid, 'execute') as auth_darf,
 					has_function_privilege('crm_app', p.oid, 'execute') as app_darf,
 					has_function_privilege('crm_admin', p.oid, 'execute') as admin_darf,
 					has_function_privilege('public', p.oid, 'execute') as public_darf
@@ -162,9 +169,44 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 				expect(f.eigentuemer, f.proname).toBe('crm');
 				expect(f.prosecdef, f.proname).toBe(true);
 				expect(String(f.proconfig), f.proname).toMatch(/search_path=app, pg_temp/);
-				expect(f.app_darf, f.proname).toBe(true);
+				expect(f.auth_darf, f.proname).toBe(true);
+				expect(f.app_darf, f.proname).toBe(false);
 				expect(f.admin_darf, f.proname).toBe(false);
 				expect(f.public_darf, f.proname).toBe(false);
+			}
+		});
+
+		it('crm_app kann keine der vier Funktionen aufrufen (keine Sitzung für fremde Benutzer erzeugbar)', async () => {
+			const app = postgres(db.urlApp, { max: 1, onnotice: () => {} });
+			try {
+				const aufrufe = [
+					() => app`select * from app.anmeldung_finden(${'anna@beispiel.test'}::public.citext)`,
+					() => app`select app.sitzung_anlegen(${adminId}::uuid, ${sha256('x')}::bytea, now() + interval '1 day')`,
+					() => app`select * from app.sitzung_pruefen(${sha256('x')}::bytea)`,
+					() => app`select app.sitzung_loeschen(${sha256('x')}::bytea)`
+				];
+				for (const aufruf of aufrufe) await expect(aufruf()).rejects.toThrow(/permission denied/);
+			} finally {
+				await app.end();
+			}
+			const rest = await root`select 1 from app.sitzungen where benutzer_id = ${adminId}`;
+			expect(rest).toHaveLength(0);
+		});
+
+		it('sitzung_anlegen verweigert (false, keine Zeile) bei inaktivem Benutzer und gesperrtem Betrieb', async () => {
+			const versuche: [string, string, boolean][] = [
+				['aktiv', benutzerA, true],
+				['inaktiv', benutzerInaktiv, false],
+				['gesperrt', benutzerGesperrt, false]
+			];
+			for (const [name, benutzer, erwartet] of versuche) {
+				const h = sha256(`anlegen-${name}`);
+				const [z] = await systemAbfrage(
+					(sql) => sql`select app.sitzung_anlegen(${benutzer}::uuid, ${h}::bytea, now() + interval '1 day') as ok`
+				);
+				expect(z.ok, name).toBe(erwartet);
+				const zeilen = await root`select 1 from app.sitzungen where token_hash = ${h}`;
+				expect(zeilen, name).toHaveLength(erwartet ? 1 : 0);
 			}
 		});
 
@@ -177,7 +219,7 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 			);
 			expect(z).toEqual({
 				benutzer_id: benutzerA, betrieb_id: betriebA, ist_admin: false,
-				rolle_rechte: ['kunden', 'einstellungen'], betrieb_status: 'aktiv'
+				rolle_rechte: ['kunden', 'einstellungen'], betrieb_status: 'aktiv', verlaengert: true
 			});
 			const [tage] = await root`
 				select extract(epoch from (laeuft_ab - now())) / 86400 as tage from app.sitzungen where token_hash = ${sha256(token)}`;
@@ -195,8 +237,27 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 				(sql) => sql`select * from app.sitzung_pruefen(${sha256(token)}::bytea)`
 			);
 			expect(z).toEqual({
-				benutzer_id: adminId, betrieb_id: null, ist_admin: true, rolle_rechte: [], betrieb_status: null
+				benutzer_id: adminId, betrieb_id: null, ist_admin: true, rolle_rechte: [], betrieb_status: null,
+				verlaengert: true
 			});
+		});
+
+		it('sitzung_pruefen: eine frisch verlängerte Sitzung wird nicht erneut geschrieben (verlaengert = false)', async () => {
+			const token = randomBytes(32).toString('base64url');
+			await root`insert into app.sitzungen (token_hash, benutzer_id, laeuft_ab)
+				values (${sha256(token)}, ${benutzerA}, now() + interval '29 days 12 hours')`;
+			await root`update app.benutzer set letzte_aktivitaet = null where id = ${benutzerA}`;
+			const [z] = await systemAbfrage(
+				(sql) => sql`select * from app.sitzung_pruefen(${sha256(token)}::bytea)`
+			);
+			expect(z.benutzer_id).toBe(benutzerA);
+			expect(z.verlaengert).toBe(false);
+			const [vorher] = await root`select laeuft_ab::text as ab from app.sitzungen where token_hash = ${sha256(token)}`;
+			await systemAbfrage((sql) => sql`select * from app.sitzung_pruefen(${sha256(token)}::bytea)`);
+			const [nachher] = await root`select laeuft_ab::text as ab from app.sitzungen where token_hash = ${sha256(token)}`;
+			expect(nachher.ab).toBe(vorher.ab);
+			const [b] = await root`select letzte_aktivitaet from app.benutzer where id = ${benutzerA}`;
+			expect(b.letzte_aktivitaet).toBeNull();
 		});
 
 		it('sitzung_pruefen: nichts bei abgelaufener Sitzung, inaktivem Benutzer, gesperrtem Betrieb, unbekanntem Token', async () => {
@@ -241,6 +302,11 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 			expect(hashes).toContain(sha256(token).toString('hex'));
 			expect(hashes).not.toContain(Buffer.from(token).toString('hex'));
 			expect(hashes).not.toContain(Buffer.from(token, 'base64url').toString('hex'));
+		});
+
+		it('neueSitzung wirft SitzungVerweigert für gesperrten Betrieb und inaktiven Benutzer', async () => {
+			await expect(neueSitzung(benutzerGesperrt)).rejects.toBeInstanceOf(SitzungVerweigert);
+			await expect(neueSitzung(benutzerInaktiv)).rejects.toBeInstanceOf(SitzungVerweigert);
 		});
 
 		it('pruefeSitzung liefert Nutzer; loescheSitzung macht sie ungültig', async () => {
@@ -291,14 +357,18 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 			expect(unbekannt.ergebnis).toMatchObject({ status: 400, data: { fehler: FALSCH_MELDUNG } });
 		});
 
-		it('inaktiver Benutzer und gesperrter Betrieb: richtiges Passwort → gleiche Meldung wie bei falschem Passwort', async () => {
+		it('inaktiver Benutzer und gesperrter Betrieb: richtiges Passwort → gleiche Meldung wie bei falschem Passwort, keine Sitzung', async () => {
 			const inaktiv = await anmelden('inaktiv@beispiel.test', PASSWORT);
 			expect(inaktiv.umleitung).toBeNull();
 			expect(inaktiv.ergebnis).toMatchObject({ status: 400, data: { fehler: FALSCH_MELDUNG } });
-			// gesperrter Betrieb: die Sitzung entsteht, wird aber nie gültig (sitzung_pruefen → nichts)
+			// gesperrter Betrieb: keine Sitzung, kein Cookie, dieselbe neutrale Meldung
+			await root`delete from app.sitzungen where benutzer_id = ${benutzerGesperrt}`;
 			const gesperrt = await anmelden('gesperrt@beispiel.test', PASSWORT);
-			expect(gesperrt.umleitung?.status).toBe(303);
-			expect(await pruefeSitzung(gesperrt.cookies.gesetzt[0].wert)).toBeNull();
+			expect(gesperrt.umleitung).toBeNull();
+			expect(gesperrt.cookies.gesetzt).toHaveLength(0);
+			expect(gesperrt.ergebnis).toMatchObject({ status: 400, data: { fehler: FALSCH_MELDUNG } });
+			const zeilen = await root`select 1 from app.sitzungen where benutzer_id = ${benutzerGesperrt}`;
+			expect(zeilen).toHaveLength(0);
 		});
 
 		it('fehlende oder fehlerhafte Felder → gleiche Meldung', async () => {
@@ -335,6 +405,33 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 			}
 		});
 
+		it('Anmeldung mit vorhandenem Sitzungs-Cookie löscht die alte Sitzung', async () => {
+			const alt = await neueSitzung(benutzerA);
+			const { umleitung, cookies } = await anmelden('anna@beispiel.test', PASSWORT, { [COOKIE_NAME]: alt });
+			expect(umleitung?.status).toBe(303);
+			expect(await pruefeSitzung(alt)).toBeNull();
+			const rest = await root`select 1 from app.sitzungen where token_hash = ${sha256(alt)}`;
+			expect(rest).toHaveLength(0);
+			expect(await pruefeSitzung(cookies.gesetzt[0].wert)).not.toBeNull();
+		});
+
+		it('bei unbekannter E-Mail wird trotzdem ein Argon2id-Dummy-Hash geprüft (nicht der eines Kontos)', async () => {
+			const spion = vi.mocked(pruefePasswort);
+			spion.mockClear();
+			await anmelden('niemand@beispiel.test', 'irgendwas');
+			expect(spion).toHaveBeenCalledTimes(1);
+			const [hash, passwort] = spion.mock.calls[0];
+			expect(hash).toMatch(/^\$argon2id\$/);
+			expect(passwort).toBe('irgendwas');
+			const echte = await root`select passwort_hash from app.benutzer`;
+			expect(echte.map((z) => z.passwort_hash)).not.toContain(hash);
+
+			spion.mockClear();
+			await anmelden('anna@beispiel.test', 'falsch');
+			expect(spion).toHaveBeenCalledTimes(1);
+			expect(echte.map((z) => z.passwort_hash)).toContain(spion.mock.calls[0][0]);
+		});
+
 		it('load: angemeldete Nutzer werden von der Anmeldeseite weggeleitet', () => {
 			expect(() => load({ locals: { nutzer: { id: 'x' } } } as never)).toThrow();
 			expect(load({ locals: { nutzer: null } } as never)).toBeUndefined();
@@ -355,6 +452,32 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 			expect(event.locals.nutzer).toMatchObject({ id: benutzerA, betriebId: betriebA });
 		});
 
+		it('Sitzung älter als die Schwelle: Cookie wird mit 30 Tagen neu gesetzt, DB verlängert', async () => {
+			const token = randomBytes(32).toString('base64url');
+			await root`insert into app.sitzungen (token_hash, benutzer_id, laeuft_ab)
+				values (${sha256(token)}, ${benutzerA}, now() + interval '10 days')`;
+			const { event, cookies } = await mitCookie(token);
+			expect(event.locals.nutzer).toMatchObject({ id: benutzerA });
+			expect(cookies.gesetzt).toHaveLength(1);
+			expect(cookies.gesetzt[0]).toMatchObject({ name: COOKIE_NAME, wert: token });
+			expect(cookies.gesetzt[0].opts).toMatchObject({
+				httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 30 * 24 * 60 * 60
+			});
+			const [{ tage }] = await root`
+				select extract(epoch from (laeuft_ab - now())) / 86400 as tage from app.sitzungen where token_hash = ${sha256(token)}`;
+			expect(Number(tage)).toBeGreaterThan(29.99);
+		});
+
+		it('frische Sitzung: weder Cookie noch DB-Schreibzugriff', async () => {
+			const token = await neueSitzung(benutzerA);
+			const [vorher] = await root`select laeuft_ab::text as ab from app.sitzungen where token_hash = ${sha256(token)}`;
+			const { event, cookies } = await mitCookie(token);
+			expect(event.locals.nutzer).toMatchObject({ id: benutzerA });
+			expect(cookies.gesetzt).toHaveLength(0);
+			const [nachher] = await root`select laeuft_ab::text as ab from app.sitzungen where token_hash = ${sha256(token)}`;
+			expect(nachher.ab).toBe(vorher.ab);
+		});
+
 		it('kein Cookie → locals.nutzer null', async () => {
 			const { event } = await mitCookie(undefined);
 			expect(event.locals.nutzer).toBeNull();
@@ -370,7 +493,9 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 		});
 
 		it('Sitzung eines gesperrten Betriebs → locals.nutzer null', async () => {
-			const token = await neueSitzung(benutzerGesperrt);
+			const token = randomBytes(32).toString('base64url');
+			await root`insert into app.sitzungen (token_hash, benutzer_id, laeuft_ab)
+				values (${sha256(token)}, ${benutzerGesperrt}, now() + interval '1 day')`;
 			const { event } = await mitCookie(token);
 			expect(event.locals.nutzer).toBeNull();
 		});

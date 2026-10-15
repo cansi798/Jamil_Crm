@@ -12,7 +12,7 @@ describe('DB-Zugriffsschicht mit Mandantenkontext', () => {
 
 	beforeAll(async () => {
 		db = await frischeTestDb();
-		initDb({ urlApp: db.urlApp, urlAdmin: db.urlAdmin });
+		initDb({ urlApp: db.urlApp, urlAdmin: db.urlAdmin, urlAuth: db.urlAuth });
 	});
 
 	afterAll(async () => {
@@ -58,9 +58,9 @@ describe('DB-Zugriffsschicht mit Mandantenkontext', () => {
 		expect(zeile.admin).toBeNull();
 	});
 
-	it('systemAbfrage läuft als crm_app ohne Kontext', async () => {
+	it('systemAbfrage läuft als crm_auth ohne Kontext', async () => {
 		const [zeile] = await systemAbfrage((sql) => sql`select current_user as rolle`);
-		expect(zeile.rolle).toBe('crm_app');
+		expect(zeile.rolle).toBe('crm_auth');
 	});
 
 	it('Fehler in fn → Rollback', async () => {

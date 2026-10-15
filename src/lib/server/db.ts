@@ -1,9 +1,10 @@
 import postgres from 'postgres';
 
 /**
- * DB-Zugriffsschicht. Zwei Pools mit eingeschränkten Rollen (nie der Superuser `crm`):
- * - `crm_app` für alle fachlichen Abfragen (mit Mandantenkontext) und die Anmelde-Funktionen,
- * - `crm_admin` für die Plattform-Verwaltung.
+ * DB-Zugriffsschicht. Drei Pools mit eingeschränkten Rollen (nie der Superuser `crm`):
+ * - `crm_app` für alle fachlichen Abfragen (mit Mandantenkontext),
+ * - `crm_admin` für die Plattform-Verwaltung,
+ * - `crm_auth` nur für die Anmelde-/Sitzungsfunktionen (`systemAbfrage`); fachlicher Code läuft nie damit.
  *
  * Der Mandantenkontext steht in Sitzungsvariablen, die per `set_config(..., true)` nur innerhalb
  * derselben Transaktion gelten. Dadurch kann er nie in eine andere Anfrage der Verbindung durchsickern.
@@ -12,9 +13,9 @@ import postgres from 'postgres';
 export type Sql = postgres.Sql;
 export type TransactionSql = postgres.TransactionSql;
 export type Kontext = { betriebId: string; benutzerId: string };
-export type DbUrls = { urlApp: string; urlAdmin: string };
+export type DbUrls = { urlApp: string; urlAdmin: string; urlAuth: string };
 
-type Pools = { app: Sql; admin: Sql };
+type Pools = { app: Sql; admin: Sql; auth: Sql };
 
 let konfiguration: DbUrls | null = null;
 let pools: Pools | null = null;
@@ -33,7 +34,8 @@ function pflicht(name: string): string {
 
 /**
  * Bestimmt die Verbindungs-URLs: `DATABASE_URL_APP` / `DATABASE_URL_ADMIN`, sonst aus
- * `PGHOST`, `PGPORT`, `PGDATABASE` plus `CRM_APP_PASSWORT` / `CRM_ADMIN_PASSWORT` zusammengesetzt.
+ * `PGHOST`, `PGPORT`, `PGDATABASE` plus `CRM_APP_PASSWORT` / `CRM_ADMIN_PASSWORT` zusammengesetzt;
+ * `DATABASE_URL_AUTH` bzw. `CRM_AUTH_PASSWORT` für die Rolle `crm_auth`.
  */
 function urlsAusUmgebung(): DbUrls {
 	const baue = (rolle: string, passwortName: string): string => {
@@ -45,7 +47,8 @@ function urlsAusUmgebung(): DbUrls {
 	};
 	return {
 		urlApp: umgebung('DATABASE_URL_APP') ?? baue('crm_app', 'CRM_APP_PASSWORT'),
-		urlAdmin: umgebung('DATABASE_URL_ADMIN') ?? baue('crm_admin', 'CRM_ADMIN_PASSWORT')
+		urlAdmin: umgebung('DATABASE_URL_ADMIN') ?? baue('crm_admin', 'CRM_ADMIN_PASSWORT'),
+		urlAuth: umgebung('DATABASE_URL_AUTH') ?? baue('crm_auth', 'CRM_AUTH_PASSWORT')
 	};
 }
 
@@ -78,6 +81,7 @@ function pruefeKeinSuperuser(url: string, variable: string): void {
 function pruefeUrls(urls: DbUrls): void {
 	pruefeKeinSuperuser(urls.urlApp, 'DATABASE_URL_APP');
 	pruefeKeinSuperuser(urls.urlAdmin, 'DATABASE_URL_ADMIN');
+	pruefeKeinSuperuser(urls.urlAuth, 'DATABASE_URL_AUTH');
 }
 
 function oeffnePool(url: string): Sql {
@@ -91,6 +95,7 @@ export function initDb(urls: DbUrls): void {
 		// Alte Pools im Hintergrund schließen; Aufrufer, die sauber wechseln wollen, rufen vorher schliesseDb().
 		void pools.app.end({ timeout: 5 }).catch(() => {});
 		void pools.admin.end({ timeout: 5 }).catch(() => {});
+		void pools.auth.end({ timeout: 5 }).catch(() => {});
 		pools = null;
 	}
 	konfiguration = { ...urls };
@@ -100,7 +105,13 @@ export function initDb(urls: DbUrls): void {
 export async function schliesseDb(): Promise<void> {
 	const alt = pools;
 	pools = null;
-	if (alt) await Promise.all([alt.app.end({ timeout: 5 }), alt.admin.end({ timeout: 5 })]);
+	if (alt) {
+		await Promise.all([
+			alt.app.end({ timeout: 5 }),
+			alt.admin.end({ timeout: 5 }),
+			alt.auth.end({ timeout: 5 })
+		]);
+	}
 }
 
 function hole(): Pools {
@@ -111,7 +122,11 @@ function hole(): Pools {
 			konfiguration = ausUmgebung;
 		}
 		const urls = konfiguration;
-		pools = { app: oeffnePool(urls.urlApp), admin: oeffnePool(urls.urlAdmin) };
+		pools = {
+			app: oeffnePool(urls.urlApp),
+			admin: oeffnePool(urls.urlAdmin),
+			auth: oeffnePool(urls.urlAuth)
+		};
 	}
 	return pools;
 }
@@ -150,9 +165,9 @@ export async function mitAdmin<T>(adminId: string, fn: (sql: TransactionSql) => 
 }
 
 /**
- * Abfrage als `crm_app` OHNE Kontext. Darf nur SECURITY-DEFINER-Funktionen aufrufen
- * (Anmeldung, Sitzungsprüfung) – ohne Kontext liefert RLS auf allen Tabellen keine Zeilen.
+ * Abfrage als `crm_auth` OHNE Kontext. Die Rolle hat keine Tabellenrechte und darf nur die SECURITY-DEFINER-Funktionen
+ * für Anmeldung und Sitzungen aufrufen (nur dafür verwenden, nie für fachliche Abfragen).
  */
 export async function systemAbfrage<T>(fn: (sql: TransactionSql) => Promise<T>): Promise<T> {
-	return inTransaktion(hole().app, {}, fn);
+	return inTransaktion(hole().auth, {}, fn);
 }
