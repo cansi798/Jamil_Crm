@@ -28,7 +28,9 @@ create table app.rollen (
 	betrieb_id uuid not null references app.betriebe (id) on delete cascade,
 	name text not null,
 	rechte text[] not null default '{}',
-	vorlage text
+	vorlage text,
+	-- Ziel des zusammengesetzten Fremdschlüssels aus benutzer: Rolle und Benutzer müssen im selben Betrieb liegen.
+	unique (id, betrieb_id)
 );
 create index rollen_betrieb_idx on app.rollen (betrieb_id);
 
@@ -39,11 +41,15 @@ create table app.benutzer (
 	email public.citext not null unique,
 	name text not null,
 	passwort_hash text not null,
-	rolle_id uuid references app.rollen (id),
+	rolle_id uuid,
 	aktiv boolean not null default true,
 	totp_geheim text,
 	totp_aktiv boolean not null default false,
-	letzte_aktivitaet timestamptz
+	letzte_aktivitaet timestamptz,
+	-- Mandantentreue: FK-Prüfungen umgehen RLS, daher darf rolle_id nur auf eine Rolle des eigenen Betriebs zeigen.
+	foreign key (rolle_id, betrieb_id) references app.rollen (id, betrieb_id),
+	-- Bei betrieb_id NULL würde der FK (MATCH SIMPLE) nicht geprüft, also dann keine Rolle erlauben.
+	check (rolle_id is null or betrieb_id is not null)
 );
 create index benutzer_betrieb_idx on app.benutzer (betrieb_id);
 

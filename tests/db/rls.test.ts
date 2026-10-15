@@ -209,6 +209,46 @@ describe('Kernschema und Mandantentrennung (RLS)', () => {
 			expect(r.count).toBe(0);
 		});
 
+		it('INSERT eines A-Benutzers mit rolle_id einer B-Rolle → Fehler (Fremdschlüssel)', async () => {
+			await expect(
+				alsApp(
+					betriebA,
+					(tx) => tx`insert into app.benutzer (betrieb_id, email, name, passwort_hash, rolle_id)
+						values (${betriebA}, 'z@example.test', 'Z', 'hash', ${rolleB})`
+				)
+			).rejects.toThrow(/foreign key|violates/i);
+		});
+
+		it('UPDATE eines A-Benutzers auf rolle_id einer B-Rolle → Fehler (Fremdschlüssel)', async () => {
+			await expect(
+				alsApp(
+					betriebA,
+					(tx) => tx`update app.benutzer set rolle_id = ${rolleB} where id = ${benutzerA}`
+				)
+			).rejects.toThrow(/foreign key|violates/i);
+			const [z] = await root`select rolle_id from app.benutzer where id = ${benutzerA}`;
+			expect(z.rolle_id).toBe(rolleA);
+		});
+
+		it('rolle_id einer Rolle des eigenen Betriebs funktioniert weiterhin', async () => {
+			const [neu] = await root`
+				insert into app.rollen (betrieb_id, name, rechte) values (${betriebA}, 'Zweite A', ${['kunden']}) returning id`;
+			const r = await alsApp(
+				betriebA,
+				(tx) => tx`update app.benutzer set rolle_id = ${neu.id} where id = ${benutzerA}`
+			);
+			expect(r.count).toBe(1);
+			await root`update app.benutzer set rolle_id = ${rolleA} where id = ${benutzerA}`;
+			await root`delete from app.rollen where id = ${neu.id}`;
+		});
+
+		it('Benutzer ohne Betrieb darf keine rolle_id haben (CHECK)', async () => {
+			await expect(
+				root`insert into app.benutzer (betrieb_id, email, name, passwort_hash, rolle_id)
+					values (null, 'n@example.test', 'N', 'hash', ${rolleA})`
+			).rejects.toThrow(/check/i);
+		});
+
 		it('E-Mail ist ohne Beachtung der Groß-/Kleinschreibung eindeutig (citext)', async () => {
 			await expect(
 				root`insert into app.benutzer (betrieb_id, email, name, passwort_hash)

@@ -17,6 +17,7 @@ describe('Migrationen und DB-Rollen', () => {
 		const url = await leereDb('crm_test_migrate');
 		const angewendet = await migrate(url);
 		expect(angewendet[0]).toBe('001_rollen.sql');
+		expect(angewendet).toContain('002_kern.sql');
 		expect(angewendet).toEqual([...angewendet].sort());
 		expect(await migrate(url)).toEqual([]);
 		expect(await migrate(url)).toEqual([]);
