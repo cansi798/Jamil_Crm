@@ -10,7 +10,9 @@ const gruppiere = (geheimnis: string) => geheimnis.replace(/(.{4})(?=.)/g, '$1 '
  * Pflicht-Einrichtung der Zwei-Faktor-Anmeldung (Chef, Plattform-Admin). Erreichbar nur mit Vor-Sitzung:
  * nach dem Passwort, aber vor dem ersten Code. Ein aktives Geheimnis wird nie angezeigt.
  */
-export const load: PageServerLoad = async ({ locals, cookies }) => {
+export const load: PageServerLoad = async ({ locals, cookies, setHeaders }) => {
+	// Die Antwort enthält Geheimnis und QR-Code: nie zwischenspeichern.
+	setHeaders({ 'cache-control': 'no-store' });
 	if (locals.nutzer) redirect(303, '/');
 	const token = cookies.get(VORSITZUNG_COOKIE);
 	const daten = token ? await vorsitzungsDaten(token) : null;

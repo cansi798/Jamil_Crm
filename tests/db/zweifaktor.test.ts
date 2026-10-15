@@ -76,8 +76,13 @@ function formEvent(cookies: Cookies, felder: Record<string, string>, pfad = '/')
 		url: new URL(`http://localhost${pfad}`)
 	} as never;
 }
-const seitenEvent = (cookies: Cookies, nutzer: unknown = null) =>
-	({ cookies, locals: { nutzer }, url: new URL('http://localhost/') }) as never;
+const seitenEvent = (cookies: Cookies, nutzer: unknown = null, kopfzeilen: Record<string, string> = {}) =>
+	({
+		cookies,
+		locals: { nutzer },
+		url: new URL('http://localhost/'),
+		setHeaders: (h: Record<string, string>) => Object.assign(kopfzeilen, h)
+	}) as never;
 
 const anmelden = (cookies: Cookies, email: string, passwort = PASSWORT) =>
 	ausfuehren(() => anmeldeAktion.default(formEvent(cookies, { email, passwort }, '/anmelden')));
@@ -128,7 +133,7 @@ describe('Zwei-Faktor-Anmeldung', () => {
 	beforeEach(async () => {
 		leereVersuche();
 		await root`delete from app.sitzungen`;
-		await root`update app.benutzer set totp_letzter_schritt = null, totp_fehlversuche = 0, totp_gesperrt_bis = null`;
+		await root`update app.benutzer set totp_letzter_schritt = null, totp_fehlversuche = 0, totp_gesperrt_bis = null, totp_sperr_stufe = 0`;
 		await root`update app.benutzer set totp_geheim = null, totp_aktiv = false where id in (${chefOhne}, ${adminOhne})`;
 	});
 
@@ -402,11 +407,48 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			expect(b.totp_gesperrt_bis).toBeNull();
 		});
 
+		it('Sperre verdoppelt sich bei jeder weiteren Sperre (15 Min., 30, 60, …, höchstens 24 Std.); Erfolg setzt zurück', async () => {
+			const falsch = code(geheimnisMonteurMit) === '123456' ? '654321' : '123456';
+			const sperrMinuten = async () => {
+				const [b] = await root`
+					select extract(epoch from (totp_gesperrt_bis - now())) / 60 as min, totp_sperr_stufe as stufe
+					from app.benutzer where id = ${monteurMit}`;
+				return { min: Number(b.min), stufe: b.stufe as number };
+			};
+			const sperreAusloesen = async () => {
+				const cookies = await mitVorsitzung('monteur-mit@beispiel.test');
+				for (let i = 0; i < 5; i++) await ausfuehren(() => codeAktion.default(formEvent(cookies, { code: falsch })));
+			};
+			for (const erwartet of [15, 30, 60, 120]) {
+				await sperreAusloesen();
+				const { min, stufe } = await sperrMinuten();
+				expect(min, `Stufe ${stufe}`).toBeGreaterThan(erwartet - 1);
+				expect(min).toBeLessThanOrEqual(erwartet);
+				// Sperre läuft ab, Zähler der Fehlversuche ist 0, Stufe bleibt (aufeinanderfolgende Sperren)
+				await root`update app.benutzer set totp_gesperrt_bis = now() - interval '1 second' where id = ${monteurMit}`;
+			}
+			// Obergrenze 24 Stunden
+			await root`update app.benutzer set totp_sperr_stufe = 15 where id = ${monteurMit}`;
+			await sperreAusloesen();
+			const { min } = await sperrMinuten();
+			expect(min).toBeGreaterThan(24 * 60 - 1);
+			expect(min).toBeLessThanOrEqual(24 * 60);
+			// Erfolgreicher Code setzt die Stufe zurück
+			await root`update app.benutzer set totp_gesperrt_bis = now() - interval '1 second' where id = ${monteurMit}`;
+			const cookies = await mitVorsitzung('monteur-mit@beispiel.test');
+			const ok = await ausfuehren(() => codeAktion.default(formEvent(cookies, { code: code(geheimnisMonteurMit) })));
+			expect(ok.umleitung).toEqual({ status: 303, location: '/' });
+			const [b] = await root`select totp_sperr_stufe, totp_gesperrt_bis from app.benutzer where id = ${monteurMit}`;
+			expect(b.totp_sperr_stufe).toBe(0);
+			expect(b.totp_gesperrt_bis).toBeNull();
+		});
+
 		it('gesperrte Konten: auch ein bereits vorhandene Vor-Sitzung nimmt keinen Code mehr an', async () => {
 			const cookies = await mitVorsitzung('monteur-mit@beispiel.test');
 			await root`update app.benutzer set totp_gesperrt_bis = now() + interval '10 minutes' where id = ${monteurMit}`;
 			const r = await ausfuehren(() => codeAktion.default(formEvent(cookies, { code: code(geheimnisMonteurMit) })));
-			expect(r.umleitung?.location ?? '').toMatch(/^\/anmelden|^$/);
+			expect(r.umleitung).toEqual({ status: 303, location: '/anmelden?hinweis=gesperrt' });
+			expect(r.ergebnis).toBeNull();
 			expect(await vollSitzungen(monteurMit)).toHaveLength(0);
 		});
 
@@ -414,7 +456,7 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			const cookies = await mitVorsitzung('monteur-mit@beispiel.test');
 			await root`update app.sitzungen set laeuft_ab = now() - interval '1 second' where benutzer_id = ${monteurMit}`;
 			const r = await ausfuehren(() => codeAktion.default(formEvent(cookies, { code: code(geheimnisMonteurMit) })));
-			expect(r.umleitung?.location).toMatch(/^\/anmelden/);
+			expect(r.umleitung).toEqual({ status: 303, location: '/anmelden?hinweis=abgelaufen' });
 			expect(await vollSitzungen(monteurMit)).toHaveLength(0);
 		});
 
@@ -423,20 +465,34 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			await root`update app.betriebe set abo_status = 'gesperrt' where id = ${betriebA}`;
 			try {
 				const r = await ausfuehren(() => codeAktion.default(formEvent(cookies, { code: code(geheimnisMonteurMit) })));
-				expect(r.umleitung?.location ?? '').toMatch(/^\/anmelden|^$/);
+				expect(r.umleitung).toEqual({ status: 303, location: '/anmelden?hinweis=abgelaufen' });
 				expect(await vollSitzungen(monteurMit)).toHaveLength(0);
 			} finally {
 				await root`update app.betriebe set abo_status = 'aktiv' where id = ${betriebA}`;
 			}
 		});
 
-		it('Vor-Sitzung des Benutzers A kann nicht für Benutzer B eingelöst werden (Adressierung nur über den Hash)', async () => {
-			// A hat eine Vor-Sitzung und kennt den Code von B nicht: der Code von B passt nicht zu A
-			const cookies = await mitVorsitzung('monteur-mit@beispiel.test');
-			const r = await ausfuehren(() => codeAktion.default(formEvent(cookies, { code: code(geheimnisChefMit) })));
+		it('Vor-Sitzung des Benutzers A kann den zweiten Faktor von Benutzer B nicht abschließen', async () => {
+			// A hat eine gültige Vor-Sitzung. Selbst mit dem richtigen Code von B (den A hier "kennt") und mit
+			// allen Mitteln, die Funktion mit dem Hash von A zu rufen, entsteht nie eine Sitzung für B.
+			const cookiesA = await mitVorsitzung('monteur-mit@beispiel.test');
+			const tokenA = cookiesA.gesetzt[0].wert;
+			const r = await ausfuehren(() => codeAktion.default(formEvent(cookiesA, { code: code(geheimnisChefMit) })));
+			expect(r.umleitung).toBeNull();
 			expect(r.ergebnis).toMatchObject({ status: 400 });
+			const schritt = Math.floor(Date.now() / SCHRITT_MS);
+			const neu = sha256('neu-fuer-b');
+			const [z] = await systemAbfrage(
+				(sql) => sql`select app.zweiten_faktor_abschliessen(${sha256(tokenA)}::bytea, ${schritt}::bigint, ${neu}::bytea, now() + interval '1 day') as ok`
+			);
+			// Der Schritt ist gültig und neu, die Funktion löst die Sitzung aber nur für den Benutzer von A ein
+			expect(z.ok).toBe(true);
+			const neue = await root`select benutzer_id from app.sitzungen where token_hash = ${neu}`;
+			expect(neue).toHaveLength(1);
+			expect(neue[0].benutzer_id).toBe(monteurMit);
 			expect(await vollSitzungen(chefMit)).toHaveLength(0);
-			expect(await vollSitzungen(monteurMit)).toHaveLength(0);
+			const [b] = await root`select totp_letzter_schritt from app.benutzer where id = ${chefMit}`;
+			expect(b.totp_letzter_schritt).toBeNull();
 		});
 	});
 
@@ -461,10 +517,62 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			expect(d.qr).toMatch(/^data:image\/png;base64,/);
 			const roh = d.geheimnis.replace(/\s/g, '');
 			expect(roh).toMatch(/^[A-Z2-7]{32}$/);
+			// Der Entwurf steht nur an der Vor-Sitzung, nie am Benutzer
 			const [b] = await root`select totp_geheim, totp_aktiv from app.benutzer where id = ${chefOhne}`;
-			expect(b.totp_geheim).toBe(roh);
+			expect(b.totp_geheim).toBeNull();
 			expect(b.totp_aktiv).toBe(false);
+			const [v] = await root`select totp_entwurf from app.sitzungen where token_hash = ${sha256(cookies.gesetzt[0].wert)}`;
+			expect(v.totp_entwurf).toBe(roh);
 			expect((await lade(cookies)).geheimnis).toBe(d.geheimnis);
+		});
+
+		it('load: Antwort mit Geheimnis und QR-Code wird nicht zwischengespeichert (Cache-Control: no-store)', async () => {
+			const cookies = await mitVorsitzung('chef-ohne@beispiel.test');
+			const kopf: Record<string, string> = {};
+			await einrichtungLoad(seitenEvent(cookies, null, kopf));
+			expect(kopf['cache-control']).toBe('no-store');
+		});
+
+		it('Entwurf gehört nur zu seiner Vor-Sitzung: eine zweite Vor-Sitzung desselben Kontos sieht ihn nicht', async () => {
+			const a = await mitVorsitzung('chef-ohne@beispiel.test');
+			const da = (await lade(a)).geheimnis.replace(/\s/g, '');
+			const b = await mitVorsitzung('chef-ohne@beispiel.test');
+			const db_ = (await lade(b)).geheimnis.replace(/\s/g, '');
+			expect(db_).not.toBe(da);
+			// ein Code zum Entwurf von A reicht in der Vor-Sitzung B nicht (und umgekehrt)
+			const rb = await ausfuehren(() => einrichtungAktion.default(formEvent(b, { code: code(da) })));
+			expect(rb.ergebnis).toMatchObject({ status: 400 });
+			const [u] = await root`select totp_aktiv, totp_geheim from app.benutzer where id = ${chefOhne}`;
+			expect(u.totp_aktiv).toBe(false);
+			expect(u.totp_geheim).toBeNull();
+			// Schließt der echte Chef (B) die Einrichtung ab, ist A damit hinfällig
+			const ok = await ausfuehren(() => einrichtungAktion.default(formEvent(b, { code: code(db_) })));
+			expect(ok.umleitung).toEqual({ status: 303, location: '/' });
+			const [n] = await root`select totp_geheim from app.benutzer where id = ${chefOhne}`;
+			expect(n.totp_geheim).toBe(db_);
+			const ra = await ausfuehren(() => einrichtungAktion.default(formEvent(a, { code: code(da, Date.now() + SCHRITT_MS) })));
+			expect(ra.umleitung).toEqual({ status: 303, location: '/anmelden?hinweis=abgelaufen' });
+			const [n2] = await root`select totp_geheim from app.benutzer where id = ${chefOhne}`;
+			expect(n2.totp_geheim).toBe(db_);
+		});
+
+		it('Entwurf einer abgelaufenen Vor-Sitzung kann nicht aktiviert werden', async () => {
+			const cookies = await mitVorsitzung('chef-ohne@beispiel.test');
+			const roh = (await lade(cookies)).geheimnis.replace(/\s/g, '');
+			const token = cookies.gesetzt[0].wert;
+			await root`update app.sitzungen set laeuft_ab = now() - interval '1 second' where benutzer_id = ${chefOhne}`;
+			const r = await ausfuehren(() => einrichtungAktion.default(formEvent(cookies, { code: code(roh) })));
+			expect(r.umleitung).toEqual({ status: 303, location: '/anmelden?hinweis=abgelaufen' });
+			// auch direkt über die Funktion
+			const neu = sha256('neu-abgelaufen');
+			const [z] = await systemAbfrage(
+				(sql) => sql`select app.zweiten_faktor_abschliessen(${sha256(token)}::bytea, ${Math.floor(Date.now() / SCHRITT_MS)}::bigint, ${neu}::bytea, now() + interval '1 day') as ok`
+			);
+			expect(z.ok).toBe(false);
+			expect(await root`select 1 from app.sitzungen where token_hash = ${neu}`).toHaveLength(0);
+			const [u] = await root`select totp_aktiv, totp_geheim from app.benutzer where id = ${chefOhne}`;
+			expect(u.totp_aktiv).toBe(false);
+			expect(u.totp_geheim).toBeNull();
 		});
 
 		it('Einrichtung abschließen: richtiger Code → 2FA aktiv, volle Sitzung, Vor-Sitzung weg', async () => {
@@ -476,7 +584,7 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			expect(r.umleitung).toEqual({ status: 303, location: '/' });
 			const [b] = await root`select totp_aktiv, totp_geheim from app.benutzer where id = ${chefOhne}`;
 			expect(b.totp_aktiv).toBe(true);
-			expect(b.totp_geheim).toBe(roh);
+			expect(b.totp_geheim).toBe(roh); // erst jetzt wird der Entwurf zum Geheimnis des Benutzers
 			const voll = cookies.gesetzt.find((c) => c.name === COOKIE_NAME);
 			expect((await pruefeSitzung(voll!.wert))?.id).toBe(chefOhne);
 			expect(await pruefeSitzung(vorToken)).toBeNull();
@@ -590,7 +698,7 @@ describe('Zwei-Faktor-Anmeldung', () => {
 					return fn(tx);
 				}) as Promise<T>;
 			try {
-				for (const spalte of ['totp_geheim', 'totp_aktiv', 'totp_letzter_schritt', 'totp_fehlversuche', 'totp_gesperrt_bis']) {
+				for (const spalte of ['totp_geheim', 'totp_aktiv', 'totp_letzter_schritt', 'totp_fehlversuche', 'totp_gesperrt_bis', 'totp_sperr_stufe']) {
 					await expect(alsApp((tx) => tx.unsafe(`select ${spalte} from app.benutzer`)), `select ${spalte}`)
 						.rejects.toThrow(/permission denied/);
 				}
@@ -642,6 +750,28 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			);
 			expect(z.ok).toBe(false);
 			expect(await root`select 1 from app.sitzungen where token_hash = ${neu}`).toHaveLength(0);
+		});
+
+		it('Zeitschritt: die Datenbank akzeptiert nur Schritte nahe ihrer Uhr (±1); abgelehnte ändern nichts', async () => {
+			await systemAbfrage(
+				(sql) => sql`select app.anmeldung_weiter(${monteurMit}::uuid, ${sha256('v-s')}::bytea, now() + interval '1 day', ${sha256('n-s')}::bytea)`
+			);
+			const jetzt = Math.floor(Date.now() / SCHRITT_MS);
+			const neu = sha256('neu-schritt');
+			const versuch = async (schritt: number) =>
+				(await systemAbfrage(
+					(sql) => sql`select app.zweiten_faktor_abschliessen(${sha256('n-s')}::bytea, ${schritt}::bigint, ${neu}::bytea, now() + interval '1 day') as ok`
+				))[0].ok;
+			for (const schritt of [jetzt + 1000, jetzt + 3, jetzt - 3, 1]) {
+				expect(await versuch(schritt), String(schritt - jetzt)).toBe(false);
+			}
+			expect(await root`select 1 from app.sitzungen where token_hash = ${neu}`).toHaveLength(0);
+			const [b] = await root`select totp_letzter_schritt from app.benutzer where id = ${monteurMit}`;
+			expect(b.totp_letzter_schritt).toBeNull();
+			expect(await vorsitzungen(monteurMit)).toHaveLength(1); // Vor-Sitzung unverändert
+			expect(await versuch(jetzt + 1)).toBe(true);
+			const [c] = await root`select totp_letzter_schritt from app.benutzer where id = ${monteurMit}`;
+			expect(Number(c.totp_letzter_schritt)).toBe(jetzt + 1);
 		});
 
 		it('anmeldung_weiter: Entscheidung liegt in der Datenbank (sitzung / einrichten / code / verweigert)', async () => {

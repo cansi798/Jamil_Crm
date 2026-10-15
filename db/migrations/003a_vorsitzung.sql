@@ -9,7 +9,13 @@
 -- eine frei gewählte benutzer_id. Den Code selbst prüft der Anwendungscode (otpauth); die Datenbank sorgt für
 -- Atomarität: Zeitschritt nur einmal verwendbar, Fehlversuche je Benutzer begrenzt, Sitzungstausch in einem Schritt.
 
-alter table app.sitzungen add column zweiter_faktor_offen boolean not null default false;
+alter table app.sitzungen
+	add column zweiter_faktor_offen boolean not null default false,
+	-- Entwurf des TOTP-Geheimnisses bei der Einrichtung: gehört nur zu dieser Vor-Sitzung und verfällt mit ihr.
+	-- Erst zweiten_faktor_abschliessen übernimmt es nach gültigem Code in benutzer.totp_geheim. Ein nicht
+	-- aktiviertes Geheimnis steht nie am Benutzer – so kann niemand ein Geheimnis „vorab“ mitlesen und später
+	-- mit dem echten Benutzer teilen.
+	add column totp_entwurf text;
 
 alter table app.benutzer
 	-- letzter erfolgreich genutzter Zeitschritt (Unix-Zeit / 30 s); ein Code gilt nur, wenn sein Schritt größer ist
@@ -17,6 +23,8 @@ alter table app.benutzer
 	-- Fehlversuche seit dem letzten Erfolg; beim 5. wird gesperrt und zurückgesetzt
 	add column totp_fehlversuche smallint not null default 0,
 	add column totp_gesperrt_bis timestamptz,
+	-- Anzahl aufeinanderfolgender Sperren (ohne dazwischen liegenden Erfolg); jede verdoppelt die Sperrdauer
+	add column totp_sperr_stufe smallint not null default 0,
 	add constraint totp_aktiv_braucht_geheimnis check (not totp_aktiv or totp_geheim is not null);
 
 -- Ruling R6 (Abschluss): crm_app darf Geheimnis und Aktiv-Schalter weder lesen noch ändern. Die neuen Spalten
@@ -186,7 +194,9 @@ stable
 security definer
 set search_path = app, pg_temp
 as $$
-	select b.id, b.email, b.totp_geheim, b.totp_aktiv, b.totp_letzter_schritt,
+	-- Geheimnis: bei aktivem TOTP das des Benutzers, sonst der Entwurf dieser einen Vor-Sitzung
+	select b.id, b.email, case when b.totp_aktiv then b.totp_geheim else s.totp_entwurf end,
+		b.totp_aktiv, b.totp_letzter_schritt,
 		coalesce(b.totp_gesperrt_bis > now(), false)
 	from app.sitzungen s
 	join app.benutzer b on b.id = s.benutzer_id
@@ -198,9 +208,10 @@ as $$
 		and (b.betrieb_id is null or bt.abo_status <> 'gesperrt');
 $$;
 
--- Einrichtung: liefert das noch nicht aktivierte Geheimnis des Benutzers der Vor-Sitzung und legt p_neu an, falls
--- es noch keines gibt. Bei bereits aktivem TOTP, ungültiger Vor-Sitzung oder falschem Format: null – ein aktives
--- Geheimnis kann damit weder gelesen noch ersetzt werden.
+-- Einrichtung: liefert den Entwurf des Geheimnisses dieser Vor-Sitzung und legt p_neu als Entwurf an, falls es
+-- noch keinen gibt (Neuladen derselben Vor-Sitzung ergibt denselben Entwurf, jede andere Vor-Sitzung hat ihren
+-- eigenen). Der Entwurf steht nur an der Vor-Sitzung, nie am Benutzer. Bei bereits aktivem TOTP, ungültiger
+-- Vor-Sitzung oder falschem Format: null – ein aktives Geheimnis wird so weder ausgegeben noch ersetzt.
 create function app.totp_geheimnis_vorbereiten(p_hash bytea, p_neu text)
 returns text
 language plpgsql
@@ -208,32 +219,25 @@ security definer
 set search_path = app, pg_temp
 as $$
 declare
-	v_benutzer uuid;
 	v_aktiv boolean;
-	v_geheim text;
+	v_entwurf text;
 begin
 	if p_neu is null or p_neu !~ '^[A-Z2-7]{32}$' then
 		return null;
 	end if;
-	select d.benutzer_id into v_benutzer from app.vorsitzung_daten(p_hash) d;
-	if v_benutzer is null then
+	select d.totp_aktiv into v_aktiv from app.vorsitzung_daten(p_hash) d;
+	if v_aktiv is null or v_aktiv then
 		return null;
 	end if;
-	select b.totp_aktiv, b.totp_geheim into v_aktiv, v_geheim
-	from app.benutzer b where b.id = v_benutzer for update;
-	if v_aktiv then
-		return null;
-	end if;
-	if v_geheim is null then
-		update app.benutzer b set totp_geheim = p_neu where b.id = v_benutzer;
-		return p_neu;
-	end if;
-	return v_geheim;
+	update app.sitzungen s set totp_entwurf = coalesce(s.totp_entwurf, p_neu)
+	where s.token_hash = p_hash and s.zweiter_faktor_offen and s.laeuft_ab > now()
+	returning s.totp_entwurf into v_entwurf;
+	return v_entwurf;
 end;
 $$;
 
 -- Zählt einen falschen Code (je Benutzer, nicht je Vor-Sitzung – sonst ließe sich durch neue Anmeldungen
--- unbegrenzt weiterraten). Beim 5. Fehlversuch: alle Vor-Sitzungen des Benutzers löschen, 15 Minuten sperren.
+-- unbegrenzt weiterraten). Beim 5. Fehlversuch: alle Vor-Sitzungen des Benutzers löschen und sperren (15 Min., bei jeder weiteren Sperre doppelt so lang, höchstens 24 Std.).
 -- Rückgabe: -1 Vor-Sitzung ungültig/abgelaufen, 0 gesperrt (Vor-Sitzung ist weg), sonst Zahl verbleibender Versuche.
 create function app.vorsitzung_fehlversuch(p_hash bytea)
 returns smallint
@@ -245,12 +249,13 @@ declare
 	v_benutzer uuid;
 	v_n smallint;
 	v_gesperrt timestamptz;
+	v_stufe smallint;
 begin
 	select d.benutzer_id into v_benutzer from app.vorsitzung_daten(p_hash) d;
 	if v_benutzer is null then
 		return -1;
 	end if;
-	select b.totp_fehlversuche, b.totp_gesperrt_bis into v_n, v_gesperrt
+	select b.totp_fehlversuche, b.totp_gesperrt_bis, b.totp_sperr_stufe into v_n, v_gesperrt, v_stufe
 	from app.benutzer b where b.id = v_benutzer for update;
 	if v_gesperrt is not null then
 		if v_gesperrt > now() then
@@ -260,7 +265,11 @@ begin
 	end if;
 	v_n := v_n + 1;
 	if v_n >= 5 then
-		update app.benutzer b set totp_fehlversuche = 0, totp_gesperrt_bis = now() + interval '15 minutes'
+		-- Sperre verdoppelt sich bei jeder weiteren Sperre ohne Erfolg dazwischen: 15 Min., 30, 60, … höchstens 24 Std.
+		v_stufe := least(v_stufe + 1, 20);
+		update app.benutzer b
+		set totp_fehlversuche = 0, totp_sperr_stufe = v_stufe,
+			totp_gesperrt_bis = now() + least(interval '15 minutes' * power(2, v_stufe - 1), interval '24 hours')
 		where b.id = v_benutzer;
 		delete from app.sitzungen s where s.benutzer_id = v_benutzer and s.zweiter_faktor_offen;
 		return 0;
@@ -273,7 +282,7 @@ $$;
 -- Tauscht eine Vor-Sitzung nach gültigem Code gegen eine volle Sitzung (p_neu_hash, p_neu_ablauf).
 -- p_schritt ist der Zeitschritt des geprüften Codes; er muss größer sein als der zuletzt genutzte – so ist jeder
 -- Code nur einmal verwendbar, auch bei gleichzeitigen Anfragen (Zeile des Benutzers ist gesperrt). Ist TOTP noch
--- nicht aktiv (Einrichtung), wird es hier aktiviert; ein gespeichertes Geheimnis ist dafür Voraussetzung.
+-- nicht aktiv (Einrichtung), wird hier der Entwurf der Vor-Sitzung als Geheimnis übernommen und TOTP aktiviert.
 -- false (nichts geändert), wenn die Vor-Sitzung ungültig ist, das Konto gesperrt, der Schritt schon benutzt wurde usw.
 create function app.zweiten_faktor_abschliessen(
 	p_hash bytea, p_schritt bigint, p_neu_hash bytea, p_neu_ablauf timestamptz
@@ -287,29 +296,34 @@ declare
 	v_benutzer uuid;
 	v_geheim text;
 	v_letzter bigint;
-	v_gesperrt timestamptz;
+	v_gesperrt boolean;
 begin
 	select d.benutzer_id into v_benutzer from app.vorsitzung_daten(p_hash) d;
 	if v_benutzer is null then
 		return false;
 	end if;
 	-- Benutzerzeile sperren, danach alles frisch lesen: gleichzeitige Anfragen laufen hintereinander.
-	select b.totp_geheim, b.totp_letzter_schritt, b.totp_gesperrt_bis into v_geheim, v_letzter, v_gesperrt
-	from app.benutzer b where b.id = v_benutzer for update;
-	if not exists (select 1 from app.vorsitzung_daten(p_hash)) then
+	perform 1 from app.benutzer b where b.id = v_benutzer for update;
+	-- Geheimnis (aktiv: das des Benutzers, Einrichtung: der Entwurf dieser Vor-Sitzung), nur wenn die Vor-Sitzung noch gilt
+	select d.totp_geheim, d.totp_letzter_schritt, d.gesperrt
+	into v_geheim, v_letzter, v_gesperrt
+	from app.vorsitzung_daten(p_hash) d;
+	if not found then
 		return false;
 	end if;
 	if v_geheim is null
-		or (v_gesperrt is not null and v_gesperrt > now())
+		or v_gesperrt
 		or p_schritt is null
+		-- Der Zeitschritt kommt vom Aufrufer; die Datenbank akzeptiert nur Schritte nahe der eigenen Uhr (±1).
+		or abs(p_schritt - floor(extract(epoch from now()) / 30)) > 1
 		or p_schritt <= coalesce(v_letzter, -1)
 	then
 		return false;
 	end if;
 
 	update app.benutzer b
-	set totp_aktiv = true, totp_letzter_schritt = p_schritt, totp_fehlversuche = 0, totp_gesperrt_bis = null,
-		letzte_aktivitaet = now()
+	set totp_aktiv = true, totp_geheim = v_geheim, totp_letzter_schritt = p_schritt, totp_fehlversuche = 0,
+		totp_sperr_stufe = 0, totp_gesperrt_bis = null, letzte_aktivitaet = now()
 	where b.id = v_benutzer;
 	delete from app.sitzungen s
 	where s.benutzer_id = v_benutzer and (s.zweiter_faktor_offen or s.laeuft_ab <= now());
