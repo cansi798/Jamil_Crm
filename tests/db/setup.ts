@@ -17,6 +17,24 @@ function pflicht(name: string): string {
 	return wert;
 }
 
+/** Legt eine leere, unmigrierte Datenbank neu an und liefert die Superuser-URL darauf. */
+export async function leereDb(name: string): Promise<string> {
+	ladeEnv();
+	const superBenutzer = process.env.PGUSER ?? 'crm';
+	const superPasswort = pflicht('PGPASSWORD');
+	const verwaltung = postgres(url(superBenutzer, superPasswort, process.env.PGDATABASE ?? 'crm'), {
+		max: 1,
+		onnotice: () => {}
+	});
+	try {
+		await verwaltung.unsafe(`drop database if exists ${name} with (force)`);
+		await verwaltung.unsafe(`create database ${name}`);
+	} finally {
+		await verwaltung.end();
+	}
+	return url(superBenutzer, superPasswort, name);
+}
+
 /** Legt die Datenbank `crm_test` neu an, migriert sie und liefert Verbindungs-URLs je Rolle. */
 export async function frischeTestDb(): Promise<TestDb> {
 	ladeEnv();

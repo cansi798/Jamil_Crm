@@ -7,6 +7,11 @@ const ENV_DATEI = fileURLToPath(new URL('../.env', import.meta.url));
 // Beliebige feste Zahl für den Advisory Lock, damit nie zwei Migrationen gleichzeitig laufen.
 const SPERR_SCHLUESSEL = 748_113_001;
 
+const PASSWORT_VARIABLEN: Record<string, string> = {
+	crm_app: 'CRM_APP_PASSWORT',
+	crm_admin: 'CRM_ADMIN_PASSWORT'
+};
+
 export type MigrateOptionen = {
 	/** Verzeichnis mit den *.sql-Dateien (Standard: db/migrations). */
 	verzeichnis?: string;
@@ -71,9 +76,14 @@ async function setzePasswoerter(
 	passwoerter: Record<string, string | undefined>
 ): Promise<void> {
 	for (const [rolle, passwort] of Object.entries(passwoerter)) {
-		if (!passwort) continue;
 		const [vorhanden] = await sql`select 1 as da from pg_roles where rolname = ${rolle}`;
 		if (!vorhanden) continue;
+		if (!passwort) {
+			console.error(
+				`Warnung: ${PASSWORT_VARIABLEN[rolle] ?? rolle} fehlt – Passwort der Rolle ${rolle} bleibt unverändert.`
+			);
+			continue;
+		}
 		// ALTER ROLE nimmt keine Bind-Parameter; format() mit %I/%L quotet Name und Wert sicher.
 		const [{ befehl }] = await sql<{ befehl: string }[]>`
 			select format('alter role %I password %L', ${rolle}::text, ${passwort}::text) as befehl`;
