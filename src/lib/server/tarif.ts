@@ -108,6 +108,15 @@ export async function darf(locals: { nutzer: Nutzer | null }, modul: Modul, rech
 	await pruefeModul(locals, modul);
 }
 
+/** Module des Tarifs, den der Betrieb des Kontexts hat (z. B. für die Navigation). */
+export async function moduleDesBetriebs(k: { betriebId: string; benutzerId: string }): Promise<string[]> {
+	return mitBetrieb(k, async (tx) => {
+		const [z] = await tx<{ module: string[] }[]>`
+			select t.module from app.betriebe b join app.tarife t on t.id = b.tarif_id where b.id = ${k.betriebId}`;
+		return z?.module ?? [];
+	});
+}
+
 /** Alle Tarife (für Oberflächen, z. B. `TarifHinweis`). */
 export async function listeTarife(k: { betriebId: string; benutzerId: string }): Promise<TarifInfo[]> {
 	return mitBetrieb(k, async (tx) => {

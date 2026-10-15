@@ -19,8 +19,25 @@
 	justify-content: space-between;
 	gap: 0.5rem;
 	padding: 0.5rem 1rem;
-	background: #1f2937;
+	background: var(--primaer);
 	color: #fff;
+}
+.ad-kopf form {
+	margin: 0;
+}
+.ad-abmelden {
+	min-height: 2.75rem;
+	padding: 0.25rem 1rem;
+	border: 1px solid rgb(255 255 255 / 0.7);
+	border-radius: 0.5rem;
+	background: transparent;
+	color: #fff;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+.ad-abmelden:hover {
+	background: rgb(255 255 255 / 0.12);
 }
 .ad-kopf a {
 	display: inline-flex;
@@ -42,7 +59,7 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: 2.75rem;
-	color: #1d4ed8;
+	color: var(--primaer);
 }
 .ad-knopf {
 	display: flex;
@@ -50,9 +67,9 @@
 	justify-content: center;
 	min-height: 2.75rem;
 	padding: 0.5rem 1rem;
-	border: 1px solid #1d4ed8;
+	border: 1px solid var(--primaer);
 	border-radius: 0.5rem;
-	background: #1d4ed8;
+	background: var(--primaer);
 	color: #fff;
 	font: inherit;
 	font-weight: 600;
@@ -61,7 +78,7 @@
 }
 .ad-knopf.hell {
 	background: #fff;
-	color: #1d4ed8;
+	color: var(--primaer);
 }
 .ad-formular {
 	display: grid;
@@ -169,7 +186,7 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: 2.75rem;
-	color: #1d4ed8;
+	color: var(--primaer);
 	font-weight: 600;
 }
 @media (max-width: 48rem) {

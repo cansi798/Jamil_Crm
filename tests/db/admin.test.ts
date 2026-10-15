@@ -437,18 +437,21 @@ describe('Plattform-Admin (Basis)', () => {
 				await expect(
 					detailLoad({ locals: { nutzer }, params: { id: betriebA } } as never)
 				).rejects.toMatchObject({ status: 404 });
-				const r = (await uebersichtAktionen.anlegen({
-					locals: { nutzer },
-					request: formAnfrage('/admin', { name: 'X', tarif: 'basis', chefEmail: 'x@x.test', chefName: 'X' }),
-					url: new URL('http://localhost/admin')
-				} as never)) as any;
-				expect(r.status).toBe(404);
-				const d = (await detailAktionen.aendern({
-					locals: { nutzer },
-					params: { id: betriebA },
-					request: formAnfrage(`/admin/betriebe/${betriebA}`, { tarif: 'basis', aboStatus: 'gesperrt', aboEnde: '' })
-				} as never)) as any;
-				expect(d.status).toBe(404);
+				// Carry T12: Aktionen prüfen den Admin, bevor sie den Körper lesen → 404-Fehlerseite, Formular ungelesen
+				const anfrageU = formAnfrage('/admin', { name: 'X', tarif: 'basis', chefEmail: 'x@x.test', chefName: 'X' });
+				await expect(
+					uebersichtAktionen.anlegen({
+						locals: { nutzer },
+						request: anfrageU,
+						url: new URL('http://localhost/admin')
+					} as never)
+				).rejects.toMatchObject({ status: 404 });
+				expect(anfrageU.bodyUsed).toBe(false);
+				const anfrageD = formAnfrage(`/admin/betriebe/${betriebA}`, { tarif: 'basis', aboStatus: 'gesperrt', aboEnde: '' });
+				await expect(
+					detailAktionen.aendern({ locals: { nutzer }, params: { id: betriebA }, request: anfrageD } as never)
+				).rejects.toMatchObject({ status: 404 });
+				expect(anfrageD.bodyUsed).toBe(false);
 			}
 			const [b] = await root`select abo_status from app.betriebe where id = ${betriebA}`;
 			expect(b.abo_status).toBe('aktiv');

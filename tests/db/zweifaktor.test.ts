@@ -238,7 +238,12 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			const zeilen = await systemAbfrage((sql) => sql`select * from app.sitzung_pruefen(${sha256(token)}::bytea)`);
 			expect(zeilen).toHaveLength(0);
 			const c2 = fakeCookies({ [COOKIE_NAME]: token });
-			const event = { cookies: c2, locals: {} as { nutzer?: unknown }, url: new URL('http://localhost/') };
+			const event = {
+				cookies: c2,
+				locals: {} as { nutzer?: unknown },
+				url: new URL('http://localhost/'),
+				request: new Request('http://localhost/')
+			};
 			await handle({ event: event as never, resolve: async () => new Response('ok') });
 			expect(event.locals.nutzer).toBeNull();
 		});
@@ -247,7 +252,12 @@ describe('Zwei-Faktor-Anmeldung', () => {
 			const cookies = fakeCookies();
 			await anmelden(cookies, 'monteur-mit@beispiel.test');
 			const c2 = fakeCookies({ [VORSITZUNG_COOKIE]: cookies.gesetzt[0].wert });
-			const event = { cookies: c2, locals: {} as { nutzer?: unknown }, url: new URL('http://localhost/') };
+			const event = {
+				cookies: c2,
+				locals: {} as { nutzer?: unknown },
+				url: new URL('http://localhost/'),
+				request: new Request('http://localhost/')
+			};
 			await handle({ event: event as never, resolve: async () => new Response('ok') });
 			expect(event.locals.nutzer).toBeNull();
 		});

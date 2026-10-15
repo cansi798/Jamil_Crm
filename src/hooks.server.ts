@@ -6,6 +6,14 @@ import {
 	setzeSitzungsCookie
 } from '$lib/server/auth/sitzung';
 import { istNurLesen } from '$lib/server/tarif';
+import { schliesseDb } from '$lib/server/db';
+import { istAdminPfad, nichtGefundenAntwort, nurLesenAntwort } from '$lib/server/sperren';
+
+// adapter-node meldet das geordnete Beenden (SIGTERM/SIGINT) mit diesem Ereignis, nachdem der Server keine Anfragen
+// mehr annimmt. Dann die Datenbank-Pools schließen – offene Verbindungen hielten den Prozess sonst am Leben.
+process.on('sveltekit:shutdown', () => {
+	void schliesseDb();
+});
 
 /** Lesende Methoden; alles andere ist eine Schreibanfrage. */
 const LESEND = new Set(['GET', 'HEAD']);
@@ -25,7 +33,8 @@ const IMMER_ERLAUBT = (pfad: string) =>
  * Nur-Lesezugriff (Abo überfällig/gekündigt, siehe `istNurLesen`) wird hier zentral durchgesetzt: Jede schreibende
  * Anfrage (nicht GET/HEAD) eines angemeldeten Betriebsnutzers wird mit 403 `Nur Lesezugriff` abgewiesen, bevor
  * ein Endpunkt oder eine Formular-Aktion läuft – gilt also für /api/* ebenso wie für Seiten-Formulare und
- * für künftige Routen, ohne dass jede einzeln daran denken muss.
+ * für künftige Routen, ohne dass jede einzeln daran denken muss. Die Antwort passt zum Aufrufer (JSON für die API,
+ * ActionResult für `use:enhance`, HTML für Formulare ohne JavaScript; siehe `sperren.ts`).
  */
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.nutzer = null;
@@ -40,16 +49,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 	const nutzer = event.locals.nutzer;
-	if (
-		nutzer &&
-		!LESEND.has(event.request.method) &&
-		!IMMER_ERLAUBT(event.url.pathname) &&
-		(await istNurLesen(nutzer))
-	) {
-		return new Response(JSON.stringify({ fehler: 'Nur Lesezugriff' }), {
-			status: 403,
-			headers: { 'content-type': 'application/json; charset=utf-8' }
-		});
+	const pfad = event.url.pathname;
+	const schreibend = !LESEND.has(event.request.method);
+	// Admin-Bereich: Für alle außer Plattform-Admins gibt es ihn nicht – Schreibanfragen bekommen sofort 404 (nicht
+	// etwa die Nur-Lese-Meldung, die seine Existenz verriete). Lesende Anfragen beantworten Layout bzw. API selbst mit 404.
+	if (istAdminPfad(pfad)) {
+		const istPlattformAdmin = nutzer?.istAdmin === true && nutzer.betriebId === null;
+		if (schreibend && !istPlattformAdmin) return nichtGefundenAntwort(pfad);
+		return resolve(event); // Plattform-Admins sind nie auf Nur-Lesen beschränkt
+	}
+	if (nutzer && schreibend && !IMMER_ERLAUBT(pfad) && (await istNurLesen(nutzer))) {
+		return nurLesenAntwort(event.request);
 	}
 	return resolve(event);
 };

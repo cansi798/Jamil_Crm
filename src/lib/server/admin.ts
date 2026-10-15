@@ -1,3 +1,4 @@
+import { error } from '@sveltejs/kit';
 import { mitAdmin, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { pruefeEmail } from './benutzer';
@@ -50,6 +51,18 @@ export function pruefeAdmin(locals: { nutzer: Nutzer | null }): Nutzer {
 	const n = locals.nutzer;
 	if (!n || !n.istAdmin || n.betriebId !== null) throw new ApiFehler(404, MELDUNG_NICHT_GEFUNDEN);
 	return n;
+}
+
+/**
+ * Für Seiten-`load` und Formular-Aktionen: Plattform-Admin oder 404-Fehlerseite. Aktionen rufen das auf, bevor sie
+ * den Anfragekörper lesen – Formulare von Nicht-Admins werden nicht verarbeitet.
+ */
+export function adminSeitenZugriff(locals: { nutzer: Nutzer | null }): Nutzer {
+	try {
+		return pruefeAdmin(locals);
+	} catch {
+		error(404, MELDUNG_NICHT_GEFUNDEN);
+	}
 }
 
 /** Fehlerschlüssel der Admin-Funktionen (Meldung der SQL-Ausnahme) → Antwort. */

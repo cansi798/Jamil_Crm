@@ -1,11 +1,20 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import postgres from 'postgres';
+import * as devalue from 'devalue';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { frischeTestDb, type TestDb } from './setup';
 import { initDb, schliesseDb } from '../../src/lib/server/db';
 import { alsAntwort, ApiFehler } from '../../src/lib/server/fehler';
-import { darf, hatModul, listeTarife, MODULE, pruefeGrenze, pruefeModul } from '../../src/lib/server/tarif';
+import {
+	darf,
+	hatModul,
+	listeTarife,
+	MODULE,
+	moduleDesBetriebs,
+	pruefeGrenze,
+	pruefeModul
+} from '../../src/lib/server/tarif';
 import { hashe, COOKIE_NAME } from '../../src/lib/server/auth/sitzung';
 import { handle } from '../../src/hooks.server';
 import { GET as rollenGet, POST as rollenPost } from '../../src/routes/api/rollen/+server';
@@ -135,6 +144,13 @@ describe('Tarife und Freischaltungen', () => {
 			await expect(pruefeModul(premiumNutzer, 'sprache')).resolves.toBeUndefined();
 			const basisNutzer = { nutzer: nutzerVon(benutzerBasis, betriebBasis, []) };
 			await expect(pruefeModul(basisNutzer, 'sprache')).rejects.toMatchObject({ status: 402 });
+		});
+
+		it('moduleDesBetriebs liefert die Module des eigenen Tarifs (für die Navigation)', async () => {
+			const basis = await moduleDesBetriebs({ betriebId: betriebBasis, benutzerId: benutzerBasis });
+			expect(basis).toContain('kunden');
+			expect(basis).not.toContain('sprache');
+			expect(await moduleDesBetriebs({ betriebId: betriebPremium, benutzerId: 'p' })).toContain('sprache');
 		});
 
 		it('listeTarife liefert alle Tarife mit Schlüssel, Name und Modulen', async () => {
@@ -280,15 +296,24 @@ describe('Tarife und Freischaltungen', () => {
 		async function anfrage(
 			methode: string,
 			pfad: string,
-			opts: { koerper?: unknown; form?: Record<string, string>; route?: (e: any) => unknown } = {}
+			opts: {
+				koerper?: unknown;
+				form?: Record<string, string>;
+				headers?: Record<string, string>;
+				route?: (e: any) => unknown;
+			} = {}
 		) {
-			let init: RequestInit = { method: methode };
+			let init: RequestInit = { method: methode, headers: opts.headers };
 			if (opts.form) {
 				const f = new FormData();
 				for (const [k, v] of Object.entries(opts.form)) f.set(k, v);
-				init = { method: methode, body: f };
+				init = { method: methode, headers: opts.headers, body: f };
 			} else if (opts.koerper !== undefined) {
-				init = { method: methode, headers: { 'content-type': 'application/json' }, body: JSON.stringify(opts.koerper) };
+				init = {
+					method: methode,
+					headers: { ...opts.headers, 'content-type': 'application/json' },
+					body: JSON.stringify(opts.koerper)
+				};
 			}
 			const request = new Request(`http://localhost${pfad}`, init);
 			const event = {
@@ -397,11 +422,24 @@ describe('Tarife und Freischaltungen', () => {
 
 		it('Formular-Aktionen der Seiten (POST auf (app)-Routen) sind ebenfalls gesperrt', async () => {
 			await setzeAbo('gekuendigt', -1);
+			const route = (e: any) =>
+				rollenAktionen.neu!({ locals: e.locals, request: e.request } as never) as Promise<unknown>;
+			// ohne JavaScript: deutsche HTML-Seite statt rohem JSON
 			const a = await anfrage('POST', '/einstellungen/rollen?/neu', {
 				form: { name: 'Per Formular', vorlage: 'buero' },
-				route: (e) => rollenAktionen.neu!({ locals: e.locals, request: e.request } as never) as Promise<unknown>
+				headers: { accept: 'text/html' },
+				route
 			});
-			expect(a).toMatchObject({ status: 403, koerper: { fehler: 'Nur Lesezugriff' }, aufgerufen: false });
+			expect(a).toMatchObject({ status: 403, aufgerufen: false });
+			expect(a.koerper).toContain('Nur Lesezugriff');
+			// use:enhance (Carry T8): ActionResult „failure“, damit die Seite die Meldung in form.fehler zeigt
+			const b = await anfrage('POST', '/einstellungen/rollen?/neu', {
+				form: { name: 'Per Formular', vorlage: 'buero' },
+				headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+				route
+			});
+			expect(b).toMatchObject({ status: 403, koerper: { type: 'failure', status: 403 }, aufgerufen: false });
+			expect(devalue.parse(b.koerper.data).fehler).toMatch(/^Nur Lesezugriff/);
 			expect(await anzahlRollen()).toBe(1);
 			// Gegenprobe: ohne Schreibschutz läuft dieselbe Aktion durch (redirect wirft)
 			await setzeAbo('aktiv', null);
@@ -419,6 +457,20 @@ describe('Tarife und Freischaltungen', () => {
 					})
 				} as never)
 			).rejects.toMatchObject({ status: 303 });
+		});
+
+		it('Admin-Bereich: Betriebsnutzer bekommen 404 statt der Nur-Lese-Meldung (Carry T12)', async () => {
+			await setzeAbo('gekuendigt', -1);
+			const seite = await anfrage('POST', '/admin?/anlegen', { form: { name: 'X' } });
+			expect(seite).toMatchObject({ status: 404, aufgerufen: false });
+			const api = await anfrage('POST', '/api/admin/betriebe', { koerper: { name: 'X' } });
+			expect(api).toMatchObject({ status: 404, koerper: { fehler: 'Nicht gefunden.' }, aufgerufen: false });
+			// auch ohne Schreibschutz: kein Weg in den Admin-Bereich
+			await setzeAbo('aktiv', null);
+			expect(await anfrage('PATCH', '/api/admin/betriebe/x', { koerper: {} })).toMatchObject({
+				status: 404,
+				aufgerufen: false
+			});
 		});
 
 		it('Abmelden bleibt immer möglich', async () => {

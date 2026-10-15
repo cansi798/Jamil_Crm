@@ -1,0 +1,16 @@
+{
+	"name": "CRM System",
+	"short_name": "CRM",
+	"description": "Kunden, Aufträge und Planung für Handwerksbetriebe",
+	"lang": "de",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"orientation": "any",
+	"background_color": "#ffffff",
+	"theme_color": "#05346B",
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+	]
+}

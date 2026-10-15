@@ -10,6 +10,7 @@
 </svelte:head>
 
 <main>
+	<p class="marke">CRM System</p>
 	<h1>Anmelden</h1>
 	<form method="POST" use:enhance>
 		{#if form?.fehler}
@@ -48,6 +49,23 @@
 		font: inherit;
 		padding: 0.5rem;
 		min-height: 2.75rem;
+	}
+	input {
+		border: 1px solid #8a8a8a;
+		border-radius: 0.4rem;
+	}
+	button {
+		border: 1px solid var(--primaer);
+		border-radius: 0.5rem;
+		background: var(--primaer);
+		color: #fff;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.marke {
+		margin: 0 0 0.25rem;
+		color: var(--primaer);
+		font-weight: 700;
 	}
 	.fehler {
 		color: #b00020;

@@ -23,7 +23,7 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: 2.75rem;
-	color: #1d4ed8;
+	color: var(--primaer);
 }
 .kd-knopf {
 	display: flex;
@@ -31,9 +31,9 @@
 	justify-content: center;
 	min-height: 2.75rem;
 	padding: 0.5rem 1rem;
-	border: 1px solid #1d4ed8;
+	border: 1px solid var(--primaer);
 	border-radius: 0.5rem;
-	background: #1d4ed8;
+	background: var(--primaer);
 	color: #fff;
 	font: inherit;
 	font-weight: 600;
@@ -47,7 +47,7 @@
 }
 .kd-knopf.hell {
 	background: #fff;
-	color: #1d4ed8;
+	color: var(--primaer);
 }
 .kd-knopf.gefahr {
 	background: #b00020;
@@ -160,7 +160,7 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: 2.75rem;
-	color: #1d4ed8;
+	color: var(--primaer);
 }
 .kd-verlauf {
 	list-style: none;
