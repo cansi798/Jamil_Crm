@@ -17,7 +17,9 @@ export const PROTOKOLL_TABELLEN = {
 	kunden: 'kunden.lesen',
 	objekte: 'kunden.lesen',
 	auftraege: 'auftraege.lesen',
-	todos: 'auftraege.lesen'
+	todos: 'auftraege.lesen',
+	einsaetze: 'plantafel.bearbeiten',
+	abwesenheiten: 'plantafel.bearbeiten'
 } as const satisfies Record<string, Recht>;
 
 export type ProtokollTabelle = keyof typeof PROTOKOLL_TABELLEN;
@@ -30,7 +32,9 @@ export const PROTOKOLL_MODULE: Partial<Record<ProtokollTabelle, Modul>> = {
 	kunden: 'kunden',
 	objekte: 'kunden',
 	auftraege: 'auftraege',
-	todos: 'auftraege'
+	todos: 'auftraege',
+	einsaetze: 'plantafel',
+	abwesenheiten: 'plantafel'
 };
 
 export const SEITENGROESSE = 50;
