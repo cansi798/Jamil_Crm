@@ -1,6 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { anmelden } from './hilfe';
-import { berlinZeitpunkt, tagPlus, tagKurz } from '../../src/lib/zeit';
+import { berlinTag, berlinZeitpunkt, tagPlus, tagKurz } from '../../src/lib/zeit';
 
 /**
  * Plantafel im Browser (Vorschau mit Seed-Daten). Planer ist das Büro (Recht „Plantafel bearbeiten“, ohne Pflicht
@@ -11,34 +11,46 @@ const BUERO = 'buero@bauwelt.test';
 const MONTEUR = 'monteur@bauwelt.test';
 const MONTEUR_NAME = 'Murat Öztürk';
 
-async function json(r: Awaited<ReturnType<APIRequestContext['get']>>) {
-	expect(r.ok(), `${r.url()} → ${r.status()}`).toBe(true);
-	return r.status() === 204 ? null : r.json();
+/**
+ * API-Aufruf aus der angemeldeten Seite heraus (fetch im Browser – das Sitzungs-Cookie ist „Secure“ und wird vom
+ * Playwright-Anfrage-Client über http://127.0.0.1 nicht mitgeschickt). Erwartet 2xx und liefert den JSON-Körper.
+ */
+async function api(page: Page, methode: string, url: string, koerper?: unknown) {
+	const r = await page.evaluate(
+		async ({ methode, url, koerper }) => {
+			const antwort = await fetch(url, {
+				method: methode,
+				headers: koerper === undefined ? undefined : { 'content-type': 'application/json' },
+				body: koerper === undefined ? undefined : JSON.stringify(koerper)
+			});
+			const text = await antwort.text();
+			return { status: antwort.status, text };
+		},
+		{ methode, url, koerper }
+	);
+	expect(r.status, `${methode} ${url} → ${r.status} ${r.text}`).toBeLessThan(300);
+	return r.text ? JSON.parse(r.text) : null;
 }
 
 /** Legt einen Test-Auftrag an und liefert ihn samt Monteur-ID und Testwoche (Montag in drei Wochen). */
 async function testAuftrag(page: Page, titel: string) {
-	const heute = await json(await page.request.get('/api/plantafel'));
+	const heute = await api(page, 'GET', '/api/plantafel');
 	const montag = tagPlus(heute.tage[0], 21);
-	const woche = await json(await page.request.get(`/api/plantafel?tag=${montag}`));
+	const woche = await api(page, 'GET', `/api/plantafel?tag=${montag}`);
 	const monteur = woche.mitarbeiter.find((m: { name: string }) => m.name === MONTEUR_NAME);
 	expect(monteur, 'Monteur aus dem Seed').toBeTruthy();
-	const [kunde] = await json(await page.request.get('/api/kunden'));
-	const auftrag = await json(await page.request.post('/api/auftraege', { data: { titel, kundeId: kunde.id } }));
+	const [kunde] = await api(page, 'GET', '/api/kunden');
+	const auftrag = await api(page, 'POST', '/api/auftraege', { titel, kundeId: kunde.id });
 	return { auftrag, monteurId: monteur.id as string, montag };
 }
 
 async function einsatz(page: Page, auftragId: string, benutzerId: string, tag: string, von: number, bis: number) {
-	return json(
-		await page.request.post('/api/einsaetze', {
-			data: {
-				auftragId,
-				benutzerId,
-				beginn: berlinZeitpunkt(tag, von).toISOString(),
-				ende: berlinZeitpunkt(tag, bis).toISOString()
-			}
-		})
-	);
+	return api(page, 'POST', '/api/einsaetze', {
+		auftragId,
+		benutzerId,
+		beginn: berlinZeitpunkt(tag, von).toISOString(),
+		ende: berlinZeitpunkt(tag, bis).toISOString()
+	});
 }
 
 /** Zieht ein Element mit der Maus (Pointer Events) auf ein anderes. */
@@ -85,7 +97,7 @@ test.describe('Plantafel', () => {
 			await expect(karte(mittwoch)).toHaveClass(/warn/);
 			await expect(karte(mittwoch)).toHaveAttribute('aria-label', /Achtung: Doppelbelegung/);
 		} finally {
-			await json(await page.request.delete(`/api/auftraege/${auftrag.id}`));
+			await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`);
 		}
 	});
 
@@ -110,7 +122,7 @@ test.describe('Plantafel', () => {
 			await expect(zelle).toContainText('10:00–12:30');
 			await expect(zelle).toContainText(auftrag.nummer);
 		} finally {
-			await json(await page.request.delete(`/api/auftraege/${auftrag.id}`));
+			await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`);
 		}
 	});
 
@@ -120,6 +132,56 @@ test.describe('Plantafel', () => {
 		const antwort = await page.goto('/plantafel');
 		expect(antwort?.status()).toBe(403);
 		await expect(page.getByText('403')).toBeVisible();
-		expect((await page.request.get('/api/plantafel')).status()).toBe(403);
+		const status = await page.evaluate(async () => (await fetch('/api/plantafel')).status);
+		expect(status).toBe(403);
+	});
+
+	test('Monteur: „Meine Einsätze heute“ auf Start, ohne Netz zeigt die Offline-Seite denselben Einsatz', async ({
+		page,
+		browser
+	}, info) => {
+		test.skip(info.project.name !== 'mobil', 'Monteur am Handy');
+		// Büro plant in einem eigenen Browser-Kontext einen Einsatz für heute
+		const bueroKontext = await browser.newContext({ baseURL: info.project.use.baseURL });
+		const buero = await bueroKontext.newPage();
+		await anmelden(buero, BUERO);
+		const titel = `E2E Heute ${Date.now()}`;
+		const { auftrag, monteurId } = await testAuftrag(buero, titel);
+		try {
+			await einsatz(buero, auftrag.id, monteurId, berlinTag(new Date()), 5, 6);
+
+			await anmelden(page, MONTEUR);
+			await page.goto('/');
+			const heute = page.getByRole('region', { name: /Meine Einsätze heute/ });
+			await expect(heute).toContainText(titel);
+			await expect(heute).toContainText('05:00–06:00');
+			// Service Worker muss die Seite kontrollieren, bevor das Netz wegfällt
+			await page.evaluate(async () => {
+				await navigator.serviceWorker.ready;
+			});
+			if (!(await page.evaluate(() => !!navigator.serviceWorker.controller))) await page.reload();
+			await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+
+			// Netz weg – auch für den Service Worker (setOffline allein erreicht ihn in Chromium nicht; dazu
+			// PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS in playwright.config.ts)
+			await page.context().setOffline(true);
+			await page.context().route('**/*', (r) => r.abort('internetdisconnected'));
+			await page.goto('/');
+			await expect(page.getByRole('heading', { name: /^Offline – Stand \d{2}:\d{2}$/ })).toBeVisible();
+			await expect(page.getByText(titel)).toBeVisible();
+			await page.context().unrouteAll();
+			await page.context().setOffline(false);
+
+			// Abmelden löscht die Kopie auf dem Gerät
+			await page.goto('/mehr');
+			await page.getByRole('button', { name: 'Abmelden' }).click();
+			await expect(page).toHaveURL(/\/anmelden$/);
+			expect(await page.evaluate(() => localStorage.getItem('crm-heute-v1'))).toBeNull();
+		} finally {
+			await page.context().unrouteAll();
+			await page.context().setOffline(false);
+			await api(buero, 'DELETE', `/api/auftraege/${auftrag.id}`);
+			await bueroKontext.close();
+		}
 	});
 });

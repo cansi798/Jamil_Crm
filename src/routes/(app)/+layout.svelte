@@ -4,6 +4,7 @@
 	import { istAktiv } from '$lib/navigation';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
+	import { loesche } from '$lib/heute-kopie';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -55,7 +56,7 @@
 					{/each}
 				</ul>
 			{/if}
-			<form method="POST" action="/api/abmelden" class="abmelden nur-breit">
+			<form method="POST" action="/api/abmelden" onsubmit={() => loesche()} class="abmelden nur-breit">
 				<button type="submit" class="eintrag">
 					<NavSymbol symbol="abmelden" />
 					<span class="text"><span class="name">Abmelden</span></span>

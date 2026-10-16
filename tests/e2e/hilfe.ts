@@ -12,10 +12,19 @@ export function zugang(schluessel: string): string {
 	throw new Error(`Kein Eintrag „${schluessel}“ in .zugangsdaten-dev – bitte npm run seed:dev ausführen`);
 }
 
-/** Meldet sich mit E-Mail und Passwort an (ohne zweiten Faktor). */
+/**
+ * Meldet sich mit E-Mail und Passwort an (ohne zweiten Faktor). Läuft die Vorschau im Testmodus (CRM_TESTMODUS=1,
+ * Feld „Benutzername“), wird der Weg „Mit E-Mail und Passwort anmelden“ benutzt – gleiche Prüfung wie ohne Testmodus.
+ */
 export async function anmelden(page: Page, email: string): Promise<void> {
 	await page.goto('/anmelden');
-	await page.getByLabel('E-Mail').fill(email);
+	const testmodus = page.getByText('Mit E-Mail und Passwort anmelden');
+	if (await testmodus.isVisible()) {
+		await page.getByLabel('Benutzername').fill(email);
+		await testmodus.click();
+	} else {
+		await page.getByLabel('E-Mail').fill(email);
+	}
 	await page.getByLabel('Passwort').fill(zugang(email));
 	await page.getByRole('button', { name: 'Anmelden' }).click();
 	await expect(page).not.toHaveURL(/\/anmelden$/);

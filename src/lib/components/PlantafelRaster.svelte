@@ -149,6 +149,15 @@
 	// ---- Handy: Tag-Wischleiste ----
 	let gewaehlt = $state<string | null>(null);
 	const tagMobil = $derived(gewaehlt && tage.includes(gewaehlt) ? gewaehlt : tage.includes(heute) ? heute : tage[0]);
+	let leiste: HTMLUListElement | undefined = $state();
+
+	// Gewählten Tag in der Wischleiste sichtbar halten (z. B. „heute“ am Wochenende)
+	$effect(() => {
+		const knopf = leiste?.querySelector<HTMLElement>(`[data-tagknopf="${tagMobil}"]`);
+		if (knopf && leiste && leiste.offsetParent !== null) {
+			leiste.scrollLeft = knopf.offsetLeft - leiste.offsetLeft - 16;
+		}
+	});
 </script>
 
 {#snippet karte(e: Einsatz, ziehbar: boolean)}
@@ -255,10 +264,16 @@
 
 <!-- Handy: Tagesliste je Mitarbeiter -->
 <div class="pt-mobil">
-	<ul class="pt-tage" aria-label="Tag wählen">
+	<ul class="pt-tage" aria-label="Tag wählen" bind:this={leiste}>
 		{#each tage as t (t)}
 			<li>
-				<button type="button" aria-pressed={t === tagMobil} class:heute={t === heute} onclick={() => (gewaehlt = t)}>
+				<button
+					type="button"
+					data-tagknopf={t}
+					aria-pressed={t === tagMobil}
+					class:heute={t === heute}
+					onclick={() => (gewaehlt = t)}
+				>
 					{tagKurz(t)}
 				</button>
 			</li>

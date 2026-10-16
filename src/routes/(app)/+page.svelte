@@ -1,8 +1,16 @@
 <script lang="ts">
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
+	import HeuteListe from '$lib/components/HeuteListe.svelte';
+	import { speichere } from '$lib/heute-kopie';
+	import { tagKurz } from '$lib/zeit';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	// Kopie für schlechtes Netz (nur auf diesem Gerät, bis zum Abmelden bzw. bis morgen)
+	$effect(() => {
+		if (data.heute && data.benutzerId) speichere(data.benutzerId, data.heuteTag, data.heute, new Date());
+	});
 
 	const bereiche = $derived((data.navigation?.haupt ?? []).filter((e) => e.symbol !== 'start'));
 </script>
@@ -13,6 +21,13 @@
 
 <main class="start">
 	<h1>Start</h1>
+
+	{#if data.heute}
+		<section aria-labelledby="heute-titel" class="heute">
+			<h2 id="heute-titel">Meine Einsätze heute <small>{tagKurz(data.heuteTag)}</small></h2>
+			<HeuteListe einsaetze={data.heute} />
+		</section>
+	{/if}
 
 	{#if data.kunden}
 		<form method="GET" action="/kunden" role="search" class="suche">
@@ -70,6 +85,16 @@
 	h2 {
 		font-size: 1.15rem;
 		margin: 1.75rem 0 0.5rem;
+	}
+	.heute h2 {
+		margin-top: 0;
+	}
+	.heute h2 small {
+		color: var(--text-leise);
+		font-weight: 400;
+	}
+	.heute {
+		margin-bottom: 1.5rem;
 	}
 	.suche {
 		display: grid;

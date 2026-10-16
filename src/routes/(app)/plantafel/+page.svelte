@@ -109,8 +109,9 @@
 
 	{#if data.darfPlanen}
 		<p class="kd-info pt-hilfe">
-			Kärtchen auf einen anderen Tag oder Mitarbeiter ziehen, um den Einsatz zu verschieben. Antippen öffnet den
-			Einsatz (auch mit Tastatur: Kärtchen wählen, Enter). Warnungen sind gelb umrandet.
+			Am PC und Tablet: Kärtchen auf einen anderen Tag oder Mitarbeiter ziehen, um den Einsatz zu verschieben.
+			Antippen öffnet den Einsatz – dort lassen sich auch Tag und Mitarbeiter ändern (auch mit Tastatur: Kärtchen
+			wählen, Enter). Warnungen sind gelb umrandet.
 		</p>
 		<a href="/plantafel/abwesenheiten" class="kd-knopf hell">Abwesenheiten (Urlaub, Krank)</a>
 	{/if}
