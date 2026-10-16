@@ -19,14 +19,15 @@ describe('baueNavigation', () => {
 		expect(nav.haupt[3].hinweis).toBeUndefined();
 		expect(nav.mehr).toEqual([
 			expect.objectContaining({ name: 'To-dos', href: '/todos', symbol: 'todos' }),
-			expect.objectContaining({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten' })
+			expect.objectContaining({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten' }),
+			expect.objectContaining({ name: 'Katalog', href: '/katalog', symbol: 'katalog' })
 		]);
 	});
 
 	it('Chef: Haupt Start, Kunden, Aufträge, Plantafel; „Mehr“ mit To-dos, Abwesenheiten, Benutzer, Rollen', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Plantafel']);
-		expect(namen(nav.mehr)).toEqual(['To-dos', 'Abwesenheiten', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Abwesenheiten', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
 		expect(nav.mehr).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ name: 'Benutzer', href: '/einstellungen/benutzer' }),
@@ -46,11 +47,11 @@ describe('baueNavigation', () => {
 		const ohnePlantafel = ALLE_MODULE.filter((m) => m !== 'plantafel');
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ohnePlantafel);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge']);
-		expect(namen(nav.mehr)).toEqual(['To-dos', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
 		const ohneAuftraege = ALLE_MODULE.filter((m) => m !== 'auftraege');
 		const n2 = baueNavigation(betriebsNutzer(VORLAGEN.chef), ohneAuftraege);
 		expect(namen(n2.haupt)).toEqual(['Start', 'Kunden', 'Plantafel']);
-		expect(namen(n2.mehr)).toEqual(['Abwesenheiten', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(namen(n2.mehr)).toEqual(['Abwesenheiten', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
 	});
 
 	it('Plantafel nur mit plantafel.bearbeiten oder auftraege.alle_lesen; Abwesenheiten nur mit plantafel.bearbeiten', () => {

@@ -60,6 +60,9 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		if (module.includes('plantafel') && hat('plantafel.bearbeiten')) {
 			mehr.push({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten', symbol: 'abwesenheiten' });
 		}
+		if (module.includes('katalog') && (hat('katalog.bearbeiten') || hat('angebote.bearbeiten'))) {
+			mehr.push({ name: 'Katalog', href: '/katalog', symbol: 'katalog' });
+		}
 		if (hat('benutzer.verwalten')) {
 			mehr.push({ name: 'Benutzer', href: '/einstellungen/benutzer', symbol: 'benutzer' });
 		}
