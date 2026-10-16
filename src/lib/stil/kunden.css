@@ -1,0 +1,205 @@
+/* Gemeinsame Gestaltung der Kundenseiten (mobil zuerst: eine Spalte, große Tippflächen ab 44 px = 2,75 rem). */
+.kd-seite {
+	box-sizing: border-box;
+	max-width: 40rem;
+	margin: 0 auto;
+	padding: 1rem;
+	overflow-wrap: anywhere;
+}
+.kd-seite *,
+.kd-seite *::before,
+.kd-seite *::after {
+	box-sizing: border-box;
+}
+.kd-seite h1 {
+	font-size: 1.5rem;
+	margin: 0.5rem 0 1rem;
+}
+.kd-seite h2 {
+	font-size: 1.15rem;
+	margin: 1.75rem 0 0.5rem;
+}
+.kd-zurueck {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2.75rem;
+	color: var(--primaer);
+}
+.kd-knopf {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 2.75rem;
+	padding: 0.5rem 1rem;
+	border: 1px solid var(--primaer);
+	border-radius: 0.5rem;
+	background: var(--primaer);
+	color: #fff;
+	font: inherit;
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+}
+.kd-knopf.gross {
+	min-height: 3.5rem;
+	width: 100%;
+	font-size: 1.25rem;
+}
+.kd-knopf.hell {
+	background: #fff;
+	color: var(--primaer);
+}
+.kd-knopf.gefahr {
+	background: #b00020;
+	border-color: #b00020;
+}
+.kd-suche {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 0.5rem;
+	margin-bottom: 0.75rem;
+}
+.kd-seite input,
+.kd-seite select,
+.kd-seite textarea {
+	width: 100%;
+	max-width: 100%;
+	min-height: 2.75rem;
+	padding: 0.5rem;
+	border: 1px solid #8a8a8a;
+	border-radius: 0.4rem;
+	font: inherit;
+	font-size: 1rem;
+}
+.kd-seite textarea {
+	min-height: 6rem;
+}
+.kd-seite input[type='radio'] {
+	width: 1.5rem;
+	min-height: 1.5rem;
+	height: 1.5rem;
+	margin: 0;
+}
+.kd-liste {
+	list-style: none;
+	margin: 1rem 0;
+	padding: 0;
+	display: grid;
+	gap: 0.5rem;
+}
+.kd-liste a {
+	display: grid;
+	gap: 0.15rem;
+	min-height: 3.25rem;
+	padding: 0.6rem 0.75rem;
+	border: 1px solid #c8c8c8;
+	border-radius: 0.5rem;
+	color: inherit;
+	text-decoration: none;
+}
+.kd-info {
+	color: #555;
+	font-size: 0.9rem;
+}
+.kd-leer {
+	color: #555;
+}
+.kd-fehler {
+	color: #b00020;
+	margin: 0 0 0.5rem;
+}
+.kd-formular {
+	display: grid;
+	gap: 1rem;
+}
+.kd-formular label {
+	display: grid;
+	gap: 0.25rem;
+}
+.kd-formular fieldset {
+	border: 1px solid #c8c8c8;
+	border-radius: 0.5rem;
+	padding: 0.5rem 0.75rem 0.75rem;
+	margin: 0;
+	min-width: 0;
+}
+.kd-art {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.5rem;
+}
+.kd-formular .kd-art label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: 2.75rem;
+}
+.kd-zwei {
+	display: grid;
+	gap: 1rem;
+}
+.kd-aktionen {
+	display: grid;
+	gap: 0.5rem;
+}
+.kd-daten {
+	display: grid;
+	gap: 0.25rem;
+	margin: 0 0 1rem;
+}
+.kd-daten dt {
+	font-size: 0.85rem;
+	color: #555;
+	margin-top: 0.5rem;
+}
+.kd-daten dd {
+	margin: 0;
+	white-space: pre-wrap;
+}
+.kd-daten a {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2.75rem;
+	color: var(--primaer);
+}
+.kd-verlauf {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 0.75rem;
+}
+.kd-verlauf li {
+	border-left: 3px solid #c8c8c8;
+	padding-left: 0.75rem;
+}
+.kd-verlauf ul {
+	margin: 0.25rem 0 0;
+	padding-left: 1.1rem;
+}
+.kd-loeschen {
+	margin-top: 2rem;
+	border: 1px solid #c8c8c8;
+	border-radius: 0.5rem;
+	padding: 0.25rem 0.75rem 0.75rem;
+}
+.kd-loeschen summary {
+	display: flex;
+	align-items: center;
+	min-height: 2.75rem;
+	cursor: pointer;
+	color: #b00020;
+}
+@media (min-width: 30rem) {
+	.kd-zwei {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	}
+	.kd-aktionen {
+		grid-auto-flow: column;
+		grid-auto-columns: max-content;
+	}
+	.kd-knopf.gross {
+		width: auto;
+		min-width: 14rem;
+	}
+}
