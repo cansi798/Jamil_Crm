@@ -7,25 +7,44 @@ import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
 import { verlaufZeile } from '$lib/verlauf';
+import { berlinTag } from '$lib/zeit';
+import { todoAktionen } from '$lib/server/todo-aktionen';
+import { aktiveMitarbeiter, listeTodos } from '$lib/server/todos';
 
-/** Auftrag mit Statuskette und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404. */
+/** Auftrag mit Statuskette, To-dos und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404. */
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
 	const nutzer = locals.nutzer!;
 	return alsSeitenFehler(async () => {
-		const auftrag = await holeAuftrag(k, sichtVon(nutzer), params.id);
-		const protokoll = await liesProtokoll(k, { tabelle: 'auftraege', datensatz: auftrag.id, vor: null });
+		const sicht = sichtVon(nutzer);
+		const auftrag = await holeAuftrag(k, sicht, params.id);
+		const darfBearbeiten = hatRecht(nutzer, 'auftraege.bearbeiten');
+		const [protokoll, todos, mitarbeiter] = await Promise.all([
+			liesProtokoll(k, { tabelle: 'auftraege', datensatz: auftrag.id, vor: null }),
+			listeTodos(k, sicht, { auftragId: auftrag.id }),
+			darfBearbeiten ? aktiveMitarbeiter(k) : Promise.resolve([])
+		]);
 		return {
 			auftrag,
+			todos,
+			mitarbeiter,
+			heute: berlinTag(new Date()),
+			benutzerId: nutzer.id,
 			verlauf: protokoll.eintraege.map(verlaufZeile),
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
-			darfBearbeiten: hatRecht(nutzer, 'auftraege.bearbeiten'),
+			darfBearbeiten,
 			kundeLesbar: hatRecht(nutzer, 'kunden.lesen')
 		};
 	});
 };
 
+const todo = todoAktionen(true);
+
 export const actions: Actions = {
+	todoAnlegen: todo.anlegen,
+	todoUmschalten: todo.umschalten,
+	todoAendern: todo.aendern,
+	todoLoeschen: todo.loeschen,
 	/** Ein Schritt vor oder zurück in der Statuskette (Formularfeld `status` = Zielstatus). */
 	status: async ({ locals, params, request }) => {
 		const form = await request.formData();

@@ -237,3 +237,19 @@
 		align-items: end;
 	}
 }
+.td-bearbeiten {
+	margin-top: 0.35rem;
+}
+.td-bearbeiten summary {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2.75rem;
+	color: var(--primaer);
+	cursor: pointer;
+}
+.td-bearbeiten .kd-formular {
+	margin: 0.25rem 0 0.5rem;
+}
+.td-loeschen {
+	width: 100%;
+}

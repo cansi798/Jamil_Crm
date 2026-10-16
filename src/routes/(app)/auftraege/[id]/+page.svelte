@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import StatusKette from '$lib/components/StatusKette.svelte';
+	import TodoListe from '$lib/components/TodoListe.svelte';
+	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import { STATUS_NAMEN } from '$lib/auftrag-status';
 	import { tagDeutsch } from '$lib/zeit';
 	import type { ActionData, PageData } from './$types';
@@ -19,7 +21,7 @@
 	<h1>{a.titel}</h1>
 	<p class="kd-info">{a.nummer} · {STATUS_NAMEN[a.status]}</p>
 
-	{#if form?.fehler}
+	{#if form?.fehler && !form?.todoFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
 
@@ -54,6 +56,29 @@
 
 	<h2>Einsätze</h2>
 	<p class="kd-leer">Noch keine Einsätze geplant.</p>
+
+	<h2>To-dos</h2>
+	{#if form?.todoFehler && !form?.todoWerte}
+		<p role="alert" class="kd-fehler">{form.fehler}</p>
+	{/if}
+	<TodoListe
+		todos={data.todos}
+		heute={data.heute}
+		benutzerId={data.benutzerId}
+		darfBearbeiten={data.darfBearbeiten}
+		mitarbeiter={data.mitarbeiter}
+		zeigeAuftrag={false}
+		aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen' }}
+		leer="Noch keine To-dos zu diesem Auftrag."
+	/>
+	{#if data.darfBearbeiten}
+		<TodoNeu
+			aktion="?/todoAnlegen"
+			mitarbeiter={data.mitarbeiter}
+			fehler={form?.todoWerte ? form.fehler : null}
+			werte={form?.todoWerte ?? {}}
+		/>
+	{/if}
 
 	<h2>Verlauf</h2>
 	<ol class="kd-verlauf">
