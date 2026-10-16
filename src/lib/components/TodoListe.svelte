@@ -87,6 +87,10 @@
 									{#each mitarbeiter as m (m.id)}
 										<option value={m.id} selected={m.id === t.zustaendigId}>{m.name}</option>
 									{/each}
+									{#if t.zustaendigId && !mitarbeiter.some((m) => m.id === t.zustaendigId)}
+										<!-- deaktivierter Zuständiger: bleibt beim Speichern erhalten, statt still zu verschwinden -->
+										<option value={t.zustaendigId} selected>{t.zustaendigName ?? 'Ehemalig'} (deaktiviert)</option>
+									{/if}
 								</select>
 							</label>
 							<label>Fällig <input type="date" name="faellig" value={t.faellig ?? ''} /></label>

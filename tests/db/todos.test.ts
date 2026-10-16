@@ -334,4 +334,19 @@ describe('To-dos', () => {
 			).toBe(403);
 		});
 	});
+
+	it('Schreiben ohne alle_lesen: To-dos unsichtbarer Aufträge → 404 (ändern, löschen), Anlegen daran → 400', async () => {
+		const schreiber = nutzerVon(monteurAId, betriebA, ['auftraege.lesen', 'auftraege.bearbeiten']);
+		const fremd = await legeTodoAn(kA(), { titel: 'Fremd', auftragId: auftrag2A, zustaendigId: monteur2AId });
+		const meins = await legeTodoAn(kA(), { titel: 'Meins', auftragId: auftragA, zustaendigId: monteurAId });
+		expect((await patch(schreiber, fremd.id, { titel: 'Gehackt' })).status).toBe(404);
+		expect((await patch(schreiber, fremd.id, { erledigt: true })).status).toBe(404);
+		expect((await del(schreiber, fremd.id)).status).toBe(404);
+		expect((await post(schreiber, { titel: 'x', auftragId: auftrag2A })).status).toBe(400);
+		expect((await patch(schreiber, meins.id, { titel: 'Meins neu' })).status).toBe(200);
+		// To-do im sichtbaren Auftrag anlegen geht
+		expect((await post(schreiber, { titel: 'Neu', auftragId: auftragA })).status).toBe(201);
+		const [z] = await root`select titel, erledigt_am from app.todos where id = ${fremd.id}`;
+		expect(z).toEqual({ titel: 'Fremd', erledigt_am: null });
+	});
 });

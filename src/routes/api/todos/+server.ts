@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { alsAntwort, ApiFehler, leseJson } from '$lib/server/fehler';
 import { betriebKontext } from '$lib/server/rechte';
 import { darf } from '$lib/server/tarif';
-import { auftragsSicht } from '$lib/server/auftraege';
+import { auftragsSicht, sichtVon } from '$lib/server/auftraege';
 import { istTodoAuswahl, legeTodoAn, listeTodos } from '$lib/server/todos';
 
 /**
@@ -26,7 +26,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
 		await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-		return json(await legeTodoAn(betriebKontext(locals), await leseJson(request)), { status: 201 });
+		const sicht = sichtVon(locals.nutzer!);
+		return json(await legeTodoAn(betriebKontext(locals), await leseJson(request), sicht), { status: 201 });
 	} catch (e) {
 		return alsAntwort(e);
 	}

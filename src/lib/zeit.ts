@@ -79,13 +79,18 @@ export function berlinUhrzeit(d: Date): string {
 
 /**
  * Zeitpunkt zu einer Berliner Wanduhr-Zeit. In der Herbst-Umstellungsnacht (02:00–03:00 doppelt) gilt die erste
- * (Sommerzeit-)Stunde; eine Uhrzeit in der Frühjahrs-Lücke (02:00–03:00 gibt es nicht) rutscht um eine Stunde nach vorn.
+ * (Sommerzeit-)Stunde; eine Uhrzeit in der Frühjahrs-Lücke (02:00–03:00 gibt es nicht) rückt um eine Stunde vor
+ * (29.03. 02:30 → 03:30 Sommerzeit).
  */
 export function berlinZeitpunkt(tag: string, stunde = 0, minute = 0, sekunde = 0, millis = 0): Date {
 	const t = zerlege(tag);
 	const wand = Date.UTC(t.jahr, t.monat - 1, t.tag, stunde, minute, sekunde, millis);
-	const erst = wand - versatz(wand - 2 * 3_600_000);
-	return new Date(wand - versatz(erst));
+	// Mögliche Abstände zu UTC rund um diese Zeit (vor und nach einer Umstellung)
+	const kandidaten = [...new Set([versatz(wand - 12 * 3_600_000), versatz(wand + 12 * 3_600_000)])];
+	// Passt ein Abstand zu sich selbst, gibt es die Wanduhr-Zeit; bei zwei Treffern (Herbst) die frühere = größerer Abstand
+	const passend = kandidaten.filter((v) => versatz(wand - v) === v);
+	const v = passend.length > 0 ? Math.max(...passend) : Math.min(...kandidaten);
+	return new Date(wand - v);
 }
 
 /** `HH:MM` eines Tages in Berlin als Zeitpunkt (z. B. aus einem Formular); wirft bei ungültiger Uhrzeit. */

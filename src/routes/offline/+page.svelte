@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import HeuteListe from '$lib/components/HeuteListe.svelte';
-	import { lade, type HeuteKopie } from '$lib/heute-kopie';
+	import { gemerkterNutzer, lade, type HeuteKopie } from '$lib/heute-kopie';
 	import { berlinUhrzeit, tagKurz } from '$lib/zeit';
 
 	/**
@@ -12,7 +12,7 @@
 	let geladen = $state(false);
 
 	onMount(() => {
-		kopie = lade(new Date());
+		kopie = lade(new Date(), gemerkterNutzer());
 		geladen = true;
 	});
 </script>

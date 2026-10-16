@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { alsFormFehler, ApiFehler } from './fehler';
-import { auftragsSicht } from './auftraege';
+import { auftragsSicht, sichtVon } from './auftraege';
 import { betriebKontext, hatRecht } from './rechte';
 import { formWerte } from './seite';
 import { darf } from './tarif';
@@ -25,7 +25,7 @@ export function todoAktionen(auftragAusPfad: boolean) {
 			try {
 				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 				if (auftragAusPfad) werte.auftragId = params.id ?? '';
-				await legeTodoAn(betriebKontext(locals), werte);
+				await legeTodoAn(betriebKontext(locals), werte, sichtVon(locals.nutzer!));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true, todoWerte: werte });
 			}
@@ -36,7 +36,12 @@ export function todoAktionen(auftragAusPfad: boolean) {
 				const n = locals.nutzer;
 				if (n && hatRecht(n, 'auftraege.bearbeiten')) {
 					await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-					await aendereTodo(betriebKontext(locals), text(form, 'id'), { erledigt: erledigtWert(text(form, 'erledigt')) });
+					await aendereTodo(
+						betriebKontext(locals),
+						text(form, 'id'),
+						{ erledigt: erledigtWert(text(form, 'erledigt')) },
+						sichtVon(n)
+					);
 				} else {
 					const sicht = await auftragsSicht(locals);
 					await aendereTodoAls(betriebKontext(locals), sicht, false, text(form, 'id'), {
@@ -53,7 +58,12 @@ export function todoAktionen(auftragAusPfad: boolean) {
 				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 				const id = text(form, 'id');
 				if (!id) throw new ApiFehler(404, 'To-do nicht gefunden.');
-				await aendereTodo(betriebKontext(locals), id, formWerte(form, ['titel', 'zustaendigId', 'faellig']));
+				await aendereTodo(
+					betriebKontext(locals),
+					id,
+					formWerte(form, ['titel', 'zustaendigId', 'faellig']),
+					sichtVon(locals.nutzer!)
+				);
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true });
 			}
@@ -62,7 +72,7 @@ export function todoAktionen(auftragAusPfad: boolean) {
 			const form = await request.formData();
 			try {
 				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-				await loescheTodo(betriebKontext(locals), text(form, 'id'));
+				await loescheTodo(betriebKontext(locals), text(form, 'id'), sichtVon(locals.nutzer!));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true });
 			}

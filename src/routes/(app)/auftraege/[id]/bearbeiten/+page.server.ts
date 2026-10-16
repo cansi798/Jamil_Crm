@@ -9,7 +9,7 @@ import { darf } from '$lib/server/tarif';
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'auftraege', 'auftraege.bearbeiten');
 	const nutzer = locals.nutzer!;
-	const auftrag = await alsSeitenFehler(() => holeAuftrag(k, { ...sichtVon(nutzer), alle: true }, params.id));
+	const auftrag = await alsSeitenFehler(() => holeAuftrag(k, sichtVon(nutzer), params.id));
 	return {
 		auftrag,
 		...(await ladeKundenAuswahl(k, auftrag.kundeId)),
@@ -22,7 +22,7 @@ export const actions: Actions = {
 		const werte = formWerte(await request.formData(), AUFTRAG_FELDER);
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-			await aendereAuftrag(betriebKontext(locals), params.id, werte);
+			await aendereAuftrag(betriebKontext(locals), params.id, werte, sichtVon(locals.nutzer!));
 		} catch (e) {
 			// Kunde/Objekte für das erneut angezeigte Formular – nur für Berechtigte (verrät sonst Kundendaten)
 			const auswahl =

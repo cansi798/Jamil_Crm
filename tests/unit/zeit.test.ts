@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { berlinTag, kalenderwoche, tagKurz, tagesGrenzen, verschiebeAufTag, wocheVon } from '../../src/lib/zeit';
+import { ausTagUndUhrzeit, berlinTag, berlinZeitpunkt, kalenderwoche, tagKurz, tagesGrenzen, verschiebeAufTag, wocheVon } from '../../src/lib/zeit';
 
 const stunden = (g: { beginn: Date; ende: Date }) => (g.ende.getTime() - g.beginn.getTime()) / 3.6e6;
 
@@ -71,5 +71,14 @@ describe('Berlin-Zeit', () => {
 		expect(kalenderwoche('2024-12-30')).toBe(1);
 		expect(tagKurz('2026-10-19')).toBe('Mo 19.10.');
 		expect(tagKurz('2026-10-25')).toBe('So 25.10.');
+	});
+
+	it('Uhrzeit in der Frühjahrslücke rückt vor (29.03. 02:30 → 03:30 MESZ), doppelte Herbststunde nimmt die erste', () => {
+		expect(berlinZeitpunkt('2026-03-29', 2, 30).toISOString()).toBe('2026-03-29T01:30:00.000Z');
+		expect(ausTagUndUhrzeit('2026-03-29', '02:00').toISOString()).toBe('2026-03-29T01:00:00.000Z');
+		expect(berlinZeitpunkt('2026-03-29', 1, 59).toISOString()).toBe('2026-03-29T00:59:00.000Z');
+		expect(berlinZeitpunkt('2026-03-29', 3, 0).toISOString()).toBe('2026-03-29T01:00:00.000Z');
+		expect(berlinZeitpunkt('2026-10-25', 2, 30).toISOString()).toBe('2026-10-25T00:30:00.000Z');
+		expect(berlinZeitpunkt('2026-10-25', 3, 0).toISOString()).toBe('2026-10-25T02:00:00.000Z');
 	});
 });

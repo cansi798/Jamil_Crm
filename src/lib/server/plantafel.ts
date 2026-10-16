@@ -2,7 +2,7 @@ import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { anzeigeName, textFeld, UUID } from './kunden';
 import { darf, darfEines } from './tarif';
-import { berlinTag, istTag, tagesGrenzen, wocheVon } from '../zeit';
+import { berlinTag, istTag, tagesGrenzen, tagPlus, wocheVon } from '../zeit';
 
 /**
  * Plantafel (Modul `plantafel`): Einsätze (Mitarbeiter × Zeitraum in einem Auftrag) und Abwesenheiten (Urlaub,
@@ -388,16 +388,18 @@ export async function ladeWoche(k: Kontext, tag: string): Promise<Wochenansicht>
 	const tage = wocheVon(tag);
 	const beginn = tagesGrenzen(tage[0]).beginn;
 	const ende = tagesGrenzen(tage[6]).ende;
-	// Für Warnungen auch Einsätze, die vor der Woche beginnen und in sie hineinragen (höchstens 14 Stunden lang).
+	// Für Warnungen auch Einsätze bis 14 Stunden vor und nach der Woche (so lang darf ein Einsatz höchstens sein:
+	// Sonntag 22–6 Uhr kollidiert mit Montag 1 Uhr) und Abwesenheiten der Tage davor und danach.
 	const vorlauf = new Date(beginn.getTime() - MAX_STUNDEN * MS_STUNDE);
+	const nachlauf = new Date(ende.getTime() + MAX_STUNDEN * MS_STUNDE);
 	return mitBetrieb(k, async (tx) => {
 		const zeilen = await tx`
 			select ${tx.unsafe(EINSATZ_AUSWAHL)} from ${tx.unsafe(EINSATZ_VON)}
-			where e.betrieb_id = ${k.betriebId} and e.beginn >= ${vorlauf} and e.beginn < ${ende}
+			where e.betrieb_id = ${k.betriebId} and e.beginn >= ${vorlauf} and e.beginn < ${nachlauf}
 			order by e.beginn, b.name, e.id`;
 		const abw = await tx`
 			select ${tx.unsafe(ABWESENHEIT_AUSWAHL)} from ${tx.unsafe(ABWESENHEIT_VON)}
-			where w.betrieb_id = ${k.betriebId} and w.von <= ${tage[6]}::date and w.bis >= ${tage[0]}::date
+			where w.betrieb_id = ${k.betriebId} and w.von <= ${tagPlus(tage[6], 1)}::date and w.bis >= ${tagPlus(tage[0], -1)}::date
 			order by w.von, b.name, w.id`;
 		const mitarbeiter = await tx`
 			select b.id, b.name, b.aktiv from app.benutzer b
@@ -407,15 +409,17 @@ export async function ladeWoche(k: Kontext, tag: string): Promise<Wochenansicht>
 					where e.benutzer_id = b.id and e.betrieb_id = b.betrieb_id and e.beginn >= ${beginn} and e.beginn < ${ende}
 				))
 			order by public.unaccent(lower(b.name)), b.id`;
-		const abwesenheiten = abw.map(zuAbwesenheit);
+		const vergleich = abw.map(zuAbwesenheit);
+		const abwesenheiten = vergleich.filter((a) => a.von <= tage[6] && a.bis >= tage[0]);
 		const alle = zeilen.map((z) => ({
 			id: z.id as string,
 			benutzerId: z.benutzer_id as string,
 			beginn: new Date(z.beginn),
 			ende: new Date(z.ende)
 		}));
+		const inWoche = (d: Date) => d.getTime() >= beginn.getTime() && d.getTime() < ende.getTime();
 		const einsaetze = zeilen.flatMap((z, i) =>
-			alle[i].beginn.getTime() >= beginn.getTime() ? [zuEinsatz(z, berechneWarnungen(alle[i], alle, abwesenheiten))] : []
+			inWoche(alle[i].beginn) ? [zuEinsatz(z, berechneWarnungen(alle[i], alle, vergleich))] : []
 		);
 		return {
 			tage,

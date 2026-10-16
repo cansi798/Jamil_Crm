@@ -576,4 +576,36 @@ describe('Plantafel: Einsätze und Abwesenheiten', () => {
 			expect(await root`select 1 from app.abwesenheiten`).toHaveLength(0);
 		});
 	});
+
+	describe('Gesamtprüfung', () => {
+		it('PATCH auf Mitarbeiter oder Auftrag eines anderen Betriebs → 400, Einsatz unverändert', async () => {
+			const e = await legeEinsatzAn(kA(), { auftragId: auftragA, benutzerId: aliId, beginn: um('2026-10-21', 8), ende: um('2026-10-21', 12) });
+			expect((await fehlerVon(aendereEinsatz(kA(), e.id, { benutzerId: chefBId })))?.status).toBe(400);
+			expect((await fehlerVon(aendereEinsatz(kA(), e.id, { auftragId: auftragB })))?.status).toBe(400);
+			const [z] = await root`select benutzer_id, auftrag_id from app.einsaetze where id = ${e.id}`;
+			expect(z).toEqual({ benutzer_id: aliId, auftrag_id: auftragA });
+		});
+
+		it('ladeWoche: Warnungen berücksichtigen Einsätze und Abwesenheiten nach dem Sonntag', async () => {
+			const nacht = await legeEinsatzAn(kA(), {
+				auftragId: auftragA,
+				benutzerId: aliId,
+				beginn: um('2026-10-25', 22),
+				ende: um('2026-10-26', 6)
+			});
+			const montag = await legeEinsatzAn(kA(), { auftragId: auftragA, benutzerId: aliId, beginn: um('2026-10-26', 1), ende: um('2026-10-26', 3) });
+			const krank = await legeAbwesenheitAn(kA(), { benutzerId: aliId, art: 'krank', von: '2026-10-26', bis: '2026-10-26' });
+			const w = await ladeWoche(kA(), '2026-10-21');
+			const e = w.einsaetze.find((x) => x.id === nacht.id)!;
+			expect(e.warnungen).toEqual(
+				expect.arrayContaining([
+					{ art: 'doppelt', einsatzId: montag.id },
+					{ art: 'krank', abwesenheitId: krank.id }
+				])
+			);
+			// die Abwesenheit der Folgewoche wird nicht als Abwesenheit dieser Woche angezeigt
+			expect(w.abwesenheiten.map((a) => a.id)).not.toContain(krank.id);
+			expect(w.einsaetze.map((x) => x.id)).not.toContain(montag.id);
+		});
+	});
 });

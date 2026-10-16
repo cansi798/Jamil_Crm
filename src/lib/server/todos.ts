@@ -9,7 +9,8 @@ import { istTag } from '../zeit';
  *
  * Sichtbar sind mit `auftraege.alle_lesen` alle To-dos des Betriebs, sonst die eigenen (zuständig) und die in
  * sichtbaren Aufträgen (siehe `sichtbar` in auftraege.ts). Unsichtbare, fremde und unbekannte To-dos sind ein 404.
- * Anlegen, Ändern und Löschen: `auftraege.bearbeiten` (prüft der Aufrufer). Zusätzlich darf der Zuständige sein
+ * Anlegen, Ändern und Löschen: `auftraege.bearbeiten` (prüft der Aufrufer) – und nur, was der Nutzer sieht (`Sicht`).
+ * Ein To-do an einem unsichtbaren Auftrag lässt sich weder ändern (404) noch neu anlegen (400). Zusätzlich darf der Zuständige sein
  * eigenes To-do mit `auftraege.lesen` abhaken und wieder öffnen (`setzeErledigt`) – sonst nichts.
  */
 
@@ -150,12 +151,13 @@ async function pruefeZustaendig(tx: TransactionSql, k: Kontext, id: string | nul
 
 const ALLE = (k: Kontext): Sicht => ({ alle: true, benutzerId: k.benutzerId });
 
-export async function legeTodoAn(k: Kontext, e: Record<string, unknown>): Promise<Todo> {
+export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: Sicht = ALLE(k)): Promise<Todo> {
 	const w = pruefeTodoEingabe(e);
 	return mitBetrieb(k, async (tx) => {
 		if (w.auftragId !== null) {
 			const [a] = await tx`
-				select 1 from app.auftraege where id = ${w.auftragId} and betrieb_id = ${k.betriebId} for key share`;
+				select 1 from app.auftraege a
+				where a.id = ${w.auftragId} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for key share of a`;
 			if (!a) throw new ApiFehler(400, 'Der Auftrag wurde nicht gefunden.');
 		}
 		await pruefeZustaendig(tx, k, w.zustaendigId);
@@ -171,7 +173,12 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>): Promis
  * Ändert Titel, Zuständigen, Fälligkeit und/oder `erledigt` (setzt bzw. löscht den Zeitpunkt). Der Zuständige wird
  * nur geprüft, wenn er neu gesetzt wird – ein später deaktivierter Zuständiger blockiert andere Änderungen nicht.
  */
-export async function aendereTodo(k: Kontext, id: string, e: Record<string, unknown>): Promise<Todo> {
+export async function aendereTodo(
+	k: Kontext,
+	id: string,
+	e: Record<string, unknown>,
+	sicht: Sicht = ALLE(k)
+): Promise<Todo> {
 	pruefeId(id);
 	const felder = AENDERBAR.filter((f) => Object.hasOwn(e, f));
 	const mitErledigt = Object.hasOwn(e, 'erledigt');
@@ -179,8 +186,9 @@ export async function aendereTodo(k: Kontext, id: string, e: Record<string, unkn
 	const erledigt = mitErledigt ? erledigtWert(e.erledigt) : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select titel, auftrag_id, zustaendig_id, to_char(faellig, 'YYYY-MM-DD') as faellig, erledigt_am
-			from app.todos where id = ${id} and betrieb_id = ${k.betriebId} for update`;
+			select t.titel, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am
+			from ${tx.unsafe(VON)}
+			where t.id = ${id} and t.betrieb_id = ${k.betriebId} and ${todoSichtbar(tx, sicht)} for update of t`;
 		if (!alt) throw nichtGefunden();
 		const w = pruefeTodoEingabe({
 			titel: alt.titel,
@@ -195,7 +203,7 @@ export async function aendereTodo(k: Kontext, id: string, e: Record<string, unkn
 			update app.todos set titel = ${w.titel}, zustaendig_id = ${w.zustaendigId}, faellig = ${w.faellig}
 				${erledigt === null ? tx`` : erledigt ? tx`, erledigt_am = coalesce(erledigt_am, now())` : tx`, erledigt_am = null`}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
-		return ladeEines(tx, k, ALLE(k), id);
+		return ladeEines(tx, k, sicht, id);
 	});
 }
 
@@ -215,9 +223,13 @@ export async function setzeErledigt(k: Kontext, sicht: Sicht, id: string, erledi
 	});
 }
 
-export async function loescheTodo(k: Kontext, id: string): Promise<void> {
+export async function loescheTodo(k: Kontext, id: string, sicht: Sicht = ALLE(k)): Promise<void> {
 	pruefeId(id);
 	return mitBetrieb(k, async (tx) => {
+		const [da] = await tx`
+			select t.id from ${tx.unsafe(VON)}
+			where t.id = ${id} and t.betrieb_id = ${k.betriebId} and ${todoSichtbar(tx, sicht)} for update of t`;
+		if (!da) throw nichtGefunden();
 		const z = await tx`delete from app.todos where id = ${id} and betrieb_id = ${k.betriebId} returning id`;
 		if (z.length === 0) throw nichtGefunden();
 	});
@@ -234,7 +246,7 @@ export async function aendereTodoAls(
 	id: string,
 	e: Record<string, unknown>
 ): Promise<Todo> {
-	if (darfBearbeiten) return aendereTodo(k, id, e);
+	if (darfBearbeiten) return aendereTodo(k, id, e, sicht);
 	const schluessel = Object.keys(e);
 	if (schluessel.length !== 1 || schluessel[0] !== 'erledigt') throw new ApiFehler(403, 'Keine Berechtigung');
 	return setzeErledigt(k, sicht, id, erledigtWert(e.erledigt));

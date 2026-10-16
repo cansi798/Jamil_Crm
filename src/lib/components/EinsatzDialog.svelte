@@ -8,6 +8,7 @@
 		auftragTitel: string;
 		kundeName: string;
 		benutzerId: string;
+		benutzerName: string;
 		beginn: string;
 		ende: string;
 		notiz: string | null;
@@ -18,6 +19,8 @@
 	 * Dialog „Einsatz anlegen“ bzw. „Einsatz bearbeiten / verschieben“ (Tag, Mitarbeiter, Uhrzeit, Notiz). Auch die
 	 * Tastatur-Alternative zum Ziehen: Kärtchen fokussieren, Enter, Tag/Mitarbeiter wählen. Endet „bis“ vor „von“, endet
 	 * der Einsatz am Folgetag (Nachtarbeit). Speichert selbst über die API und meldet das Ergebnis an die Seite.
+	 * Die Auftragssuche fragt den Server (`/api/auftraege?offen=1&suche=`), damit auch ältere offene Aufträge
+	 * planbar sind; ohne Suchtext gelten die mitgegebenen neuesten offenen Aufträge.
 	 */
 	let {
 		einsatz = null,
@@ -70,12 +73,44 @@
 	let bis = $state(start.bis);
 	let notiz = $state(start.notiz);
 
+	let gefunden = $state<AuftragKurz[] | null>(null);
+	let suchFehler = $state<string | null>(null);
+	let suchZeit: ReturnType<typeof setTimeout> | undefined;
+
+	/** Mit Suchtext: Treffer des Servers (bis dahin lokal gefiltert); ohne: die mitgegebene Liste. */
 	const treffer = $derived.by(() => {
 		const w = suche.trim().toLowerCase().split(/\s+/).filter(Boolean);
-		return auftraege
-			.filter((a) => w.every((x) => `${a.nummer} ${a.titel} ${a.kundeName}`.toLowerCase().includes(x)))
-			.slice(0, 50);
+		const lokal = auftraege.filter((a) => w.every((x) => `${a.nummer} ${a.titel} ${a.kundeName}`.toLowerCase().includes(x)));
+		const liste = w.length > 0 && gefunden ? gefunden : lokal;
+		// die aktuelle Auswahl bleibt wählbar, auch wenn sie nicht (mehr) in der Trefferliste steht
+		const gewaehlt = [...auftraege, ...(gefunden ?? [])].find((a) => a.id === auftragId);
+		return gewaehlt && !liste.some((a) => a.id === gewaehlt.id) ? [gewaehlt, ...liste] : liste.slice(0, 100);
 	});
+
+	function sucheAendern() {
+		clearTimeout(suchZeit);
+		gefunden = null;
+		suchFehler = null;
+		const text = suche.trim();
+		if (!text) return;
+		suchZeit = setTimeout(async () => {
+			try {
+				const r = await fetch(`/api/auftraege?offen=1&suche=${encodeURIComponent(text.slice(0, 100))}`);
+				if (!r.ok) throw new Error();
+				const liste: AuftragKurz[] = await r.json();
+				if (suche.trim() === text) gefunden = liste.map((a) => ({ id: a.id, nummer: a.nummer, titel: a.titel, kundeName: a.kundeName }));
+			} catch {
+				if (suche.trim() === text) suchFehler = 'Suche nicht möglich – es werden nur die neuesten Aufträge durchsucht.';
+			}
+		}, 250);
+	}
+
+	/** Mitarbeiter zur Auswahl; ein deaktivierter Mitarbeiter des bestehenden Einsatzes bleibt (markiert) wählbar. */
+	const auswahlMitarbeiter = $derived(
+		einsatz && !mitarbeiter.some((m) => m.id === einsatz.benutzerId)
+			? [...mitarbeiter, { id: einsatz.benutzerId, name: `${einsatz.benutzerName} (deaktiviert)` }]
+			: mitarbeiter
+	);
 	const folgetag = $derived(bis !== '' && von !== '' && bis <= von);
 
 	$effect(() => {
@@ -156,8 +191,15 @@
 		{:else}
 			<label>
 				Auftrag suchen
-				<input type="search" bind:value={suche} placeholder="Nummer, Titel oder Kunde" autocomplete="off" />
+				<input
+					type="search"
+					bind:value={suche}
+					oninput={sucheAendern}
+					placeholder="Nummer, Titel oder Kunde"
+					autocomplete="off"
+				/>
 			</label>
+			{#if suchFehler}<p class="kd-info" role="status">{suchFehler}</p>{/if}
 			<label>
 				Auftrag *
 				<select bind:value={auftragId} required size={Math.min(6, Math.max(2, treffer.length + 1))}>
@@ -175,7 +217,7 @@
 				<label>
 					Mitarbeiter
 					<select bind:value={benutzerId} required>
-						{#each mitarbeiter as m (m.id)}
+						{#each auswahlMitarbeiter as m (m.id)}
 							<option value={m.id}>{m.name}</option>
 						{/each}
 					</select>

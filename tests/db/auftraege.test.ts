@@ -6,6 +6,7 @@ import { VORLAGEN } from '../../src/lib/server/rechte';
 import { berlinTag } from '../../src/lib/zeit';
 import { ApiFehler } from '../../src/lib/server/fehler';
 import {
+	aendereAuftrag,
 	holeAuftrag,
 	legeAuftragAn,
 	listeAuftraege,
@@ -30,6 +31,7 @@ import {
 	load as bearbeitenLoad
 } from '../../src/routes/(app)/auftraege/[id]/bearbeiten/+page.server';
 import { load as kundeDetailLoad } from '../../src/routes/(app)/kunden/[id]/+page.server';
+import { load as plantafelLoad } from '../../src/routes/(app)/plantafel/+page.server';
 
 type Ant = { status: number; koerper: any };
 
@@ -699,6 +701,68 @@ describe('Aufträge und To-dos', () => {
 			expect(m2.auftraege.map((x: any) => x.titel)).toEqual(['Beim Kunden']);
 			const nurKunden = nutzerVon(chefAId, betriebA, ['kunden.lesen']);
 			expect(((await kundeDetailLoad({ ...ort(nurKunden), params: { id: kundeA } } as never)) as any).auftraege).toBeNull();
+		});
+	});
+
+	describe('Gesamtprüfung', () => {
+		it('20 gleichzeitige Aufträge im selben Betrieb → 20 verschiedene, lückenlose Nummern', async () => {
+			const ergebnisse = await Promise.all(
+				Array.from({ length: 20 }, (_, i) => legeAuftragAn(kA(), { titel: `Parallel ${i}`, kundeId: kundeA }))
+			);
+			const nummern = ergebnisse.map((a) => a.nummer).sort();
+			expect(new Set(nummern).size).toBe(20);
+			expect(nummern).toEqual(Array.from({ length: 20 }, (_, i) => `A-${JAHR}-${String(i + 1).padStart(4, '0')}`));
+		});
+
+		it('Schreiben ohne alle_lesen: fremde (unsichtbare) Aufträge → 404 bei PATCH, Status, DELETE; eigene gehen', async () => {
+			// Bearbeiten, aber nur eigene Aufträge sehen
+			const schreiber = nutzerVon(monteurAId, betriebA, ['auftraege.lesen', 'auftraege.bearbeiten']);
+			const fremd = await legeAuftragAn(kA(), { titel: 'Fremd', kundeId: kundeA });
+			const meins = await legeAuftragAn(kA(), { titel: 'Meins', kundeId: kundeA });
+			await seedTodo(betriebA, meins.id, monteurAId);
+			expect((await patch(schreiber, fremd.id, { titel: 'Gehackt' })).status).toBe(404);
+			expect((await status(schreiber, fremd.id, 'angebot')).status).toBe(404);
+			expect((await del(schreiber, fremd.id)).status).toBe(404);
+			const [z] = await root`select titel, status from app.auftraege where id = ${fremd.id}`;
+			expect(z).toEqual({ titel: 'Fremd', status: 'anfrage' });
+			expect((await patch(schreiber, meins.id, { titel: 'Meins neu' })).status).toBe(200);
+			expect((await status(schreiber, meins.id, 'angebot')).status).toBe(200);
+			// Dienst direkt
+			const k = { betriebId: betriebA, benutzerId: monteurAId };
+			await expect(aendereAuftrag(k, fremd.id, { titel: 'x' }, eigene(monteurAId))).rejects.toMatchObject({ status: 404 });
+			await expect(setzeStatus(k, fremd.id, 'angebot', eigene(monteurAId))).rejects.toMatchObject({ status: 404 });
+			await expect(loescheAuftrag(k, fremd.id, eigene(monteurAId))).rejects.toMatchObject({ status: 404 });
+			// Seiten: Bearbeiten und Statusaktion ebenso
+			const ort = { locals: { nutzer: schreiber } };
+			await expect(
+				bearbeitenLoad({ ...ort, params: { id: fremd.id }, url: new URL('http://localhost/x') } as never)
+			).rejects.toMatchObject({ status: 404 });
+			expect(
+				((await detailAktionen.status({ ...ort, params: { id: fremd.id }, request: formAnfrage({ status: 'angebot' }) } as never)) as any).status
+			).toBe(404);
+		});
+
+		it('Verlauf: auftraege.alle_lesen genügt (ohne auftraege.lesen)', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'Verlauf', kundeId: kundeA });
+			const nurAlle = nutzerVon(bueroAId, betriebA, ['auftraege.alle_lesen']);
+			expect((await protokoll(nurAlle, 'auftraege', a.id)).status).toBe(200);
+		});
+
+		it('Liste mit offen: ohne abgerechnete – auch ältere offene Aufträge hinter vielen abgerechneten', async () => {
+			const alt = await legeAuftragAn(kA(), { titel: 'Alter offener Auftrag', kundeId: kundeA });
+			await root`update app.auftraege set angelegt = now() - interval '1 year' where id = ${alt.id}`;
+			for (let i = 0; i < 101; i++) {
+				await root`
+					insert into app.auftraege (betrieb_id, titel, kunde_id, status) values (${betriebA}, ${'Erledigt ' + i}, ${kundeA}, 'abgerechnet')`;
+			}
+			const offen = await listeAuftraege(kA(), alle(), { offen: true });
+			expect(offen.map((a) => a.titel)).toEqual(['Alter offener Auftrag']);
+			const r = await liste(chefA, { offen: '1', suche: 'alter' });
+			expect(r.koerper.map((a: any) => a.titel)).toEqual(['Alter offener Auftrag']);
+			expect((await liste(chefA, { offen: '1', suche: 'erledigt' })).koerper).toEqual([]);
+			const p = (await plantafelLoad({ locals: { nutzer: chefA }, url: new URL('http://localhost/plantafel') } as never)) as any;
+			expect(p.auftraege.map((a: any) => a.titel)).toContain('Alter offener Auftrag');
+			expect(p.auftraege.some((a: any) => a.titel.startsWith('Erledigt'))).toBe(false);
 		});
 	});
 });

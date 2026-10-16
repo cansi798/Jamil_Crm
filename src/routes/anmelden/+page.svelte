@@ -1,8 +1,13 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { loesche } from '$lib/heute-kopie';
 	import type { ActionData, PageData } from './$types';
 
 	let { form, data }: { form: ActionData; data: PageData } = $props();
+
+	// Wer hier landet, ist nicht (mehr) angemeldet: Offline-Kopie der Einsätze vom Gerät entfernen
+	onMount(() => loesche());
 </script>
 
 <svelte:head>

@@ -16,11 +16,12 @@ export const PROTOKOLL_TABELLEN = {
 	einladungen: 'benutzer.verwalten',
 	kunden: 'kunden.lesen',
 	objekte: 'kunden.lesen',
-	auftraege: 'auftraege.lesen',
-	todos: 'auftraege.lesen',
+	// eigene oder alle Aufträge lesen; wer nur eigene sieht, bekommt fremde Verläufe nicht (404, siehe API)
+	auftraege: ['auftraege.lesen', 'auftraege.alle_lesen'],
+	todos: ['auftraege.lesen', 'auftraege.alle_lesen'],
 	einsaetze: 'plantafel.bearbeiten',
 	abwesenheiten: 'plantafel.bearbeiten'
-} as const satisfies Record<string, Recht>;
+} as const satisfies Record<string, Recht | readonly Recht[]>;
 
 export type ProtokollTabelle = keyof typeof PROTOKOLL_TABELLEN;
 
@@ -76,12 +77,13 @@ export function pruefeSuche(params: URLSearchParams): ProtokollSuche {
 }
 
 /**
- * Darf dieser Nutzer das Protokoll der Tabelle lesen? Das Leserecht der Tabelle genügt immer. `einstellungen` genügt
+ * Darf dieser Nutzer das Protokoll der Tabelle lesen? Das Leserecht der Tabelle (bei einer Liste: eines davon) genügt immer. `einstellungen` genügt
  * nur bei Verwaltungstabellen – nicht bei Tabellen eines Moduls (Kundendaten): Wer Kunden nicht sehen darf, soll
  * ihre Daten auch nicht über den Verlauf lesen (Ruling R19).
  */
 export function darfProtokollLesen(nutzer: Nutzer, tabelle: ProtokollTabelle): boolean {
-	if (hatRecht(nutzer, PROTOKOLL_TABELLEN[tabelle])) return true;
+	const rechte: readonly Recht[] = [PROTOKOLL_TABELLEN[tabelle]].flat();
+	if (rechte.some((r) => hatRecht(nutzer, r))) return true;
 	return !Object.hasOwn(PROTOKOLL_MODULE, tabelle) && hatRecht(nutzer, 'einstellungen');
 }
 

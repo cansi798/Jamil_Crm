@@ -1,7 +1,7 @@
 <script lang="ts">
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import HeuteListe from '$lib/components/HeuteListe.svelte';
-	import { speichere } from '$lib/heute-kopie';
+	import { loesche, speichere } from '$lib/heute-kopie';
 	import { tagKurz } from '$lib/zeit';
 	import type { PageData } from './$types';
 
@@ -10,6 +10,7 @@
 	// Kopie für schlechtes Netz (nur auf diesem Gerät, bis zum Abmelden bzw. bis morgen)
 	$effect(() => {
 		if (data.heute && data.benutzerId) speichere(data.benutzerId, data.heuteTag, data.heute, new Date());
+		else loesche(); // kein Zugriff auf Einsätze → auch keine (alte) Kopie auf diesem Gerät
 	});
 
 	const bereiche = $derived((data.navigation?.haupt ?? []).filter((e) => e.symbol !== 'start'));

@@ -4,12 +4,17 @@
 	import { istAktiv } from '$lib/navigation';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
-	import { loesche } from '$lib/heute-kopie';
+	import { loesche, merkeNutzer, nutzerKennung } from '$lib/heute-kopie';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const pfad = $derived(page.url.pathname);
+
+	// Offline-Kopie gehört nur dem angemeldeten Benutzer: Kennung merken, fremde Kopie dabei löschen
+	$effect(() => {
+		if (data.benutzerId) merkeNutzer(nutzerKennung(data.benutzerId));
+	});
 	const mehrAktiv = $derived(pfad === '/mehr' || (data.navigation?.mehr ?? []).some((e) => istAktiv(e.href, pfad)));
 </script>
 

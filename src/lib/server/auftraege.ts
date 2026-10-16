@@ -13,8 +13,9 @@ import { istTag } from '../zeit';
  * Sichtbarkeit: Mit `auftraege.alle_lesen` sieht man alle Aufträge des Betriebs. Mit nur `auftraege.lesen` („eigene
  * Aufträge“) nur die, in denen man mindestens einen Einsatz hat oder für die einem ein To-do zugewiesen ist. Fremde,
  * unsichtbare oder unbekannte Aufträge (auch kaputte IDs) sind immer ein 404, nie ein 403 – so verrät die Antwort
- * nicht, dass es sie gibt. Schreibende Funktionen bekommen keine `Sicht`: Wer `auftraege.bearbeiten` hat, darf jeden
- * Auftrag seines Betriebs ändern (Rechteprüfung macht der Aufrufer).
+ * nicht, dass es sie gibt. Das gilt auch beim Schreiben: Ändern, Status und Löschen bekommen die `Sicht` des
+ * Nutzers – wer `auftraege.bearbeiten`, aber nicht `auftraege.alle_lesen` hat, ändert nur seine sichtbaren Aufträge
+ * (Rechteprüfung macht der Aufrufer).
  */
 
 export type Auftrag = {
@@ -43,7 +44,8 @@ export type AuftragWerte = {
 	geplantAb: string | null;
 };
 
-export type AuftragFilter = { status?: AuftragStatus; kundeId?: string; suche?: string };
+/** `offen`: ohne abgerechnete Aufträge (z. B. Auswahl beim Einplanen). */
+export type AuftragFilter = { status?: AuftragStatus; kundeId?: string; suche?: string; offen?: boolean };
 
 export const MAX_AUFTRAEGE = 100;
 
@@ -165,6 +167,7 @@ export async function listeAuftraege(k: Kontext, sicht: Sicht, filter: AuftragFi
 				and ${sichtbar(tx, sicht)}
 				${filter.status ? tx`and a.status = ${filter.status}` : tx``}
 				${filter.kundeId ? tx`and a.kunde_id = ${filter.kundeId}` : tx``}
+				${filter.offen ? tx`and a.status <> 'abgerechnet'` : tx``}
 				and not exists (
 					select 1 from unnest(${muster}::text[]) as s(m)
 					where not (
@@ -218,14 +221,20 @@ export async function legeAuftragAn(k: Kontext, e: Record<string, unknown>): Pro
  * Wechselt der Kunde und wird kein Objekt angegeben, entfällt das bisherige Objekt (es gehört zum alten Kunden).
  * Den Status ändert nur `setzeStatus`.
  */
-export async function aendereAuftrag(k: Kontext, id: string, e: Record<string, unknown>): Promise<Auftrag> {
+export async function aendereAuftrag(
+	k: Kontext,
+	id: string,
+	e: Record<string, unknown>,
+	sicht: Sicht = ALLE(k.benutzerId)
+): Promise<Auftrag> {
 	pruefeAuftragsId(id);
 	const felder = AUFTRAG_FELDER.filter((f) => Object.hasOwn(e, f));
 	if (felder.length === 0) throw new ApiFehler(400, 'Nichts zu ändern.');
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select titel, kunde_id, objekt_id, beschreibung, to_char(geplant_ab, 'YYYY-MM-DD') as geplant_ab
-			from app.auftraege where id = ${id} and betrieb_id = ${k.betriebId} for update`;
+			select a.titel, a.kunde_id, a.objekt_id, a.beschreibung, to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab
+			from app.auftraege a
+			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
 		if (!alt) throw nichtGefunden();
 		const bisher: Record<string, unknown> = {
 			titel: alt.titel,
@@ -243,28 +252,38 @@ export async function aendereAuftrag(k: Kontext, id: string, e: Record<string, u
 			update app.auftraege set titel = ${w.titel}, kunde_id = ${w.kundeId}, objekt_id = ${w.objektId},
 				beschreibung = ${w.beschreibung}, geplant_ab = ${w.geplantAb}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
-		return ladeEinen(tx, k, ALLE(k.benutzerId), id);
+		return ladeEinen(tx, k, sicht, id);
 	});
 }
 
 /** Statuswechsel um genau einen Schritt (sonst 409 `Statuswechsel nicht erlaubt`). */
-export async function setzeStatus(k: Kontext, id: string, nach: AuftragStatus): Promise<Auftrag> {
+export async function setzeStatus(
+	k: Kontext,
+	id: string,
+	nach: AuftragStatus,
+	sicht: Sicht = ALLE(k.benutzerId)
+): Promise<Auftrag> {
 	pruefeStatus(nach);
 	pruefeAuftragsId(id);
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select status from app.auftraege where id = ${id} and betrieb_id = ${k.betriebId} for update`;
+			select a.status from app.auftraege a
+			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
 		if (!alt) throw nichtGefunden();
 		if (!erlaubterWechsel(alt.status, nach)) throw new ApiFehler(409, 'Statuswechsel nicht erlaubt');
 		await tx`update app.auftraege set status = ${nach} where id = ${id} and betrieb_id = ${k.betriebId}`;
-		return ladeEinen(tx, k, ALLE(k.benutzerId), id);
+		return ladeEinen(tx, k, sicht, id);
 	});
 }
 
 /** Löscht einen Auftrag samt To-dos – nur im Status „Anfrage“ (sonst 409). */
-export async function loescheAuftrag(k: Kontext, id: string): Promise<void> {
+export async function loescheAuftrag(k: Kontext, id: string, sicht: Sicht = ALLE(k.benutzerId)): Promise<void> {
 	pruefeAuftragsId(id);
 	return mitBetrieb(k, async (tx) => {
+		const [sichtbarerAuftrag] = await tx`
+			select a.id from app.auftraege a
+			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
+		if (!sichtbarerAuftrag) throw nichtGefunden();
 		const z = await tx`
 			delete from app.auftraege where id = ${id} and betrieb_id = ${k.betriebId} and status = 'anfrage' returning id`;
 		if (z.length > 0) return;

@@ -3,9 +3,9 @@ import type { RequestHandler } from './$types';
 import { alsAntwort, leseJson } from '$lib/server/fehler';
 import { betriebKontext } from '$lib/server/rechte';
 import { darf } from '$lib/server/tarif';
-import { aendereAuftrag, auftragsSicht, holeAuftrag, loescheAuftrag } from '$lib/server/auftraege';
+import { aendereAuftrag, auftragsSicht, holeAuftrag, loescheAuftrag, sichtVon } from '$lib/server/auftraege';
 
-// Fremde, unsichtbare und unbekannte Aufträge sind überall ein 404 (nie 403).
+// Fremde, unsichtbare und unbekannte Aufträge sind überall ein 404 (nie 403) – auch beim Ändern und Löschen.
 
 export const GET: RequestHandler = async ({ locals, params }) => {
 	try {
@@ -20,7 +20,8 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	try {
 		await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-		return json(await aendereAuftrag(betriebKontext(locals), params.id, await leseJson(request)));
+		const sicht = sichtVon(locals.nutzer!);
+		return json(await aendereAuftrag(betriebKontext(locals), params.id, await leseJson(request), sicht));
 	} catch (e) {
 		return alsAntwort(e);
 	}
@@ -30,7 +31,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 export const DELETE: RequestHandler = async ({ locals, params }) => {
 	try {
 		await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-		await loescheAuftrag(betriebKontext(locals), params.id);
+		await loescheAuftrag(betriebKontext(locals), params.id, sichtVon(locals.nutzer!));
 		return new Response(null, { status: 204 });
 	} catch (e) {
 		return alsAntwort(e);

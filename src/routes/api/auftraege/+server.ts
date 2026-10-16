@@ -7,7 +7,8 @@ import { auftragsSicht, legeAuftragAn, listeAuftraege, pruefeStatus } from '$lib
 import { UUID } from '$lib/server/kunden';
 
 /**
- * Aufträge auflisten: `GET /api/auftraege?status=&kunde=&suche=` – neueste zuerst, höchstens 100. Lesen: Modul
+ * Aufträge auflisten: `GET /api/auftraege?status=&kunde=&suche=&offen=1` – neueste zuerst, höchstens 100; `offen=1`
+ * blendet abgerechnete aus (Auswahl beim Einplanen). Lesen: Modul
  * `auftraege` + `auftraege.alle_lesen` (alle) oder `auftraege.lesen` (nur eigene: mit Einsatz oder zugewiesenem To-do).
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
@@ -20,7 +21,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 			await listeAuftraege(betriebKontext(locals), sicht, {
 				status: status ? pruefeStatus(status) : undefined,
 				kundeId: kunde || undefined,
-				suche: url.searchParams.get('suche') ?? undefined
+				suche: url.searchParams.get('suche') ?? undefined,
+				offen: url.searchParams.get('offen') === '1'
 			})
 		);
 	} catch (e) {

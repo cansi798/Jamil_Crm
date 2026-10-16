@@ -53,7 +53,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-			await setzeStatus(betriebKontext(locals), params.id, pruefeStatus(form.get('status')));
+			await setzeStatus(betriebKontext(locals), params.id, pruefeStatus(form.get('status')), sichtVon(locals.nutzer!));
 		} catch (e) {
 			return alsFormFehler(e);
 		}
@@ -62,7 +62,7 @@ export const actions: Actions = {
 	loeschen: async ({ locals, params }) => {
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-			await loescheAuftrag(betriebKontext(locals), params.id);
+			await loescheAuftrag(betriebKontext(locals), params.id, sichtVon(locals.nutzer!));
 		} catch (e) {
 			return alsFormFehler(e);
 		}
