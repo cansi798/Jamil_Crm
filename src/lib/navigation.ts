@@ -11,6 +11,9 @@ export type Symbol =
 	| 'plantafel'
 	| 'todos'
 	| 'abwesenheiten'
+	| 'angebote'
+	| 'katalog'
+	| 'briefkopf'
 	| 'mehr'
 	| 'benutzer'
 	| 'rollen'
@@ -62,6 +65,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		}
 		if (hat('einstellungen')) {
 			mehr.push({ name: 'Rollen', href: '/einstellungen/rollen', symbol: 'rollen' });
+			// Briefkopf und Logo (für Angebote): Betriebsdaten, ohne Modulbindung
+			mehr.push({ name: 'Briefkopf', href: '/einstellungen/briefkopf', symbol: 'briefkopf' });
 		}
 	} else if (nutzer.istAdmin) {
 		mehr.push({ name: 'Plattform-Verwaltung', href: '/admin', symbol: 'admin' });

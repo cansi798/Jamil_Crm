@@ -44,6 +44,18 @@
 	{:else if symbol === 'plantafel'}
 		<rect x="3" y="5" width="18" height="16" rx="2" />
 		<path d="M3 10h18M8 3v4M16 3v4" />
+	{:else if symbol === 'angebote'}
+		<path d="M6 3h9l4 4v14H6z" />
+		<path d="M15 3v4h4" />
+		<path d="M9 12h7M9 15.5h7M9 19h4" />
+	{:else if symbol === 'katalog'}
+		<path d="M4 5.5C4 4.1 5.1 3 6.5 3H20v15H6.5C5.1 18 4 19.1 4 20.5z" />
+		<path d="M4 20.5C4 21.9 5.1 23 6.5 23H20v-5" />
+		<path d="M9 8h7M9 11.5h5" />
+	{:else if symbol === 'briefkopf'}
+		<rect x="4" y="3" width="16" height="18" rx="1.5" />
+		<rect x="7" y="6" width="5" height="3" rx="0.5" />
+		<path d="M7 13h10M7 16.5h10" />
 	{:else if symbol === 'benutzer'}
 		<circle cx="12" cy="8" r="4" />
 		<path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
