@@ -40,4 +40,43 @@ test.describe('Bildschirmfotos', () => {
 		await expect(page.getByRole('heading', { name: 'Betriebe', exact: true })).toBeVisible();
 		await page.screenshot({ path: `${ORDNER}/admin-uebersicht-desktop.png`, fullPage: true });
 	});
+
+	test('Stufe 1b mobil: Start „heute“ (Monteur), Auftrag, To-dos, Plantafel (Büro)', async ({ page }, info) => {
+		test.skip(info.project.name !== 'mobil', 'mobil');
+		await anmelden(page, 'monteur@bauwelt.test');
+		await page.goto('/');
+		await page.screenshot({ path: `${ORDNER}/1b-start-heute-mobil.png` });
+		await page.goto('/auftraege');
+		await page.screenshot({ path: `${ORDNER}/1b-auftraege-monteur-mobil.png` });
+		await page.goto('/todos');
+		await page.screenshot({ path: `${ORDNER}/1b-todos-monteur-mobil.png` });
+		await page.context().clearCookies();
+		await anmelden(page, 'buero@bauwelt.test');
+		await page.goto('/auftraege');
+		await page.getByRole('main').getByRole('link', { name: /Badsanierung/ }).first().click();
+		await expect(page).toHaveURL(/\/auftraege\/[0-9a-f-]{36}$/);
+		await page.screenshot({ path: `${ORDNER}/1b-auftrag-mobil.png`, fullPage: true });
+		await page.goto('/plantafel');
+		await page.screenshot({ path: `${ORDNER}/1b-plantafel-mobil.png` });
+	});
+
+	test('Stufe 1b Desktop: Plantafel, Aufträge, Auftrag, To-dos, Abwesenheiten, Start „heute“', async ({ page }, info) => {
+		test.skip(info.project.name !== 'desktop', 'desktop');
+		await anmelden(page, 'buero@bauwelt.test');
+		await page.goto('/plantafel');
+		await page.screenshot({ path: `${ORDNER}/1b-plantafel-desktop.png`, fullPage: true });
+		await page.goto('/auftraege');
+		await page.screenshot({ path: `${ORDNER}/1b-auftraege-desktop.png`, fullPage: true });
+		await page.getByRole('main').getByRole('link', { name: /Badsanierung/ }).first().click();
+		await expect(page).toHaveURL(/\/auftraege\/[0-9a-f-]{36}$/);
+		await page.screenshot({ path: `${ORDNER}/1b-auftrag-desktop.png`, fullPage: true });
+		await page.goto('/todos?nur=alle');
+		await page.screenshot({ path: `${ORDNER}/1b-todos-desktop.png`, fullPage: true });
+		await page.goto('/plantafel/abwesenheiten');
+		await page.screenshot({ path: `${ORDNER}/1b-abwesenheiten-desktop.png`, fullPage: true });
+		await page.context().clearCookies();
+		await anmelden(page, 'monteur@bauwelt.test');
+		await page.goto('/');
+		await page.screenshot({ path: `${ORDNER}/1b-start-heute-desktop.png`, fullPage: true });
+	});
 });

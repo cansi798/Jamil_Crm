@@ -55,6 +55,9 @@ async function einsatz(page: Page, auftragId: string, benutzerId: string, tag: s
 
 /** Zieht ein Element mit der Maus (Pointer Events) auf ein anderes. */
 async function ziehe(page: Page, von: ReturnType<Page['locator']>, nach: ReturnType<Page['locator']>) {
+	// Bei vielen Mitarbeitern liegt die Zeile evtl. unterhalb des Fensters – erst hinscrollen (gleiche Zeile)
+	await nach.scrollIntoViewIfNeeded();
+	await von.scrollIntoViewIfNeeded();
 	const a = (await von.boundingBox())!;
 	const b = (await nach.boundingBox())!;
 	await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);

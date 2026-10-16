@@ -7,12 +7,13 @@ import { ladeEnv, urlAusUmgebung } from './migrate';
 import { hashePasswort } from '../src/lib/server/auth/passwort';
 import type { Vorlage } from '../src/lib/server/rechte';
 import { totpUri } from '../src/lib/server/auth/totp';
-import { leseZugangsdaten, pruefeSandbox, seedDev } from './seed-dev';
+import { leseZugangsdaten, pruefeSandbox, seedDev, sichereBeispielplanung } from './seed-dev';
 
 /**
  * Persönliche Test-Zugänge für die Vorschau (Wunsch Can 16.10.2026: „verschiedene Testzugänge für verschiedene
  * Ansichten, damit Jamil und ich simulieren können“). Je Person ein Zugang pro Rolle im Testbetrieb „Bauwelt“
- * plus ein Plattform-Admin mit fest eingerichteter Zwei-Faktor-Anmeldung.
+ * plus ein Plattform-Admin mit fest eingerichteter Zwei-Faktor-Anmeldung. Die Monteur-Zugänge bekommen Beispiel-
+ * Einsätze für heute und morgen („Meine Einsätze heute“, Stufe 1b).
  *
  * Idempotent: Vorhandene Zugänge behalten ihr notiertes Passwort. Passwörter stehen nur in `.zugangsdaten-test`
  * (gitignored, Modus 600), nie in der Ausgabe. Aufruf: `npx tsx scripts/testzugaenge.ts` (nur Sandbox-Datenbank).
@@ -87,6 +88,8 @@ async function main(): Promise<void> {
 				}
 				daten.set(`totp-uri:${adminEmail}`, totpUri(daten.get(schluessel)!, adminEmail));
 			}
+			// Beispiel-Einsätze auch für die eben angelegten Monteur-Zugänge (idempotent)
+			await sichereBeispielplanung(tx, betrieb.id);
 		});
 	} finally {
 		await sql.end();

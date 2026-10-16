@@ -7,10 +7,13 @@ import { ladeEnv, urlAusUmgebung } from './migrate';
 import { hashePasswort, pruefePasswort } from '../src/lib/server/auth/passwort';
 import { VORLAGEN, VORLAGEN_NAMEN, type Vorlage } from '../src/lib/server/rechte';
 import { totpUri } from '../src/lib/server/auth/totp';
+import { berlinTag, berlinZeitpunkt, tagPlus, wocheVon } from '../src/lib/zeit';
 
 /**
  * Entwicklungsdaten (nur für die lokale Sandbox, nie für Produktion): Betrieb „Bauwelt“ (Tarif test) mit den
- * drei Rollen aus den Vorlagen, je ein Benutzer Chef/Büro/Monteur, ein Plattform-Admin und 5 Beispielkunden.
+ * drei Rollen aus den Vorlagen, je ein Benutzer Chef/Büro/Monteur, ein Plattform-Admin und 5 Beispielkunden; dazu
+ * (Stufe 1b) 6 Beispielaufträge über alle Status, To-dos, Einsätze in dieser und der nächsten Woche (mit einer
+ * Doppelbelegung und einem Urlaub) und „heute“-Einsätze für jeden Monteur – auch die persönlichen Test-Zugänge.
  *
  * Idempotent: Was es schon gibt (Betrieb nach Name, Rolle nach Vorlage, Benutzer nach E-Mail, Kunde nach Name),
  * wird nicht noch einmal angelegt und nicht verändert. Passwörter sind zufällig und stehen nur in der Datei
@@ -161,7 +164,148 @@ async function sichereBenutzer(
 	return { id: z.id, neu: true };
 }
 
-export type SeedErgebnis = { neueBenutzer: number; neueKunden: number };
+export type SeedErgebnis = { neueBenutzer: number; neueKunden: number } & Planung;
+
+type Planung = { neueAuftraege: number; neueTodos: number; neueEinsaetze: number };
+
+/** Beispielaufträge (Reihenfolge = Nummer A-<Jahr>-0001 …), je Status einer. Kunde über den Nachnamen bzw. die Firma. */
+const AUFTRAEGE: { titel: string; kunde: string; status: string; beschreibung?: string }[] = [
+	{ titel: 'Badsanierung', kunde: 'Größer', status: 'in_arbeit', beschreibung: 'Wanne raus, bodengleiche Dusche, neue Fliesen.' },
+	{ titel: 'Fliesen Küche', kunde: 'Weißenböck', status: 'beauftragt', beschreibung: 'Fliesenspiegel und Boden, ca. 18 m².' },
+	{ titel: 'Ladenumbau Trockenbau', kunde: 'Bäckerei Krümel GmbH', status: 'angebot' },
+	{ titel: 'Gewächshaus Fundament', kunde: 'Gärtnerei Grünfeld', status: 'anfrage' },
+	{ titel: 'Malerarbeiten Treppenhaus', kunde: 'Schröder', status: 'abgenommen' },
+	{ titel: 'Dachrinne erneuern', kunde: 'Größer', status: 'abgerechnet' }
+];
+
+/**
+ * Einsätze relativ zu „heute“ (Berlin): `tag` 'heute' | 'morgen' | Wochentag 0–6 dieser Woche | 7–13 nächster Woche.
+ * Erkannt werden sie an Mitarbeiter + Notiz; bei einem späteren Lauf wandern sie auf die neuen Tage (keine Duplikate).
+ */
+const EINSAETZE: { wer: string; auftrag: number; tag: 'heute' | 'morgen' | number; von: number; bis: number; notiz: string }[] = [
+	{ wer: 'monteur@bauwelt.test', auftrag: 0, tag: 'heute', von: 7.5, bis: 12, notiz: 'Beispiel: Wanne ausbauen' },
+	{ wer: 'monteur@bauwelt.test', auftrag: 1, tag: 'heute', von: 13, bis: 16, notiz: 'Beispiel: Aufmaß Küche' },
+	{ wer: 'monteur@bauwelt.test', auftrag: 0, tag: 0, von: 7, bis: 15, notiz: 'Beispiel: Abbruch Bad' },
+	// Doppelbelegung am Mittwoch dieser Woche (überlappt 10–12 Uhr)
+	{ wer: 'monteur@bauwelt.test', auftrag: 0, tag: 2, von: 8, bis: 12, notiz: 'Beispiel: Estrich prüfen' },
+	{ wer: 'monteur@bauwelt.test', auftrag: 2, tag: 2, von: 10, bis: 14, notiz: 'Beispiel: Ständerwerk Laden' },
+	{ wer: 'monteur@bauwelt.test', auftrag: 1, tag: 8, von: 8, bis: 16, notiz: 'Beispiel: Fliesen Küche legen' },
+	{ wer: 'chef@bauwelt.test', auftrag: 2, tag: 3, von: 9, bis: 11, notiz: 'Beispiel: Besichtigung Laden' },
+	// Urlaub des Chefs Freitag bis Montag – der Einsatz am Montag der nächsten Woche wird gewarnt
+	{ wer: 'chef@bauwelt.test', auftrag: 3, tag: 7, von: 8, bis: 10, notiz: 'Beispiel: Fundament besprechen' },
+	{ wer: 'buero@bauwelt.test', auftrag: 2, tag: 9, von: 10, bis: 12, notiz: 'Beispiel: Angebot vor Ort erklären' }
+];
+
+/** Für jeden weiteren Monteur des Betriebs (z. B. Test-Zugänge can.monteur, jamil.monteur): heute und morgen. */
+const MONTEUR_HEUTE = [
+	{ auftrag: 0, tag: 'heute' as const, von: 8, bis: 12, notiz: 'Beispiel: Fliesen verlegen' },
+	{ auftrag: 1, tag: 'morgen' as const, von: 7, bis: 15, notiz: 'Beispiel: Küche vorbereiten' }
+];
+
+const TODOS: { titel: string; auftrag: number | null; wer: string | null; faellig: number | null; erledigt?: boolean }[] = [
+	{ titel: 'Silikon und Fugenmasse besorgen', auftrag: 0, wer: 'monteur@bauwelt.test', faellig: 1 },
+	{ titel: 'Fliesen beim Händler abholen', auftrag: 1, wer: 'monteur@bauwelt.test', faellig: -1 },
+	{ titel: 'Angebot nachfassen', auftrag: 2, wer: 'buero@bauwelt.test', faellig: 2 },
+	{ titel: 'Termin für Besichtigung vereinbaren', auftrag: 3, wer: 'buero@bauwelt.test', faellig: null },
+	{ titel: 'Schlussrechnung prüfen', auftrag: 4, wer: 'chef@bauwelt.test', faellig: -3, erledigt: true },
+	{ titel: 'Werkzeugliste für den Transporter', auftrag: null, wer: 'chef@bauwelt.test', faellig: 5 }
+];
+
+const URLAUB = { wer: 'chef@bauwelt.test', von: 4, bis: 7, notiz: 'Beispiel: Kurzurlaub' };
+
+/**
+ * Beispielplanung der Stufe 1b (idempotent, im Betriebskontext der laufenden Transaktion). Wird auch von
+ * scripts/testzugaenge.ts aufgerufen, nachdem die persönlichen Test-Zugänge angelegt sind.
+ */
+export async function sichereBeispielplanung(tx: Tx, betriebId: string): Promise<Planung> {
+	const heute = berlinTag(new Date());
+	const woche = wocheVon(heute);
+	const tagVon = (t: 'heute' | 'morgen' | number) =>
+		t === 'heute' ? heute : t === 'morgen' ? tagPlus(heute, 1) : tagPlus(woche[0], t);
+	const zeit = (tag: string, stunde: number) =>
+		berlinZeitpunkt(tag, Math.floor(stunde), Math.round((stunde % 1) * 60));
+
+	const benutzer = new Map(
+		(await tx<{ id: string; email: string }[]>`
+			select id, email::text as email from app.benutzer where betrieb_id = ${betriebId}`).map((b) => [b.email, b.id])
+	);
+	// Aufträge (Nummern vergibt der Trigger in Anlage-Reihenfolge)
+	const auftragIds: string[] = [];
+	let neueAuftraege = 0;
+	for (const a of AUFTRAEGE) {
+		const [da] = await tx<{ id: string }[]>`
+			select id from app.auftraege where betrieb_id = ${betriebId} and titel = ${a.titel} order by angelegt limit 1`;
+		if (da) {
+			auftragIds.push(da.id);
+			continue;
+		}
+		const [kunde] = await tx<{ id: string }[]>`
+			select id from app.kunden where betrieb_id = ${betriebId} and (nachname = ${a.kunde} or firma = ${a.kunde})
+			order by angelegt limit 1`;
+		if (!kunde) throw new Error(`Seed: Kunde „${a.kunde}“ fehlt`);
+		const [neu] = await tx<{ id: string }[]>`
+			insert into app.auftraege (betrieb_id, titel, kunde_id, status, beschreibung)
+			values (${betriebId}, ${a.titel}, ${kunde.id}, ${a.status}, ${a.beschreibung ?? null}) returning id`;
+		auftragIds.push(neu.id);
+		neueAuftraege++;
+	}
+
+	// Einsätze: fest geplante plus „heute/morgen“ für jeden weiteren Monteur
+	const weitereMonteure = await tx<{ email: string }[]>`
+		select b.email::text as email from app.benutzer b join app.rollen r on r.id = b.rolle_id
+		where b.betrieb_id = ${betriebId} and r.vorlage = 'monteur' and b.aktiv and b.email <> 'monteur@bauwelt.test'
+		order by b.email`;
+	const plan = [...EINSAETZE, ...weitereMonteure.flatMap((m) => MONTEUR_HEUTE.map((e) => ({ ...e, wer: m.email })))];
+	let neueEinsaetze = 0;
+	for (const e of plan) {
+		const benutzerId = benutzer.get(e.wer);
+		if (!benutzerId) continue;
+		const tag = tagVon(e.tag);
+		const beginn = zeit(tag, e.von);
+		const ende = zeit(tag, e.bis);
+		const [da] = await tx<{ id: string; beginn: Date; ende: Date }[]>`
+			select id, beginn, ende from app.einsaetze
+			where betrieb_id = ${betriebId} and benutzer_id = ${benutzerId} and notiz = ${e.notiz} limit 1`;
+		if (!da) {
+			await tx`
+				insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz)
+				values (${betriebId}, ${auftragIds[e.auftrag]}, ${benutzerId}, ${beginn}, ${ende}, ${e.notiz})`;
+			neueEinsaetze++;
+		} else if (da.beginn.getTime() !== beginn.getTime() || da.ende.getTime() !== ende.getTime()) {
+			await tx`update app.einsaetze set beginn = ${beginn}, ende = ${ende} where id = ${da.id}`;
+		}
+	}
+
+	// Urlaub (wandert mit wie die Einsätze)
+	const urlauber = benutzer.get(URLAUB.wer);
+	if (urlauber) {
+		const von = tagPlus(woche[0], URLAUB.von);
+		const bis = tagPlus(woche[0], URLAUB.bis);
+		const [da] = await tx<{ id: string }[]>`
+			select id from app.abwesenheiten where betrieb_id = ${betriebId} and benutzer_id = ${urlauber} and notiz = ${URLAUB.notiz}`;
+		if (!da) {
+			await tx`
+				insert into app.abwesenheiten (betrieb_id, benutzer_id, art, von, bis, notiz)
+				values (${betriebId}, ${urlauber}, 'urlaub', ${von}, ${bis}, ${URLAUB.notiz})`;
+		} else {
+			await tx`update app.abwesenheiten set von = ${von}, bis = ${bis} where id = ${da.id} and (von <> ${von}::date or bis <> ${bis}::date)`;
+		}
+	}
+
+	// To-dos (erkannt an Titel; Fälligkeit relativ zu heute beim Anlegen)
+	let neueTodos = 0;
+	for (const t of TODOS) {
+		const [da] = await tx`select 1 from app.todos where betrieb_id = ${betriebId} and titel = ${t.titel}`;
+		if (da) continue;
+		await tx`
+			insert into app.todos (betrieb_id, auftrag_id, titel, zustaendig_id, faellig, erledigt_am)
+			values (${betriebId}, ${t.auftrag === null ? null : auftragIds[t.auftrag]}, ${t.titel},
+				${t.wer ? (benutzer.get(t.wer) ?? null) : null}, ${t.faellig === null ? null : tagPlus(heute, t.faellig)},
+				${t.erledigt ? new Date() : null})`;
+		neueTodos++;
+	}
+	return { neueAuftraege, neueTodos, neueEinsaetze };
+}
 
 export async function seedDev(url: string, opts: { datei?: string } = {}): Promise<SeedErgebnis> {
 	const datei = opts.datei ?? STANDARD_DATEI;
@@ -246,7 +390,8 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 						${k.plz ?? null}, ${k.ort ?? null}, ${k.notiz ?? null})`;
 				neueKunden++;
 			}
-			return { neueBenutzer, neueKunden };
+			const planung = await sichereBeispielplanung(tx, betrieb.id);
+			return { neueBenutzer, neueKunden, ...planung };
 		});
 	} finally {
 		await sql.end();
@@ -255,7 +400,9 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 	schreibeZugangsdaten(datei, daten);
 	console.log(
 		`Entwicklungsdaten bereit: Betrieb „${BETRIEB}“, ${BENUTZER.length + 1} Benutzer ` +
-			`(${ergebnis.neueBenutzer} neu), ${KUNDEN.length} Beispielkunden (${ergebnis.neueKunden} neu). ` +
+			`(${ergebnis.neueBenutzer} neu), ${KUNDEN.length} Beispielkunden (${ergebnis.neueKunden} neu), ` +
+			`${AUFTRAEGE.length} Beispielaufträge (${ergebnis.neueAuftraege} neu), ` +
+			`${ergebnis.neueEinsaetze} neue Einsätze, ${ergebnis.neueTodos} neue To-dos. ` +
 			`Zugangsdaten: ${datei}`
 	);
 	return ergebnis;

@@ -3,7 +3,10 @@
 Mandantenfähiges CRM für Handwerksbetriebe mit deutscher Oberfläche. Mehrere Betriebe (Mandanten) teilen sich eine
 Datenbank, sehen aber nie Daten der anderen. Stufe 1a ist das Fundament: Anmeldung mit Rollen und Zwei-Faktor,
 Benutzer und Einladungen, Tarife und Module, Änderungsprotokoll, Kunden mit Objekten, Plattform-Verwaltung für den
-Betreiber, mobile App-Hülle (PWA).
+Betreiber, mobile App-Hülle (PWA). Stufe 1b ergänzt Aufträge mit Statuskette (Anfrage → Angebot → Beauftragt →
+In Arbeit → Abgenommen → Abgerechnet), To-dos mit Zuständigem und Fälligkeit, die Plantafel (Mitarbeiter × Tage mit
+Ziehen und Ablegen, Warnungen bei Doppelbelegung, Urlaub und Krankheit), Abwesenheiten und „Meine Einsätze heute“
+auf der Startseite – auch ohne Netz (Kopie auf dem Gerät).
 
 Lastenheft und Pflichtenheft: `docs/spec/`.
 
@@ -19,10 +22,11 @@ Lastenheft und Pflichtenheft: `docs/spec/`.
 | Pfad | Inhalt |
 | --- | --- |
 | `src/routes/` | Seiten und API: `(app)` (Betriebsnutzer), `admin` (Plattform), `anmelden`, `einladung`, `api/*` |
-| `src/lib/server/` | Serverlogik: `db.ts` (Pools, Mandantenkontext), `auth/` (Sitzung, Passwort, TOTP, Begrenzung), `rechte.ts`, `tarif.ts`, `kunden.ts`, `benutzer.ts`, `admin.ts`, `protokoll.ts` |
+| `src/lib/server/` | Serverlogik: `db.ts` (Pools, Mandantenkontext), `auth/` (Sitzung, Passwort, TOTP, Begrenzung), `rechte.ts`, `tarif.ts`, `kunden.ts`, `auftraege.ts`, `todos.ts`, `plantafel.ts`, `benutzer.ts`, `admin.ts`, `protokoll.ts` |
+| `src/lib/` (ohne `server`) | Wissen ohne Serverbezug: `auftrag-status.ts` (Statuskette), `zeit.ts` (Tage/Wochen in Europe/Berlin), `heute-kopie.ts` (Offline-Kopie), `navigation.ts`, `verlauf.ts` |
 | `src/lib/components/`, `src/lib/stil/` | Wiederverwendbare Svelte-Bausteine und Stil |
 | `src/hooks.server.ts` | Sitzungsprüfung, Admin-Pfad, Nur-Lese-Sperre |
-| `db/migrations/` | SQL-Migrationen (`001` bis `009`, dazu `003a`/`003b`), werden nach Dateiname sortiert angewendet |
+| `db/migrations/` | SQL-Migrationen (`001` bis `012`, dazu `003a`/`003b`; `011` Aufträge/To-dos, `012` Einsätze/Abwesenheiten), werden nach Dateiname sortiert angewendet |
 | `scripts/` | `migrate.ts`, `admin-anlegen.ts`, `seed-dev.ts`, `start-vorschau.sh`, `erzeuge-icons.ts` |
 | `tests/unit`, `tests/db`, `tests/e2e` | Unit-Tests, Datenbank-Tests (je Testdatei eine frische Datenbank), Browser-Tests |
 | `static/` | Manifest, Symbole der PWA |
@@ -98,7 +102,11 @@ tut nichts.
 
 `npm run seed:dev` legt den Betrieb „Bauwelt“ (Tarif `test`) mit den Benutzern `chef@bauwelt.test`,
 `buero@bauwelt.test`, `monteur@bauwelt.test`, den Plattform-Admin `admin@crm.test` und 5 Beispielkunden mit Umlauten
-an. Er ist idempotent (mehrfaches Ausführen erzeugt keine Duplikate).
+an, dazu 6 Beispielaufträge (je Status einer, `A-<Jahr>-0001` bis `0006`), To-dos und Einsätze in dieser und der
+nächsten Woche – mit einer Doppelbelegung (Monteur am Mittwoch), einem Urlaub (Chef Freitag bis Montag) und Einsätzen
+„heute“ für den Monteur. Er ist idempotent (mehrfaches Ausführen erzeugt keine Duplikate); die Beispiel-Einsätze
+wandern bei einem späteren Lauf auf die dann aktuellen Tage. `npx tsx scripts/testzugaenge.ts` legt die persönlichen
+Test-Zugänge an (`can.chef`, `jamil.monteur`, …) und gibt den Monteur-Zugängen Einsätze für heute und morgen.
 
 - Nur für die Sandbox: Abbruch bei `NODE_ENV=production` und gegen jede Datenbank außer `crm`. Eine andere
   Datenbank muss ausdrücklich genannt werden: `npm run seed:dev -- --erlaube-db=<name>`.
@@ -142,6 +150,11 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
   **Entwicklungsdatenbank** der Vorschau: Sie legen Testkunden an (und löschen sie am Ende wieder – bricht ein Test
   vorher ab, bleiben sie liegen; die Einträge im Änderungsprotokoll bleiben immer), melden sich an und richten ggf.
   Zwei-Faktor ein. Nie gegen eine Produktionsumgebung laufen lassen.
+- Läuft die Vorschau im Testmodus (`CRM_TESTMODUS=1`), melden sich die E2E-Tests über „Mit E-Mail und Passwort
+  anmelden“ an (gleicher Weg wie ohne Testmodus). `tests/e2e/plantafel.spec.ts` legt einen eigenen Auftrag mit
+  Einsätzen drei Wochen voraus an und löscht ihn am Ende wieder. Der Offline-Test braucht
+  `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` (setzt `playwright.config.ts` selbst): Nur so erreicht die
+  Netzsperre von Playwright auch den Service Worker.
 - Bildschirmfotos für die Abnahme: dieselbe Zeile mit `BILDSCHIRMFOTOS=/w/<ordner> npx -y playwright@1.48.2 test bildschirmfotos`.
 - Vor einem Abschluss alles zusammen: `npm test`, `npm run test:db`, `npm run check`, `npm run build`, E2E.
 
@@ -162,8 +175,14 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 8. JSON-Schnittstellen verlangen `Content-Type: application/json` (CSRF-Härtung), Formulare prüfen `ORIGIN`.
 9. Das Änderungsprotokoll (`app.aenderungen`) wird nur von einem Trigger geschrieben; die Anwendung darf es lesen,
    nie beschreiben. Geheime Spalten sind ausgeschlossen.
-10. Die Anwendung versendet keine E-Mails: Einladungslinks werden in der Oberfläche angezeigt und weitergegeben.
-11. Sicherheits-Kopfzeilen: Seiten tragen eine Content-Security-Policy (`kit.csp` in `svelte.config.js`, Modus
+10. Fachliche Sichtbarkeit: Mit nur „Eigene Aufträge ansehen“ (`auftraege.lesen`) sieht ein Benutzer nur Aufträge,
+    in denen er einen Einsatz oder ein ihm zugewiesenes To-do hat; fremde Aufträge, To-dos und ihr Verlauf sind ein
+    404. Die Plantafel braucht `plantafel.bearbeiten` oder `auftraege.alle_lesen`.
+11. Offline: Der Service Worker speichert nur die App-Hülle und die statische Seite `/offline`, nie Seiten mit Daten
+    oder die API. „Meine Einsätze heute“ liegt als Kopie im `localStorage` des Geräts (nur heute gültig, ohne Preise,
+    beim Abmelden gelöscht); die Offline-Seite zeigt sie an.
+12. Die Anwendung versendet keine E-Mails: Einladungslinks werden in der Oberfläche angezeigt und weitergegeben.
+13. Sicherheits-Kopfzeilen: Seiten tragen eine Content-Security-Policy (`kit.csp` in `svelte.config.js`, Modus
     `auto`): nur eigene Quellen, Skripte nur mit Nonce (kein `unsafe-inline`/`eval`), `frame-ancestors 'none'`,
     Bilder zusätzlich `data:` (QR-Code). Einzige Inline-Ausnahme sind Stil-Attribute (`style-src-attr
     'unsafe-inline'`), weil SvelteKits Ansager für Seitenwechsel und die Hülle in `app.html` sie benutzen.
