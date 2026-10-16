@@ -48,13 +48,16 @@ done
 # Wer nach 10 Sekunden noch läuft, wird hart beendet (sonst blieben alte Prozesse liegen).
 pkill -9 -f '^node build$' 2>/dev/null || true
 
-echo "Starte Vorschau …"
+# Öffentliche Adresse für die CSRF-Prüfung: Standard lokal; hinter dem Proxy z. B.
+#   VORSCHAU_ORIGIN=https://crm.waybuild-software.de sh scripts/start-vorschau.sh
+ORIGIN_VORSCHAU="${VORSCHAU_ORIGIN:-http://127.0.0.1:8300}"
+echo "Starte Vorschau (ORIGIN $ORIGIN_VORSCHAU) …"
 # Die Anwendung läuft nie als Superuser: PGUSER/PGPASSWORD werden entfernt; die Verbindungen ergeben sich aus
 # DATABASE_URL_APP/ADMIN/AUTH bzw. PGHOST/PGPORT/PGDATABASE + CRM_*_PASSWORT (siehe src/lib/server/db.ts).
 # exec ersetzt die Hilfs-Shell durch node – so ist die notierte PID die des Servers.
 nohup setsid sh -c 'echo $$ > "$1"; exec env -u PGUSER -u PGPASSWORD \
-	NODE_ENV=production HOST=0.0.0.0 PORT=3000 ORIGIN=http://127.0.0.1:8300 node build' \
-	vorschau "$PIDDATEI" > "$LOG" 2>&1 < /dev/null &
+	NODE_ENV=production HOST=0.0.0.0 PORT=3000 ORIGIN="$2" node build' \
+	vorschau "$PIDDATEI" "$ORIGIN_VORSCHAU" > "$LOG" 2>&1 < /dev/null &
 
 i=0
 until curl -fs http://127.0.0.1:3000/api/gesundheit > /dev/null 2>&1; do
@@ -66,4 +69,4 @@ until curl -fs http://127.0.0.1:3000/api/gesundheit > /dev/null 2>&1; do
 	fi
 	sleep 0.5
 done
-echo "Vorschau läuft: http://127.0.0.1:8300 (Log: vorschau.log)"
+echo "Vorschau läuft: $ORIGIN_VORSCHAU (im Container Port 3000, vom Host http://127.0.0.1:8300; Log: vorschau.log)"
