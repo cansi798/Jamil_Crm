@@ -3,6 +3,7 @@ node_modules/
 build/
 .env
 .zugangsdaten-dev
+.zugangsdaten-test
 vorschau.log
 .vorschau.pid
 test-results/

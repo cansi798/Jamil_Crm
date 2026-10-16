@@ -28,6 +28,7 @@
 		</label>
 		<button type="submit">Anmelden</button>
 	</form>
+	<p class="design">Design by Jamil Iqbal</p>
 </main>
 
 <style>
@@ -73,5 +74,13 @@
 	}
 	.hinweis {
 		margin: 0;
+	}
+	/* Wunsch Can 16.10.2026 */
+	.design {
+		margin: 2.5rem 0 0;
+		text-align: center;
+		font-size: 0.85rem;
+		color: #5f6368;
+		letter-spacing: 0.02em;
 	}
 </style>
