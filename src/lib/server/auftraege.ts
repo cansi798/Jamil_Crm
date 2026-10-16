@@ -98,7 +98,7 @@ export function pruefeStatus(w: unknown): AuftragStatus {
 
 /**
  * SQL-Bedingung „für diese Sicht sichtbar“ (Alias `a` = app.auftraege). Eigene Aufträge: ein To-do ist dem Benutzer
- * zugewiesen oder er hat einen Einsatz darin (Tabelle einsaetze ab Migration 012 – vorher nur To-dos).
+ * zugewiesen oder er hat einen Einsatz darin.
  */
 export function sichtbar(tx: TransactionSql, sicht: Sicht) {
 	if (sicht.alle) return tx`true`;
@@ -107,15 +107,12 @@ export function sichtbar(tx: TransactionSql, sicht: Sicht) {
 			select 1 from app.todos t
 			where t.auftrag_id = a.id and t.betrieb_id = a.betrieb_id and t.zustaendig_id = ${sicht.benutzerId}
 		)
-		${EINSAETZE_SICHTBAR ? tx`or exists (
+		or exists (
 			select 1 from app.einsaetze e
 			where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id and e.benutzer_id = ${sicht.benutzerId}
-		)` : tx``}
+		)
 	)`;
 }
-
-/** Ab Task 6 (Migration 012) machen auch Einsätze einen Auftrag zum „eigenen“. */
-const EINSAETZE_SICHTBAR = false;
 
 const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.status, a.beschreibung,
 	to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab, a.angelegt, a.geaendert,

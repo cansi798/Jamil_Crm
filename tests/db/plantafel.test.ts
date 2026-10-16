@@ -4,6 +4,8 @@ import { frischeTestDb, type TestDb } from './setup';
 import { initDb, mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import {
+	ladeWoche,
+	meineEinsaetzeHeute,
 	aendereAbwesenheit,
 	aendereEinsatz,
 	legeAbwesenheitAn,
@@ -12,7 +14,34 @@ import {
 	loescheAbwesenheit,
 	loescheEinsatz
 } from '../../src/lib/server/plantafel';
-import { berlinZeitpunkt } from '../../src/lib/zeit';
+import { berlinTag, berlinZeitpunkt } from '../../src/lib/zeit';
+import { holeAuftrag, listeAuftraege } from '../../src/lib/server/auftraege';
+import { GET as plantafelGet } from '../../src/routes/api/plantafel/+server';
+import { GET as heuteGet } from '../../src/routes/api/heute/+server';
+import { POST as einsatzPost } from '../../src/routes/api/einsaetze/+server';
+import {
+	DELETE as einsatzDelete,
+	GET as einsatzGet,
+	PATCH as einsatzPatch
+} from '../../src/routes/api/einsaetze/[id]/+server';
+import { GET as abwesenheitenGet, POST as abwesenheitPost } from '../../src/routes/api/abwesenheiten/+server';
+import {
+	DELETE as abwesenheitDelete,
+	PATCH as abwesenheitPatch
+} from '../../src/routes/api/abwesenheiten/[id]/+server';
+import { load as auftragLoad } from '../../src/routes/(app)/auftraege/[id]/+page.server';
+
+type Ant = { status: number; koerper: any };
+async function antwort(r: Response): Promise<Ant> {
+	const text = await r.text();
+	return { status: r.status, koerper: text ? JSON.parse(text) : null };
+}
+const jsonAnfrage = (methode: string, koerper?: unknown) =>
+	new Request('http://localhost/api/x', {
+		method: methode,
+		headers: { 'content-type': 'application/json' },
+		body: koerper === undefined ? undefined : JSON.stringify(koerper)
+	});
 
 function nutzerVon(id: string, betriebId: string | null, rechte: readonly string[], istAdmin = false): Nutzer {
 	return { id, betriebId, istAdmin, rechte: [...rechte], betriebStatus: 'aktiv' };
@@ -26,7 +55,8 @@ const fehlerVon = (p: Promise<unknown>) => p.then(() => null, (e) => ({ status: 
 describe('Plantafel: Einsätze und Abwesenheiten', () => {
 	let db: TestDb;
 	let root: postgres.Sql;
-	let betriebA: string, betriebB: string;
+	let betriebA: string, betriebB: string, betriebC: string;
+	let chefCId: string;
 	let chefAId: string, aliId: string, mehmetId: string, inaktivId: string, chefBId: string;
 	let kundeA: string, kundeB: string, auftragA: string, auftragB: string;
 	let chefA: Nutzer;
@@ -44,6 +74,11 @@ describe('Plantafel: Einsätze und Abwesenheiten', () => {
 			insert into app.betriebe (name, tarif_id, abo_status) values ('Betrieb A', ${premium.id}, 'aktiv') returning id`;
 		[{ id: betriebB }] = await root`
 			insert into app.betriebe (name, tarif_id, abo_status) values ('Betrieb B', ${premium.id}, 'aktiv') returning id`;
+		const [ohne] = await root`
+			insert into app.tarife (schluessel, name, module, grenzen)
+			values ('ohne-plantafel', 'Ohne Plantafel', ${['kunden', 'auftraege']}, '{}') returning id`;
+		[{ id: betriebC }] = await root`
+			insert into app.betriebe (name, tarif_id, abo_status) values ('Betrieb C', ${ohne.id}, 'aktiv') returning id`;
 		const rolle = async (betrieb: string, name: string, rechte: readonly string[]) =>
 			(await root`
 				insert into app.rollen (betrieb_id, name, rechte) values (${betrieb}, ${name}, ${rechte as string[]}) returning id`)[0]
@@ -58,6 +93,7 @@ describe('Plantafel: Einsätze und Abwesenheiten', () => {
 		mehmetId = await benutzer(betriebA, monteur, 'mehmet@beispiel.test', 'Mehmet');
 		inaktivId = await benutzer(betriebA, monteur, 'weg@beispiel.test', 'Ehemalig', false);
 		chefBId = await benutzer(betriebB, await rolle(betriebB, 'Chef', VORLAGEN.chef), 'chef-b@beispiel.test', 'Chef B');
+		chefCId = await benutzer(betriebC, await rolle(betriebC, 'Chef', VORLAGEN.chef), 'chef-c@beispiel.test', 'Chef C');
 		chefA = nutzerVon(chefAId, betriebA, VORLAGEN.chef);
 		[{ id: kundeA }] = await root`
 			insert into app.kunden (betrieb_id, art, nachname, strasse, plz, ort)
@@ -302,6 +338,186 @@ describe('Plantafel: Einsätze und Abwesenheiten', () => {
 			await expect(
 				root`insert into app.abwesenheiten (betrieb_id, benutzer_id, art, von, bis) values (${betriebA}, ${aliId}, 'urlaub', '2026-10-21', '2026-10-20')`
 			).rejects.toMatchObject({ code: '23514' });
+		});
+	});
+
+	describe('Wochenansicht, heute, API', () => {
+		const ali = () => nutzerVon(aliId, betriebA, VORLAGEN.monteur);
+		const buero = () => nutzerVon(chefAId, betriebA, VORLAGEN.buero);
+		const chefC = () => nutzerVon(chefCId, betriebC, VORLAGEN.chef);
+		const plantafel = async (nutzer: Nutzer | null, tag?: string) => {
+			const url = new URL('http://localhost/api/plantafel');
+			if (tag) url.searchParams.set('tag', tag);
+			return antwort(await plantafelGet({ locals: { nutzer }, url } as never));
+		};
+		const heute = async (nutzer: Nutzer | null) => antwort(await heuteGet({ locals: { nutzer } } as never));
+		const einsatz = (benutzerId: string, tag: string, von: [number, number], bis: [number, number], bisTag = tag) =>
+			legeEinsatzAn(kA(), {
+				auftragId: auftragA,
+				benutzerId,
+				beginn: um(tag, von[0], von[1]),
+				ende: um(bisTag, bis[0], bis[1])
+			});
+
+		it('ladeWoche: 7 Tage 19.–25.10., Einsatz So 25.10. 22:00–23:30 am 25.10.; Folgewoche ohne ihn', async () => {
+			const spaet = await einsatz(aliId, '2026-10-25', [22, 0], [23, 30]);
+			await einsatz(aliId, '2026-10-19', [0, 0], [2, 0]);
+			const w = await ladeWoche(kA(), '2026-10-21');
+			expect(w.tage).toEqual(['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25']);
+			const gefunden = w.einsaetze.find((e) => e.id === spaet.id)!;
+			expect(gefunden).toBeDefined();
+			expect(berlinTag(new Date(gefunden.beginn))).toBe('2026-10-25');
+			expect(w.einsaetze.map((e) => berlinTag(new Date(e.beginn)))).toEqual(['2026-10-19', '2026-10-25']);
+			const folge = await ladeWoche(kA(), '2026-10-26');
+			expect(folge.tage[0]).toBe('2026-10-26');
+			expect(folge.tage[6]).toBe('2026-11-01');
+			expect(folge.einsaetze.map((e) => e.id)).not.toContain(spaet.id);
+			// Vorwoche enthält den Montag-0-Uhr-Einsatz nicht
+			expect((await ladeWoche(kA(), '2026-10-18')).einsaetze).toEqual([]);
+		});
+
+		it('ladeWoche: Mitarbeiter aktiv nach Name; Deaktivierter nur mit Einsatz in der Woche (aktiv:false); Warnungen und Abwesenheiten', async () => {
+			await root`
+				insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende)
+				values (${betriebA}, ${auftragA}, ${inaktivId}, ${um('2026-10-20', 8)}, ${um('2026-10-20', 10)})`;
+			await einsatz(aliId, '2026-10-21', [8, 0], [12, 0]);
+			await einsatz(aliId, '2026-10-21', [11, 0], [13, 0]);
+			const u = await legeAbwesenheitAn(kA(), { benutzerId: mehmetId, art: 'urlaub', von: '2026-10-16', bis: '2026-10-20' });
+			await einsatz(mehmetId, '2026-10-20', [8, 0], [9, 0]);
+			const w = await ladeWoche(kA(), '2026-10-21');
+			expect(w.mitarbeiter).toEqual([
+				{ id: aliId, name: 'Ali', aktiv: true },
+				{ id: chefAId, name: 'Chef A', aktiv: true },
+				{ id: inaktivId, name: 'Ehemalig', aktiv: false },
+				{ id: mehmetId, name: 'Mehmet', aktiv: true }
+			]);
+			expect(w.abwesenheiten.map((a) => a.id)).toEqual([u.id]);
+			const warn = Object.fromEntries(w.einsaetze.map((e) => [`${e.benutzerName} ${berlinTag(new Date(e.beginn))} ${e.beginn.slice(11, 16)}`, e.warnungen.map((x) => x.art)]));
+			expect(warn['Ali 2026-10-21 06:00']).toEqual(['doppelt']);
+			expect(warn['Ali 2026-10-21 09:00']).toEqual(['doppelt']);
+			expect(warn['Mehmet 2026-10-20 06:00']).toEqual(['urlaub']);
+			expect(warn['Ehemalig 2026-10-20 06:00']).toEqual([]);
+			// Folgewoche: Deaktivierter ohne Einsatz fehlt
+			expect((await ladeWoche(kA(), '2026-10-28')).mitarbeiter.map((m) => m.name)).toEqual(['Ali', 'Chef A', 'Mehmet']);
+		});
+
+		it('meineEinsaetzeHeute (jetzt = 25.10. 23:30 Berlin): nur Einsätze dieses Tages, nach Beginn, nur eigene', async () => {
+			const frueh = await einsatz(aliId, '2026-10-25', [8, 0], [10, 0]);
+			const spaet = await einsatz(aliId, '2026-10-25', [22, 0], [23, 30]);
+			await einsatz(aliId, '2026-10-24', [23, 0], [23, 59]);
+			await einsatz(aliId, '2026-10-26', [0, 30], [2, 0]);
+			await einsatz(mehmetId, '2026-10-25', [9, 0], [10, 0]);
+			const jetzt = berlinZeitpunkt('2026-10-25', 23, 30);
+			const liste = await meineEinsaetzeHeute({ betriebId: betriebA, benutzerId: aliId }, aliId, jetzt);
+			expect(liste.map((e) => e.id)).toEqual([frueh.id, spaet.id]);
+			expect(liste[0]).toMatchObject({ kundeName: 'Müller', ort: 'Kundenweg 1, 20095 Hamburg', auftragTitel: 'Badsanierung' });
+		});
+
+		it('Monteur: GET /api/plantafel 403, GET /api/heute nur eigene; Büro (alle_lesen) liest die Plantafel', async () => {
+			const jetzt = new Date();
+			const tag = berlinTag(jetzt);
+			const meins = await legeEinsatzAn(kA(), {
+				auftragId: auftragA,
+				benutzerId: aliId,
+				beginn: berlinZeitpunkt(tag, 7).toISOString(),
+				ende: berlinZeitpunkt(tag, 9).toISOString()
+			});
+			await legeEinsatzAn(kA(), {
+				auftragId: auftragA,
+				benutzerId: mehmetId,
+				beginn: berlinZeitpunkt(tag, 7).toISOString(),
+				ende: berlinZeitpunkt(tag, 9).toISOString()
+			});
+			expect((await plantafel(ali())).status).toBe(403);
+			const h = await heute(ali());
+			expect(h.status).toBe(200);
+			expect(h.koerper.map((e: any) => e.id)).toEqual([meins.id]);
+			const nurAlle = nutzerVon(chefAId, betriebA, ['auftraege.alle_lesen']);
+			const p = await plantafel(nurAlle, tag);
+			expect(p.status).toBe(200);
+			expect(p.koerper.einsaetze).toHaveLength(2);
+			expect((await plantafel(buero(), 'kaputt')).status).toBe(400);
+			expect((await plantafel(buero())).koerper.tage).toContain(tag);
+			expect((await plantafel(null)).status).toBe(401);
+			expect((await plantafel(chefC())).status).toBe(402);
+			expect((await heute(chefC())).status).toBe(402);
+			expect((await heute(nutzerVon(aliId, betriebA, ['kunden.lesen']))).status).toBe(403);
+		});
+
+		it('Monteur sieht Auftrag mit eigenem Einsatz in listeAuftraege; fremder bleibt 404; Auftragsseite zeigt Einsätze', async () => {
+			const [{ id: zweiter }] = await root`
+				insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, 'Fremder Auftrag', ${kundeA}) returning id`;
+			const k = { betriebId: betriebA, benutzerId: aliId };
+			const sicht = { alle: false, benutzerId: aliId };
+			expect(await listeAuftraege(k, sicht, {})).toEqual([]);
+			await einsatz(aliId, '2026-10-21', [8, 0], [12, 0]);
+			expect((await listeAuftraege(k, sicht, {})).map((a) => a.titel)).toEqual(['Badsanierung']);
+			expect((await holeAuftrag(k, sicht, auftragA)).id).toBe(auftragA);
+			await expect(holeAuftrag(k, sicht, zweiter)).rejects.toMatchObject({ status: 404 });
+			const d = (await auftragLoad({ locals: { nutzer: ali() }, params: { id: auftragA } } as never)) as any;
+			expect(d.einsaetze.map((e: any) => e.benutzerName)).toEqual(['Ali']);
+			await root`delete from app.auftraege where id = ${zweiter}`;
+		});
+
+		it('Einsätze-API: Chef legt an (201, Warnungen), verschiebt (PATCH), löscht (204); Monteur 403; ohne Modul 402', async () => {
+			const basis = { auftragId: auftragA, benutzerId: aliId, beginn: um('2026-10-21', 8), ende: um('2026-10-21', 12) };
+			const r1 = await antwort(await einsatzPost({ locals: { nutzer: chefA }, request: jsonAnfrage('POST', basis) } as never));
+			expect(r1.status).toBe(201);
+			const r2 = await antwort(
+				await einsatzPost({ locals: { nutzer: chefA }, request: jsonAnfrage('POST', { ...basis, beginn: um('2026-10-21', 11) }) } as never)
+			);
+			expect(r2.koerper.warnungen).toEqual([{ art: 'doppelt', einsatzId: r1.koerper.id }]);
+			const p = await antwort(
+				await einsatzPatch({
+					locals: { nutzer: chefA },
+					params: { id: r2.koerper.id },
+					request: jsonAnfrage('PATCH', { beginn: um('2026-10-22', 11), ende: um('2026-10-22', 12), benutzerId: mehmetId })
+				} as never)
+			);
+			expect(p.status).toBe(200);
+			expect(p.koerper).toMatchObject({ benutzerId: mehmetId, warnungen: [] });
+			const g = await antwort(await einsatzGet({ locals: { nutzer: chefA }, params: { id: r1.koerper.id } } as never));
+			expect(g.koerper.id).toBe(r1.koerper.id);
+			expect((await antwort(await einsatzGet({ locals: { nutzer: ali() }, params: { id: r1.koerper.id } } as never))).status).toBe(403);
+			expect(
+				(await antwort(await einsatzPost({ locals: { nutzer: ali() }, request: jsonAnfrage('POST', basis) } as never))).status
+			).toBe(403);
+			expect(
+				(await antwort(await einsatzPatch({ locals: { nutzer: ali() }, params: { id: r1.koerper.id }, request: jsonAnfrage('PATCH', { notiz: 'x' }) } as never))).status
+			).toBe(403);
+			expect((await antwort(await einsatzDelete({ locals: { nutzer: ali() }, params: { id: r1.koerper.id } } as never))).status).toBe(403);
+			expect(
+				(await antwort(await einsatzPost({ locals: { nutzer: chefC() }, request: jsonAnfrage('POST', basis) } as never))).status
+			).toBe(402);
+			expect((await antwort(await einsatzDelete({ locals: { nutzer: chefA }, params: { id: r1.koerper.id } } as never))).status).toBe(204);
+			const fehler = await antwort(
+				await einsatzPost({ locals: { nutzer: chefA }, request: jsonAnfrage('POST', { ...basis, ende: basis.beginn }) } as never)
+			);
+			expect(fehler).toMatchObject({ status: 400, koerper: { fehler: 'Ende muss nach dem Beginn liegen' } });
+		});
+
+		it('Abwesenheiten-API: anlegen, auflisten (Zeitraum), ändern, löschen; Monteur 403', async () => {
+			const r = await antwort(
+				await abwesenheitPost({
+					locals: { nutzer: chefA },
+					request: jsonAnfrage('POST', { benutzerId: aliId, art: 'krank', von: '2026-10-21', bis: '2026-10-22' })
+				} as never)
+			);
+			expect(r.status).toBe(201);
+			const url = new URL('http://localhost/api/abwesenheiten?von=2026-10-19&bis=2026-10-25');
+			const l = await antwort(await abwesenheitenGet({ locals: { nutzer: chefA }, url } as never));
+			expect(l.koerper.map((a: any) => a.art)).toEqual(['krank']);
+			expect((await antwort(await abwesenheitenGet({ locals: { nutzer: chefA }, url: new URL('http://localhost/api/abwesenheiten?von=x') } as never))).status).toBe(400);
+			const p = await antwort(
+				await abwesenheitPatch({ locals: { nutzer: chefA }, params: { id: r.koerper.id }, request: jsonAnfrage('PATCH', { bis: '2026-10-23' }) } as never)
+			);
+			expect(p.koerper.bis).toBe('2026-10-23');
+			expect(
+				(await antwort(await abwesenheitPost({ locals: { nutzer: ali() }, request: jsonAnfrage('POST', { benutzerId: aliId, art: 'krank', von: '2026-10-21', bis: '2026-10-21' }) } as never))).status
+			).toBe(403);
+			expect((await antwort(await abwesenheitenGet({ locals: { nutzer: ali() }, url } as never))).status).toBe(403);
+			expect((await antwort(await abwesenheitDelete({ locals: { nutzer: ali() }, params: { id: r.koerper.id } } as never))).status).toBe(403);
+			expect((await antwort(await abwesenheitDelete({ locals: { nutzer: chefA }, params: { id: r.koerper.id } } as never))).status).toBe(204);
 		});
 	});
 });

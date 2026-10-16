@@ -10,8 +10,9 @@ import { verlaufZeile } from '$lib/verlauf';
 import { berlinTag } from '$lib/zeit';
 import { todoAktionen } from '$lib/server/todo-aktionen';
 import { aktiveMitarbeiter, listeTodos } from '$lib/server/todos';
+import { einsaetzeZumAuftrag } from '$lib/server/plantafel';
 
-/** Auftrag mit Statuskette, To-dos und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404. */
+/** Auftrag mit Statuskette, Einsätzen, To-dos und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404. */
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
 	const nutzer = locals.nutzer!;
@@ -19,15 +20,17 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const sicht = sichtVon(nutzer);
 		const auftrag = await holeAuftrag(k, sicht, params.id);
 		const darfBearbeiten = hatRecht(nutzer, 'auftraege.bearbeiten');
-		const [protokoll, todos, mitarbeiter] = await Promise.all([
+		const [protokoll, todos, mitarbeiter, einsaetze] = await Promise.all([
 			liesProtokoll(k, { tabelle: 'auftraege', datensatz: auftrag.id, vor: null }),
 			listeTodos(k, sicht, { auftragId: auftrag.id }),
-			darfBearbeiten ? aktiveMitarbeiter(k) : Promise.resolve([])
+			darfBearbeiten ? aktiveMitarbeiter(k) : Promise.resolve([]),
+			einsaetzeZumAuftrag(k, auftrag.id)
 		]);
 		return {
 			auftrag,
 			todos,
 			mitarbeiter,
+			einsaetze,
 			heute: berlinTag(new Date()),
 			benutzerId: nutzer.id,
 			verlauf: protokoll.eintraege.map(verlaufZeile),

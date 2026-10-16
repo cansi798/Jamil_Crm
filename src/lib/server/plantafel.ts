@@ -1,7 +1,8 @@
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { anzeigeName, textFeld, UUID } from './kunden';
-import { berlinTag, istTag } from '../zeit';
+import { darf, darfEines } from './tarif';
+import { berlinTag, istTag, tagesGrenzen, wocheVon } from '../zeit';
 
 /**
  * Plantafel (Modul `plantafel`): Einsätze (Mitarbeiter × Zeitraum in einem Auftrag) und Abwesenheiten (Urlaub,
@@ -51,6 +52,13 @@ export type Abwesenheit = {
 };
 
 export const MAX_STUNDEN = 14;
+
+/** Plantafel lesen: Modul `plantafel` + `plantafel.bearbeiten` oder `auftraege.alle_lesen`. */
+export const darfPlantafelLesen = (locals: { nutzer: Nutzer | null }) =>
+	darfEines(locals, 'plantafel', ['plantafel.bearbeiten', 'auftraege.alle_lesen']);
+
+/** Planen (Einsätze, Abwesenheiten anlegen/ändern/löschen): Modul `plantafel` + `plantafel.bearbeiten`. */
+export const darfPlanen = (locals: { nutzer: Nutzer | null }) => darf(locals, 'plantafel', 'plantafel.bearbeiten');
 const MS_STUNDE = 3_600_000;
 
 type Zeitraum = { id?: string; benutzerId: string; beginn: Date; ende: Date };
@@ -357,5 +365,91 @@ export async function listeAbwesenheiten(k: Kontext, von: string, bis: string): 
 			where w.betrieb_id = ${k.betriebId} and w.von <= ${bis}::date and w.bis >= ${von}::date
 			order by w.von, b.name, w.id`;
 		return z.map(zuAbwesenheit);
+	});
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Lesen: Woche der Plantafel, Einsätze eines Auftrags, „Meine Einsätze heute“
+
+export type Wochenansicht = {
+	tage: string[];
+	mitarbeiter: { id: string; name: string; aktiv: boolean }[];
+	einsaetze: Einsatz[];
+	abwesenheiten: Abwesenheit[];
+};
+
+/**
+ * Plantafel einer Woche (Montag–Sonntag, Berlin) mit dem Tag `tag`: Einsätze, die in der Woche beginnen (jeder steht
+ * an seinem Berliner Beginn-Tag), mit Warnungen; Abwesenheiten, die die Woche berühren; Mitarbeiter = aktive Benutzer
+ * des Betriebs plus deaktivierte mit Einsätzen in dieser Woche (`aktiv: false`), nach Name.
+ */
+export async function ladeWoche(k: Kontext, tag: string): Promise<Wochenansicht> {
+	if (!istTag(tag)) throw new ApiFehler(400, 'Ungültiger Tag.');
+	const tage = wocheVon(tag);
+	const beginn = tagesGrenzen(tage[0]).beginn;
+	const ende = tagesGrenzen(tage[6]).ende;
+	// Für Warnungen auch Einsätze, die vor der Woche beginnen und in sie hineinragen (höchstens 14 Stunden lang).
+	const vorlauf = new Date(beginn.getTime() - MAX_STUNDEN * MS_STUNDE);
+	return mitBetrieb(k, async (tx) => {
+		const zeilen = await tx`
+			select ${tx.unsafe(EINSATZ_AUSWAHL)} from ${tx.unsafe(EINSATZ_VON)}
+			where e.betrieb_id = ${k.betriebId} and e.beginn >= ${vorlauf} and e.beginn < ${ende}
+			order by e.beginn, b.name, e.id`;
+		const abw = await tx`
+			select ${tx.unsafe(ABWESENHEIT_AUSWAHL)} from ${tx.unsafe(ABWESENHEIT_VON)}
+			where w.betrieb_id = ${k.betriebId} and w.von <= ${tage[6]}::date and w.bis >= ${tage[0]}::date
+			order by w.von, b.name, w.id`;
+		const mitarbeiter = await tx`
+			select b.id, b.name, b.aktiv from app.benutzer b
+			where b.betrieb_id = ${k.betriebId}
+				and (b.aktiv or exists (
+					select 1 from app.einsaetze e
+					where e.benutzer_id = b.id and e.betrieb_id = b.betrieb_id and e.beginn >= ${beginn} and e.beginn < ${ende}
+				))
+			order by public.unaccent(lower(b.name)), b.id`;
+		const abwesenheiten = abw.map(zuAbwesenheit);
+		const alle = zeilen.map((z) => ({
+			id: z.id as string,
+			benutzerId: z.benutzer_id as string,
+			beginn: new Date(z.beginn),
+			ende: new Date(z.ende)
+		}));
+		const einsaetze = zeilen.flatMap((z, i) =>
+			alle[i].beginn.getTime() >= beginn.getTime() ? [zuEinsatz(z, berechneWarnungen(alle[i], alle, abwesenheiten))] : []
+		);
+		return {
+			tage,
+			mitarbeiter: mitarbeiter.map((m) => ({ id: m.id as string, name: m.name as string, aktiv: m.aktiv as boolean })),
+			einsaetze,
+			abwesenheiten
+		};
+	});
+}
+
+/** Einsätze eines Auftrags (für die Auftragsseite), nach Beginn. Die Sichtbarkeit des Auftrags prüft der Aufrufer. */
+export async function einsaetzeZumAuftrag(k: Kontext, auftragId: string): Promise<Einsatz[]> {
+	if (!UUID.test(auftragId)) return [];
+	return mitBetrieb(k, async (tx) => {
+		const z = await tx`
+			select ${tx.unsafe(EINSATZ_AUSWAHL)} from ${tx.unsafe(EINSATZ_VON)}
+			where e.betrieb_id = ${k.betriebId} and e.auftrag_id = ${auftragId}
+			order by e.beginn, b.name, e.id`;
+		return z.map((zeile) => zuEinsatz(zeile));
+	});
+}
+
+/**
+ * „Meine Einsätze heute“: Einsätze des Benutzers, die den heutigen Berliner Tag (von `jetzt`) berühren, nach Beginn –
+ * mit Kunde und Ort (Objekt- bzw. Kundenadresse). Ohne Warnungen (die betreffen die Planung, nicht den Monteur).
+ */
+export async function meineEinsaetzeHeute(k: Kontext, benutzerId: string, jetzt = new Date()): Promise<Einsatz[]> {
+	const { beginn, ende } = tagesGrenzen(berlinTag(jetzt));
+	return mitBetrieb(k, async (tx) => {
+		const z = await tx`
+			select ${tx.unsafe(EINSATZ_AUSWAHL)} from ${tx.unsafe(EINSATZ_VON)}
+			where e.betrieb_id = ${k.betriebId} and e.benutzer_id = ${benutzerId}
+				and e.beginn < ${ende} and e.ende > ${beginn}
+			order by e.beginn, e.id`;
+		return z.map((zeile) => zuEinsatz(zeile));
 	});
 }

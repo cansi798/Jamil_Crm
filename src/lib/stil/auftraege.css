@@ -253,3 +253,10 @@
 .td-loeschen {
 	width: 100%;
 }
+.af-einsaetze > li:not(.kd-leer) {
+	display: grid;
+	gap: 0.15rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid #c8c8c8;
+	border-radius: 0.5rem;
+}

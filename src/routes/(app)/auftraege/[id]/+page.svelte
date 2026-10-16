@@ -4,7 +4,7 @@
 	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import { STATUS_NAMEN } from '$lib/auftrag-status';
-	import { tagDeutsch } from '$lib/zeit';
+	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -55,7 +55,19 @@
 	{/if}
 
 	<h2>Einsätze</h2>
-	<p class="kd-leer">Noch keine Einsätze geplant.</p>
+	<ul class="kd-liste af-einsaetze">
+		{#each data.einsaetze as e (e.id)}
+			<li>
+				<span>
+					<strong>{tagKurz(berlinTag(new Date(e.beginn)))} {berlinUhrzeit(new Date(e.beginn))}–{berlinUhrzeit(new Date(e.ende))}</strong>
+					· {e.benutzerName}
+				</span>
+				{#if e.notiz}<span class="kd-info">{e.notiz}</span>{/if}
+			</li>
+		{:else}
+			<li class="kd-leer">Noch keine Einsätze geplant.</li>
+		{/each}
+	</ul>
 
 	<h2>To-dos</h2>
 	{#if form?.todoFehler && !form?.todoWerte}
