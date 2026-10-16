@@ -4,6 +4,32 @@ import { frischeTestDb, type TestDb } from './setup';
 import { initDb, mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import { berlinTag } from '../../src/lib/zeit';
+import { ApiFehler } from '../../src/lib/server/fehler';
+import {
+	holeAuftrag,
+	legeAuftragAn,
+	listeAuftraege,
+	loescheAuftrag,
+	setzeStatus,
+	type Sicht
+} from '../../src/lib/server/auftraege';
+import { GET as listeGet, POST as auftragPost } from '../../src/routes/api/auftraege/+server';
+import {
+	DELETE as auftragDelete,
+	GET as auftragGet,
+	PATCH as auftragPatch
+} from '../../src/routes/api/auftraege/[id]/+server';
+import { POST as statusPost } from '../../src/routes/api/auftraege/[id]/status/+server';
+import { GET as protokollGet } from '../../src/routes/api/protokoll/+server';
+import { DELETE as kundeDelete } from '../../src/routes/api/kunden/[id]/+server';
+import { load as listeLoad } from '../../src/routes/(app)/auftraege/+page.server';
+import { actions as neuAktionen, load as neuLoad } from '../../src/routes/(app)/auftraege/neu/+page.server';
+import { actions as detailAktionen, load as detailLoad } from '../../src/routes/(app)/auftraege/[id]/+page.server';
+import {
+	actions as bearbeitenAktionen,
+	load as bearbeitenLoad
+} from '../../src/routes/(app)/auftraege/[id]/bearbeiten/+page.server';
+import { load as kundeDetailLoad } from '../../src/routes/(app)/kunden/[id]/+page.server';
 
 type Ant = { status: number; koerper: any };
 
@@ -17,6 +43,19 @@ async function antwort(r: Response): Promise<Ant> {
 }
 
 const UNBEKANNT = '11111111-1111-4111-8111-111111111111';
+
+const jsonAnfrage = (methode: string, koerper?: unknown, typ: string | null = 'application/json') =>
+	new Request('http://localhost/api/auftraege', {
+		method: methode,
+		headers: typ ? { 'content-type': typ } : {},
+		body: koerper === undefined ? undefined : typeof koerper === 'string' ? koerper : JSON.stringify(koerper)
+	});
+
+const formAnfrage = (felder: Record<string, string>) => {
+	const body = new URLSearchParams();
+	for (const [k, v] of Object.entries(felder)) body.append(k, v);
+	return new Request('http://localhost/auftraege', { method: 'POST', body });
+};
 const JAHR = berlinTag(new Date()).slice(0, 4);
 
 describe('Aufträge und To-dos', () => {
@@ -30,6 +69,40 @@ describe('Aufträge und To-dos', () => {
 
 	const alsApp = <T>(betrieb: string, benutzer: string, fn: (tx: postgres.TransactionSql) => Promise<T>) =>
 		mitBetrieb({ betriebId: betrieb, benutzerId: benutzer }, fn);
+
+	const kA = () => ({ betriebId: betriebA, benutzerId: chefAId });
+	const alle = (): Sicht => ({ alle: true, benutzerId: chefAId });
+	const eigene = (id: string): Sicht => ({ alle: false, benutzerId: id });
+
+	const liste = async (nutzer: Nutzer | null, params: Record<string, string> = {}) => {
+		const url = new URL('http://localhost/api/auftraege');
+		for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+		return antwort(await listeGet({ locals: { nutzer }, url } as never));
+	};
+	const post = async (nutzer: Nutzer | null, koerper: unknown, typ?: string | null) =>
+		antwort(await auftragPost({ locals: { nutzer }, request: jsonAnfrage('POST', koerper, typ) } as never));
+	const get = async (nutzer: Nutzer | null, id: string) =>
+		antwort(await auftragGet({ locals: { nutzer }, params: { id } } as never));
+	const patch = async (nutzer: Nutzer | null, id: string, koerper: unknown) =>
+		antwort(await auftragPatch({ locals: { nutzer }, params: { id }, request: jsonAnfrage('PATCH', koerper) } as never));
+	const del = async (nutzer: Nutzer | null, id: string) =>
+		antwort(await auftragDelete({ locals: { nutzer }, params: { id } } as never));
+	const status = async (nutzer: Nutzer | null, id: string, nach: unknown) =>
+		antwort(
+			await statusPost({ locals: { nutzer }, params: { id }, request: jsonAnfrage('POST', { status: nach }) } as never)
+		);
+	const protokoll = async (nutzer: Nutzer | null, tabelle: string, datensatz: string) => {
+		const url = new URL('http://localhost/api/protokoll');
+		url.searchParams.set('tabelle', tabelle);
+		url.searchParams.set('datensatz', datensatz);
+		return antwort(await protokollGet({ locals: { nutzer }, url } as never));
+	};
+	const seedTodo = async (betrieb: string, auftrag: string | null, zustaendig: string | null, titel = 'Material') =>
+		(
+			await root`
+				insert into app.todos (betrieb_id, auftrag_id, titel, zustaendig_id)
+				values (${betrieb}, ${auftrag}, ${titel}, ${zustaendig}) returning id`
+		)[0].id as string;
 
 	/** Auftrag direkt per SQL (als crm_app im Betriebskontext, damit die Nummer wie im Betrieb entsteht). */
 	const sqlAuftrag = async (betrieb: string, benutzer: string, kunde: string, titel = 'Badsanierung', objekt: string | null = null) =>
@@ -294,6 +367,338 @@ describe('Aufträge und To-dos', () => {
 					expect(Object.keys(e.nachher).includes(s) !== (s === 'geaendert'), `${tabelle}.${s}`).toBe(true);
 				}
 			}
+		});
+	});
+
+	describe('Dienst', () => {
+		it('legeAuftragAn liefert Status anfrage und Nummer A-<Jahr>-0001, Kunde und Objekt aufgelöst', async () => {
+			const a = await legeAuftragAn(kA(), {
+				titel: '  Badsanierung ',
+				kundeId: kundeA,
+				objektId: objektA,
+				beschreibung: 'Wanne raus, Dusche rein',
+				geplantAb: '2026-10-26'
+			});
+			expect(a).toMatchObject({
+				nummer: `A-${JAHR}-0001`,
+				status: 'anfrage',
+				titel: 'Badsanierung',
+				kundeId: kundeA,
+				kundeName: 'Müller',
+				objektId: objektA,
+				objektBezeichnung: 'Haus Müller',
+				beschreibung: 'Wanne raus, Dusche rein',
+				geplantAb: '2026-10-26'
+			});
+		});
+
+		it('Eingabeprüfung: Titel, Kunde, Objekt, Datum → 400', async () => {
+			const basis = { titel: 'x', kundeId: kundeA };
+			const faelle: [string, Record<string, unknown>, RegExp][] = [
+				['Titel fehlt', { kundeId: kundeA }, /Titel/],
+				['Titel leer', { ...basis, titel: '   ' }, /Titel/],
+				['Titel 201', { ...basis, titel: 'x'.repeat(201) }, /höchstens 200/],
+				['Kunde fehlt', { titel: 'x' }, /Kunde/],
+				['Kunde kaputt', { ...basis, kundeId: 'kein-uuid' }, /Kunde/],
+				['Kunde fremd', { ...basis, kundeId: kundeB }, /Kunde/],
+				['Objekt kaputt', { ...basis, objektId: 'x' }, /Objekt/],
+				['Objekt anderer Kunde', { ...basis, objektId: objekt2A }, /Objekt/],
+				['Objekt fremd', { ...basis, objektId: objektB }, /Objekt/],
+				['Datum kaputt', { ...basis, geplantAb: '2026-02-30' }, /Datum/],
+				['Beschreibung 4001', { ...basis, beschreibung: 'x'.repeat(4001) }, /höchstens 4000/]
+			];
+			for (const [name, e, muster] of faelle) {
+				const fehler = await legeAuftragAn(kA(), e).catch((x) => x);
+				expect(fehler, name).toBeInstanceOf(ApiFehler);
+				expect(fehler.status, name).toBe(400);
+				expect(fehler.message, name).toMatch(muster);
+			}
+			expect(await root`select 1 from app.auftraege`).toHaveLength(0);
+		});
+
+		it('setzeStatus: anfrage→beauftragt 409, anfrage→angebot ok, zurück ok, unbekannt 400', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'x', kundeId: kundeA });
+			const f = await setzeStatus(kA(), a.id, 'beauftragt').catch((x) => x);
+			expect(f).toMatchObject({ status: 409, message: 'Statuswechsel nicht erlaubt' });
+			expect((await setzeStatus(kA(), a.id, 'angebot')).status).toBe('angebot');
+			expect((await setzeStatus(kA(), a.id, 'anfrage')).status).toBe('anfrage');
+			expect(await setzeStatus(kA(), a.id, 'erledigt' as never).catch((x) => x.status)).toBe(400);
+			expect(await setzeStatus(kA(), UNBEKANNT, 'angebot').catch((x) => x.status)).toBe(404);
+		});
+
+		it('loescheAuftrag: im Status angebot 409, als Anfrage ok, danach 404', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'x', kundeId: kundeA });
+			await setzeStatus(kA(), a.id, 'angebot');
+			expect(await loescheAuftrag(kA(), a.id).catch((x) => [x.status, x.message])).toEqual([
+				409,
+				'Nur Anfragen können gelöscht werden'
+			]);
+			await setzeStatus(kA(), a.id, 'anfrage');
+			await loescheAuftrag(kA(), a.id);
+			expect(await loescheAuftrag(kA(), a.id).catch((x) => x.status)).toBe(404);
+		});
+
+		it('Monteur (nur auftraege.lesen): sieht nur Aufträge mit eigenem To-do; fremder Auftrag → 404', async () => {
+			const mit = await legeAuftragAn(kA(), { titel: 'Mit To-do', kundeId: kundeA });
+			const ohne = await legeAuftragAn(kA(), { titel: 'Ohne', kundeId: kundeA });
+			const anderer = await legeAuftragAn(kA(), { titel: 'Kollege', kundeId: kundeA });
+			await seedTodo(betriebA, mit.id, monteurAId);
+			await seedTodo(betriebA, anderer.id, monteur2AId);
+			await seedTodo(betriebA, null, monteurAId); // allgemeines To-do macht keinen Auftrag sichtbar
+			const k = { betriebId: betriebA, benutzerId: monteurAId };
+			expect((await listeAuftraege(k, eigene(monteurAId), {})).map((a) => a.titel)).toEqual(['Mit To-do']);
+			expect((await holeAuftrag(k, eigene(monteurAId), mit.id)).titel).toBe('Mit To-do');
+			for (const id of [ohne.id, anderer.id, UNBEKANNT, 'kaputt']) {
+				expect(await holeAuftrag(k, eigene(monteurAId), id).catch((x) => x.status), id).toBe(404);
+			}
+			expect((await listeAuftraege(kA(), alle(), {})).map((a) => a.titel).sort()).toEqual(['Kollege', 'Mit To-do', 'Ohne']);
+		});
+
+		it('Liste: Filter Status/Kunde, Suche über Nummer, Titel und Kundenname, neueste zuerst, höchstens 100', async () => {
+			const a1 = await legeAuftragAn(kA(), { titel: 'Badsanierung', kundeId: kundeA });
+			const a2 = await legeAuftragAn(kA(), { titel: 'Fliesen legen', kundeId: kunde2A });
+			await setzeStatus(kA(), a2.id, 'angebot');
+			const titel = async (f: Parameters<typeof listeAuftraege>[2]) =>
+				(await listeAuftraege(kA(), alle(), f)).map((a) => a.titel);
+			expect(await titel({})).toEqual(['Fliesen legen', 'Badsanierung']);
+			expect(await titel({ status: 'angebot' })).toEqual(['Fliesen legen']);
+			expect(await titel({ kundeId: kundeA })).toEqual(['Badsanierung']);
+			expect(await titel({ suche: 'schmidt' })).toEqual(['Fliesen legen']);
+			expect(await titel({ suche: 'BAD' })).toEqual(['Badsanierung']);
+			expect(await titel({ suche: a1.nummer })).toEqual(['Badsanierung']);
+			expect(await titel({ suche: 'müller fliesen' })).toEqual([]);
+			expect(await titel({ suche: '%' })).toEqual([]);
+			for (let i = 0; i < 101; i++) {
+				await root`insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, ${'Masse ' + i}, ${kundeA})`;
+			}
+			expect(await listeAuftraege(kA(), alle(), {})).toHaveLength(100);
+		});
+	});
+
+	describe('API', () => {
+		it('POST legt an (201), Betrieb aus der Sitzung, status/nummer im Körper werden ignoriert', async () => {
+			const r = await post(chefA, {
+				titel: 'Dach',
+				kundeId: kundeA,
+				status: 'abgerechnet',
+				nummer: 'X-1',
+				betrieb_id: betriebB
+			});
+			expect(r.status).toBe(201);
+			expect(r.koerper).toMatchObject({ titel: 'Dach', status: 'anfrage', nummer: `A-${JAHR}-0001` });
+			const [z] = await root`select betrieb_id from app.auftraege where id = ${r.koerper.id}`;
+			expect(z.betrieb_id).toBe(betriebA);
+			expect((await post(chefA, '{kaputt')).status).toBe(400);
+			expect((await post(chefA, '{"titel":"x"}', 'text/plain')).status).toBe(415);
+		});
+
+		it('Büro ohne auftraege.bearbeiten → POST 403; Tarif ohne Modul auftraege → 402; Gast 401, Admin 403', async () => {
+			const ohneBearbeiten = nutzerVon(
+				bueroAId,
+				betriebA,
+				VORLAGEN.buero.filter((r) => r !== 'auftraege.bearbeiten')
+			);
+			expect((await post(ohneBearbeiten, { titel: 'x', kundeId: kundeA })).status).toBe(403);
+			expect((await liste(ohneBearbeiten)).status).toBe(200);
+			const r = await liste(chefC);
+			expect(r.status).toBe(402);
+			expect(r.koerper.tarifMit).toEqual(expect.arrayContaining(['basis']));
+			expect((await post(chefC, { titel: 'x', kundeId: kundeA })).status).toBe(402);
+			expect((await get(chefC, UNBEKANNT)).status).toBe(402);
+			expect((await status(chefC, UNBEKANNT, 'angebot')).status).toBe(402);
+			expect((await liste(null)).status).toBe(401);
+			expect((await liste(admin)).status).toBe(403);
+			// ohne jedes Auftragsrecht
+			expect((await liste(nutzerVon(chefAId, betriebA, ['kunden.lesen']))).status).toBe(403);
+		});
+
+		it('Monteur: Liste nur eigene, fremder Auftrag GET 404, Schreiben 403', async () => {
+			const meins = (await post(chefA, { titel: 'Meins', kundeId: kundeA })).koerper.id as string;
+			const fremd = (await post(chefA, { titel: 'Fremd', kundeId: kundeA })).koerper.id as string;
+			await seedTodo(betriebA, meins, monteurAId);
+			expect((await liste(monteurA)).koerper.map((a: any) => a.titel)).toEqual(['Meins']);
+			expect((await get(monteurA, meins)).status).toBe(200);
+			expect((await get(monteurA, fremd)).status).toBe(404);
+			expect((await patch(monteurA, meins, { titel: 'x' })).status).toBe(403);
+			expect((await status(monteurA, meins, 'angebot')).status).toBe(403);
+			expect((await del(monteurA, meins)).status).toBe(403);
+			// Verlauf eines fremden Auftrags: 404 (nicht sichtbar), eigener: 200
+			expect((await protokoll(monteurA, 'auftraege', fremd)).status).toBe(404);
+			expect((await protokoll(monteurA, 'auftraege', meins)).status).toBe(200);
+			expect((await protokoll(chefA, 'auftraege', fremd)).status).toBe(200);
+		});
+
+		it('GET-Filter: ungültiger Status oder Kunde → 400', async () => {
+			expect((await liste(chefA, { status: 'erledigt' })).status).toBe(400);
+			expect((await liste(chefA, { kunde: 'x' })).status).toBe(400);
+			expect((await liste(chefA, { status: 'anfrage', kunde: kundeA, suche: 'x' })).status).toBe(200);
+		});
+
+		it('PATCH ändert teilweise; Kundenwechsel ohne Objekt leert das Objekt; fremder Betrieb 404', async () => {
+			const id = (await post(chefA, { titel: 'Alt', kundeId: kundeA, objektId: objektA })).koerper.id as string;
+			const r = await patch(chefA, id, { titel: 'Neu' });
+			expect(r.status).toBe(200);
+			expect(r.koerper).toMatchObject({ titel: 'Neu', objektId: objektA, status: 'anfrage' });
+			const w = await patch(chefA, id, { kundeId: kunde2A });
+			expect(w.koerper).toMatchObject({ kundeId: kunde2A, objektId: null });
+			expect((await patch(chefA, id, { objektId: objektA })).status).toBe(400);
+			expect((await patch(chefA, id, {})).status).toBe(400);
+			// Status lässt sich nicht per PATCH ändern
+			await patch(chefA, id, { status: 'abgerechnet' });
+			expect((await get(chefA, id)).koerper.status).toBe('anfrage');
+			expect((await patch(chefB, id, { titel: 'Gehackt' })).status).toBe(404);
+			expect((await get(chefB, id)).status).toBe(404);
+			expect((await del(chefB, id)).status).toBe(404);
+		});
+
+		it('Status-Endpunkt: ein Schritt 200, zwei Schritte 409; DELETE nur als Anfrage (204), sonst 409', async () => {
+			const id = (await post(chefA, { titel: 'x', kundeId: kundeA })).koerper.id as string;
+			expect((await status(chefA, id, 'beauftragt')).status).toBe(409);
+			expect((await status(chefA, id, 'angebot')).koerper.status).toBe('angebot');
+			expect((await status(chefA, id, 'nix')).status).toBe(400);
+			expect((await del(chefA, id)).status).toBe(409);
+			await status(chefA, id, 'anfrage');
+			expect((await del(chefA, id)).status).toBe(204);
+		});
+
+		it('Kunde mit Aufträgen löschen → 409 mit klarer Meldung; Auftrag bleibt', async () => {
+			const k = await seedKunde(betriebA, 'Mit Auftrag');
+			await post(chefA, { titel: 'x', kundeId: k });
+			const r = await antwort(await kundeDelete({ locals: { nutzer: chefA }, params: { id: k } } as never));
+			expect(r.status).toBe(409);
+			expect(r.koerper.fehler).toMatch(/Aufträge/);
+			expect(await root`select 1 from app.kunden where id = ${k}`).toHaveLength(1);
+		});
+	});
+
+	describe('Seiten', () => {
+		const ort = (nutzer: Nutzer | null) => ({ locals: { nutzer } });
+
+		it('Liste: Status-Reiter und Suche aus der URL; Monteur sieht nur eigene; Gast → Anmeldung; 402 ohne Modul', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'Badsanierung', kundeId: kundeA });
+			await legeAuftragAn(kA(), { titel: 'Anderes', kundeId: kundeA });
+			await seedTodo(betriebA, a.id, monteurAId);
+			const url = new URL('http://localhost/auftraege?status=anfrage&suche=bad');
+			const d = (await listeLoad({ ...ort(chefA), url } as never)) as any;
+			expect(d.status).toBe('anfrage');
+			expect(d.suche).toBe('bad');
+			expect(d.auftraege.map((x: any) => x.titel)).toEqual(['Badsanierung']);
+			expect(d.darfBearbeiten).toBe(true);
+			const m = (await listeLoad({ ...ort(monteurA), url: new URL('http://localhost/auftraege') } as never)) as any;
+			expect(m.auftraege.map((x: any) => x.titel)).toEqual(['Badsanierung']);
+			expect(m.darfBearbeiten).toBe(false);
+			// unbekannter Status im Reiter → Alle statt Fehlerseite
+			const u = (await listeLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege?status=xyz') } as never)) as any;
+			expect(u.status).toBeNull();
+			await expect(listeLoad({ ...ort(null), url } as never)).rejects.toMatchObject({ status: 303, location: '/anmelden' });
+			await expect(listeLoad({ ...ort(chefC), url } as never)).rejects.toMatchObject({ status: 402 });
+			await expect(listeLoad({ ...ort(admin), url } as never)).rejects.toMatchObject({ status: 403 });
+		});
+
+		it('Neu: mit ?kunde= vorbelegt (Objekte des Kunden), Anlegen leitet weiter, Fehler behalten Eingaben, Monteur 403', async () => {
+			const l = (await neuLoad({ ...ort(chefA), url: new URL(`http://localhost/auftraege/neu?kunde=${kundeA}`) } as never)) as any;
+			expect(l.kunde).toMatchObject({ id: kundeA, name: 'Müller' });
+			expect(l.objekte.map((o: any) => o.bezeichnung)).toEqual(['Haus Müller']);
+			const leer = (await neuLoad({ ...ort(chefA), url: new URL(`http://localhost/auftraege/neu?kunde=${kundeB}`) } as never)) as any;
+			expect(leer.kunde).toBeNull();
+			await expect(
+				neuAktionen.anlegen({
+					...ort(chefA),
+					request: formAnfrage({ titel: 'Neu', kundeId: kundeA, objektId: objektA, beschreibung: '', geplantAb: '' })
+				} as never)
+			).rejects.toMatchObject({ status: 303 });
+			const [z] = await root`select id, objekt_id, geplant_ab from app.auftraege where titel = 'Neu'`;
+			expect(z).toMatchObject({ objekt_id: objektA, geplant_ab: null });
+			const f = (await neuAktionen.anlegen({
+				...ort(chefA),
+				request: formAnfrage({ titel: '', kundeId: kundeA })
+			} as never)) as any;
+			expect(f.status).toBe(400);
+			expect(f.data.werte).toMatchObject({ kundeId: kundeA });
+			expect(((await neuAktionen.anlegen({ ...ort(monteurA), request: formAnfrage({ titel: 'x', kundeId: kundeA }) } as never)) as any).status).toBe(403);
+			await expect(neuLoad({ ...ort(monteurA), url: new URL('http://localhost/auftraege/neu') } as never)).rejects.toMatchObject({ status: 403 });
+		});
+
+		it('Detail: Auftrag, Verlauf, Rechte; Statusaktion; fremder Auftrag 404; Monteur sieht eigenen ohne Knöpfe', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'Detail', kundeId: kundeA, objektId: objektA });
+			await setzeStatus(kA(), a.id, 'angebot');
+			const d = (await detailLoad({ ...ort(chefA), params: { id: a.id } } as never)) as any;
+			expect(d.auftrag).toMatchObject({ id: a.id, titel: 'Detail', status: 'angebot', objektBezeichnung: 'Haus Müller' });
+			expect(d.verlauf.map((v: any) => v.titel)).toEqual(['Geändert', 'Angelegt']);
+			expect(d.verlauf[0].aenderungen).toEqual([{ feld: 'Status', alt: 'Anfrage', neu: 'Angebot' }]);
+			expect(d.darfBearbeiten).toBe(true);
+			await expect(
+				detailAktionen.status({ ...ort(chefA), params: { id: a.id }, request: formAnfrage({ status: 'beauftragt' }) } as never)
+			).rejects.toMatchObject({ status: 303, location: `/auftraege/${a.id}` });
+			expect((await root`select status from app.auftraege where id = ${a.id}`)[0].status).toBe('beauftragt');
+			const sprung = (await detailAktionen.status({
+				...ort(chefA),
+				params: { id: a.id },
+				request: formAnfrage({ status: 'abgerechnet' })
+			} as never)) as any;
+			expect(sprung.status).toBe(409);
+			await expect(detailLoad({ ...ort(monteurA), params: { id: a.id } } as never)).rejects.toMatchObject({ status: 404 });
+			await seedTodo(betriebA, a.id, monteurAId);
+			const m = (await detailLoad({ ...ort(monteurA), params: { id: a.id } } as never)) as any;
+			expect(m.darfBearbeiten).toBe(false);
+			expect(
+				((await detailAktionen.status({ ...ort(monteurA), params: { id: a.id }, request: formAnfrage({ status: 'angebot' }) } as never)) as any).status
+			).toBe(403);
+			await expect(detailLoad({ ...ort(chefB), params: { id: a.id } } as never)).rejects.toMatchObject({ status: 404 });
+		});
+
+		it('Detail: Löschen nur als Anfrage (sonst 409), leitet zur Liste', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'Weg', kundeId: kundeA });
+			await setzeStatus(kA(), a.id, 'angebot');
+			expect(((await detailAktionen.loeschen({ ...ort(chefA), params: { id: a.id } } as never)) as any).status).toBe(409);
+			await setzeStatus(kA(), a.id, 'anfrage');
+			await expect(detailAktionen.loeschen({ ...ort(chefA), params: { id: a.id } } as never)).rejects.toMatchObject({
+				status: 303,
+				location: '/auftraege'
+			});
+		});
+
+		it('Bearbeiten: Laden mit Objekten, Speichern, Fehler, Monteur 403, fremd 404', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'Alt', kundeId: kundeA });
+			const l = (await bearbeitenLoad({ ...ort(chefA), params: { id: a.id }, url: new URL('http://localhost/x') } as never)) as any;
+			expect(l.auftrag.titel).toBe('Alt');
+			expect(l.kunde.id).toBe(kundeA);
+			expect(l.objekte.map((o: any) => o.bezeichnung)).toEqual(['Haus Müller']);
+			await expect(
+				bearbeitenAktionen.speichern({
+					...ort(chefA),
+					params: { id: a.id },
+					request: formAnfrage({ titel: 'Neu', kundeId: kundeA, objektId: objektA, beschreibung: 'b', geplantAb: '2026-11-02' })
+				} as never)
+			).rejects.toMatchObject({ status: 303, location: `/auftraege/${a.id}` });
+			expect((await root`select titel, geplant_ab from app.auftraege where id = ${a.id}`)[0].titel).toBe('Neu');
+			const f = (await bearbeitenAktionen.speichern({
+				...ort(chefA),
+				params: { id: a.id },
+				request: formAnfrage({ titel: '', kundeId: kundeA })
+			} as never)) as any;
+			expect(f.status).toBe(400);
+			await expect(
+				bearbeitenLoad({ ...ort(monteurA), params: { id: a.id }, url: new URL('http://localhost/x') } as never)
+			).rejects.toMatchObject({ status: 403 });
+			await expect(
+				bearbeitenLoad({ ...ort(chefB), params: { id: a.id }, url: new URL('http://localhost/x') } as never)
+			).rejects.toMatchObject({ status: 404 });
+		});
+
+		it('Kundendetail zeigt die Aufträge des Kunden (nur sichtbare); ohne Modul keine', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'Beim Kunden', kundeId: kundeA });
+			await legeAuftragAn(kA(), { titel: 'Anderer Kunde', kundeId: kunde2A });
+			const d = (await kundeDetailLoad({ ...ort(chefA), params: { id: kundeA } } as never)) as any;
+			expect(d.auftraege.map((x: any) => x.titel)).toEqual(['Beim Kunden']);
+			expect(d.darfAuftragAnlegen).toBe(true);
+			const m = (await kundeDetailLoad({ ...ort(monteurA), params: { id: kundeA } } as never)) as any;
+			expect(m.auftraege).toEqual([]);
+			await seedTodo(betriebA, a.id, monteurAId);
+			const m2 = (await kundeDetailLoad({ ...ort(monteurA), params: { id: kundeA } } as never)) as any;
+			expect(m2.auftraege.map((x: any) => x.titel)).toEqual(['Beim Kunden']);
+			const nurKunden = nutzerVon(chefAId, betriebA, ['kunden.lesen']);
+			expect(((await kundeDetailLoad({ ...ort(nurKunden), params: { id: kundeA } } as never)) as any).auftraege).toBeNull();
 		});
 	});
 });

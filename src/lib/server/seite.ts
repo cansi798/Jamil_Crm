@@ -2,7 +2,7 @@ import { error, redirect } from '@sveltejs/kit';
 import type { Kontext } from './db';
 import { ApiFehler } from './fehler';
 import { betriebKontext, type Recht } from './rechte';
-import { darf } from './tarif';
+import { darf, darfEines } from './tarif';
 import type { Modul } from '../tarife';
 
 /**
@@ -12,11 +12,13 @@ import type { Modul } from '../tarife';
 export async function seitenZugriff(
 	locals: { nutzer: Nutzer | null },
 	modul: Modul,
-	recht: Recht
+	recht: Recht | readonly Recht[]
 ): Promise<Kontext> {
 	if (!locals.nutzer) redirect(303, '/anmelden');
 	try {
-		await darf(locals, modul, recht);
+		// Liste: eines der Rechte genügt (z. B. eigene oder alle Aufträge lesen)
+		if (typeof recht === 'string') await darf(locals, modul, recht);
+		else await darfEines(locals, modul, recht);
 		return betriebKontext(locals);
 	} catch (e) {
 		if (e instanceof ApiFehler) error(e.status, e.message);

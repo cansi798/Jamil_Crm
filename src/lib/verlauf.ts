@@ -1,3 +1,5 @@
+import { STATUS_NAMEN } from './auftrag-status';
+
 /**
  * Aufbereitung von Einträgen des Änderungsprotokolls für die Anzeige („Verlauf“). Reine Funktionen ohne Serverbezug.
  * Der Eintrag entspricht `ProtokollEintrag` aus `$lib/server/protokoll`.
@@ -35,11 +37,16 @@ const FELDNAMEN: Record<string, string> = {
 	plz: 'PLZ',
 	ort: 'Ort',
 	notiz: 'Notiz',
-	bezeichnung: 'Bezeichnung'
+	bezeichnung: 'Bezeichnung',
+	titel: 'Titel',
+	status: 'Status',
+	beschreibung: 'Beschreibung',
+	geplant_ab: 'Geplant ab'
 };
 
 const WERTNAMEN: Record<string, Record<string, string>> = {
-	art: { privat: 'Privatkunde', firma: 'Firmenkunde' }
+	art: { privat: 'Privatkunde', firma: 'Firmenkunde' },
+	status: STATUS_NAMEN
 };
 
 const TITEL = { angelegt: 'Angelegt', geaendert: 'Geändert', geloescht: 'Gelöscht' } as const;
