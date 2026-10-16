@@ -20,7 +20,12 @@ export const PROTOKOLL_TABELLEN = {
 	auftraege: ['auftraege.lesen', 'auftraege.alle_lesen'],
 	todos: ['auftraege.lesen', 'auftraege.alle_lesen'],
 	einsaetze: 'plantafel.bearbeiten',
-	abwesenheiten: 'plantafel.bearbeiten'
+	abwesenheiten: 'plantafel.bearbeiten',
+	// Preisspalten im Verlauf sieht nur, wer `preise.sehen` hat (siehe /api/protokoll, Preisschutz)
+	katalog_positionen: 'katalog.bearbeiten',
+	angebote: 'angebote.bearbeiten',
+	angebot_positionen: 'angebote.bearbeiten',
+	betrieb_profil: 'einstellungen'
 } as const satisfies Record<string, Recht | readonly Recht[]>;
 
 export type ProtokollTabelle = keyof typeof PROTOKOLL_TABELLEN;
@@ -35,7 +40,10 @@ export const PROTOKOLL_MODULE: Partial<Record<ProtokollTabelle, Modul>> = {
 	auftraege: 'auftraege',
 	todos: 'auftraege',
 	einsaetze: 'plantafel',
-	abwesenheiten: 'plantafel'
+	abwesenheiten: 'plantafel',
+	katalog_positionen: 'katalog',
+	angebote: 'angebote',
+	angebot_positionen: 'angebote'
 };
 
 export const SEITENGROESSE = 50;
