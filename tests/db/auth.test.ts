@@ -435,7 +435,7 @@ describe('Anmeldung, Sitzungen, Begrenzung', () => {
 
 		it('load: angemeldete Nutzer werden von der Anmeldeseite weggeleitet', () => {
 			expect(() => load({ locals: { nutzer: { id: 'x' } }, url: new URL('http://localhost/anmelden') } as never)).toThrow();
-			expect(load({ locals: { nutzer: null }, url: new URL('http://localhost/anmelden') } as never)).toEqual({ hinweis: null });
+			expect(load({ locals: { nutzer: null }, url: new URL('http://localhost/anmelden') } as never)).toEqual({ hinweis: null, testmodus: false });
 		});
 	});
 

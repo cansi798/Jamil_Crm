@@ -18,14 +18,34 @@
 		{:else if data.hinweis}
 			<p role="status" class="hinweis">{data.hinweis}</p>
 		{/if}
-		<label>
-			E-Mail
-			<input type="email" name="email" autocomplete="username" required value={form?.email ?? ''} />
-		</label>
-		<label>
-			Passwort
-			<input type="password" name="passwort" autocomplete="current-password" required />
-		</label>
+		{#if data.testmodus}
+			<p class="testmodus" role="note">
+				<strong>Testmodus:</strong> Anmeldung nur mit Benutzername – ohne Passwort und Zwei-Faktor. Gilt nur für
+				Test-Zugänge, z. B. <code>can.chef</code>, <code>jamil.buero</code>, <code>can.monteur</code>,
+				<code>jamil.admin</code>.
+			</p>
+			<label>
+				Benutzername
+				<input type="text" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" required
+					placeholder="z. B. can.chef" value={form?.email ?? ''} />
+			</label>
+			<details class="mit-passwort">
+				<summary>Mit E-Mail und Passwort anmelden</summary>
+				<label>
+					Passwort
+					<input type="password" name="passwort" autocomplete="current-password" />
+				</label>
+			</details>
+		{:else}
+			<label>
+				E-Mail
+				<input type="email" name="email" autocomplete="username" required value={form?.email ?? ''} />
+			</label>
+			<label>
+				Passwort
+				<input type="password" name="passwort" autocomplete="current-password" required />
+			</label>
+		{/if}
 		<button type="submit">Anmelden</button>
 	</form>
 	<p class="design">Design by Jamil Iqbal</p>
@@ -74,6 +94,24 @@
 	}
 	.hinweis {
 		margin: 0;
+	}
+	.testmodus {
+		margin: 0;
+		padding: 0.75rem 0.9rem;
+		border: 1px solid #e0b400;
+		border-left-width: 4px;
+		border-radius: 0.4rem;
+		background: #fff8db;
+		font-size: 0.9rem;
+		line-height: 1.5;
+	}
+	.mit-passwort summary {
+		cursor: pointer;
+		font-size: 0.9rem;
+		color: #5f6368;
+	}
+	.mit-passwort label {
+		margin-top: 0.5rem;
 	}
 	/* Wunsch Can 16.10.2026 */
 	.design {

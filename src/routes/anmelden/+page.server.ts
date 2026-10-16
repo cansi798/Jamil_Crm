@@ -11,9 +11,11 @@ import {
 	setzeVorsitzungsCookie,
 	VORSITZUNG_COOKIE
 } from '$lib/server/auth/vorsitzung';
+import { testAnmelden, testEmail, testmodusAktiv } from '$lib/server/auth/testmodus';
 
 /** Eine einzige Meldung für alle Fehlgründe, damit nicht erkennbar ist, ob die E-Mail existiert. */
 const FALSCH = 'E-Mail oder Passwort ist falsch.';
+const TEST_FALSCH = 'Diesen Test-Benutzer gibt es nicht. Beispiele: can.chef, jamil.buero, can.monteur, jamil.admin';
 const ZU_OFT = 'Zu viele Anmeldeversuche. Bitte in 15 Minuten erneut versuchen.';
 const MAX_EMAIL = 254;
 const MAX_PASSWORT = 1024;
@@ -37,14 +39,37 @@ dummyHash.catch(() => {}); // Fehler tauchen beim Await in der Aktion auf, nicht
 export const load: PageServerLoad = ({ locals, url }) => {
 	if (locals.nutzer) redirect(303, '/');
 	const hinweis = url.searchParams.get('hinweis') ?? '';
-	return { hinweis: Object.hasOwn(HINWEISE, hinweis) ? HINWEISE[hinweis] : null };
+	return { hinweis: Object.hasOwn(HINWEISE, hinweis) ? HINWEISE[hinweis] : null, testmodus: testmodusAktiv() };
 };
 
 export const actions: Actions = {
 	default: async ({ request, cookies }) => {
 		const form = await request.formData();
 		const emailRoh = form.get('email');
-		const passwort = form.get('passwort');
+		const passwort = form.get('passwort') ?? '';
+
+		// Testmodus (nur Vorschau, CRM_TESTMODUS=1): ohne Passwort → Anmeldung nur mit Benutzername, ohne 2FA,
+		// ausschließlich für Test-Konten (*.test). Mit Passwort läuft der normale Weg weiter unten.
+		if (testmodusAktiv() && passwort === '' && typeof emailRoh === 'string') {
+			const testAdresse = testEmail(emailRoh);
+			const anzeige = emailRoh.trim().slice(0, MAX_EMAIL);
+			if (!testAdresse) return fail(400, { fehler: TEST_FALSCH, email: anzeige });
+			if (!pruefeVersuch(testAdresse).erlaubt) return fail(429, { fehler: ZU_OFT, email: anzeige });
+			const [konto] = await systemAbfrage(
+				(sql) => sql`select * from app.anmeldung_finden(${testAdresse}::public.citext)`
+			);
+			const token = konto && konto.aktiv ? await testAnmelden(konto.id) : null;
+			if (!token) return fail(400, { fehler: TEST_FALSCH, email: anzeige });
+			zuruecksetzen(testAdresse);
+			for (const name of [COOKIE_NAME, VORSITZUNG_COOKIE]) {
+				const alt = cookies.get(name);
+				if (alt) await loescheSitzung(alt);
+			}
+			loescheVorsitzungsCookie(cookies);
+			setzeSitzungsCookie(cookies, token);
+			redirect(303, '/');
+		}
+
 		if (
 			typeof emailRoh !== 'string' ||
 			typeof passwort !== 'string' ||
