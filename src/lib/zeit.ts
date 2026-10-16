@@ -139,3 +139,12 @@ export function tagDeutsch(tag: string): string {
 	const t = zerlege(tag);
 	return `${zwei(t.tag)}.${zwei(t.monat)}.${t.jahr}`;
 }
+
+/** Kalenderwoche nach ISO 8601 (Woche mit dem ersten Donnerstag des Jahres ist KW 1). */
+export function kalenderwoche(tag: string): number {
+	const donnerstag = tagPlus(tag, 3 - wochentag(tag));
+	const jahr = donnerstag.slice(0, 4);
+	const t = zerlege(donnerstag);
+	const tagImJahr = (Date.UTC(t.jahr, t.monat - 1, t.tag) - Date.UTC(Number(jahr), 0, 1)) / MS_TAG;
+	return Math.floor(tagImJahr / 7) + 1;
+}

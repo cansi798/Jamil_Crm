@@ -4,7 +4,17 @@
  * damit nur aus; geprüft wird immer serverseitig in Seiten und API.
  */
 
-export type Symbol = 'start' | 'kunden' | 'plantafel' | 'mehr' | 'benutzer' | 'rollen' | 'admin';
+export type Symbol =
+	| 'start'
+	| 'kunden'
+	| 'auftraege'
+	| 'plantafel'
+	| 'todos'
+	| 'abwesenheiten'
+	| 'mehr'
+	| 'benutzer'
+	| 'rollen'
+	| 'admin';
 
 export type NavEintrag = {
 	name: string;
@@ -30,15 +40,22 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 	const mehr: NavEintrag[] = [];
 
 	if (nutzer.betriebId) {
+		const auftraegeLesen = module.includes('auftraege') && (hat('auftraege.lesen') || hat('auftraege.alle_lesen'));
 		if (module.includes('kunden') && hat('kunden.lesen')) {
 			haupt.push({ name: 'Kunden', href: '/kunden', symbol: 'kunden' });
 		}
-		// Plantafel kommt mit Plan 1b; sichtbar für alle, die dort planen oder ihre Aufträge sehen würden.
-		if (
-			module.includes('plantafel') &&
-			(hat('plantafel.bearbeiten') || hat('auftraege.alle_lesen') || hat('auftraege.lesen'))
-		) {
-			haupt.push({ name: 'Plantafel', href: null, symbol: 'plantafel', hinweis: 'bald verfügbar' });
+		if (auftraegeLesen) {
+			haupt.push({ name: 'Aufträge', href: '/auftraege', symbol: 'auftraege' });
+		}
+		// Plantafel: wer plant oder alle Aufträge sieht. Monteure (nur eigene Aufträge) sehen ihre Einsätze auf „Start“.
+		if (module.includes('plantafel') && (hat('plantafel.bearbeiten') || hat('auftraege.alle_lesen'))) {
+			haupt.push({ name: 'Plantafel', href: '/plantafel', symbol: 'plantafel' });
+		}
+		if (auftraegeLesen) {
+			mehr.push({ name: 'To-dos', href: '/todos', symbol: 'todos' });
+		}
+		if (module.includes('plantafel') && hat('plantafel.bearbeiten')) {
+			mehr.push({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten', symbol: 'abwesenheiten' });
 		}
 		if (hat('benutzer.verwalten')) {
 			mehr.push({ name: 'Benutzer', href: '/einstellungen/benutzer', symbol: 'benutzer' });

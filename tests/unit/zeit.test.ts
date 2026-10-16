@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { berlinTag, tagesGrenzen, verschiebeAufTag, wocheVon } from '../../src/lib/zeit';
+import { berlinTag, kalenderwoche, tagKurz, tagesGrenzen, verschiebeAufTag, wocheVon } from '../../src/lib/zeit';
 
 const stunden = (g: { beginn: Date; ende: Date }) => (g.ende.getTime() - g.beginn.getTime()) / 3.6e6;
 
@@ -60,5 +60,16 @@ describe('Berlin-Zeit', () => {
 		const g = verschiebeAufTag(new Date('2026-10-21T13:15:00Z'), new Date('2026-10-21T15:00:00Z'), '2026-10-21');
 		expect(g.beginn.toISOString()).toBe('2026-10-21T13:15:00.000Z');
 		expect(g.ende.toISOString()).toBe('2026-10-21T15:00:00.000Z');
+	});
+
+	it('kalenderwoche (ISO) und tagKurz', () => {
+		expect(kalenderwoche('2026-10-21')).toBe(43);
+		expect(kalenderwoche('2026-10-25')).toBe(43);
+		expect(kalenderwoche('2026-10-26')).toBe(44);
+		expect(kalenderwoche('2027-01-01')).toBe(53);
+		expect(kalenderwoche('2026-01-01')).toBe(1);
+		expect(kalenderwoche('2024-12-30')).toBe(1);
+		expect(tagKurz('2026-10-19')).toBe('Mo 19.10.');
+		expect(tagKurz('2026-10-25')).toBe('So 25.10.');
 	});
 });

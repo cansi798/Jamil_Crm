@@ -30,6 +30,11 @@ import {
 	PATCH as abwesenheitPatch
 } from '../../src/routes/api/abwesenheiten/[id]/+server';
 import { load as auftragLoad } from '../../src/routes/(app)/auftraege/[id]/+page.server';
+import { load as plantafelLoad } from '../../src/routes/(app)/plantafel/+page.server';
+import {
+	actions as abwAktionen,
+	load as abwLoad
+} from '../../src/routes/(app)/plantafel/abwesenheiten/+page.server';
 
 type Ant = { status: number; koerper: any };
 async function antwort(r: Response): Promise<Ant> {
@@ -518,6 +523,57 @@ describe('Plantafel: Einsätze und Abwesenheiten', () => {
 			expect((await antwort(await abwesenheitenGet({ locals: { nutzer: ali() }, url } as never))).status).toBe(403);
 			expect((await antwort(await abwesenheitDelete({ locals: { nutzer: ali() }, params: { id: r.koerper.id } } as never))).status).toBe(403);
 			expect((await antwort(await abwesenheitDelete({ locals: { nutzer: chefA }, params: { id: r.koerper.id } } as never))).status).toBe(204);
+		});
+	});
+
+	describe('Seiten', () => {
+		const ort = (nutzer: Nutzer | null) => ({ locals: { nutzer } });
+		const formAnfrage = (felder: Record<string, string>) => {
+			const body = new URLSearchParams();
+			for (const [k, v] of Object.entries(felder)) body.append(k, v);
+			return new Request('http://localhost/plantafel/abwesenheiten', { method: 'POST', body });
+		};
+
+		it('Plantafel: Woche aus ?tag=, Aufträge für den Dialog nur zum Planen; Monteur 403; ohne Modul 402', async () => {
+			await legeEinsatzAn(kA(), { auftragId: auftragA, benutzerId: aliId, beginn: um('2026-10-21', 8), ende: um('2026-10-21', 12) });
+			const d = (await plantafelLoad({ ...ort(chefA), url: new URL('http://localhost/plantafel?tag=2026-10-21') } as never)) as any;
+			expect(d.tag).toBe('2026-10-21');
+			expect(d.woche.tage[0]).toBe('2026-10-19');
+			expect(d.woche.einsaetze).toHaveLength(1);
+			expect(d.darfPlanen).toBe(true);
+			expect(d.auftraege.map((a: any) => a.titel)).toEqual(['Badsanierung']);
+			const nurSehen = nutzerVon(chefAId, betriebA, ['auftraege.alle_lesen']);
+			const s2 = (await plantafelLoad({ ...ort(nurSehen), url: new URL('http://localhost/plantafel?tag=quatsch') } as never)) as any;
+			expect(s2.darfPlanen).toBe(false);
+			expect(s2.auftraege).toEqual([]);
+			expect(s2.tag).toBe(berlinTag(new Date()));
+			const monteur = nutzerVon(aliId, betriebA, VORLAGEN.monteur);
+			await expect(plantafelLoad({ ...ort(monteur), url: new URL('http://localhost/plantafel') } as never)).rejects.toMatchObject({ status: 403 });
+			const chefC = nutzerVon(chefCId, betriebC, VORLAGEN.chef);
+			await expect(plantafelLoad({ ...ort(chefC), url: new URL('http://localhost/plantafel') } as never)).rejects.toMatchObject({ status: 402 });
+		});
+
+		it('Abwesenheiten-Seite: anlegen, Fehler mit Eingaben, löschen; nur mit plantafel.bearbeiten', async () => {
+			const r = (await abwAktionen.anlegen({
+				...ort(chefA),
+				request: formAnfrage({ benutzerId: aliId, art: 'urlaub', von: '2026-12-21', bis: '2026-12-31', notiz: '' })
+			} as never)) as any;
+			expect(r).toEqual({ angelegt: true });
+			const f = (await abwAktionen.anlegen({
+				...ort(chefA),
+				request: formAnfrage({ benutzerId: aliId, art: 'urlaub', von: '2026-12-21', bis: '2026-12-01' })
+			} as never)) as any;
+			expect(f.status).toBe(400);
+			expect(f.data.werte).toMatchObject({ von: '2026-12-21' });
+			const [z] = await root`select id from app.abwesenheiten`;
+			const monteur = nutzerVon(aliId, betriebA, VORLAGEN.monteur);
+			await expect(abwLoad(ort(monteur) as never)).rejects.toMatchObject({ status: 403 });
+			expect(((await abwAktionen.loeschen({ ...ort(monteur), request: formAnfrage({ id: z.id }) } as never)) as any).status).toBe(403);
+			const buero = nutzerVon(chefAId, betriebA, VORLAGEN.buero);
+			const l = (await abwLoad(ort(buero) as never)) as any;
+			expect(l.abwesenheiten.map((a: any) => a.von)).toEqual(['2026-12-21']);
+			expect(await abwAktionen.loeschen({ ...ort(chefA), request: formAnfrage({ id: z.id }) } as never)).toBeUndefined();
+			expect(await root`select 1 from app.abwesenheiten`).toHaveLength(0);
 		});
 	});
 });
