@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { alsAntwort, leseJson } from '$lib/server/fehler';
 import { betriebKontext } from '$lib/server/rechte';
+import { ohnePreise } from '$lib/server/preisschutz';
 import { katalogAendern, katalogLesen, legePositionAn, listeKatalog } from '$lib/server/katalog';
 
 /**
@@ -12,17 +13,17 @@ import { katalogAendern, katalogLesen, legePositionAn, listeKatalog } from '$lib
 export const GET: RequestHandler = async ({ locals, url }) => {
 	try {
 		const { mitPreisen } = await katalogLesen(locals);
-		return json(
-			await listeKatalog(
-				betriebKontext(locals),
-				{
-					suche: url.searchParams.get('suche') ?? undefined,
-					gewerk: url.searchParams.get('gewerk') ?? undefined,
-					nurAktive: url.searchParams.get('nurAktive') === '1'
-				},
-				mitPreisen
-			)
+		const liste = await listeKatalog(
+			betriebKontext(locals),
+			{
+				suche: url.searchParams.get('suche') ?? undefined,
+				gewerk: url.searchParams.get('gewerk') ?? undefined,
+				nurAktive: url.searchParams.get('nurAktive') === '1'
+			},
+			mitPreisen
 		);
+		// Sicherheitsnetz (Preisschutz): ohne `preise.sehen` nie Preisfelder
+		return json(mitPreisen ? liste : ohnePreise(liste));
 	} catch (e) {
 		return alsAntwort(e);
 	}
@@ -31,7 +32,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
 		const { mitPreisen } = await katalogAendern(locals);
-		return json(await legePositionAn(betriebKontext(locals), await leseJson(request), mitPreisen), { status: 201 });
+		const p = await legePositionAn(betriebKontext(locals), await leseJson(request), mitPreisen);
+		return json(mitPreisen ? p : ohnePreise(p), { status: 201 });
 	} catch (e) {
 		return alsAntwort(e);
 	}

@@ -11,8 +11,15 @@ import { berlinTag } from '$lib/zeit';
 import { todoAktionen } from '$lib/server/todo-aktionen';
 import { aktiveMitarbeiter, listeTodos } from '$lib/server/todos';
 import { einsaetzeZumAuftrag } from '$lib/server/plantafel';
+import { listeAngebote } from '$lib/server/angebote';
+import { ohnePreise } from '$lib/server/preisschutz';
+import { hatModul } from '$lib/server/tarif';
 
-/** Auftrag mit Statuskette, Einsätzen, To-dos und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404. */
+/**
+ * Auftrag mit Statuskette, Einsätzen, To-dos, Angeboten und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404.
+ * Angebote nur mit Modul `angebote` und Recht `angebote.bearbeiten` (sonst `null`); Beträge nur mit `preise.sehen`,
+ * Öffnen/Erstellen (`darfAngebote`) nur mit beiden Rechten.
+ */
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
 	const nutzer = locals.nutzer!;
@@ -20,11 +27,14 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const sicht = sichtVon(nutzer);
 		const auftrag = await holeAuftrag(k, sicht, params.id);
 		const darfBearbeiten = hatRecht(nutzer, 'auftraege.bearbeiten');
-		const [protokoll, todos, mitarbeiter, einsaetze] = await Promise.all([
+		const preise = hatRecht(nutzer, 'preise.sehen');
+		const angeboteSichtbar = hatRecht(nutzer, 'angebote.bearbeiten') && (await hatModul(k.betriebId, 'angebote'));
+		const [protokoll, todos, mitarbeiter, einsaetze, angebote] = await Promise.all([
 			liesProtokoll(k, { tabelle: 'auftraege', datensatz: auftrag.id, vor: null }),
 			listeTodos(k, sicht, { auftragId: auftrag.id }),
 			darfBearbeiten ? aktiveMitarbeiter(k) : Promise.resolve([]),
-			einsaetzeZumAuftrag(k, auftrag.id)
+			einsaetzeZumAuftrag(k, auftrag.id),
+			angeboteSichtbar ? listeAngebote(k, { auftragId: auftrag.id }) : Promise.resolve(null)
 		]);
 		return {
 			auftrag,
@@ -36,7 +46,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			verlauf: protokoll.eintraege.map(verlaufZeile),
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
 			darfBearbeiten,
-			kundeLesbar: hatRecht(nutzer, 'kunden.lesen')
+			kundeLesbar: hatRecht(nutzer, 'kunden.lesen'),
+			// Preisschutz: Beträge nur mit `preise.sehen`
+			angebote: angebote && (preise ? angebote : ohnePreise(angebote)),
+			darfAngebote: angeboteSichtbar && preise
 		};
 	});
 };

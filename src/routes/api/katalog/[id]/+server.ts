@@ -2,12 +2,14 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { alsAntwort, leseJson } from '$lib/server/fehler';
 import { betriebKontext } from '$lib/server/rechte';
+import { ohnePreise } from '$lib/server/preisschutz';
 import { aenderePosition, deaktivierePosition, holePosition, katalogAendern, katalogLesen } from '$lib/server/katalog';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
 	try {
 		const { mitPreisen } = await katalogLesen(locals);
-		return json(await holePosition(betriebKontext(locals), params.id, mitPreisen));
+		const p = await holePosition(betriebKontext(locals), params.id, mitPreisen);
+		return json(mitPreisen ? p : ohnePreise(p));
 	} catch (e) {
 		return alsAntwort(e);
 	}
@@ -17,7 +19,8 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	try {
 		const { mitPreisen } = await katalogAendern(locals);
-		return json(await aenderePosition(betriebKontext(locals), params.id, await leseJson(request), mitPreisen));
+		const p = await aenderePosition(betriebKontext(locals), params.id, await leseJson(request), mitPreisen);
+		return json(mitPreisen ? p : ohnePreise(p));
 	} catch (e) {
 		return alsAntwort(e);
 	}
