@@ -276,7 +276,7 @@ export async function setzeStatus(
 	});
 }
 
-/** Löscht einen Auftrag samt To-dos – nur im Status „Anfrage“ (sonst 409). */
+/** Löscht einen Auftrag samt To-dos – nur im Status „Anfrage“ und ohne Angebote (sonst 409). */
 export async function loescheAuftrag(k: Kontext, id: string, sicht: Sicht = ALLE(k.benutzerId)): Promise<void> {
 	pruefeAuftragsId(id);
 	return mitBetrieb(k, async (tx) => {
@@ -284,6 +284,9 @@ export async function loescheAuftrag(k: Kontext, id: string, sicht: Sicht = ALLE
 			select a.id from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
 		if (!sichtbarerAuftrag) throw nichtGefunden();
+		// Angebote hängen ohne Kaskade am Auftrag (Stufe 1c): sie verschwinden nie „nebenbei“.
+		const [mitAngebot] = await tx`select 1 from app.angebote where auftrag_id = ${id} and betrieb_id = ${k.betriebId} limit 1`;
+		if (mitAngebot) throw new ApiFehler(409, 'Aufträge mit Angeboten können nicht gelöscht werden');
 		const z = await tx`
 			delete from app.auftraege where id = ${id} and betrieb_id = ${k.betriebId} and status = 'anfrage' returning id`;
 		if (z.length > 0) return;
