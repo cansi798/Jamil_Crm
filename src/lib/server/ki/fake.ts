@@ -111,7 +111,7 @@ export function findeTag(s: string, kontext: KiKontext): Omit<Zeitangabe, 'uhrze
 		if (j === undefined && d < kontext.heute) d = `${++jahr}-${zwei(m)}-${zwei(t)}`;
 		return { tag: 'datum' as const, datum: d };
 	};
-	const zahlDatum = /\b(\d{1,2})\.\s?(\d{1,2})\.(?:\s?(\d{2}|\d{4})\b)?/.exec(l);
+	const zahlDatum = /\b(\d{1,2})\.\s?(\d{1,2})\.?(?:\s?(\d{2}|\d{4})\b)?/.exec(l);
 	if (zahlDatum) return datum(Number(zahlDatum[1]), Number(zahlDatum[2]), zahlDatum[3] ? Number(zahlDatum[3]) : undefined);
 	const wortDatum = new RegExp(`\\b(\\d{1,2})\\.?\\s+(${MONATE.join('|')})\\b(?:\\s+(\\d{4}))?`).exec(l);
 	if (wortDatum) return datum(Number(wortDatum[1]), MONATE.indexOf(wortDatum[2]) + 1, wortDatum[3] ? Number(wortDatum[3]) : undefined);
@@ -186,7 +186,7 @@ function findeKunde(t: string, auchFuer: boolean): { name: string; ort?: string;
 			name = mitOrt[1].trim();
 			ort = mitOrt[2].trim();
 		}
-		name = name.replace(/^(?:dem|der|den)\s+/i, '').trim();
+		name = name.replace(/^(?:dem|der|den|die)\s+/i, '').trim();
 		if (/^(herrn?|frau)$/i.test(m[1] ?? '') && m.length > 2) name = name.trim();
 		if (name === '' || WOCHENTAG_WORT.test(name) || !/^[A-ZÄÖÜ]/.test(name)) continue;
 		if (name.split(/\s+/).length > 4) continue;
@@ -248,9 +248,10 @@ function bereinige(text: string): string {
 export function deute(text: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
 	const t = bereinige(text);
 	const l = t.toLowerCase();
-	if (/\bangebot/.test(l)) return angebot(t);
 	if (/\b(verschieb|verleg|umleg|schieb)/.test(l)) return verschieben(t, kontext);
-	if (/\btodo\b|\baufgabe\b|\berinner/.test(l)) return todo(t, kontext);
+	if (/\btodo\b|\baufgabe\b|\berinner|\bsoll\b|\bmuss\b/.test(l)) return todo(t, kontext);
+	if (/\bangebot/.test(l)) return angebot(t);
+	if (/(protokoll|regiebericht|aufma[ßs]|mängelliste|maengelliste)(?!\p{L})/u.test(l) || (/\babnahme\b/.test(l) && /\b(protokoll|ausfüllen|erstellen|schreiben|füllen)\b/.test(l))) return protokoll(t);
 	if (/\b(kunde|kundin|kunden)\b/.test(l) && /\b(neue[nrs]?|anlegen|lege|leg|erfasse|aufnehmen)\b/.test(l) && !/\bauftrag/.test(l)) {
 		return kunde(t);
 	}
@@ -348,11 +349,19 @@ function todo(t: string, kontext: KiKontext): { aktion: string; daten: Record<st
 	const daten: Record<string, unknown> = {};
 	let rest = t;
 	// Fälligkeit: „bis Freitag“, „bis morgen“, „am 23.10.“, sonst eine Tagesangabe irgendwo
-	const bis = new RegExp(`\\b(?:bis|bis zum|am|zum|für)\\s+((?:nächsten\\s+|kommenden\\s+)?(?:${WOCHENTAGE.join('|')}|übermorgen|morgen|heute|\\d{1,2}\\.\\s?\\d{1,2}\\.(?:\\d{2,4})?|\\d{1,2}\\.\\s+\\w+)(?:\\s+(?:um\\s+)?\\d{1,2}(?::\\d{2})?\\s*uhr)?)`, 'i').exec(rest);
+	const bis = new RegExp(`\\b(?:bis|bis zum|am|zum|für)\\s+((?:nächsten\\s+|kommenden\\s+)?(?:${WOCHENTAGE.join('|')}|übermorgen|morgen|heute|\\d{1,2}\\.\\s?\\d{1,2}\\.?(?:\\d{2,4})?|\\d{1,2}\\.\\s+\\w+)(?:\\s+(?:um\\s+)?\\d{1,2}(?::\\d{2})?\\s*uhr)?)`, 'i').exec(rest);
 	const f = zeitangabe(bis ? bis[1] : rest, kontext);
 	if (f) daten.faellig = { tag: f.tag, ...(f.wochentag ? { wochentag: f.wochentag } : {}), ...(f.datum ? { datum: f.datum } : {}) };
 	if (bis) rest = rest.replace(bis[0], ' ');
 	rest = ohneZeit(rest);
+	const erinnereName = /\berinner\w*\s+([A-ZÄÖÜ][\wäöüß-]+)\s+an\b/i.exec(rest);
+	if (erinnereName && istNamensWort(erinnereName[1])) {
+		daten.zustaendig = erinnereName[1];
+		rest = rest.slice((erinnereName.index ?? 0) + erinnereName[0].length);
+		rest = rest.replace(/^(?:\s+(?:den|die|das))?\s*/i, '');
+		daten.titel = grossAnfang(sauber(rest)) || 'Erinnerung';
+		return { aktion: 'todo_anlegen', daten };
+	}
 	if (/\berinner\w*\s+mich\b/i.test(rest)) {
 		daten.zustaendig = 'mich';
 		rest = rest.replace(/^.*?\berinner\w*\s+mich\b\s*(?:daran,?\s*)?(?:an\s+(?:den|die|das)?\s*)?/i, '');
@@ -434,8 +443,12 @@ function verschieben(t: string, kontext: KiKontext): { aktion: string; daten: Re
 function angebot(t: string): { aktion: string; daten: Record<string, unknown> } {
 	let rest = t.replace(/^.*?\bangebot\w*\b\s*/i, '');
 	let stichworte = '';
-	const trenner = /\s*(?::|,|\bmit\b|\büber\b)\s*/i.exec(rest);
-	if (trenner) {
+	const ueber = /(?<!\p{L})über\s+/iu.exec(rest);
+	const trenner = /\s*(?::|,|\bmit\b)\s*/i.exec(rest);
+	if (ueber && (!trenner || (ueber.index ?? 0) <= (trenner.index ?? 0))) {
+		stichworte = rest.slice((ueber.index ?? 0) + ueber[0].length);
+		rest = rest.slice(0, ueber.index);
+	} else if (trenner) {
 		stichworte = rest.slice((trenner.index ?? 0) + trenner[0].length);
 		rest = rest.slice(0, trenner.index);
 	}
@@ -449,6 +462,32 @@ function angebot(t: string): { aktion: string; daten: Record<string, unknown> } 
 		aktion: 'angebot_entwurf',
 		daten: { auftrag: auftragName || '?', stichworte: sauber(stichworte) || sauber(t) }
 	};
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Protokoll
+
+function protokoll(t: string): { aktion: string; daten: Record<string, unknown> } {
+	const l = t.toLowerCase();
+	const daten: Record<string, unknown> = {};
+	// Typ erkennen (längere Wörter zuerst, um „Abnahmeprotokoll" korrekt zu erkennen)
+	if (/aufma[ßs](?!\p{L})/u.test(l)) daten.typ = 'aufmass';
+	else if (/\bregiebericht\b/.test(l)) daten.typ = 'regiebericht';
+	else if (/mängelliste|maengelliste/.test(l)) daten.typ = 'maengelliste';
+	else if (/abnahme/.test(l)) daten.typ = 'abnahme';
+	else daten.typ = 'abnahme'; // Standard
+	// Auftrag-Nummer
+	const nummer = /\bA-\d{4}-\d{3,4}\b/i.exec(t);
+	if (nummer) daten.auftrag = { nummer: nummer[0].toUpperCase() };
+	// Inhalt nach Doppelpunkt
+	const doppel = /^(.*?):\s*(.+)$/.exec(t);
+	if (doppel) {
+		const inhalt: Record<string, unknown> = {};
+		const text = doppel[2].trim();
+		if (text) inhalt.bemerkung = text;
+		daten.inhalt = inhalt;
+	}
+	return { aktion: 'protokoll_ausfuellen', daten };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

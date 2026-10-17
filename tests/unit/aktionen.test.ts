@@ -2,14 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { AKTIONEN, AKTIONS_SCHEMAS, pruefeAktion, pruefeEntwurf, werkzeuge } from '../../src/lib/server/sprache/aktionen';
 
 describe('Aktions-Schema', () => {
-	it('genau die sechs Aktionen aus dem Plan (+ „unbekannt“ als Ausweg der KI)', () => {
+	it('genau die sieben Aktionen aus dem Plan (+ „unbekannt” als Ausweg der KI)', () => {
 		expect([...AKTIONEN]).toEqual([
 			'kunde_anlegen',
 			'auftrag_anlegen',
 			'todo_anlegen',
 			'einsatz_anlegen',
 			'einsatz_verschieben',
-			'angebot_entwurf'
+			'angebot_entwurf',
+			'protokoll_ausfuellen'
 		]);
 		expect(Object.keys(AKTIONS_SCHEMAS).sort()).toEqual([...AKTIONEN, 'unbekannt'].sort());
 		// Werkzeuge für Function Calling: je Aktion eine Funktion mit Parametern = Schema

@@ -11,6 +11,7 @@ import type { AktionsName } from './aktionen';
  * - To-do anlegen: Modul `auftraege` + `auftraege.bearbeiten`
  * - Termin einplanen/verschieben: Modul `plantafel` + `plantafel.bearbeiten`
  * - Angebotsentwurf: Modul `ki_angebote` und `angebote` + `angebote.bearbeiten` + `preise.sehen`
+ * - Protokoll ausfüllen: Modul `protokolle` + `protokolle.bearbeiten`
  */
 
 export const MELDUNG_RECHTE = 'Dafür fehlt Ihnen die Berechtigung';
@@ -38,6 +39,8 @@ export async function pruefeAktionsRechte(
 			await angeboteZugriff(locals);
 			await pruefeModul(locals, 'ki_angebote');
 			return;
+		case 'protokoll_ausfuellen':
+			return darf(locals, 'protokolle', 'protokolle.bearbeiten');
 	}
 }
 

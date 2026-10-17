@@ -8,13 +8,13 @@ import { AUDIO_ORDNER, bewerte, ladeTestsatz } from '../sprache/bewertung';
 describe('Testsatz 50 Sprachbefehle', () => {
 	const satz = ladeTestsatz();
 
-	it('Zusammensetzung laut Plan: 50 Befehle, je ≥ 7 pro Aktion, 5 mehrdeutige, 3 nicht unterstützte', () => {
-		expect(satz.befehle).toHaveLength(50);
-		expect(satz.befehle.map((b) => b.nr)).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
+	it('Zusammensetzung laut Plan: 58 Befehle, je ≥ 7 pro Aktion, 5 mehrdeutige, 4 nicht unterstützte', () => {
+		expect(satz.befehle).toHaveLength(58);
+		expect(satz.befehle.map((b) => b.nr)).toEqual(Array.from({ length: 58 }, (_, i) => i + 1));
 		for (const a of AKTIONEN) expect(satz.befehle.filter((b) => b.erwartet.aktion === a).length, a).toBeGreaterThanOrEqual(7);
 		expect(satz.befehle.filter((b) => b.mehrdeutig)).toHaveLength(5);
-		expect(satz.befehle.filter((b) => b.erwartet.aktion === 'unbekannt')).toHaveLength(3);
-		expect(new Set(satz.befehle.map((b) => b.text)).size).toBe(50);
+		expect(satz.befehle.filter((b) => b.erwartet.aktion === 'unbekannt')).toHaveLength(4);
+		expect(new Set(satz.befehle.map((b) => b.text)).size).toBe(58);
 	});
 
 	it('zu jedem Befehl gibt es eine Audiodatei (WAV, 16 kHz mono, klein)', () => {

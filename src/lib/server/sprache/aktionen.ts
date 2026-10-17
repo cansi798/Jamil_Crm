@@ -14,7 +14,8 @@ export const AKTIONEN = [
 	'todo_anlegen',
 	'einsatz_anlegen',
 	'einsatz_verschieben',
-	'angebot_entwurf'
+	'angebot_entwurf',
+	'protokoll_ausfuellen'
 ] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
@@ -55,6 +56,11 @@ export type TodoDaten = { titel: string; zustaendig?: string; faellig?: Zeitanga
 export type EinsatzDaten = { auftrag: string; mitarbeiter: string[]; start: Zeitangabe; ende_uhrzeit?: string; notiz?: string };
 export type VerschiebenDaten = { mitarbeiter?: string; auftrag?: string; von?: Zeitangabe; nach: Zeitangabe };
 export type AngebotDaten = { auftrag: string; stichworte: string };
+export type ProtokollDaten = {
+	auftrag: { nummer: string };
+	typ: 'abnahme' | 'regiebericht' | 'aufmass' | 'maengelliste';
+	inhalt: { bemerkung?: string; maengel?: string; positionen?: string[] };
+};
 
 export type KiAktion =
 	| { aktion: 'kunde_anlegen'; daten: KundeDaten }
@@ -63,6 +69,7 @@ export type KiAktion =
 	| { aktion: 'einsatz_anlegen'; daten: EinsatzDaten }
 	| { aktion: 'einsatz_verschieben'; daten: VerschiebenDaten }
 	| { aktion: 'angebot_entwurf'; daten: AngebotDaten }
+	| { aktion: 'protokoll_ausfuellen'; daten: ProtokollDaten }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -188,6 +195,31 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		required: ['auftrag', 'stichworte'],
 		additionalProperties: false
 	},
+	protokoll_ausfuellen: {
+		type: 'object',
+		properties: {
+			auftrag: {
+				type: 'object',
+				properties: {
+					nummer: text(40, 'Auftragsnummer, z. B. A-2026-0001'),
+					name: text(200, 'Kundenname oder Auftragstitel')
+				},
+				additionalProperties: false
+			},
+			typ: { type: 'string', enum: ['abnahme', 'regiebericht', 'aufmass', 'maengelliste'], description: 'Art des Protokolls' },
+			inhalt: {
+				type: 'object',
+				properties: {
+					bemerkung: text(2000, 'Bemerkung oder Beschreibung'),
+					maengel: text(2000, 'Festgestellte Mängel'),
+					positionen: { type: 'array', items: text(500, 'Position oder Aufmaß'), minItems: 1, maxItems: 50 }
+				},
+				additionalProperties: false
+			}
+		},
+		required: ['typ'],
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -198,6 +230,7 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	einsatz_anlegen: 'Termin/Einsatz von Mitarbeitern bei einem Kunden bzw. Auftrag einplanen.',
 	einsatz_verschieben: 'Bestehenden Termin/Einsatz auf einen anderen Tag oder eine andere Uhrzeit verschieben.',
 	angebot_entwurf: 'Angebotsentwurf für einen Auftrag aus gesprochenen Leistungen erstellen.',
+	protokoll_ausfuellen: 'Baustellen-Protokoll (Abnahme, Regiebericht, Aufmaß, Mängelliste) für einen Auftrag ausfüllen.',
 	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. Fragen, Rechnungen, Löschen).'
 };
 

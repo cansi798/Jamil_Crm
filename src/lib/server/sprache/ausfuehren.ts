@@ -144,8 +144,20 @@ async function ausfuehrenJe(
 		}
 		case 'angebot_entwurf':
 			throw new Error('angebot_entwurf läuft nicht über ausfuehrenJe');
+		case 'protokoll_ausfuellen': {
+			const { legeProtokollAn } = await import('../baustellen-protokolle');
+			const prot = await legeProtokollAn(k, w.auftragId, w.typ, w.inhalt, nutzer.id);
+			return { status: 201, meldung: `Protokoll ${PROTOKOLL_TYP_TITEL[prot.typ] ?? prot.typ} gespeichert`, link: `/auftraege/${prot.auftragId}/dokumentation`, warnungen: [] };
+		}
 	}
 }
+
+const PROTOKOLL_TYP_TITEL: Record<string, string> = {
+	abnahme: 'Abnahme',
+	regiebericht: 'Regiebericht',
+	aufmass: 'Aufmaß',
+	maengelliste: 'Mängelliste'
+};
 
 const tagVon = (d: Date) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' }).format(d);
 

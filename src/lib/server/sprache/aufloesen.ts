@@ -396,13 +396,43 @@ async function angebotEntwurf(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, {
 	return bau;
 }
 
+const PROTOKOLL_TYP_TITEL: Record<string, string> = {
+	abnahme: 'Abnahme',
+	regiebericht: 'Regiebericht',
+	aufmass: 'Aufmaß',
+	maengelliste: 'Mängelliste'
+};
+
+async function protokollAusfuellen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'protokoll_ausfuellen' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	const t = await findeAuftraege(k, nutzer, d.auftrag.nummer, false);
+	bau.werte.auftragId = null;
+	bau.werte.typ = d.typ;
+	bau.werte.inhalt = d.inhalt ?? {};
+	if (t.length === 1) {
+		bau.werte.auftragId = t[0].id;
+		bau.zeilen.push({ label: 'Auftrag', wert: auftragLabel(t[0]) });
+	} else if (t.length > 1) {
+		bau.auswahl.push({ feld: 'auftrag', frage: 'Welcher Auftrag ist gemeint?', optionen: t.slice(0, 8).map((a) => ({ id: a.id, label: auftragLabel(a) })) });
+		bau.zeilen.push({ label: 'Auftrag', wert: `${d.auftrag.nummer} (bitte wählen)` });
+	} else {
+		bau.fehlt.push(`Kein offener Auftrag zu „${d.auftrag.nummer}" gefunden.`);
+		bau.zeilen.push({ label: 'Auftrag', wert: `${d.auftrag.nummer} (nicht gefunden)` });
+	}
+	bau.zeilen.push({ label: 'Typ', wert: PROTOKOLL_TYP_TITEL[d.typ] ?? d.typ });
+	if (d.inhalt?.bemerkung) bau.zeilen.push({ label: 'Bemerkung', wert: d.inhalt.bemerkung });
+	if (d.inhalt?.maengel) bau.zeilen.push({ label: 'Mängel', wert: d.inhalt.maengel });
+	return bau;
+}
+
 const TITEL: Record<AktionsName, string> = {
 	kunde_anlegen: 'Kunde anlegen',
 	auftrag_anlegen: 'Auftrag anlegen',
 	todo_anlegen: 'To-do anlegen',
 	einsatz_anlegen: 'Termin einplanen',
 	einsatz_verschieben: 'Termin verschieben',
-	angebot_entwurf: 'Angebotsentwurf (KI)'
+	angebot_entwurf: 'Angebotsentwurf (KI)',
+	protokoll_ausfuellen: 'Protokoll ausfüllen'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -453,6 +483,9 @@ export async function loeseAuf(k: Kontext, nutzer: Nutzer, aktion: Exclude<KiAkt
 				break;
 			case 'angebot_entwurf':
 				bau = await angebotEntwurf(k, nutzer, aktion.daten);
+				break;
+			case 'protokoll_ausfuellen':
+				bau = await protokollAusfuellen(k, nutzer, aktion.daten);
 				break;
 		}
 	} catch (e) {

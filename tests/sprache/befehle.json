@@ -702,6 +702,97 @@
 				"felder": {}
 			},
 			"audio": "audio/50.wav"
+		},
+		{
+			"nr": 51,
+			"text": "Protokoll für Auftrag A-2026-0001 ausfüllen: Abnahme, alles fertig",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0001" },
+					"typ": "abnahme"
+				}
+			},
+			"audio": "audio/51.wav"
+		},
+		{
+			"nr": 52,
+			"text": "Regiebericht für Müller schreiben: zusätzliche Fliesenarbeiten",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"typ": "regiebericht"
+				}
+			},
+			"audio": "audio/52.wav"
+		},
+		{
+			"nr": 53,
+			"text": "Aufmaß für Auftrag A-2026-0002: 15 Quadratmeter Fliesen",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0002" },
+					"typ": "aufmass"
+				}
+			},
+			"audio": "audio/53.wav"
+		},
+		{
+			"nr": 54,
+			"text": "Mängelliste für Auftrag A-2026-0001: Silikonfuge im Bad erneuern",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0001" },
+					"typ": "maengelliste"
+				}
+			},
+			"audio": "audio/54.wav"
+		},
+		{
+			"nr": 55,
+			"text": "Erstelle ein Abnahmeprotokoll für Auftrag A-2026-0003",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0003" },
+					"typ": "abnahme"
+				}
+			},
+			"audio": "audio/55.wav"
+		},
+		{
+			"nr": 56,
+			"text": "Protokoll für den Auftrag bei Müller: Regiebericht, zusätzliche Arbeiten Küche",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"typ": "regiebericht"
+				}
+			},
+			"audio": "audio/56.wav"
+		},
+		{
+			"nr": 57,
+			"text": "Schreib ein Abnahmeprotokoll für den Auftrag A-2026-0001, alles in Ordnung",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0001" },
+					"typ": "abnahme"
+				}
+			},
+			"audio": "audio/57.wav"
+		},
+		{
+			"nr": 58,
+			"text": "Foto von der Baustelle hochladen",
+			"erwartet": {
+				"aktion": "unbekannt",
+				"felder": {}
+			},
+			"audio": "audio/58.wav"
 		}
 	]
 }

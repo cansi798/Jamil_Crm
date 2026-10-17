@@ -69,6 +69,8 @@ export function bewerte(erwartet: Befehl['erwartet'], ist: KiAktion | { aktion: 
 				});
 		} else if (GENAU.has(feld)) {
 			ok = istWert === soll;
+		} else if (typeof soll === 'object' && soll !== null) {
+			ok = JSON.stringify(istWert) === JSON.stringify(soll);
 		} else {
 			ok = typeof istWert === 'string' && normal(istWert).includes(normal(soll));
 		}
