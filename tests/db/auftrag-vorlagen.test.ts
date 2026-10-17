@@ -3,6 +3,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { frischeTestDb, type TestDb } from './setup';
 import { initDb, mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { VORLAGEN } from '../../src/lib/server/rechte';
+import {
+	listeVorlagen,
+	holeVorlage,
+	legeVorlageAn,
+	aendereVorlage,
+	loescheVorlage
+} from '../../src/lib/server/auftrag-vorlagen';
 
 type Ant = { status: number; koerper: any };
 
@@ -129,5 +136,64 @@ describe('Auftrags-To-do-Vorlagen', () => {
 		const protokoll = await root`
 			select * from app.aenderungen where tabelle = 'auftrag_vorlagen' and datensatz_id = ${erg.id}`;
 		expect(protokoll.length).toBeGreaterThan(0);
+	});
+
+	describe('Dienst', () => {
+		it('listeVorlagen liefert alle Vorlagen des Betriebs', async () => {
+			await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, { name: 'Vorlage 1' });
+			await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, { name: 'Vorlage 2' });
+			await legeVorlageAn({ betriebId: betriebB, benutzerId: chefBId }, { name: 'B Vorlage' });
+
+			const ergA = await listeVorlagen({ betriebId: betriebA, benutzerId: chefAId });
+			expect(ergA).toHaveLength(2);
+			expect(ergA.map((v) => v.name).sort()).toEqual(['Vorlage 1', 'Vorlage 2']);
+		});
+
+		it('holeVorlage mit fremder ID → 404', async () => {
+			const fremd = await legeVorlageAn({ betriebId: betriebB, benutzerId: chefBId }, { name: 'Fremd' });
+			await expect(
+				holeVorlage({ betriebId: betriebA, benutzerId: chefAId }, fremd.id)
+			).rejects.toThrow('nicht gefunden');
+		});
+
+		it('legeVorlageAn mit Todos → Todos sind gespeichert und sortiert', async () => {
+			const erg = await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, {
+				name: 'Mit Todos',
+				todos: [
+					{ titel: 'Zweite', sortierung: 2 },
+					{ titel: 'Erste', sortierung: 1 },
+					{ titel: 'Dritte', sortierung: 3 }
+				]
+			});
+			expect(erg.todos).toHaveLength(3);
+			expect(erg.todos.map((t) => t.titel)).toEqual(['Erste', 'Zweite', 'Dritte']);
+		});
+
+		it('aendereVorlage mit neuen Todos → alte Todos sind weg, neue da', async () => {
+			const erg = await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, {
+				name: 'Zu ändern',
+				todos: [{ titel: 'Alt 1' }, { titel: 'Alt 2' }]
+			});
+			expect(erg.todos).toHaveLength(2);
+
+			const geaendert = await aendereVorlage({ betriebId: betriebA, benutzerId: chefAId }, erg.id, {
+				name: 'Geändert',
+				todos: [{ titel: 'Neu 1' }]
+			});
+			expect(geaendert.name).toBe('Geändert');
+			expect(geaendert.todos).toHaveLength(1);
+			expect(geaendert.todos[0].titel).toBe('Neu 1');
+		});
+
+		it('loescheVorlage → Vorlage und Todos weg', async () => {
+			const erg = await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, {
+				name: 'Zum Löschen',
+				todos: [{ titel: 'Todo' }]
+			});
+			await loescheVorlage({ betriebId: betriebA, benutzerId: chefAId }, erg.id);
+			await expect(
+				holeVorlage({ betriebId: betriebA, benutzerId: chefAId }, erg.id)
+			).rejects.toThrow('nicht gefunden');
+		});
 	});
 });
