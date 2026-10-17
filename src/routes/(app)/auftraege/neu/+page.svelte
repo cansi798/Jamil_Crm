@@ -21,6 +21,7 @@
 		kunde={auswahl.kunde}
 		objekte={auswahl.objekte}
 		kundenSuche={data.kundenSuche}
+		vorlagen={data.vorlagen}
 		fehler={form?.fehler ?? null}
 		knopf="Auftrag anlegen"
 		abbrechen={zurueck}

@@ -3,6 +3,8 @@
 
 	type Kunde = { id: string; name: string };
 	type Objekt = { id: string; bezeichnung: string; adresse: string };
+	type Vorlage = { id: string; name: string };
+	type Todo = { titel: string; beschreibung: string };
 
 	/**
 	 * Formular für Aufträge (Neu und Bearbeiten). Kunde: vorbelegt (z. B. aus `?kunde=` oder beim Bearbeiten) oder über
@@ -15,6 +17,7 @@
 		kunde = null,
 		objekte = [],
 		kundenSuche = true,
+		vorlagen = [],
 		fehler = null,
 		knopf,
 		abbrechen
@@ -24,6 +27,7 @@
 		kunde?: Kunde | null;
 		objekte?: Objekt[];
 		kundenSuche?: boolean;
+		vorlagen?: Vorlage[];
 		fehler?: string | null;
 		knopf: string;
 		abbrechen: string;
@@ -36,6 +40,9 @@
 	let meldung = $state<string | null>(null);
 	let laedt = $state(false);
 	let objektWahl = $state<string | null>(null);
+	let todos = $state<Todo[]>([]);
+	let vorlageWahl = $state<string>('');
+	let todosGeladen = $state(false);
 
 	const aktKunde = $derived(gewaehlt ? gewaehlt.kunde : kunde);
 	const aktObjekte = $derived(gewaehlt ? gewaehlt.objekte : objekte);
@@ -91,6 +98,40 @@
 			e.preventDefault();
 			void suchen();
 		}
+	}
+
+	async function ladeVorlage() {
+		if (!vorlageWahl) {
+			todos = [];
+			todosGeladen = false;
+			return;
+		}
+		try {
+			const r = await fetch(`/api/auftrag-vorlagen/${vorlageWahl}`);
+			if (r.ok) {
+				const daten = await r.json();
+				todos = daten.todos.map((t: any) => ({ titel: t.titel, beschreibung: t.beschreibung ?? '' }));
+				todosGeladen = true;
+			}
+		} catch {
+			// Fehler ignorieren – Todos bleiben leer
+		}
+	}
+
+	function todoHinzufuegen() {
+		todos = [...todos, { titel: '', beschreibung: '' }];
+	}
+
+	function todoEntfernen(index: number) {
+		todos = todos.filter((_, i) => i !== index);
+	}
+
+	function todoVerschieben(index: number, richtung: -1 | 1) {
+		const ziel = index + richtung;
+		if (ziel < 0 || ziel >= todos.length) return;
+		const neu = [...todos];
+		[neu[index], neu[ziel]] = [neu[ziel], neu[index]];
+		todos = neu;
 	}
 </script>
 
@@ -172,8 +213,148 @@
 		<textarea name="beschreibung" maxlength="4000" rows="5">{werte.beschreibung ?? ''}</textarea>
 	</label>
 
+	{#if vorlagen.length > 0}
+		<fieldset class="af-vorlage">
+			<legend>To-do-Vorlage</legend>
+			<select bind:value={vorlageWahl} onchange={ladeVorlage}>
+				<option value="">– ohne Vorlage –</option>
+				{#each vorlagen as v (v.id)}
+					<option value={v.id}>{v.name}</option>
+				{/each}
+			</select>
+			{#if todosGeladen && todos.length > 0}
+				<p class="kd-info">{todos.length} To-dos aus der Vorlage werden angelegt.</p>
+			{/if}
+		</fieldset>
+	{/if}
+
+	{#if todos.length > 0}
+		<fieldset class="af-todos">
+			<legend>To-dos</legend>
+			{#each todos as todo, i (i)}
+				<div class="af-todo">
+					<div class="af-todo-felder">
+						<input
+							type="text"
+							name="todo_{i}"
+							placeholder="To-do {i + 1}"
+							bind:value={todo.titel}
+							maxlength="200"
+						/>
+						<input
+							type="text"
+							name="todo_beschreibung_{i}"
+							placeholder="Beschreibung (optional)"
+							bind:value={todo.beschreibung}
+							maxlength="500"
+						/>
+					</div>
+					<div class="af-todo-knoepfe">
+						<button type="button" onclick={() => todoVerschieben(i, -1)} disabled={i === 0}>↑</button>
+						<button type="button" onclick={() => todoVerschieben(i, 1)} disabled={i === todos.length - 1}>↓</button>
+						<button type="button" onclick={() => todoEntfernen(i)} class="entfernen">×</button>
+					</div>
+				</div>
+			{/each}
+			<button type="button" onclick={todoHinzufuegen} class="af-todo-hinzufuegen">+ To-do hinzufügen</button>
+		</fieldset>
+	{:else if todosGeladen}
+		<button type="button" onclick={todoHinzufuegen} class="af-todo-hinzufuegen">+ To-do hinzufügen</button>
+	{/if}
+
 	<div class="kd-aktionen">
 		<button type="submit" class="kd-knopf">{knopf}</button>
 		<a href={abbrechen} class="kd-knopf hell">Abbrechen</a>
 	</div>
 </form>
+
+<style>
+	.af-vorlage {
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+	}
+	.af-vorlage legend {
+		font-weight: 600;
+		color: var(--text, #323130);
+		padding: 0 0.5rem;
+	}
+	.af-vorlage select {
+		width: 100%;
+		padding: 0.5rem;
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		font-size: 1rem;
+	}
+	.af-todos {
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+	}
+	.af-todos legend {
+		font-weight: 600;
+		color: var(--text, #323130);
+		padding: 0 0.5rem;
+	}
+	.af-todo {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 0.75rem;
+		align-items: flex-start;
+	}
+	.af-todo-felder {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.af-todo-felder input {
+		width: 100%;
+		padding: 0.5rem;
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		font-size: 1rem;
+		box-sizing: border-box;
+	}
+	.af-todo-knoepfe {
+		display: flex;
+		gap: 0.25rem;
+	}
+	.af-todo-knoepfe button {
+		width: 32px;
+		height: 32px;
+		border: 1px solid #d2d0ce;
+		background: white;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 1.25rem;
+		line-height: 1;
+	}
+	.af-todo-knoepfe button:hover:not(:disabled) {
+		background: #f3f2f1;
+	}
+	.af-todo-knoepfe button:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.af-todo-knoepfe .entfernen {
+		color: #a4262c;
+	}
+	.af-todo-hinzufuegen {
+		width: 100%;
+		padding: 0.5rem;
+		border: 2px dashed #d2d0ce;
+		background: transparent;
+		border-radius: 4px;
+		cursor: pointer;
+		color: var(--text-leise, #605e5c);
+		font-size: 1rem;
+		margin-top: 0.5rem;
+	}
+	.af-todo-hinzufuegen:hover {
+		border-color: var(--primar, #0078d4);
+		color: var(--primar, #0078d4);
+	}
+</style>
