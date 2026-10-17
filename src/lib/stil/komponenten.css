@@ -118,7 +118,7 @@
 
 .badge-blau {
 	background: var(--m365-primaer-hell);
-	color: var(--m365-primaer);
+	color: var(--m365-primaer-dunkel);
 }
 
 .badge-gruen {
@@ -128,12 +128,12 @@
 
 .badge-gelb {
 	background: #fff4ce;
-	color: #986f0b;
+	color: #7a5a0a;
 }
 
 .badge-rot {
 	background: #fde7e9;
-	color: var(--m365-fehler);
+	color: #b02a30;
 }
 
 .badge-grau {
@@ -147,7 +147,7 @@
 	width: 100%;
 	min-height: var(--tippziel);
 	padding: 0.5rem 0.75rem;
-	border: 1px solid var(--m365-rand);
+	border: 1px solid #b0b0b0;
 	border-radius: var(--m365-radius);
 	background: var(--m365-flaeche);
 	color: var(--m365-text);

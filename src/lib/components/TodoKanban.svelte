@@ -22,7 +22,7 @@
 
 	/**
 	 * Kanban-Board im Microsoft-Planner-Stil. Drei Spalten: Offen, In Arbeit, Erledigt.
-	 * To-dos werden per Drag & Drop zwischen den Spalten verschoben (HTML5 Drag & Drop API).
+	 * To-dos werden per Pointer-Events (Touch + Maus) zwischen den Spalten verschoben.
 	 */
 	let {
 		todos,
@@ -59,57 +59,108 @@
 
 	const ueberfaellig = (t: Todo) => !t.erledigt && t.faellig !== null && t.faellig < heute;
 
-	// Drag & Drop
+	// ── Drag & Drop (Pointer Events: funktioniert auf Touch UND Maus) ──
 	let dragTodoId = $state<string | null>(null);
 	let dragOverSpalte = $state<string | null>(null);
+	let dragStartX = $state(0);
+	let dragStartY = $state(0);
+	let dragAktiv = $state(false);
+	let dragAktuellerSpalte = $state<string | null>(null);
 
-	function dragStart(e: DragEvent, todoId: string) {
+	const SCHWELLE = 8; // px, bevor Drag als Absicht gilt
+
+	function pointerDown(e: PointerEvent, todoId: string, spalteId: string) {
+		if (!darfBearbeiten) return;
+		if (e.button !== 0) return; // nur linke Maustaste / Touch
 		dragTodoId = todoId;
-		if (e.dataTransfer) {
-			e.dataTransfer.effectAllowed = 'move';
-			e.dataTransfer.setData('text/plain', todoId);
-		}
+		dragStartX = e.clientX;
+		dragStartY = e.clientY;
+		dragAktiv = false;
+		dragAktuellerSpalte = spalteId;
 	}
 
-	function dragOver(e: DragEvent, spalteId: string) {
-		e.preventDefault();
-		if (e.dataTransfer) {
-			e.dataTransfer.dropEffect = 'move';
-		}
-		dragOverSpalte = spalteId;
-	}
-
-	function dragLeave() {
-		dragOverSpalte = null;
-	}
-
-	function drop(e: DragEvent, spalteId: string) {
-		e.preventDefault();
-		dragOverSpalte = null;
+	function pointerMove(e: PointerEvent) {
 		if (!dragTodoId) return;
+		const dx = Math.abs(e.clientX - dragStartX);
+		const dy = Math.abs(e.clientY - dragStartY);
+		if (!dragAktiv && (dx > SCHWELLE || dy > SCHWELLE)) {
+			dragAktiv = true;
+			// Pointer Capture, damit der Rest des Viewports nicht scrollt
+			(e.target as Element).setPointerCapture?.(e.pointerId);
+		}
+		if (!dragAktiv) return;
+
+		// Spalte unter dem Pointer finden
+		const unter = document.elementFromPoint(e.clientX, e.clientY);
+		const spalte = unter?.closest('.kanban-spalte');
+		dragOverSpalte = spalte?.getAttribute('data-spalte') ?? null;
+	}
+
+	function pointerUp(e: PointerEvent) {
+		if (!dragTodoId || !dragAktiv) {
+			dragTodoId = null;
+			dragAktiv = false;
+			dragOverSpalte = null;
+			return;
+		}
+		dragAktiv = false;
+		dragOverSpalte = null;
 
 		const todo = todos.find((t) => t.id === dragTodoId);
-		if (!todo) return;
+		if (todo && dragAktuellerSpalte) {
+			// Zielspalte bestimmen (wo wurde losgelassen?)
+			const unter = document.elementFromPoint(e.clientX, e.clientY);
+			const zielSpalte = unter?.closest('.kanban-spalte')?.getAttribute('data-spalte') ?? dragAktuellerSpalte;
 
-		// Status ändern basierend auf Zielspalte
-		const neuesErledigt = spalteId === 'erledigt';
-		if (todo.erledigt !== neuesErledigt) {
-			// Formular abschicken um Status zu ändern
-			const form = document.createElement('form');
-			form.method = 'POST';
-			form.action = aktionen.umschalten;
-			const input = document.createElement('input');
-			input.type = 'hidden';
-			input.name = 'id';
-			input.value = dragTodoId;
-			form.appendChild(input);
-			document.body.appendChild(form);
-			form.submit();
+			if (zielSpalte !== dragAktuellerSpalte) {
+				// Übergang: passende Aktion wählen
+				if (zielSpalte === 'erledigt') {
+					// → Erledigt: umschalten mit erledigt=true
+					absenden(aktionen.umschalten, { id: todo.id, erledigt: 'true' });
+				} else if (dragAktuellerSpalte === 'erledigt') {
+					// Erledigt → Offen/In Arbeit: erledigt=false + faellig anpassen
+					const neuesFaellig = zielSpalte === 'in-arbeit' ? heute : '';
+					absenden(aktionen.aendern, { id: todo.id, erledigt: 'false', faellig: neuesFaellig });
+				} else {
+					// Offen ↔ In Arbeit: nur faellig ändern (erledigt bleibt false)
+					const neuesFaellig = zielSpalte === 'in-arbeit' ? heute : '';
+					absenden(aktionen.aendern, { id: todo.id, faellig: neuesFaellig });
+				}
+			}
 		}
 
 		dragTodoId = null;
+		dragAktuellerSpalte = null;
+	}
+
+	function pointerCancel() {
+		dragTodoId = null;
+		dragAktiv = false;
+		dragOverSpalte = null;
+		dragAktuellerSpalte = null;
+	}
+
+	function absenden(aktion: string, felder: Record<string, string>) {
+		const form = document.createElement('form');
+		form.method = 'POST';
+		form.action = aktion;
+		for (const [name, wert] of Object.entries(felder)) {
+			const input = document.createElement('input');
+			input.type = 'hidden';
+			input.name = name;
+			input.value = wert;
+			form.appendChild(input);
+		}
+		document.body.appendChild(form);
+		form.submit();
 	}
 </script>
+
+<svelte:window
+	onpointermove={pointerMove}
+	onpointerup={pointerUp}
+	onpointercancel={pointerCancel}
+/>
 
 <div class="kanban">
 	{#each spalten as spalte (spalte.id)}
@@ -118,9 +169,7 @@
 			class:drag-over={dragOverSpalte === spalte.id}
 			role="region"
 			aria-label={spalte.titel}
-			ondragover={(e) => dragOver(e, spalte.id)}
-			ondragleave={dragLeave}
-			ondrop={(e) => drop(e, spalte.id)}
+			data-spalte={spalte.id}
 		>
 			<div class="spalte-kopf" style="--spalte-farbe: {spalte.farbe}">
 				<span class="spalte-indikator"></span>
@@ -128,15 +177,15 @@
 				<span class="spalte-anzahl">{spaltenTodos[spalte.id as keyof typeof spaltenTodos].length}</span>
 			</div>
 
-			<div class="spalte-inhalt">
+			<div class="spalte-inhalt" role="list">
 				{#each spaltenTodos[spalte.id as keyof typeof spaltenTodos] as todo (todo.id)}
 					{@const darfHaken = darfBearbeiten || todo.zustaendigId === benutzerId}
 					<div
 						class="kanban-karte"
 						class:ueberfaellig={ueberfaellig(todo)}
+						class:drag-aktiv={dragTodoId === todo.id && dragAktiv}
 						role="listitem"
-						draggable={darfBearbeiten}
-						ondragstart={(e) => dragStart(e, todo.id)}
+						onpointerdown={(e) => pointerDown(e, todo.id, spalte.id)}
 					>
 						<div class="karte-inhalt">
 							<p class="karte-titel">{todo.titel}</p>
@@ -160,6 +209,7 @@
 						{#if darfHaken}
 							<form method="POST" action={aktionen.umschalten} use:enhance class="karte-haken">
 								<input type="hidden" name="id" value={todo.id} />
+								<input type="hidden" name="erledigt" value={todo.erledigt ? 'false' : 'true'} />
 								<button type="submit" class="haken-knopf" class:erledigt={todo.erledigt} aria-label={todo.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}>
 									{#if todo.erledigt}✓{/if}
 								</button>
@@ -267,6 +317,8 @@
 		border-radius: var(--m365-radius);
 		box-shadow: var(--m365-schatten);
 		cursor: grab;
+		touch-action: manipulation;
+		user-select: none;
 		transition: box-shadow 150ms, transform 150ms;
 	}
 
@@ -276,6 +328,12 @@
 
 	.kanban-karte:active {
 		cursor: grabbing;
+	}
+
+	.kanban-karte.drag-aktiv {
+		opacity: 0.7;
+		box-shadow: var(--m365-schatten-hoch);
+		transform: scale(1.02);
 	}
 
 	.kanban-karte.ueberfaellig {
@@ -352,10 +410,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 24px;
-		height: 24px;
+		min-width: var(--tippziel);
+		min-height: var(--tippziel);
+		width: 2.75rem;
+		height: 2.75rem;
 		border: 2px solid var(--m365-rand);
-		border-radius: 4px;
+		border-radius: var(--m365-radius-klein);
 		background: var(--m365-flaeche);
 		color: var(--m365-erfolg);
 		font-size: 0.875rem;
