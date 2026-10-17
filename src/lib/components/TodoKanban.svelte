@@ -225,11 +225,13 @@
 </div>
 
 <style>
+	/* Kanban im Microsoft-Planner-Stil */
 	.kanban {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 1rem;
-		padding: 1rem 0;
+		padding: 0.5rem 0;
+		align-items: start;
 	}
 
 	@media (max-width: 768px) {
@@ -239,16 +241,18 @@
 	}
 
 	.kanban-spalte {
-		background: var(--m365-hintergrund);
-		border: 2px solid transparent;
-		border-radius: var(--m365-radius-gross);
+		background: var(--m365-flaeche-hover);
+		border: none;
+		border-radius: var(--m365-radius-karte);
 		padding: 0.75rem;
-		min-height: 200px;
-		transition: border-color 150ms, background 150ms;
+		min-height: 250px;
+		transition: background 150ms, outline 150ms;
+		outline: 2px solid transparent;
+		outline-offset: -2px;
 	}
 
 	.kanban-spalte.drag-over {
-		border-color: var(--m365-primaer);
+		outline-color: var(--m365-primaer);
 		background: var(--m365-primaer-hell);
 	}
 
@@ -256,22 +260,18 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		margin-bottom: 0.75rem;
-		padding-bottom: 0.5rem;
-		border-bottom: 1px solid var(--m365-rand);
+		margin-bottom: 0.5rem;
+		padding: 0.25rem 0.25rem 0.5rem;
 	}
 
 	.spalte-indikator {
-		width: 12px;
-		height: 12px;
-		border-radius: 50%;
-		background: var(--spalte-farbe);
+		display: none;
 	}
 
 	.spalte-titel {
 		margin: 0;
 		font-family: var(--m365-schrift);
-		font-size: 0.9375rem;
+		font-size: 0.875rem;
 		font-weight: 600;
 		color: var(--m365-text);
 		flex: 1;
@@ -281,15 +281,16 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 24px;
-		height: 24px;
-		padding: 0 0.5rem;
-		border-radius: 12px;
+		min-width: 1.25rem;
+		height: 1.25rem;
+		padding: 0 0.375rem;
+		border-radius: var(--m365-radius-gross);
 		background: var(--m365-rand);
 		color: var(--m365-text-leise);
 		font-family: var(--m365-schrift);
-		font-size: 0.75rem;
+		font-size: 0.6875rem;
 		font-weight: 600;
+		line-height: 1;
 	}
 
 	.spalte-inhalt {
@@ -300,21 +301,22 @@
 
 	.spalte-leer {
 		margin: 0;
-		padding: 1rem;
+		padding: 1.5rem 0.75rem;
 		text-align: center;
-		color: var(--m365-text-leise);
+		color: var(--m365-text-leicht);
 		font-family: var(--m365-schrift);
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 	}
 
+	/* Planner-Karte: weiß, Schatten, abgerundet */
 	.kanban-karte {
 		display: flex;
 		align-items: flex-start;
 		gap: 0.5rem;
 		padding: 0.75rem;
 		background: var(--m365-flaeche);
-		border: 1px solid var(--m365-rand);
-		border-radius: var(--m365-radius);
+		border: none;
+		border-radius: var(--m365-radius-karte);
 		box-shadow: var(--m365-schatten);
 		cursor: grab;
 		touch-action: manipulation;
@@ -331,13 +333,14 @@
 	}
 
 	.kanban-karte.drag-aktiv {
-		opacity: 0.7;
-		box-shadow: var(--m365-schatten-hoch);
-		transform: scale(1.02);
+		opacity: 0.8;
+		box-shadow: var(--m365-schatten-pop);
+		transform: scale(1.03);
 	}
 
 	.kanban-karte.ueberfaellig {
 		border-left: 3px solid var(--m365-fehler);
+		padding-left: calc(0.75rem - 3px);
 	}
 
 	.karte-inhalt {
@@ -348,8 +351,8 @@
 	.karte-titel {
 		margin: 0 0 0.25rem;
 		font-family: var(--m365-schrift);
-		font-size: 0.875rem;
-		font-weight: 500;
+		font-size: 0.8125rem;
+		font-weight: 600;
 		color: var(--m365-text);
 		line-height: 1.3;
 	}
@@ -357,7 +360,7 @@
 	.karte-auftrag {
 		margin: 0 0 0.25rem;
 		font-family: var(--m365-schrift);
-		font-size: 0.75rem;
+		font-size: 0.6875rem;
 		color: var(--m365-text-leise);
 	}
 
@@ -373,7 +376,7 @@
 		align-items: center;
 		gap: 0.25rem;
 		font-family: var(--m365-schrift);
-		font-size: 0.75rem;
+		font-size: 0.6875rem;
 		color: var(--m365-text-leise);
 	}
 
@@ -381,19 +384,19 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 20px;
-		height: 20px;
+		width: 1.25rem;
+		height: 1.25rem;
 		border-radius: 50%;
-		background: var(--m365-primaer-hell);
-		color: var(--m365-primaer);
+		background: var(--m365-primaer);
+		color: #fff;
 		font-family: var(--m365-schrift);
-		font-size: 0.625rem;
+		font-size: 0.5625rem;
 		font-weight: 600;
 	}
 
 	.karte-faellig {
 		font-family: var(--m365-schrift);
-		font-size: 0.75rem;
+		font-size: 0.6875rem;
 		color: var(--m365-text-leise);
 	}
 
@@ -406,21 +409,23 @@
 		margin: 0;
 	}
 
+	/* Planner-Haken-Checkbox */
 	.haken-knopf {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		min-width: var(--tippziel);
-		min-height: var(--tippziel);
-		width: 2.75rem;
-		height: 2.75rem;
-		border: 2px solid var(--m365-rand);
-		border-radius: var(--m365-radius-klein);
+		width: 1.25rem;
+		height: 1.25rem;
+		min-width: 1.25rem;
+		min-height: 1.25rem;
+		margin-top: 0.125rem;
+		border: 1.5px solid var(--m365-rand-stark);
+		border-radius: 50%;
 		background: var(--m365-flaeche);
-		color: var(--m365-erfolg);
-		font-size: 0.875rem;
+		color: transparent;
+		font-size: 0.625rem;
 		cursor: pointer;
-		transition: border-color 150ms, background 150ms;
+		transition: border-color 150ms, background 150ms, color 150ms;
 	}
 
 	.haken-knopf:hover {
@@ -428,8 +433,8 @@
 	}
 
 	.haken-knopf.erledigt {
-		background: var(--m365-erfolg);
-		border-color: var(--m365-erfolg);
+		background: var(--m365-primaer);
+		border-color: var(--m365-primaer);
 		color: #fff;
 	}
 </style>

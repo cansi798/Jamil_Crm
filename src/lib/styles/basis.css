@@ -2,30 +2,38 @@
    Tippflächen mindestens 44 px (2,75 rem), kleinste Zielbreite 360 px ohne horizontales Scrollen. */
 @import '../stil/komponenten.css';
 :root {
-	/* Microsoft-365-Fluent-Palette */
+	/* Microsoft-365-Fluent-Palette (werte aus dem echten Fluent Design System) */
 	--m365-primaer: #0078d4;
 	--m365-primaer-hover: #106ebe;
 	--m365-primaer-dunkel: #005a9e;
 	--m365-primaer-hell: #eff6fc;
 	--m365-erfolg: #107c10;
+	--m365-erfolg-hell: #dff6dd;
 	--m365-warnung: #ff8c00;
+	--m365-warnung-hell: #fff4ce;
 	--m365-fehler: #d13438;
-	--m365-text: #242424;
-	--m365-text-leise: #616161;
-	--m365-rand: #e0e0e0;
+	--m365-fehler-hell: #fde7e9;
+	--m365-text: #323130;
+	--m365-text-leise: #605e5c;
+	--m365-text-leicht: #a19f9d;
+	--m365-rand: #edebe9;
+	--m365-rand-stark: #d2d0ce;
 	--m365-flaeche: #ffffff;
-	--m365-hintergrund: #f5f5f5;
-	--m365-nav: #f0f0f0;
+	--m365-flaeche-hover: #f3f2f1;
+	--m365-hintergrund: #faf9f8;
+	--m365-nav: #ffffff;
 	--m365-fokus: #0078d4;
 
-	/* Fluent-Radius */
-	--m365-radius-klein: 4px;
-	--m365-radius: 8px;
+	/* Fluent-Radius (Fluent 4 Standard) */
+	--m365-radius-klein: 2px;
+	--m365-radius: 4px;
+	--m365-radius-karte: 8px;
 	--m365-radius-gross: 12px;
 
-	/* Schatten */
-	--m365-schatten: 0 1px 2px rgba(0,0,0,0.08);
-	--m365-schatten-hoch: 0 4px 8px rgba(0,0,0,0.12);
+	/* Fluent-Schatten (Elevation 4/8/16) */
+	--m365-schatten: 0 1px 2px rgba(0,0,0,0.14), 0 0 2px rgba(0,0,0,0.12);
+	--m365-schatten-hoch: 0 2px 4px rgba(0,0,0,0.14), 0 8px 16px rgba(0,0,0,0.14);
+	--m365-schatten-pop: 0 3.2px 7.2px rgba(0,0,0,0.132), 0 0.6px 1.2px rgba(0,0,0,0.108);
 
 	/* Typografie */
 	--m365-schrift: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
@@ -96,7 +104,7 @@ svg {
 	justify-content: center;
 	gap: 0.4rem;
 	min-height: var(--tippziel);
-	padding: 0.5rem 1.25rem;
+	padding: 0.375rem 1rem;
 	border: 1px solid var(--m365-primaer);
 	border-radius: var(--m365-radius);
 	background: var(--m365-primaer);
@@ -104,6 +112,7 @@ svg {
 	font-family: var(--m365-schrift);
 	font-weight: 600;
 	font-size: 0.875rem;
+	line-height: 1.2;
 	text-decoration: none;
 	cursor: pointer;
 	transition: background 150ms, border-color 150ms;
@@ -112,13 +121,17 @@ svg {
 	background: var(--m365-primaer-hover);
 	border-color: var(--m365-primaer-hover);
 }
+.knopf:active {
+	background: var(--m365-primaer-dunkel);
+	border-color: var(--m365-primaer-dunkel);
+}
 .knopf.hell {
 	background: var(--m365-flaeche);
 	color: var(--m365-primaer);
-	border-color: var(--m365-rand);
+	border-color: var(--m365-rand-stark);
 }
 .knopf.hell:hover {
-	background: var(--m365-hintergrund);
+	background: var(--m365-flaeche-hover);
 }
 
 /* Nur für Screenreader sichtbar */

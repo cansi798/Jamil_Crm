@@ -84,6 +84,7 @@
 {/if}
 
 <style>
+	/* Mobil: Bottom-Tab-Bar (wie M365-App auf dem Handy) */
 	.hauptnav {
 		position: fixed;
 		z-index: 10;
@@ -92,7 +93,7 @@
 		bottom: 0;
 		background: var(--m365-flaeche);
 		border-top: 1px solid var(--m365-rand);
-		box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+		box-shadow: var(--m365-schatten);
 		padding-bottom: env(safe-area-inset-bottom);
 	}
 	.liste {
@@ -110,19 +111,20 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 0.15rem;
+		gap: 0.2rem;
 		width: 100%;
 		min-width: var(--tippziel);
 		min-height: var(--nav-hoehe);
 		margin: 0;
-		padding: 0.35rem 0.2rem;
+		padding: 0.4rem 0.25rem;
 		border: 0;
 		border-radius: 0;
 		background: none;
 		color: var(--m365-text-leise);
 		font-family: var(--m365-schrift);
-		font-size: 0.75rem;
-		line-height: 1.15;
+		font-size: 0.6875rem;
+		font-weight: 400;
+		line-height: 1.2;
 		text-align: center;
 		text-decoration: none;
 		cursor: pointer;
@@ -131,13 +133,14 @@
 	.eintrag[aria-current='page'] {
 		color: var(--m365-primaer);
 		font-weight: 600;
-		box-shadow: inset 0 3px 0 var(--m365-primaer);
+		box-shadow: inset 0 2px 0 var(--m365-primaer);
 	}
 	.eintrag:hover:not(.aus) {
 		color: var(--m365-text);
+		background: var(--m365-flaeche-hover);
 	}
 	.eintrag.aus {
-		color: #8a9098;
+		color: var(--m365-text-leicht);
 		cursor: default;
 	}
 	.text {
@@ -155,11 +158,11 @@
 	.inhalt {
 		padding-bottom: calc(var(--nav-hoehe) + env(safe-area-inset-bottom));
 	}
-	/* Platz unter dem Inhalt, damit der Mikrofon-Knopf nichts dauerhaft verdeckt */
 	.inhalt.mit-mikro {
 		padding-bottom: calc(var(--nav-hoehe) + 5rem + env(safe-area-inset-bottom));
 	}
 
+	/* Desktop: linke Seitenleiste wie M365 App */
 	@media (min-width: 900px) {
 		.hauptnav {
 			top: 0;
@@ -167,8 +170,8 @@
 			width: var(--seitenleiste);
 			display: flex;
 			flex-direction: column;
-			gap: 0.25rem;
-			padding: 0.75rem;
+			gap: 0;
+			padding: 0;
 			border-top: 0;
 			border-right: 1px solid var(--m365-rand);
 			box-shadow: none;
@@ -181,51 +184,79 @@
 		.nur-schmal {
 			display: none;
 		}
+		/* Branding-Bereich (wie M365 App-Kopf) */
 		.marke {
 			display: flex;
 			align-items: center;
-			min-height: var(--tippziel);
-			padding: 0 0.75rem;
-			margin-bottom: 1rem;
-			color: var(--m365-primaer);
+			gap: 0.5rem;
+			min-height: 3rem;
+			padding: 0 1rem;
+			margin-bottom: 0.5rem;
+			color: var(--m365-text);
 			font-family: var(--m365-schrift);
 			font-size: 1.125rem;
 			font-weight: 600;
 			text-decoration: none;
+			letter-spacing: -0.01em;
+		}
+		.marke::before {
+			content: '';
+			display: inline-block;
+			width: 1.5rem;
+			height: 1.5rem;
+			border-radius: var(--m365-radius);
+			background: var(--m365-primaer);
+			flex-shrink: 0;
 		}
 		.liste {
 			flex-direction: column;
-			gap: 0.25rem;
+			gap: 0;
+			padding: 0 0.5rem;
 		}
 		.eintrag {
 			flex-direction: row;
 			justify-content: flex-start;
 			gap: 0.75rem;
-			min-height: var(--tippziel);
-			padding: 0.5rem 0.75rem;
+			min-height: 2.25rem;
+			margin: 0;
+			padding: 0.375rem 0.75rem;
 			border-radius: var(--m365-radius);
 			font-family: var(--m365-schrift);
-			font-size: 0.9375rem;
+			font-size: 0.875rem;
+			font-weight: 400;
 			text-align: left;
+			line-height: 1.2;
 		}
 		.eintrag[aria-current='page'] {
 			background: var(--m365-primaer-hell);
-			box-shadow: inset 3px 0 0 var(--m365-primaer);
+			box-shadow: none;
+			font-weight: 600;
+			color: var(--m365-primaer-dunkel);
 		}
 		.eintrag:not(.aus):hover {
-			background: #e0e0e0;
+			background: var(--m365-flaeche-hover);
+		}
+		.eintrag.aus {
+			font-size: 0.875rem;
 		}
 		.hinweis {
 			font-size: 0.75rem;
 		}
 		.verwaltung {
-			margin-top: 0.75rem;
-			padding-top: 0.75rem;
+			margin-top: 0.5rem;
+			padding-top: 0.5rem;
 			border-top: 1px solid var(--m365-rand);
+		}
+		.verwaltung .liste {
+			padding: 0 0.5rem;
 		}
 		.abmelden {
 			margin-top: auto;
-			padding-top: 0.75rem;
+			padding: 0.5rem;
+			border-top: 1px solid var(--m365-rand);
+		}
+		.abmelden .eintrag {
+			width: 100%;
 		}
 		.inhalt {
 			padding-bottom: 0;
