@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DateiUpload from '$lib/components/DateiUpload.svelte';
+	import Karte from '$lib/components/Karte.svelte';
 	import Unterschrift from '$lib/components/Unterschrift.svelte';
 
 	let { data } = $props();
@@ -148,217 +149,169 @@
 	}
 </script>
 
-<h1>Dokumentation – {data.auftrag.titel}</h1>
+<main class="kd-seite">
+	<a href={`/auftraege/${data.auftrag.id}`} class="kd-zurueck">← Auftrag</a>
+	<header class="seiten-kopf">
+		<h1>Dokumentation – {data.auftrag.titel}</h1>
+	</header>
 
-<nav class="tabs">
-	<button class:aktiv={tab === 'fotos'} onclick={() => (tab = 'fotos')}>Fotos</button>
-	<button class:aktiv={tab === 'notizen'} onclick={() => (tab = 'notizen')}>Notizen</button>
-	<button class:aktiv={tab === 'protokolle'} onclick={() => (tab = 'protokolle')}>Protokolle</button>
-</nav>
+	<nav class="pills" aria-label="Bereiche">
+		<button class="pill" class:aktiv={tab === 'fotos'} onclick={() => (tab = 'fotos')}>Fotos</button>
+		<button class="pill" class:aktiv={tab === 'notizen'} onclick={() => (tab = 'notizen')}>Notizen</button>
+		<button class="pill" class:aktiv={tab === 'protokolle'} onclick={() => (tab = 'protokolle')}>Protokolle</button>
+	</nav>
 
-{#if tab === 'fotos'}
-	<section>
-		<h2>Fotos und Dateien</h2>
-		<DateiUpload auftragId={data.auftrag.id} bind:dateien />
-	</section>
-{:else if tab === 'notizen'}
-	<section>
-		<h2>Notizen</h2>
-
-		<form onsubmit={(e) => { e.preventDefault(); notizAnlegen(); }} class="notiz-form">
-			<textarea bind:value={neueNotiz} placeholder="Neue Notiz eingeben…" rows="3" maxlength="10000"></textarea>
-			{#if notizFehler}<p class="fehler">{notizFehler}</p>{/if}
-			<button type="submit" disabled={notizLaedt || !neueNotiz.trim()}>
-				{notizLaedt ? 'Wird gespeichert…' : 'Notiz speichern'}
-			</button>
-		</form>
-
-		{#if notizen.length === 0}
-			<p>Keine Notizen vorhanden.</p>
-		{:else}
-			<ul class="notiz-liste">
-				{#each notizen as n (n.id)}
-					<li>
-						{#if editiertNotizId === n.id}
-							<form onsubmit={(e) => { e.preventDefault(); notizSpeichern(n.id); }} class="notiz-edit">
-								<textarea bind:value={editierterText} rows="3"></textarea>
-								<div class="notiz-aktionen">
-									<button type="submit">Speichern</button>
-									<button type="button" onclick={() => { editiertNotizId = null; editierterText = ''; }}>Abbrechen</button>
-								</div>
-							</form>
-						{:else}
-							<div class="notiz-inhalt">
-								<p>{n.text}</p>
-								<span class="notiz-meta">{new Date(n.angelegt).toLocaleString('de-DE')}</span>
-							</div>
-							<div class="notiz-aktionen">
-								<button type="button" onclick={() => { editiertNotizId = n.id; editierterText = n.text; }}>Bearbeiten</button>
-								<button type="button" onclick={() => notizLoeschen(n.id)}>Löschen</button>
-							</div>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
-{:else if tab === 'protokolle'}
-	<section>
-		<h2>Baustellen-Protokolle</h2>
-		<button type="button" onclick={() => (neuesProtokoll = true)} data-testid="protokoll-neu">
-			Neues Protokoll
-		</button>
-
-		{#if neuesProtokoll}
-			<form onsubmit={(e) => { e.preventDefault(); protokollAnlegen(); }}>
-				<label>
-					Typ
-					<select bind:value={protokollTyp} data-testid="protokoll-typ">
-						<option value="abnahme">Abnahme</option>
-						<option value="regiebericht">Regiebericht</option>
-						<option value="aufmass">Aufmaß</option>
-						<option value="maengelliste">Mängelliste</option>
-					</select>
-				</label>
-				<label>
-					Bemerkung
-					<textarea bind:value={protokollBemerkung} data-testid="protokoll-bemerkung"></textarea>
-				</label>
-				{#if protokollFehler}
-					<p class="fehler">{protokollFehler}</p>
-				{/if}
-				<button type="submit" disabled={protokollLaedt} data-testid="protokoll-speichern">
-					{protokollLaedt ? 'Wird gespeichert…' : 'Speichern'}
+	{#if tab === 'fotos'}
+		<Karte>
+			{#snippet titel()}Fotos und Dateien{/snippet}
+			<DateiUpload auftragId={data.auftrag.id} bind:dateien />
+		</Karte>
+	{:else if tab === 'notizen'}
+		<Karte>
+			{#snippet titel()}Notizen{/snippet}
+			<form onsubmit={(e) => { e.preventDefault(); notizAnlegen(); }} class="notiz-form">
+				<textarea bind:value={neueNotiz} placeholder="Neue Notiz eingeben…" rows="3" maxlength="10000"></textarea>
+				{#if notizFehler}<p class="fehler">{notizFehler}</p>{/if}
+				<button type="submit" class="knopf-gefuellt" disabled={notizLaedt || !neueNotiz.trim()}>
+					{notizLaedt ? 'Wird gespeichert…' : 'Notiz speichern'}
 				</button>
 			</form>
-		{/if}
 
-		{#if protokolle.length === 0}
-			<p>Keine Protokolle vorhanden.</p>
-		{:else}
-			<ul class="protokoll-liste">
-				{#each protokolle as prot (prot.id)}
-					<li>
-						<strong>{prot.typ}</strong>
-						<span>{new Date(prot.angelegt).toLocaleDateString('de-DE')}</span>
-						{#if prot.unterschriftVorhanden}
-							<span data-testid="unterschrift-vorhanden">✓ Unterschrift</span>
-						{:else}
-							<button type="button" onclick={() => { unterschriftProtokollId = prot.id; unterschriftOffen = true; }}>
-								Unterschrift
-							</button>
-						{/if}
-						<button type="button" onclick={() => pdfErzeugen(prot.id)}>PDF</button>
-						<button type="button" onclick={() => emailSenden(prot.id)}>E-Mail</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-
-		{#if unterschriftOffen}
-			<div class="unterschrift-dialog">
-				<h3>Unterschrift</h3>
-				<Unterschrift onunterschrift={unterschriftSpeichern} />
-				<button type="button" onclick={() => { unterschriftOffen = false; unterschriftProtokollId = null; }}>
-					Abbrechen
+			{#if notizen.length === 0}
+				<p class="kd-leer">Keine Notizen vorhanden.</p>
+			{:else}
+				<ul class="notiz-liste">
+					{#each notizen as n (n.id)}
+						<li class="karte">
+							{#if editiertNotizId === n.id}
+								<form onsubmit={(e) => { e.preventDefault(); notizSpeichern(n.id); }} class="notiz-edit">
+									<textarea bind:value={editierterText} rows="3"></textarea>
+									<div class="notiz-aktionen">
+										<button type="submit" class="knopf-gefuellt">Speichern</button>
+										<button type="button" class="knopf-subtil" onclick={() => { editiertNotizId = null; editierterText = ''; }}>Abbrechen</button>
+									</div>
+								</form>
+							{:else}
+								<div class="notiz-inhalt">
+									<p>{n.text}</p>
+									<span class="notiz-meta">{new Date(n.angelegt).toLocaleString('de-DE')}</span>
+								</div>
+								<div class="notiz-aktionen">
+									<button type="button" class="knopf-subtil" onclick={() => { editiertNotizId = n.id; editierterText = n.text; }}>Bearbeiten</button>
+									<button type="button" class="knopf-gefahr" onclick={() => notizLoeschen(n.id)}>Löschen</button>
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</Karte>
+	{:else if tab === 'protokolle'}
+		<Karte>
+			{#snippet titel()}Baustellen-Protokolle{/snippet}
+			{#snippet aktionen()}
+				<button type="button" class="knopf-gefuellt" onclick={() => (neuesProtokoll = true)} data-testid="protokoll-neu">
+					Neues Protokoll
 				</button>
-			</div>
-		{/if}
-	</section>
-{/if}
+			{/snippet}
+
+			{#if neuesProtokoll}
+				<form onsubmit={(e) => { e.preventDefault(); protokollAnlegen(); }} class="protokoll-form">
+					<label>
+						Typ
+						<select bind:value={protokollTyp} data-testid="protokoll-typ">
+							<option value="abnahme">Abnahme</option>
+							<option value="regiebericht">Regiebericht</option>
+							<option value="aufmass">Aufmaß</option>
+							<option value="maengelliste">Mängelliste</option>
+						</select>
+					</label>
+					<label>
+						Bemerkung
+						<textarea bind:value={protokollBemerkung} data-testid="protokoll-bemerkung"></textarea>
+					</label>
+					{#if protokollFehler}
+						<p class="fehler">{protokollFehler}</p>
+					{/if}
+					<button type="submit" class="knopf-gefuellt" disabled={protokollLaedt} data-testid="protokoll-speichern">
+						{protokollLaedt ? 'Wird gespeichert…' : 'Speichern'}
+					</button>
+				</form>
+			{/if}
+
+			{#if protokolle.length === 0}
+				<p class="kd-leer">Keine Protokolle vorhanden.</p>
+			{:else}
+				<ul class="protokoll-liste">
+					{#each protokolle as prot (prot.id)}
+						<li class="karte">
+							<div class="protokoll-kopf">
+								<strong>{prot.typ}</strong>
+								<span class="kd-info">{new Date(prot.angelegt).toLocaleDateString('de-DE')}</span>
+								{#if prot.unterschriftVorhanden}
+									<span class="badge badge-gruen" data-testid="unterschrift-vorhanden">✓ Unterschrift</span>
+								{/if}
+							</div>
+							<div class="protokoll-aktionen">
+								{#if !prot.unterschriftVorhanden}
+									<button type="button" class="knopf-subtil" onclick={() => { unterschriftProtokollId = prot.id; unterschriftOffen = true; }}>
+										Unterschrift
+									</button>
+								{/if}
+								<button type="button" class="knopf-subtil" onclick={() => pdfErzeugen(prot.id)}>PDF</button>
+								<button type="button" class="knopf-subtil" onclick={() => emailSenden(prot.id)}>E-Mail</button>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+
+			{#if unterschriftOffen}
+				<div class="unterschrift-dialog">
+					<h3>Unterschrift</h3>
+					<Unterschrift onunterschrift={unterschriftSpeichern} />
+					<button type="button" class="knopf-subtil" onclick={() => { unterschriftOffen = false; unterschriftProtokollId = null; }}>
+						Abbrechen
+					</button>
+				</div>
+			{/if}
+		</Karte>
+	{/if}
+</main>
 
 <style>
-	.tabs {
-		display: flex;
-		gap: 0.5rem;
+	.pills {
 		margin-bottom: 1rem;
 	}
-	.tabs button {
-		padding: 0.5rem 1rem;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-		background: #fff;
-		cursor: pointer;
-	}
-	.tabs button.aktiv {
-		background: var(--farbe-primaer, #05346b);
-		color: #fff;
-		border-color: var(--farbe-primaer, #05346b);
-	}
-	section {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		max-width: 400px;
-	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	textarea {
-		min-height: 80px;
-	}
-	.fehler {
-		color: #c00;
-	}
-	.protokoll-liste {
-		list-style: none;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-	li {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem;
-		border: 1px solid #eee;
-		border-radius: 4px;
-	}
-	li button {
-		padding: 0.25rem 0.5rem;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-		background: #fff;
-		cursor: pointer;
-	}
-	.unterschrift-dialog {
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		background: #fff;
-		padding: 1rem;
-		box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-		z-index: 100;
-	}
-	.notiz-form {
+	.notiz-form,
+	.protokoll-form {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
 		max-width: 500px;
+		margin-bottom: 1rem;
 	}
-	.notiz-liste {
+	.notiz-form textarea,
+	.protokoll-form textarea {
+		min-height: 80px;
+	}
+	.fehler {
+		color: var(--m365-fehler);
+	}
+	.notiz-liste,
+	.protokoll-liste {
 		list-style: none;
+		margin: 0.75rem 0 0;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
 	}
-	.notiz-liste li {
+	.notiz-liste li,
+	.protokoll-liste li {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		padding: 0.75rem;
-		border: 1px solid #eee;
-		border-radius: 4px;
 	}
 	.notiz-inhalt p {
 		margin: 0;
@@ -366,23 +319,33 @@
 	}
 	.notiz-meta {
 		font-size: 0.85rem;
-		color: #666;
+		color: var(--m365-text-leise);
 	}
-	.notiz-aktionen {
+	.notiz-aktionen,
+	.protokoll-aktionen {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
-	}
-	.notiz-aktionen button {
-		padding: 0.25rem 0.5rem;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-		background: #fff;
-		cursor: pointer;
-		font-size: 0.85rem;
 	}
 	.notiz-edit {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+	}
+	.protokoll-kopf {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+	}
+	.unterschrift-dialog {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		background: var(--m365-flaeche);
+		padding: 1rem;
+		box-shadow: var(--m365-schatten-hoch);
+		z-index: 100;
 	}
 </style>

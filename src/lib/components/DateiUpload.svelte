@@ -1,6 +1,7 @@
 <script lang="ts">
 	/**
-	 * Datei-Upload-Komponente: Datei-Auswahl (Bilder/PDFs), Hochladen mit Fortschritt, Liste der Dateien mit Löschen.
+	 * Datei-Upload-Komponente: Datei per Ziehen ablegen oder auswählen (Bilder/PDFs),
+	 * Hochladen mit Fortschritt, Liste der Dateien mit Löschen.
 	 */
 
 	let {
@@ -13,11 +14,10 @@
 
 	let laedt = $state(false);
 	let fehler = $state<string | null>(null);
+	let dropAktiv = $state(false);
+	let dateiEingabe = $state<HTMLInputElement | null>(null);
 
-	async function hochladen(e: Event) {
-		const input = e.target as HTMLInputElement;
-		const datei = input.files?.[0];
-		if (!datei) return;
+	async function hochladenDatei(datei: File) {
 		laedt = true;
 		fehler = null;
 		try {
@@ -31,12 +31,26 @@
 			}
 			const erg = await res.json();
 			dateien = [erg, ...dateien];
-			input.value = '';
+			if (dateiEingabe) dateiEingabe.value = '';
 		} catch (e) {
 			fehler = e instanceof Error ? e.message : 'Upload fehlgeschlagen';
 		} finally {
 			laedt = false;
 		}
+	}
+
+	async function hochladen(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const datei = input.files?.[0];
+		if (!datei) return;
+		await hochladenDatei(datei);
+	}
+
+	function drop(e: DragEvent) {
+		e.preventDefault();
+		dropAktiv = false;
+		const datei = e.dataTransfer?.files?.[0];
+		if (datei) hochladenDatei(datei);
 	}
 
 	async function loeschen(id: string) {
@@ -48,16 +62,37 @@
 </script>
 
 <div class="datei-upload">
-	<label class="upload-button">
-		{laedt ? 'Wird hochgeladen…' : 'Datei auswählen'}
+	<div
+		class="drop-zone"
+		class:drop-aktiv={dropAktiv}
+		role="button"
+		tabindex="0"
+		aria-label="Datei hochladen: hierher ziehen oder klicken zum Auswählen"
+		ondragover={(e) => {
+			e.preventDefault();
+			dropAktiv = true;
+		}}
+		ondragleave={() => (dropAktiv = false)}
+		ondrop={drop}
+		onclick={() => dateiEingabe?.click()}
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				dateiEingabe?.click();
+			}
+		}}
+	>
+		<p class="drop-titel">{laedt ? 'Wird hochgeladen…' : 'Datei hierher ziehen'}</p>
+		<p class="drop-hinweis">oder klicken zum Auswählen · JPEG, PNG, WebP, PDF, DOCX, XLSX</p>
 		<input
 			type="file"
 			accept="image/jpeg,image/png,image/webp,application/pdf,.docx,.xlsx"
+			bind:this={dateiEingabe}
 			onchange={hochladen}
 			disabled={laedt}
 			style="display: none;"
 		/>
-	</label>
+	</div>
 	{#if fehler}
 		<p class="fehler">{fehler}</p>
 	{/if}
@@ -66,7 +101,7 @@
 			{#each dateien as datei (datei.id)}
 				<li>
 					<span>{datei.name}</span>
-					<button type="button" onclick={() => loeschen(datei.id)}>Löschen</button>
+					<button type="button" class="knopf-gefahr" onclick={() => loeschen(datei.id)}>Löschen</button>
 				</li>
 			{/each}
 		</ul>
@@ -79,21 +114,36 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-	.upload-button {
-		display: inline-block;
-		padding: 0.5rem 1rem;
-		background: var(--farbe-primaer, #05346b);
-		color: #fff;
-		border-radius: 4px;
-		cursor: pointer;
+	.drop-zone {
+		display: grid;
+		place-items: center;
+		gap: 0.25rem;
+		min-height: 8rem;
+		padding: 1.25rem;
+		border: 2px dashed var(--m365-rand);
+		border-radius: var(--m365-radius-gross);
+		background: var(--m365-hintergrund);
+		color: var(--m365-text);
 		text-align: center;
+		cursor: pointer;
+		transition: border-color 150ms, background 150ms;
 	}
-	.upload-button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
+	.drop-zone:hover,
+	.drop-aktiv {
+		border-color: var(--m365-primaer);
+		background: var(--m365-primaer-hell);
+	}
+	.drop-titel {
+		margin: 0;
+		font-weight: 600;
+	}
+	.drop-hinweis {
+		margin: 0;
+		color: var(--m365-text-leise);
+		font-size: 0.875rem;
 	}
 	.fehler {
-		color: #c00;
+		color: var(--m365-fehler);
 		margin: 0;
 	}
 	.datei-liste {
@@ -104,19 +154,14 @@
 		flex-direction: column;
 		gap: 0.25rem;
 	}
-	li {
+	.datei-liste li {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 0.25rem 0.5rem;
-		border: 1px solid #eee;
-		border-radius: 4px;
-	}
-	li button {
-		padding: 0.25rem 0.5rem;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-		background: #fff;
-		cursor: pointer;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--m365-rand);
+		border-radius: var(--m365-radius);
+		background: var(--m365-flaeche);
 	}
 </style>
