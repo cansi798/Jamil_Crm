@@ -6,7 +6,10 @@ Benutzer und Einladungen, Tarife und Module, Änderungsprotokoll, Kunden mit Obj
 Betreiber, mobile App-Hülle (PWA). Stufe 1b ergänzt Aufträge mit Statuskette (Anfrage → Angebot → Beauftragt →
 In Arbeit → Abgenommen → Abgerechnet), To-dos mit Zuständigem und Fälligkeit, die Plantafel (Mitarbeiter × Tage mit
 Ziehen und Ablegen, Warnungen bei Doppelbelegung, Urlaub und Krankheit), Abwesenheiten und „Meine Einsätze heute“
-auf der Startseite – auch ohne Netz (Kopie auf dem Gerät).
+auf der Startseite – auch ohne Netz (Kopie auf dem Gerät). Stufe 1c bringt den Leistungskatalog (eigene Positionen
+mit Einheit, Lohn und Material; Startvorlagen für Bad/Sanitär, Fliesen, Maler, Trockenbau), Angebote zum Auftrag aus
+Katalog- und freien Positionen (Entwurf → Versendet → Angenommen/Abgelehnt, gekoppelt an die Auftragsstatus) und das
+Angebot als PDF mit Logo und Briefkopf des Betriebs. Wer „Preise sehen“ nicht hat (Monteur), bekommt nirgends Preise.
 
 Lastenheft und Pflichtenheft: `docs/spec/`.
 
@@ -15,6 +18,7 @@ Lastenheft und Pflichtenheft: `docs/spec/`.
 - SvelteKit 2 mit Svelte 5, TypeScript, `adapter-node` (Produktions-Build läuft mit `node build`)
 - PostgreSQL 16 mit Row Level Security (RLS), Treiber `postgres`
 - Passwörter mit Argon2 (`@node-rs/argon2`), Zwei-Faktor mit TOTP (`otpauth`, `qrcode`)
+- PDF mit `pdfkit` und eingebetteter Schrift Noto Sans (SIL Open Font License, `src/lib/server/pdf/schriften/`)
 - Tests: Vitest (Unit und Datenbank), Playwright (E2E im Browser)
 
 ## Verzeichnisse
@@ -22,12 +26,12 @@ Lastenheft und Pflichtenheft: `docs/spec/`.
 | Pfad | Inhalt |
 | --- | --- |
 | `src/routes/` | Seiten und API: `(app)` (Betriebsnutzer), `admin` (Plattform), `anmelden`, `einladung`, `api/*` |
-| `src/lib/server/` | Serverlogik: `db.ts` (Pools, Mandantenkontext), `auth/` (Sitzung, Passwort, TOTP, Begrenzung), `rechte.ts`, `tarif.ts`, `kunden.ts`, `auftraege.ts`, `todos.ts`, `plantafel.ts`, `benutzer.ts`, `admin.ts`, `protokoll.ts` |
-| `src/lib/` (ohne `server`) | Wissen ohne Serverbezug: `auftrag-status.ts` (Statuskette), `zeit.ts` (Tage/Wochen in Europe/Berlin), `heute-kopie.ts` (Offline-Kopie), `navigation.ts`, `verlauf.ts` |
+| `src/lib/server/` | Serverlogik: `db.ts` (Pools, Mandantenkontext), `auth/` (Sitzung, Passwort, TOTP, Begrenzung), `rechte.ts`, `tarif.ts`, `kunden.ts`, `auftraege.ts`, `todos.ts`, `plantafel.ts`, `katalog.ts`, `angebote.ts`, `betriebsprofil.ts`, `preisschutz.ts`, `pdf/angebot-pdf.ts`, `benutzer.ts`, `admin.ts`, `protokoll.ts` |
+| `src/lib/` (ohne `server`) | Wissen ohne Serverbezug: `auftrag-status.ts` (Statuskette), `zeit.ts` (Tage/Wochen in Europe/Berlin), `geld.ts` (Cent-Rechnen, Rundung, Anzeige), `angebot-status.ts`, `katalog-werte.ts` (Gewerke, Einheiten), `heute-kopie.ts` (Offline-Kopie), `navigation.ts`, `verlauf.ts` |
 | `src/lib/components/`, `src/lib/stil/` | Wiederverwendbare Svelte-Bausteine und Stil |
 | `src/hooks.server.ts` | Sitzungsprüfung, Admin-Pfad, Nur-Lese-Sperre |
-| `db/migrations/` | SQL-Migrationen (`001` bis `012`, dazu `003a`/`003b`; `011` Aufträge/To-dos, `012` Einsätze/Abwesenheiten), werden nach Dateiname sortiert angewendet |
-| `scripts/` | `migrate.ts`, `admin-anlegen.ts`, `seed-dev.ts`, `start-vorschau.sh`, `erzeuge-icons.ts` |
+| `db/migrations/` | SQL-Migrationen (`001` bis `014`, dazu `003a`/`003b`; `011` Aufträge/To-dos, `012` Einsätze/Abwesenheiten, `013` Katalog/Briefkopf/Angebote, `014` Startvorlagen), werden nach Dateiname sortiert angewendet |
+| `scripts/` | `migrate.ts`, `admin-anlegen.ts`, `seed-dev.ts` (mit `seed-dateien/bauwelt-logo.png`), `start-vorschau.sh`, `erzeuge-icons.ts` |
 | `tests/unit`, `tests/db`, `tests/e2e` | Unit-Tests, Datenbank-Tests (je Testdatei eine frische Datenbank), Browser-Tests |
 | `static/` | Manifest, Symbole der PWA |
 
@@ -107,6 +111,10 @@ nächsten Woche – mit einer Doppelbelegung (Monteur am Mittwoch), einem Urlaub
 „heute“ für den Monteur. Er ist idempotent (mehrfaches Ausführen erzeugt keine Duplikate); die Beispiel-Einsätze
 wandern bei einem späteren Lauf auf die dann aktuellen Tage. `npx tsx scripts/testzugaenge.ts` legt die persönlichen
 Test-Zugänge an (`can.chef`, `jamil.monteur`, …) und gibt den Monteur-Zugängen Einsätze für heute und morgen.
+Stufe 1c: Briefkopf „Bauwelt Handwerk GmbH“ (nur Angaben aus dem öffentlichen Impressum der Bauwelt-Website;
+Steuernummer, USt-IdNr. und Bank bleiben leer) mit Bauwelt-Logo, die Startvorlagen Bad/Sanitär und Fliesen mit
+Beispielpreisen (in der Beschreibung als „(Beispielpreis)“ gekennzeichnet) und zwei Angebote: ein versendetes zum
+„Ladenumbau Trockenbau“, ein Entwurf zu „Fliesen Küche“. Vorhandene Briefköpfe, Preise und Angebote bleiben unberührt.
 
 - Nur für die Sandbox: Abbruch bei `NODE_ENV=production` und gegen jede Datenbank außer `crm`. Eine andere
   Datenbank muss ausdrücklich genannt werden: `npm run seed:dev -- --erlaube-db=<name>`.
@@ -155,7 +163,7 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
   Einsätzen drei Wochen voraus an und löscht ihn am Ende wieder. Der Offline-Test braucht
   `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` (setzt `playwright.config.ts` selbst): Nur so erreicht die
   Netzsperre von Playwright auch den Service Worker.
-- Bildschirmfotos für die Abnahme: dieselbe Zeile mit `BILDSCHIRMFOTOS=/w/<ordner> npx -y playwright@1.48.2 test bildschirmfotos`.
+- Bildschirmfotos für die Abnahme: dieselbe Zeile mit `BILDSCHIRMFOTOS=/w/<ordner> npx -y playwright@1.48.2 test bildschirmfotos`. Die erste Seite eines Angebots-PDFs zeichnet dabei pdf.js (von cdnjs, Netz nötig).
 - Vor einem Abschluss alles zusammen: `npm test`, `npm run test:db`, `npm run check`, `npm run build`, E2E.
 
 ## Sicherheitsmodell
@@ -181,8 +189,12 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 11. Offline: Der Service Worker speichert nur die App-Hülle und die statische Seite `/offline`, nie Seiten mit Daten
     oder die API. „Meine Einsätze heute“ liegt als Kopie im `localStorage` des Geräts (nur heute gültig, ohne Preise,
     beim Abmelden gelöscht); die Offline-Seite zeigt sie an.
-12. Die Anwendung versendet keine E-Mails: Einladungslinks werden in der Oberfläche angezeigt und weitergegeben.
-13. Sicherheits-Kopfzeilen: Seiten tragen eine Content-Security-Policy (`kit.csp` in `svelte.config.js`, Modus
+12. Preisschutz: Ohne „Preise sehen“ (`preise.sehen`) liefert keine API und keine Seite Preisfelder (`lohnCent`,
+    `materialCent`, `einzelpreisCent`, Summen) – die Felder fehlen, nicht `null`; Angebote und PDF verlangen
+    `angebote.bearbeiten` UND `preise.sehen` (sonst 403), im Änderungsprotokoll fehlen die Preisspalten.
+    Geprüft in `tests/db/preisschutz.test.ts` (rekursiv mit `enthaeltPreisfeld`).
+13. Die Anwendung versendet keine E-Mails: Einladungslinks werden in der Oberfläche angezeigt und weitergegeben.
+14. Sicherheits-Kopfzeilen: Seiten tragen eine Content-Security-Policy (`kit.csp` in `svelte.config.js`, Modus
     `auto`): nur eigene Quellen, Skripte nur mit Nonce (kein `unsafe-inline`/`eval`), `frame-ancestors 'none'`,
     Bilder zusätzlich `data:` (QR-Code). Einzige Inline-Ausnahme sind Stil-Attribute (`style-src-attr
     'unsafe-inline'`), weil SvelteKits Ansager für Seitenwechsel und die Hülle in `app.html` sie benutzen.
@@ -200,6 +212,11 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
   Formulare bzw. als vom `Host`-Header abhängige CSRF-Prüfung. Die URLs dürfen nie den Superuser `crm` nennen (dann
   verweigert die Anwendung jeden Datenbankzugriff).
 - **Erster Admin.** Nach der Migration gibt es keinen Benutzer: `npm run admin:anlegen` (siehe oben).
+- **Logo-Upload und Anfragegröße.** `adapter-node` nimmt standardmäßig nur 512 kB je Anfrage an; Logos dürfen 1 MB
+  groß sein. `BODY_SIZE_LIMIT=2M` setzen (macht `start-vorschau.sh`).
+- **Schriften fürs PDF.** Die gebaute Anwendung liest die Noto-Sans-Dateien zur Laufzeit aus
+  `src/lib/server/pdf/schriften/` relativ zum Arbeitsverzeichnis (bzw. aus `CRM_SCHRIFTEN`). Läuft `node build`
+  nicht im Projektordner, `CRM_SCHRIFTEN=/pfad/zu/schriften` setzen.
 - **Frische Datenbank.** Die Migrationen `001`, `002`, `003`, `003a` und `006` wurden vor der ersten Auslieferung
   direkt geändert (`005` nicht). Bestehende Entwicklungs-Datenbanken aus früheren Ständen müssen neu angelegt und neu
   migriert werden (Daten gehen dabei verloren); `npm run migrate` erkennt geänderte Dateien nicht. Neue Umgebungen

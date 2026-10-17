@@ -108,6 +108,43 @@ describe('seed-dev', () => {
 		expect(heute.n).toBeGreaterThanOrEqual(1);
 	});
 
+	it('Stufe 1c: Briefkopf mit Logo, Startvorlagen Bad + Fliesen mit Beispielpreisen, 2 Angebote – zweiter Lauf ohne Duplikate', async () => {
+		const zaehle1c = async () => {
+			const [z] = await sql`
+				select
+					(select count(*)::int from app.katalog_positionen) as katalog,
+					(select count(*)::int from app.angebote) as angebote,
+					(select count(*)::int from app.angebot_positionen) as positionen,
+					(select count(*)::int from app.betrieb_profil) as profile`;
+			return z;
+		};
+		const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+		try {
+			const vorher = await zaehle1c();
+			await seedDev(db.urlSuper, { datei });
+			expect(await zaehle1c()).toEqual(vorher);
+		} finally {
+			log.mockRestore();
+		}
+		const [vorlagen] = await sql`
+			select count(*)::int as n from app.katalog_vorlagen where gewerk in ('bad_sanitaer', 'fliesen')`;
+		const z = await zaehle1c();
+		expect(z).toMatchObject({ katalog: vorlagen.n, angebote: 2, profile: 1 });
+		expect(z.positionen).toBeGreaterThanOrEqual(4);
+		// Beispielpreise: jede Position hat einen Preis und ist als Beispielpreis gekennzeichnet
+		const kat = await sql`select lohn_cent + material_cent as preis, beschreibung from app.katalog_positionen`;
+		for (const k of kat) {
+			expect(Number(k.preis)).toBeGreaterThan(0);
+			expect(k.beschreibung).toContain('Beispielpreis');
+		}
+		const angebote = await sql`select status from app.angebote order by nummer`;
+		expect(angebote.map((a) => a.status).sort()).toEqual(['entwurf', 'versendet']);
+		const [profil] = await sql`select firmenname, ort, logo_typ, octet_length(logo) as groesse, iban, steuernummer from app.betrieb_profil`;
+		expect(profil).toMatchObject({ firmenname: 'Bauwelt Handwerk GmbH', ort: 'Norderstedt', logo_typ: 'image/png', iban: null, steuernummer: null });
+		expect(profil.groesse).toBeGreaterThan(1000);
+		expect(profil.groesse).toBeLessThanOrEqual(1_048_576);
+	});
+
 	it('Zugangsdatei hat Modus 600', () => {
 		expect(statSync(datei).mode & 0o777).toBe(0o600);
 		expect(readFileSync(datei, 'utf8')).toContain('buero@bauwelt.test');

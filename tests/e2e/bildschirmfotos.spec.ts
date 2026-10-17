@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { anmelden, anmeldenAlsAdmin } from './hilfe';
+import { pdfSeiteAlsPng } from './pdf-seite';
 
 /**
  * Bildschirmfotos zur Abnahme (keine Prüfung im eigentlichen Sinn). Läuft nur, wenn BILDSCHIRMFOTOS auf einen
@@ -78,5 +79,46 @@ test.describe('Bildschirmfotos', () => {
 		await anmelden(page, 'monteur@bauwelt.test');
 		await page.goto('/');
 		await page.screenshot({ path: `${ORDNER}/1b-start-heute-desktop.png`, fullPage: true });
+	});
+
+	test('Stufe 1c mobil: Katalog, Angebots-Editor (Entwurf), Auftrag mit Angeboten', async ({ page }, info) => {
+		test.skip(info.project.name !== 'mobil', 'mobil');
+		await anmelden(page, 'buero@bauwelt.test');
+		await page.goto('/katalog');
+		await page.screenshot({ path: `${ORDNER}/1c-katalog-mobil.png` });
+		await page.goto('/angebote');
+		await page.screenshot({ path: `${ORDNER}/1c-angebote-mobil.png` });
+		await page.getByRole('main').getByRole('link', { name: /Weißenböck/ }).first().click();
+		await expect(page).toHaveURL(/\/angebote\/[0-9a-f-]{36}$/);
+		await page.screenshot({ path: `${ORDNER}/1c-angebot-editor-mobil.png` });
+		await page.screenshot({ path: `${ORDNER}/1c-angebot-editor-mobil-ganz.png`, fullPage: true });
+		await page.getByRole('link', { name: /← Auftrag/ }).click();
+		await expect(page).toHaveURL(/\/auftraege\/[0-9a-f-]{36}$/);
+		await page.getByRole('heading', { name: 'Angebote' }).scrollIntoViewIfNeeded();
+		await page.screenshot({ path: `${ORDNER}/1c-auftrag-angebote-mobil.png` });
+	});
+
+	test('Stufe 1c Desktop: Katalog, Angebote, Editor, Monteur ohne Preise, erste PDF-Seite', async ({ page }, info) => {
+		test.skip(info.project.name !== 'desktop', 'desktop');
+		await anmelden(page, 'buero@bauwelt.test');
+		await page.goto('/katalog');
+		await page.screenshot({ path: `${ORDNER}/1c-katalog-desktop.png`, fullPage: true });
+		await page.goto('/angebote');
+		await page.screenshot({ path: `${ORDNER}/1c-angebote-desktop.png`, fullPage: true });
+		await page.getByRole('main').getByRole('link', { name: /Weißenböck/ }).first().click();
+		await expect(page).toHaveURL(/\/angebote\/[0-9a-f-]{36}$/);
+		const id = page.url().split('/').pop()!;
+		await page.screenshot({ path: `${ORDNER}/1c-angebot-editor-desktop.png`, fullPage: true });
+		const bytes = await page.evaluate(async (url) => Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), `/api/angebote/${id}/pdf`);
+		await page.goto('/angebote?status=versendet');
+		await page.getByRole('main').getByRole('link', { name: /AN-\d{4}-/ }).first().click();
+		await expect(page).toHaveURL(/\/angebote\/[0-9a-f-]{36}$/);
+		await page.screenshot({ path: `${ORDNER}/1c-angebot-versendet-desktop.png`, fullPage: true });
+		await page.context().clearCookies();
+		await anmelden(page, 'monteur@bauwelt.test');
+		await page.goto('/auftraege');
+		await page.getByRole('main').getByRole('link', { name: /Ladenumbau/ }).first().click();
+		await page.screenshot({ path: `${ORDNER}/1c-auftrag-monteur-ohne-preise-desktop.png`, fullPage: true });
+		await pdfSeiteAlsPng(page, new Uint8Array(bytes), `${ORDNER}/1c-angebot-pdf-seite1.png`);
 	});
 });

@@ -8,12 +8,14 @@ import { hashePasswort, pruefePasswort } from '../src/lib/server/auth/passwort';
 import { VORLAGEN, VORLAGEN_NAMEN, type Vorlage } from '../src/lib/server/rechte';
 import { totpUri } from '../src/lib/server/auth/totp';
 import { berlinTag, berlinZeitpunkt, tagPlus, wocheVon } from '../src/lib/zeit';
+import { GUELTIG_TAGE, STANDARD_EINLEITUNG, STANDARD_SCHLUSS } from '../src/lib/server/angebote';
 
 /**
  * Entwicklungsdaten (nur für die lokale Sandbox, nie für Produktion): Betrieb „Bauwelt“ (Tarif test) mit den
  * drei Rollen aus den Vorlagen, je ein Benutzer Chef/Büro/Monteur, ein Plattform-Admin und 5 Beispielkunden; dazu
  * (Stufe 1b) 6 Beispielaufträge über alle Status, To-dos, Einsätze in dieser und der nächsten Woche (mit einer
- * Doppelbelegung und einem Urlaub) und „heute“-Einsätze für jeden Monteur – auch die persönlichen Test-Zugänge.
+ * Doppelbelegung und einem Urlaub) und „heute“-Einsätze für jeden Monteur – auch die persönlichen Test-Zugänge;
+ * (Stufe 1c) Briefkopf mit Bauwelt-Logo, Startvorlagen Bad/Sanitär und Fliesen mit Beispielpreisen, zwei Angebote.
  *
  * Idempotent: Was es schon gibt (Betrieb nach Name, Rolle nach Vorlage, Benutzer nach E-Mail, Kunde nach Name),
  * wird nicht noch einmal angelegt und nicht verändert. Passwörter sind zufällig und stehen nur in der Datei
@@ -164,7 +166,9 @@ async function sichereBenutzer(
 	return { id: z.id, neu: true };
 }
 
-export type SeedErgebnis = { neueBenutzer: number; neueKunden: number } & Planung;
+export type SeedErgebnis = { neueBenutzer: number; neueKunden: number } & Planung & Angebote1c;
+
+type Angebote1c = { neueKatalogpositionen: number; neueAngebote: number };
 
 type Planung = { neueAuftraege: number; neueTodos: number; neueEinsaetze: number };
 
@@ -307,6 +311,145 @@ export async function sichereBeispielplanung(tx: Tx, betriebId: string): Promise
 	return { neueAuftraege, neueTodos, neueEinsaetze };
 }
 
+/**
+ * Briefkopf von Bauwelt – nur Angaben, die öffentlich im Impressum der Bauwelt-Website stehen
+ * (https://cansi798.github.io/Bauwelt/impressum/); Steuernummer, USt-IdNr. und Bankverbindung bleiben leer.
+ */
+const BRIEFKOPF = {
+	firmenname: 'Bauwelt Handwerk GmbH',
+	strasse: 'Schweriner Straße 16',
+	plz: '22844',
+	ort: 'Norderstedt',
+	telefon: '0151 42888841',
+	email: 'b.ahmedi@bauwelt-handwerk.de',
+	web: 'www.bauwelt-handwerk.de',
+	fusszeile: 'Geschäftsführer: Burim Ahmedi · Amtsgericht Kiel HRB 27109 KI'
+};
+const LOGO_DATEI = fileURLToPath(new URL('./seed-dateien/bauwelt-logo.png', import.meta.url));
+
+/** Beispielpreise (Lohn, Material in Euro je Einheit) für die Startvorlagen Bad/Sanitär und Fliesen. */
+const BEISPIELPREISE: Record<string, [number, number]> = {
+	'Demontage Altbad': [1200, 150],
+	'Bodengleiche Dusche einbauen': [650, 480],
+	'WC wandhängend inkl. Vorwandelement montieren': [280, 390],
+	'Waschtisch inkl. Armatur montieren': [160, 240],
+	'Badewanne einbauen inkl. Wannenträger': [320, 410],
+	'Duschabtrennung aus Glas montieren': [180, 690],
+	'Unterputz-Armatur Dusche einbauen': [190, 320],
+	'Trinkwasserleitung verlegen (Kalt-/Warmwasser)': [28, 14],
+	'Abwasserleitung HT-Rohr verlegen': [26, 11],
+	'Handtuchheizkörper montieren': [140, 260],
+	'Eckventile und Anschlüsse erneuern': [35, 18],
+	'Dichtheitsprüfung und Inbetriebnahme': [180, 0],
+	'Arbeitsstunde Sanitär': [68, 0],
+	'Altbelag Fliesen entfernen': [24, 0],
+	'Untergrund vorbereiten und grundieren': [9, 3.5],
+	'Ausgleichsmasse bis 10 mm': [14, 9],
+	'Abdichtung im Verbund': [22, 14],
+	'Dichtband in Ecken und Anschlüssen': [6, 4.5],
+	'Bodenfliesen verlegen bis 60×60': [38, 7.5],
+	'Großformatfliesen verlegen ab 60×120': [58, 9],
+	'Wandfliesen verlegen bis 30×60': [42, 7.5],
+	'Mosaik verlegen': [75, 12],
+	'Sockelfliesen verlegen': [14, 2],
+	'Kantenprofil setzen': [9, 8],
+	'Silikonfugen erneuern': [8, 1.5],
+	'Arbeitsstunde Fliesenleger': [62, 0]
+};
+
+/** Zwei Beispielangebote: Positionen aus dem Katalog (Bezeichnung) oder frei (mit Preis in Euro). */
+const ANGEBOTE: {
+	auftrag: string;
+	status: 'entwurf' | 'versendet';
+	positionen: { katalog?: string; bezeichnung?: string; einheit?: string; preis?: number; menge: number }[];
+}[] = [
+	{
+		auftrag: 'Ladenumbau Trockenbau',
+		status: 'versendet',
+		positionen: [
+			{ bezeichnung: 'Ständerwand einfach beplankt', einheit: 'm²', preis: 48, menge: 24 },
+			{ bezeichnung: 'Decke abhängen', einheit: 'm²', preis: 52, menge: 18 },
+			{ bezeichnung: 'Spachteln Q2', einheit: 'm²', preis: 9.5, menge: 42 },
+			{ bezeichnung: 'Anfahrt und Baustelleneinrichtung', einheit: 'psch', preis: 85, menge: 1 }
+		]
+	},
+	{
+		auftrag: 'Fliesen Küche',
+		status: 'entwurf',
+		positionen: [
+			{ katalog: 'Untergrund vorbereiten und grundieren', menge: 18 },
+			{ katalog: 'Bodenfliesen verlegen bis 60×60', menge: 18 },
+			{ katalog: 'Wandfliesen verlegen bis 30×60', menge: 4.5 },
+			{ katalog: 'Sockelfliesen verlegen', menge: 17 },
+			{ katalog: 'Silikonfugen erneuern', menge: 6 }
+		]
+	}
+];
+
+/**
+ * Stufe 1c (idempotent, im Betriebskontext der laufenden Transaktion): Briefkopf mit Logo (nur wenn noch keiner
+ * bzw. noch kein Logo da ist), Startvorlagen Bad/Sanitär und Fliesen mit Beispielpreisen (nur Positionen, die noch
+ * Preis 0 haben und nicht als Beispielpreis markiert sind), zwei Angebote (nur für Aufträge ohne Angebot).
+ */
+export async function sichereKatalogUndAngebote(tx: Tx, betriebId: string): Promise<Angebote1c> {
+	await tx`
+		insert into app.betrieb_profil ${tx({ betrieb_id: betriebId, ...BRIEFKOPF })}
+		on conflict (betrieb_id) do nothing`;
+	if (existsSync(LOGO_DATEI)) {
+		await tx`
+			update app.betrieb_profil set logo = ${readFileSync(LOGO_DATEI)}, logo_typ = 'image/png', logo_geaendert = now()
+			where betrieb_id = ${betriebId} and logo is null`;
+	}
+	const neu = await tx`
+		insert into app.katalog_positionen (betrieb_id, gewerk, bezeichnung, beschreibung, einheit, vorlage_id)
+		select ${betriebId}, v.gewerk, v.bezeichnung, v.beschreibung, v.einheit, v.id
+		from app.katalog_vorlagen v where v.gewerk in ('bad_sanitaer', 'fliesen')
+		order by v.gewerk, v.sortierung
+		on conflict (betrieb_id, vorlage_id) do nothing
+		returning id`;
+	for (const [bezeichnung, [lohn, material]] of Object.entries(BEISPIELPREISE)) {
+		await tx`
+			update app.katalog_positionen
+			set lohn_cent = ${Math.round(lohn * 100)}, material_cent = ${Math.round(material * 100)},
+				beschreibung = concat_ws(' ', beschreibung, '(Beispielpreis)')
+			where betrieb_id = ${betriebId} and vorlage_id is not null and bezeichnung = ${bezeichnung}
+				and lohn_cent = 0 and material_cent = 0 and coalesce(beschreibung, '') not like '%Beispielpreis%'`;
+	}
+	let neueAngebote = 0;
+	for (const a of ANGEBOTE) {
+		const [auftrag] = await tx<{ id: string }[]>`
+			select id from app.auftraege where betrieb_id = ${betriebId} and titel = ${a.auftrag} order by angelegt limit 1`;
+		if (!auftrag) continue;
+		const [da] = await tx`select 1 from app.angebote where betrieb_id = ${betriebId} and auftrag_id = ${auftrag.id}`;
+		if (da) continue;
+		const [angebot] = await tx<{ id: string }[]>`
+			insert into app.angebote (betrieb_id, auftrag_id, gueltig_bis, einleitung, schluss)
+			values (${betriebId}, ${auftrag.id}, (now() at time zone 'Europe/Berlin')::date + ${GUELTIG_TAGE}::int,
+				${STANDARD_EINLEITUNG}, ${STANDARD_SCHLUSS})
+			returning id`;
+		let pos = 0;
+		for (const p of a.positionen) {
+			pos++;
+			if (p.katalog) {
+				await tx`
+					insert into app.angebot_positionen
+						(betrieb_id, angebot_id, pos, katalog_position_id, bezeichnung, beschreibung, menge, einheit, einzelpreis_cent)
+					select ${betriebId}, ${angebot.id}, ${pos}, k.id, k.bezeichnung, k.beschreibung, ${p.menge}, k.einheit,
+						k.lohn_cent + k.material_cent
+					from app.katalog_positionen k where k.betrieb_id = ${betriebId} and k.bezeichnung = ${p.katalog}
+					order by k.angelegt limit 1`;
+			} else {
+				await tx`
+					insert into app.angebot_positionen (betrieb_id, angebot_id, pos, bezeichnung, menge, einheit, einzelpreis_cent)
+					values (${betriebId}, ${angebot.id}, ${pos}, ${p.bezeichnung!}, ${p.menge}, ${p.einheit!}, ${Math.round(p.preis! * 100)})`;
+			}
+		}
+		if (a.status === 'versendet') await tx`update app.angebote set status = 'versendet' where id = ${angebot.id}`;
+		neueAngebote++;
+	}
+	return { neueKatalogpositionen: neu.length, neueAngebote };
+}
+
 export async function seedDev(url: string, opts: { datei?: string } = {}): Promise<SeedErgebnis> {
 	const datei = opts.datei ?? STANDARD_DATEI;
 	const daten = leseZugangsdaten(datei);
@@ -391,7 +534,8 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 				neueKunden++;
 			}
 			const planung = await sichereBeispielplanung(tx, betrieb.id);
-			return { neueBenutzer, neueKunden, ...planung };
+			const angebote = await sichereKatalogUndAngebote(tx, betrieb.id);
+			return { neueBenutzer, neueKunden, ...planung, ...angebote };
 		});
 	} finally {
 		await sql.end();
@@ -402,7 +546,8 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 		`Entwicklungsdaten bereit: Betrieb „${BETRIEB}“, ${BENUTZER.length + 1} Benutzer ` +
 			`(${ergebnis.neueBenutzer} neu), ${KUNDEN.length} Beispielkunden (${ergebnis.neueKunden} neu), ` +
 			`${AUFTRAEGE.length} Beispielaufträge (${ergebnis.neueAuftraege} neu), ` +
-			`${ergebnis.neueEinsaetze} neue Einsätze, ${ergebnis.neueTodos} neue To-dos. ` +
+			`${ergebnis.neueEinsaetze} neue Einsätze, ${ergebnis.neueTodos} neue To-dos, ` +
+			`${ergebnis.neueKatalogpositionen} neue Katalogpositionen, ${ergebnis.neueAngebote} neue Angebote. ` +
 			`Zugangsdaten: ${datei}`
 	);
 	return ergebnis;

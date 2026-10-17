@@ -6,8 +6,11 @@ import type { Page } from '@playwright/test';
  */
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
 
-export async function pdfSeiteAlsPng(page: Page, pdf: Uint8Array, pfad: string, seite = 1): Promise<void> {
+export async function pdfSeiteAlsPng(seiteDerApp: Page, pdf: Uint8Array, pfad: string, seite = 1): Promise<void> {
+	// Eigene leere Seite: Die Seiten der App erlauben per CSP keine fremden Skripte.
+	const page = await seiteDerApp.context().newPage();
 	await page.setViewportSize({ width: 1000, height: 1400 });
+	await page.goto('about:blank');
 	await page.setContent('<!doctype html><html><body style="margin:0;background:#888"><canvas id="c"></canvas></body></html>');
 	await page.addScriptTag({ url: `${PDFJS}/pdf.min.js` });
 	await page.evaluate(
@@ -25,4 +28,5 @@ export async function pdfSeiteAlsPng(page: Page, pdf: Uint8Array, pfad: string, 
 		{ daten: Array.from(pdf), seite, worker: `${PDFJS}/pdf.worker.min.js` }
 	);
 	await page.locator('#c').screenshot({ path: pfad });
+	await page.close();
 }
