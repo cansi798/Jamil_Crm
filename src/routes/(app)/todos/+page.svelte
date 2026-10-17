@@ -1,5 +1,5 @@
 <script lang="ts">
-	import TodoListe from '$lib/components/TodoListe.svelte';
+	import TodoKanban from '$lib/components/TodoKanban.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import type { ActionData, PageData } from './$types';
 
@@ -22,10 +22,10 @@
 
 	{#if data.reiter.length > 1}
 		<nav aria-label="Auswahl">
-			<ul class="af-reiter">
+			<ul class="pills">
 				{#each data.reiter as r (r)}
 					<li>
-						<a href={r === 'meine' ? '/todos' : `/todos?nur=${r}`} aria-current={data.nur === r ? 'page' : undefined}>
+						<a href={r === 'meine' ? '/todos' : `/todos?nur=${r}`} class="pill" class:aktiv={data.nur === r} aria-current={data.nur === r ? 'page' : undefined}>
 							{NAMEN[r]}
 						</a>
 					</li>
@@ -47,7 +47,7 @@
 		/>
 	{/if}
 
-	<TodoListe
+	<TodoKanban
 		todos={data.todos}
 		heute={data.heute}
 		benutzerId={data.benutzerId}
@@ -57,3 +57,14 @@
 		leer={LEER[data.nur]}
 	/>
 </main>
+
+<style>
+	.pills {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+</style>
