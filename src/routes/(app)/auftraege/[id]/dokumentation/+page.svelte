@@ -8,6 +8,14 @@
 	let dateien = $state.raw(data.dateien);
 	let protokolle = $state.raw(data.protokolle);
 
+	// Notizen
+	let notizen = $state.raw<any[]>([]);
+	let neueNotiz = $state('');
+	let notizFehler = $state<string | null>(null);
+	let notizLaedt = $state(false);
+	let editiertNotizId = $state<string | null>(null);
+	let editierterText = $state('');
+
 	// Neues Protokoll
 	let neuesProtokoll = $state(false);
 	let protokollTyp = $state<string>('abnahme');
@@ -18,6 +26,64 @@
 	// Unterschrift
 	let unterschriftProtokollId = $state<string | null>(null);
 	let unterschriftOffen = $state(false);
+
+	// Notizen laden
+	async function notizenLaden() {
+		try {
+			const res = await fetch(`/api/notizen?auftragId=${data.auftrag.id}`);
+			if (res.ok) notizen = await res.json();
+		} catch (e) { /* ignore */ }
+	}
+
+	// Notiz anlegen
+	async function notizAnlegen() {
+		if (!neueNotiz.trim()) return;
+		notizLaedt = true;
+		notizFehler = null;
+		try {
+			const res = await fetch('/api/notizen', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ auftragId: data.auftrag.id, text: neueNotiz })
+			});
+			if (!res.ok) throw new Error((await res.json()).fehler || 'Fehler');
+			const erg = await res.json();
+			notizen = [erg, ...notizen];
+			neueNotiz = '';
+		} catch (e) {
+			notizFehler = e instanceof Error ? e.message : 'Fehler';
+		} finally {
+			notizLaedt = false;
+		}
+	}
+
+	// Notiz bearbeiten
+	async function notizSpeichern(id: string) {
+		try {
+			const res = await fetch(`/api/notizen/${id}`, {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text: editierterText })
+			});
+			if (!res.ok) throw new Error((await res.json()).fehler || 'Fehler');
+			const erg = await res.json();
+			notizen = notizen.map((n) => (n.id === id ? erg : n));
+			editiertNotizId = null;
+			editierterText = '';
+		} catch (e) { /* ignore */ }
+	}
+
+	// Notiz löschen
+	async function notizLoeschen(id: string) {
+		if (!confirm('Notiz löschen?')) return;
+		try {
+			const res = await fetch(`/api/notizen/${id}`, { method: 'DELETE' });
+			if (res.ok) notizen = notizen.filter((n) => n.id !== id);
+		} catch (e) { /* ignore */ }
+	}
+
+	// Notizen beim Laden holen
+	$effect(() => { notizenLaden(); });
 
 	async function protokollAnlegen() {
 		protokollLaedt = true;
@@ -98,7 +164,43 @@
 {:else if tab === 'notizen'}
 	<section>
 		<h2>Notizen</h2>
-		<p>Hier können Notizen zum Auftrag erfasst werden.</p>
+
+		<form onsubmit={(e) => { e.preventDefault(); notizAnlegen(); }} class="notiz-form">
+			<textarea bind:value={neueNotiz} placeholder="Neue Notiz eingeben…" rows="3" maxlength="10000"></textarea>
+			{#if notizFehler}<p class="fehler">{notizFehler}</p>{/if}
+			<button type="submit" disabled={notizLaedt || !neueNotiz.trim()}>
+				{notizLaedt ? 'Wird gespeichert…' : 'Notiz speichern'}
+			</button>
+		</form>
+
+		{#if notizen.length === 0}
+			<p>Keine Notizen vorhanden.</p>
+		{:else}
+			<ul class="notiz-liste">
+				{#each notizen as n (n.id)}
+					<li>
+						{#if editiertNotizId === n.id}
+							<form onsubmit={(e) => { e.preventDefault(); notizSpeichern(n.id); }} class="notiz-edit">
+								<textarea bind:value={editierterText} rows="3"></textarea>
+								<div class="notiz-aktionen">
+									<button type="submit">Speichern</button>
+									<button type="button" onclick={() => { editiertNotizId = null; editierterText = ''; }}>Abbrechen</button>
+								</div>
+							</form>
+						{:else}
+							<div class="notiz-inhalt">
+								<p>{n.text}</p>
+								<span class="notiz-meta">{new Date(n.angelegt).toLocaleString('de-DE')}</span>
+							</div>
+							<div class="notiz-aktionen">
+								<button type="button" onclick={() => { editiertNotizId = n.id; editierterText = n.text; }}>Bearbeiten</button>
+								<button type="button" onclick={() => notizLoeschen(n.id)}>Löschen</button>
+							</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
 	</section>
 {:else if tab === 'protokolle'}
 	<section>
@@ -236,5 +338,51 @@
 		padding: 1rem;
 		box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 		z-index: 100;
+	}
+	.notiz-form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		max-width: 500px;
+	}
+	.notiz-liste {
+		list-style: none;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	.notiz-liste li {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 0.75rem;
+		border: 1px solid #eee;
+		border-radius: 4px;
+	}
+	.notiz-inhalt p {
+		margin: 0;
+		white-space: pre-wrap;
+	}
+	.notiz-meta {
+		font-size: 0.85rem;
+		color: #666;
+	}
+	.notiz-aktionen {
+		display: flex;
+		gap: 0.5rem;
+	}
+	.notiz-aktionen button {
+		padding: 0.25rem 0.5rem;
+		border: 1px solid #ccc;
+		border-radius: 4px;
+		background: #fff;
+		cursor: pointer;
+		font-size: 0.85rem;
+	}
+	.notiz-edit {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
 </style>
