@@ -388,7 +388,7 @@ function einsatz(t: string, kontext: KiKontext): { aktion: string; daten: Record
 	let rest = ohneZeit(t);
 	// „Plane Mehmet … ein“, „Einsatz für Ali und Murat …“, „… mit Ali“
 	let namen: string[] | null = null;
-	const plane = /\b(?:plane?|teile?)\s+((?:[A-ZÄÖÜ][\wäöüß-]+)(?:(?:\s*,\s*|\s+und\s+)[A-ZÄÖÜ][\wäöüß-]+)*)/.exec(rest);
+	const plane = /\b(?:plane?|teile?)\s+((?:[A-ZÄÖÜ][\wäöüß-]+)(?:(?:\s*,\s*|\s+und\s+)[A-ZÄÖÜ][\wäöüß-]+)*)/i.exec(rest);
 	if (plane) namen = namensListe(plane[1]);
 	if (namen) rest = rest.replace(plane![0], ' ');
 	if (!namen) {

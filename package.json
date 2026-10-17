@@ -12,7 +12,8 @@
 		"test:db": "vitest run tests/db --passWithNoTests --no-file-parallelism",
 		"migrate": "tsx scripts/migrate.ts",
 		"seed:dev": "tsx scripts/seed-dev.ts",
-		"admin:anlegen": "tsx scripts/admin-anlegen.ts"
+		"admin:anlegen": "tsx scripts/admin-anlegen.ts",
+		"sprache:messen": "tsx tests/sprache/messen.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "1.48.2",
