@@ -5,7 +5,10 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			// 6 MB: Audio-Uploads (5 MB) + etwas Platz für JSON-Metadaten
+			bodySizeLimit: 6 * 1024 * 1024
+		}),
 		// Content-Security-Policy für alle Seiten. `mode: 'auto'`: SvelteKit versieht seine eigenen Inline-Skripte
 		// (Start der App, Registrierung des Service Workers) mit einer Nonce je Antwort – sonst laufen nur Skripte
 		// vom eigenen Server, nie Inline-Skripte oder eval. Weitere Kopfzeilen für alle Antworten: hooks.server.ts.

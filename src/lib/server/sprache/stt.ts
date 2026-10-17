@@ -29,7 +29,10 @@ export async function transkribiere(audio: Uint8Array, typ: string): Promise<{ t
 			body: form,
 			signal: AbortSignal.timeout(STT_TIMEOUT_MS)
 		});
-	} catch {
+	} catch (e) {
+		if (e instanceof DOMException && e.name === 'TimeoutError') {
+			throw new ApiFehler(503, 'Die Spracherkennung hat zu lange gebraucht – bitte kürzer sprechen oder noch einmal versuchen.');
+		}
 		throw new ApiFehler(503, NICHT_ERREICHBAR);
 	}
 	let koerper: Record<string, unknown> = {};

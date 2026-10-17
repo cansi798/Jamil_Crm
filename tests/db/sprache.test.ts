@@ -381,9 +381,9 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 		expect((await text(u.bueroA, {})).status).toBe(400);
 		expect((await text(u.bueroA, { text: '   ' })).status).toBe(400);
 		expect((await text(u.bueroA, { text: 5 })).status).toBe(400);
-		const lang = await text(u.bueroA, { text: 'a'.repeat(501) });
+		const lang = await text(u.bueroA, { text: 'a'.repeat(2001) });
 		expect(lang.status).toBe(400);
-		expect(lang.koerper.fehler).toBe('Der Befehl ist zu lang (höchstens 500 Zeichen).');
+		expect(lang.koerper.fehler).toBe('Der Befehl ist zu lang (höchstens 2000 Zeichen).');
 		expect((await text(null, { text: 'x' })).status).toBe(401);
 		expect((await text(u.chefC, { text: 'x' })).status).toBe(402);
 		expect(ki.aufrufe).toBe(0);

@@ -13,7 +13,7 @@ import { signiere } from './vorschlag';
  * Text wird nicht aufbewahrt. Ohne Berechtigung oder bei „unbekannt“ gibt es keinen Vorschlag, nur die Karte.
  */
 
-export const MAX_BEFEHL_ZEICHEN = 500;
+export const MAX_BEFEHL_ZEICHEN = 2000;
 export const UNBEKANNT_HINWEIS =
 	'Ich kann Kunden, Aufträge, To-dos und Termine anlegen, Termine verschieben und Angebotsentwürfe erstellen.';
 

@@ -69,7 +69,7 @@ begin
 	if jsonb_typeof(v_grenze) <> 'number' or (v_grenze #>> '{}')::numeric < 0 then
 		raise exception 'ki_verbrauche: ungültige Grenze ki_pro_monat' using errcode = '22023';
 	end if;
-	v_limit := (v_grenze #>> '{}')::numeric;
+	v_limit := floor((v_grenze #>> '{}')::numeric);
 	if v_limit < 1 then
 		return null;
 	end if;

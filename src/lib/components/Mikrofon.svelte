@@ -40,6 +40,8 @@
 	let druckBeginn = 0;
 	let perDruck = false;
 	let eingabe = $state<HTMLTextAreaElement | null>(null);
+	let dialogEl = $state<HTMLDivElement | null>(null);
+	let mikroEl = $state<HTMLButtonElement | null>(null);
 
 	const offen = $derived(zustand !== 'zu');
 	const restText = $derived(`${Math.floor(rest / 60)}:${String(rest % 60).padStart(2, '0')}`);
@@ -260,8 +262,44 @@
 	}
 
 	function taste(e: KeyboardEvent) {
-		if (e.key === 'Escape' && offen) schliessen();
+		if (e.key === 'Escape' && offen) {
+			schliessen();
+			return;
+		}
+		// Fokus-Trap: Tab/Shift+Tab nur innerhalb des Dialogs
+		if (e.key === 'Tab' && offen && dialogEl) {
+			const fokussierbar = dialogEl.querySelectorAll<HTMLElement>(
+				'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			);
+			if (fokussierbar.length === 0) return;
+			const erster = fokussierbar[0];
+			const letzter = fokussierbar[fokussierbar.length - 1];
+			if (e.shiftKey) {
+				if (document.activeElement === erster) {
+					e.preventDefault();
+					letzter.focus();
+				}
+			} else {
+				if (document.activeElement === letzter) {
+					e.preventDefault();
+					erster.focus();
+				}
+			}
+		}
 	}
+
+	// Fokus beim Öffnen in den Dialog setzen, beim Schließen zum Mikrofon zurück
+	$effect(() => {
+		if (offen && dialogEl) {
+			const fokussierbar = dialogEl.querySelector<HTMLElement>(
+				'button:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			);
+			queueMicrotask(() => (fokussierbar ?? dialogEl)?.focus());
+		} else if (!offen && mikroEl) {
+			const el = mikroEl;
+			queueMicrotask(() => el.focus());
+		}
+	});
 
 	onDestroy(() => {
 		verwerfen = true;
@@ -278,6 +316,7 @@
 	class:aktiv={zustand === 'aufnahme'}
 	aria-label="Sprachbefehl"
 	aria-pressed={zustand === 'aufnahme'}
+	bind:this={mikroEl}
 	onpointerdown={druck}
 	onpointerup={loslassen}
 	onpointerleave={loslassen}
@@ -291,7 +330,7 @@
 
 {#if offen}
 	<button type="button" class="mk-schleier" tabindex="-1" aria-label="Dialog schließen" onclick={schliessen}></button>
-	<div class="mk-dialog" role="dialog" aria-modal="true" aria-label="Sprachbefehl">
+	<div class="mk-dialog" role="dialog" aria-modal="true" aria-label="Sprachbefehl" bind:this={dialogEl} tabindex="-1">
 		{#if zustand === 'startet'}
 			<p class="mk-status" role="status">Mikrofon wird gestartet …</p>
 		{:else if zustand === 'aufnahme'}
@@ -314,7 +353,7 @@
 					id="mk-befehl"
 					bind:this={eingabe}
 					bind:value={befehl}
-					maxlength="500"
+					maxlength="2000"
 					rows="3"
 					placeholder="z. B. Neues To-do für Murat: Silikonfuge erneuern, bis Freitag"
 				></textarea>
