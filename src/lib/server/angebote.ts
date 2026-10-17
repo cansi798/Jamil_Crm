@@ -410,6 +410,39 @@ export async function neueVersion(k: Kontext, id: string): Promise<Angebot> {
 	});
 }
 
+export type PdfDaten = {
+	angebot: Angebot;
+	kunde: { name: string; ansprechpartner: string | null; strasse: string | null; plz: string | null; ort: string | null };
+	objekt: { bezeichnung: string; strasse: string | null; plz: string | null; ort: string | null } | null;
+};
+
+/** Alles, was das PDF über Angebot, Kunde (Anschrift) und Objekt (Bauvorhaben) braucht. */
+export async function ladePdfDaten(k: Kontext, id: string): Promise<PdfDaten> {
+	const aid = pruefeAngebotId(id);
+	return mitBetrieb(k, async (tx) => {
+		const angebot = await ladeEines(tx, k, aid);
+		const [kd] = await tx`
+			select art, firma, anrede, vorname, nachname, strasse, plz, ort from app.kunden
+			where id = ${angebot.kundeId} and betrieb_id = ${k.betriebId}`;
+		const person = [kd.anrede, kd.vorname, kd.nachname].filter(Boolean).join(' ');
+		const [ob] = angebot.objektId
+			? await tx`
+				select bezeichnung, strasse, plz, ort from app.objekte where id = ${angebot.objektId} and betrieb_id = ${k.betriebId}`
+			: [];
+		return {
+			angebot,
+			kunde: {
+				name: kd.art === 'firma' ? kd.firma : person,
+				ansprechpartner: kd.art === 'firma' && (kd.vorname || kd.nachname) ? `z. Hd. ${person}` : null,
+				strasse: kd.strasse,
+				plz: kd.plz,
+				ort: kd.ort
+			},
+			objekt: ob ? { bezeichnung: ob.bezeichnung, strasse: ob.strasse, plz: ob.plz, ort: ob.ort } : null
+		};
+	});
+}
+
 /** Löscht einen Entwurf samt Positionen (sonst 409). */
 export async function loescheAngebot(k: Kontext, id: string): Promise<void> {
 	const aid = pruefeAngebotId(id);

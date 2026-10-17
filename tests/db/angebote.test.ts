@@ -14,6 +14,7 @@ import { PUT as positionenPut } from '../../src/routes/api/angebote/[id]/positio
 import { POST as statusPost } from '../../src/routes/api/angebote/[id]/status/+server';
 import { POST as versionPost } from '../../src/routes/api/angebote/[id]/neue-version/+server';
 import { DELETE as auftragDelete } from '../../src/routes/api/auftraege/[id]/+server';
+import { GET as pdfGet } from '../../src/routes/api/angebote/[id]/pdf/+server';
 import { antwort, baueUmgebung, jsonAnfrage, leereAngebote, UNBEKANNT, type Umgebung } from './hilfe-1c';
 
 const JAHR = berlinTag(new Date()).slice(0, 4);
@@ -261,5 +262,20 @@ describe('Angebote – Dienst und API', () => {
 		expect((await positionen(u.chefB, a.id, [])).status).toBe(404);
 		expect((await liste(u.chefB)).koerper).toHaveLength(0);
 		expect((await get(u.chefA, 'kaputt')).status).toBe(404);
+	});
+
+	it('PDF: application/pdf als Anhang „Angebot_AN-….pdf“, no-store; auch mit „Preis fehlt“; Rechte wie Angebote', async () => {
+		const a = (await anlegen(u.chefA, u.auftragA)).koerper;
+		await positionen(u.chefA, a.id, [{ bezeichnung: 'Ohne Preis', einheit: 'Stk', menge: 1 }]);
+		const r = await pdfGet({ locals: { nutzer: u.bueroA }, params: { id: a.id } } as never);
+		expect(r.status).toBe(200);
+		expect(r.headers.get('content-type')).toBe('application/pdf');
+		expect(r.headers.get('content-disposition')).toBe(`attachment; filename="Angebot_AN-${JAHR}-0001.pdf"`);
+		expect(r.headers.get('cache-control')).toBe('no-store');
+		const bytes = new Uint8Array(await r.arrayBuffer());
+		expect(Buffer.from(bytes.subarray(0, 5)).toString('latin1')).toBe('%PDF-');
+		expect(bytes.length).toBeGreaterThan(5000);
+		for (const n of [u.monteurA, u.nurAngeboteA]) expect((await pdfGet({ locals: { nutzer: n }, params: { id: a.id } } as never)).status).toBe(403);
+		expect((await pdfGet({ locals: { nutzer: u.chefB }, params: { id: a.id } } as never)).status).toBe(404);
 	});
 });
