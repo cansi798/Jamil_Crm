@@ -10,9 +10,9 @@ import { angeboteZugriff, speicherePositionen } from '$lib/server/angebote';
  */
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
 	try {
-		await angeboteZugriff(locals);
+		const zg = await angeboteZugriff(locals);
 		const { positionen } = await leseJson(request);
-		return json(await speicherePositionen(betriebKontext(locals), params.id, positionen));
+		return json(await speicherePositionen(betriebKontext(locals), params.id, positionen, zg));
 	} catch (e) {
 		return alsAntwort(e);
 	}

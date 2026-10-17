@@ -30,7 +30,7 @@ Lastenheft und Pflichtenheft: `docs/spec/`.
 | `src/lib/` (ohne `server`) | Wissen ohne Serverbezug: `auftrag-status.ts` (Statuskette), `zeit.ts` (Tage/Wochen in Europe/Berlin), `geld.ts` (Cent-Rechnen, Rundung, Anzeige), `angebot-status.ts`, `katalog-werte.ts` (Gewerke, Einheiten), `heute-kopie.ts` (Offline-Kopie), `navigation.ts`, `verlauf.ts` |
 | `src/lib/components/`, `src/lib/stil/` | Wiederverwendbare Svelte-Bausteine und Stil |
 | `src/hooks.server.ts` | Sitzungsprüfung, Admin-Pfad, Nur-Lese-Sperre |
-| `db/migrations/` | SQL-Migrationen (`001` bis `014`, dazu `003a`/`003b`; `011` Aufträge/To-dos, `012` Einsätze/Abwesenheiten, `013` Katalog/Briefkopf/Angebote, `014` Startvorlagen), werden nach Dateiname sortiert angewendet |
+| `db/migrations/` | SQL-Migrationen (`001` bis `015`, dazu `003a`/`003b`; `011` Aufträge/To-dos, `012` Einsätze/Abwesenheiten, `013` Katalog/Briefkopf/Angebote, `014` Startvorlagen, `015` Statuswechsel der Angebote), werden nach Dateiname sortiert angewendet |
 | `scripts/` | `migrate.ts`, `admin-anlegen.ts`, `seed-dev.ts` (mit `seed-dateien/bauwelt-logo.png`), `start-vorschau.sh`, `erzeuge-icons.ts` |
 | `tests/unit`, `tests/db`, `tests/e2e` | Unit-Tests, Datenbank-Tests (je Testdatei eine frische Datenbank), Browser-Tests |
 | `static/` | Manifest, Symbole der PWA |
@@ -192,7 +192,9 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 12. Preisschutz: Ohne „Preise sehen“ (`preise.sehen`) liefert keine API und keine Seite Preisfelder (`lohnCent`,
     `materialCent`, `einzelpreisCent`, Summen) – die Felder fehlen, nicht `null`; Angebote und PDF verlangen
     `angebote.bearbeiten` UND `preise.sehen` (sonst 403), im Änderungsprotokoll fehlen die Preisspalten.
-    Geprüft in `tests/db/preisschutz.test.ts` (rekursiv mit `enthaeltPreisfeld`).
+    Geprüft in `tests/db/preisschutz.test.ts` (rekursiv mit `enthaeltPreisfeld`). Angebote folgen der Auftrags-
+    Sichtbarkeit: Wer nur eigene Aufträge sieht, sieht nur deren Angebote (sonst 404); den Auftragsstatus koppelt ein
+    Angebot nur mit „Aufträge bearbeiten“ mit.
 13. Die Anwendung versendet keine E-Mails: Einladungslinks werden in der Oberfläche angezeigt und weitergegeben.
 14. Sicherheits-Kopfzeilen: Seiten tragen eine Content-Security-Policy (`kit.csp` in `svelte.config.js`, Modus
     `auto`): nur eigene Quellen, Skripte nur mit Nonce (kein `unsafe-inline`/`eval`), `frame-ancestors 'none'`,
@@ -213,10 +215,12 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
   verweigert die Anwendung jeden Datenbankzugriff).
 - **Erster Admin.** Nach der Migration gibt es keinen Benutzer: `npm run admin:anlegen` (siehe oben).
 - **Logo-Upload und Anfragegröße.** `adapter-node` nimmt standardmäßig nur 512 kB je Anfrage an; Logos dürfen 1 MB
-  groß sein. `BODY_SIZE_LIMIT=2M` setzen (macht `start-vorschau.sh`).
-- **Schriften fürs PDF.** Die gebaute Anwendung liest die Noto-Sans-Dateien zur Laufzeit aus
-  `src/lib/server/pdf/schriften/` relativ zum Arbeitsverzeichnis (bzw. aus `CRM_SCHRIFTEN`). Läuft `node build`
-  nicht im Projektordner, `CRM_SCHRIFTEN=/pfad/zu/schriften` setzen.
+  groß sein. `BODY_SIZE_LIMIT=2M` setzen (macht `start-vorschau.sh`). Achtung: Die Grenze gilt für **alle**
+  Endpunkte gleich (adapter-node kann sie nicht je Route setzen). Die JSON-Endpunkte begrenzen deshalb selbst auf
+  1 MB (`leseJson`, sonst 413); hochgeladene Logos werden vollständig geprüft (`bildpruefung.ts`).
+- **Schriften fürs PDF.** Die Noto-Sans-Dateien sind beim Bauen in das Server-Bundle eingebettet (Vite
+  `?url&inline`); die gebaute Anwendung braucht keine Dateien neben `build/` und läuft aus jedem Arbeitsverzeichnis.
+  Beim Start prüft `hooks.server.ts` (`init`) die Schriften und bricht ab, wenn sie fehlen oder beschädigt sind.
 - **Frische Datenbank.** Die Migrationen `001`, `002`, `003`, `003a` und `006` wurden vor der ersten Auslieferung
   direkt geändert (`005` nicht). Bestehende Entwicklungs-Datenbanken aus früheren Ständen müssen neu angelegt und neu
   migriert werden (Daten gehen dabei verloren); `npm run migrate` erkennt geänderte Dateien nicht. Neue Umgebungen

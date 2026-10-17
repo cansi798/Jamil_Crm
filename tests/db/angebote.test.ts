@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { schliesseDb } from '../../src/lib/server/db';
 import { berlinTag, tagPlus } from '../../src/lib/zeit';
 import { legeAngebotAn, neueVersion, setzeAngebotStatus, speicherePositionen } from '../../src/lib/server/angebote';
@@ -8,14 +8,15 @@ import { GET as listeGet, POST as angebotPost } from '../../src/routes/api/angeb
 import {
 	DELETE as angebotDelete,
 	GET as angebotGet,
-	PATCH as angebotPatch
+	PATCH as angebotPatch,
+	PUT as angebotPut
 } from '../../src/routes/api/angebote/[id]/+server';
 import { PUT as positionenPut } from '../../src/routes/api/angebote/[id]/positionen/+server';
 import { POST as statusPost } from '../../src/routes/api/angebote/[id]/status/+server';
 import { POST as versionPost } from '../../src/routes/api/angebote/[id]/neue-version/+server';
 import { DELETE as auftragDelete } from '../../src/routes/api/auftraege/[id]/+server';
 import { GET as pdfGet } from '../../src/routes/api/angebote/[id]/pdf/+server';
-import { antwort, baueUmgebung, jsonAnfrage, leereAngebote, UNBEKANNT, type Umgebung } from './hilfe-1c';
+import { antwort, baueUmgebung, jsonAnfrage, leereAngebote, testPng, UNBEKANNT, type Umgebung } from './hilfe-1c';
 
 const JAHR = berlinTag(new Date()).slice(0, 4);
 
@@ -39,6 +40,8 @@ describe('Angebote – Dienst und API', () => {
 		antwort(await positionenPut({ locals: { nutzer }, params: { id }, request: jsonAnfrage('PUT', { positionen: liste }) } as never));
 	const status = async (nutzer: Nutzer | null, id: string, nach: unknown) =>
 		antwort(await statusPost({ locals: { nutzer }, params: { id }, request: jsonAnfrage('POST', { status: nach }) } as never));
+	const alles = async (nutzer: Nutzer | null, id: string, koerper: unknown) =>
+		antwort(await angebotPut({ locals: { nutzer }, params: { id }, request: jsonAnfrage('PUT', koerper) } as never));
 	const version = async (nutzer: Nutzer | null, id: string) => antwort(await versionPost({ locals: { nutzer }, params: { id } } as never));
 	const auftragStatus = async (id: string) => (await root`select status from app.auftraege where id = ${id}`)[0].status;
 
@@ -79,8 +82,8 @@ describe('Angebote – Dienst und API', () => {
 			warnungen: []
 		});
 		expect(r.koerper.auftragNummer).toMatch(/^A-\d{4}-\d{4}$/);
-		expect((await anlegen(u.chefA, UNBEKANNT)).status).toBe(400);
-		expect((await anlegen(u.chefA, u.auftragB)).status).toBe(400);
+		expect((await anlegen(u.chefA, UNBEKANNT)).status).toBe(404);
+		expect((await anlegen(u.chefA, u.auftragB)).status).toBe(404);
 		expect((await anlegen(u.chefA, 'kaputt')).status).toBe(400);
 		const l = await liste(u.bueroA, { auftrag: u.auftragA });
 		expect(l.koerper).toHaveLength(1);
@@ -277,5 +280,103 @@ describe('Angebote – Dienst und API', () => {
 		expect(bytes.length).toBeGreaterThan(5000);
 		for (const n of [u.monteurA, u.nurAngeboteA]) expect((await pdfGet({ locals: { nutzer: n }, params: { id: a.id } } as never)).status).toBe(403);
 		expect((await pdfGet({ locals: { nutzer: u.chefB }, params: { id: a.id } } as never)).status).toBe(404);
+	});
+
+	describe('Gesamtprüfung', () => {
+		it('2: nur eigene Aufträge sichtbar – fremde Angebote 404, Liste gefiltert; ohne auftraege.bearbeiten keine Statuskopplung (Hinweis)', async () => {
+			const [rolle] = await root`
+				insert into app.rollen (betrieb_id, name, rechte)
+				values (${u.betriebA}, 'Eigene + Angebote', ${['kunden.lesen', 'auftraege.lesen', 'angebote.bearbeiten', 'preise.sehen']})
+				returning id`;
+			const [b] = await root`
+				insert into app.benutzer (betrieb_id, email, name, passwort_hash, rolle_id)
+				values (${u.betriebA}, ${'eigen-' + Date.now() + '@beispiel.test'}, 'Eigen', 'x', ${rolle.id}) returning id`;
+			const eigen = { id: b.id, betriebId: u.betriebA, istAdmin: false, rechte: ['kunden.lesen', 'auftraege.lesen', 'angebote.bearbeiten', 'preise.sehen'], betriebStatus: 'aktiv' } as Nutzer;
+			const sichtbarerAuftrag = await u.neuerAuftrag('anfrage', 'Eigener Auftrag');
+			await root`
+				insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende)
+				values (${u.betriebA}, ${sichtbarerAuftrag}, ${b.id}, now(), now() + interval '1 hour')`;
+			const fremd = (await anlegen(u.chefA, u.auftragA)).koerper;
+			await positionen(u.chefA, fremd.id, [{ bezeichnung: 'x', einheit: 'Stk', menge: 1, einzelpreis: 1 }]);
+			// Liste: nur Angebote sichtbarer Aufträge
+			expect((await liste(eigen)).koerper).toHaveLength(0);
+			expect((await liste(eigen, { auftrag: u.auftragA })).koerper).toHaveLength(0);
+			// fremdes Angebot: überall 404
+			expect((await get(eigen, fremd.id)).status).toBe(404);
+			expect((await patch(eigen, fremd.id, { einleitung: 'x' })).status).toBe(404);
+			expect((await positionen(eigen, fremd.id, [])).status).toBe(404);
+			expect((await status(eigen, fremd.id, 'versendet')).status).toBe(404);
+			expect((await version(eigen, fremd.id)).status).toBe(404);
+			expect((await del(eigen, fremd.id)).status).toBe(404);
+			expect((await pdfGet({ locals: { nutzer: eigen }, params: { id: fremd.id } } as never)).status).toBe(404);
+			expect((await anlegen(eigen, u.auftragA)).status).toBe(404);
+			expect(await auftragStatus(u.auftragA)).toBe('anfrage');
+			// eigenes Angebot: geht – aber der Auftrag bleibt ohne auftraege.bearbeiten unverändert
+			const mein = await anlegen(eigen, sichtbarerAuftrag);
+			expect(mein.status).toBe(201);
+			await positionen(eigen, mein.koerper.id, [{ bezeichnung: 'x', einheit: 'Stk', menge: 1, einzelpreis: 1 }]);
+			expect((await liste(eigen)).koerper.map((a: any) => a.id)).toEqual([mein.koerper.id]);
+			const v = await status(eigen, mein.koerper.id, 'versendet');
+			expect(v.status).toBe(200);
+			expect(v.koerper.status).toBe('versendet');
+			expect(v.koerper.hinweis).toBe('Auftragsstatus nicht geändert – fehlende Berechtigung „Aufträge bearbeiten“');
+			expect(await auftragStatus(sichtbarerAuftrag)).toBe('anfrage');
+			// mit auftraege.bearbeiten (Büro): Kopplung wie gehabt, kein Hinweis
+			const b2 = await legeAngebotAn(kA(), sichtbarerAuftrag);
+			await speicherePositionen(kA(), b2.id, [{ bezeichnung: 'x', einheit: 'Stk', menge: 1, einzelpreis: 1 }]);
+			const v2 = await status(u.bueroA, b2.id, 'versendet');
+			expect(v2.koerper.hinweis).toBeUndefined();
+			expect(await auftragStatus(sichtbarerAuftrag)).toBe('angebot');
+		});
+
+		it('1: kaputtes Logo direkt in der Datenbank → PDF trotzdem (ohne Bild), Prozess läuft weiter', async () => {
+			const muell = new TextEncoder().encode('kein zlib, nur Müll – incorrect header check');
+			await root`delete from app.betrieb_profil where betrieb_id = ${u.betriebA}`;
+			await root`
+				insert into app.betrieb_profil (betrieb_id, firmenname, logo, logo_typ)
+				values (${u.betriebA}, 'Bauwelt', ${Buffer.from(testPng(40, 20, { farbtyp: 6, idat: muell }))}, 'image/png')`;
+			const a = (await anlegen(u.chefA, u.auftragA)).koerper;
+			const fehler = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const warnung = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			try {
+				const r = await pdfGet({ locals: { nutzer: u.chefA }, params: { id: a.id } } as never);
+				expect(r.status).toBe(200);
+				const bytes = Buffer.from(await r.arrayBuffer());
+				expect(bytes.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+				// kurz warten: ein Fehler in einem zlib-Rückruf käme erst jetzt (und würde den Lauf abbrechen)
+				await new Promise((ok) => setTimeout(ok, 300));
+				expect(warnung).toHaveBeenCalled();
+			} finally {
+				fehler.mockRestore();
+				warnung.mockRestore();
+				await root`delete from app.betrieb_profil where betrieb_id = ${u.betriebA}`;
+			}
+		});
+
+		it('7: Nettosumme über 100 Mrd. € → 400', async () => {
+			const a = (await anlegen(u.chefA, u.auftragA)).koerper;
+			const r = await positionen(u.chefA, a.id, [
+				{ bezeichnung: 'Riesig', einheit: 'Stk', menge: '1000000', einzelpreis: '10.000.000,00' },
+				{ bezeichnung: 'Riesig 2', einheit: 'Stk', menge: '1000000', einzelpreis: '10.000.000,00' }
+			]);
+			expect(r.status).toBe(400);
+			expect(r.koerper.fehler).toContain('100 Mrd.');
+			const ok = await positionen(u.chefA, a.id, [{ bezeichnung: 'Groß', einheit: 'Stk', menge: '10000', einzelpreis: '10.000.000,00' }]);
+			expect(ok.status).toBe(200);
+		});
+
+		it('8: PUT /api/angebote/[id] speichert Kopf und Positionen in einer Transaktion; Fehler in den Positionen lässt den Kopf unverändert', async () => {
+			const a = (await anlegen(u.chefA, u.auftragA)).koerper;
+			const ok = await alles(u.chefA, a.id, { mwstSatz: 7, einleitung: 'Neu', positionen: [{ bezeichnung: 'A', einheit: 'Stk', menge: '2', einzelpreis: '10' }] });
+			expect(ok.status).toBe(200);
+			expect(ok.koerper).toMatchObject({ mwstSatz: 7, einleitung: 'Neu', nettoCent: 2000, mwstCent: 140 });
+			const fehl = await alles(u.chefA, a.id, { mwstSatz: 19, einleitung: 'Kaputt', positionen: [{ bezeichnung: 'B', einheit: 'Stk', menge: '0' }] });
+			expect(fehl.status).toBe(400);
+			const nach = (await get(u.chefA, a.id)).koerper;
+			expect(nach).toMatchObject({ mwstSatz: 7, einleitung: 'Neu' });
+			expect(nach.positionen.map((p: any) => p.bezeichnung)).toEqual(['A']);
+			expect((await alles(u.chefA, a.id, { positionen: 'x' })).status).toBe(400);
+			expect((await alles(u.monteurA, a.id, { einleitung: 'x' })).status).toBe(403);
+		});
 	});
 });

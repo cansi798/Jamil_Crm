@@ -146,8 +146,13 @@ export async function leereAngebote(root: postgres.Sql): Promise<void> {
 	});
 }
 
-/** Kleines, echtes PNG (Breite × Höhe, ein Graustufen-Bild, unkomprimiert genug für Tests). */
-export function testPng(breite = 4, hoehe = 2): Uint8Array {
+/**
+ * Kleines, echtes PNG (Breite × Höhe). `farbtyp` 0 = Graustufen, 2 = RGB, 6 = RGBA (mit Transparenz); `idat` ersetzt
+ * die Bilddaten (z. B. Müll für Tests kaputter Dateien), `interlace` setzt nur das Kopf-Feld.
+ */
+export function testPng(breite = 4, hoehe = 2, opts: { farbtyp?: 0 | 2 | 6; idat?: Uint8Array; interlace?: boolean } = {}): Uint8Array {
+	const farbtyp = opts.farbtyp ?? 0;
+	const kanaele = farbtyp === 6 ? 4 : farbtyp === 2 ? 3 : 1;
 	const crcTabelle = Array.from({ length: 256 }, (_, n) => {
 		let c = n;
 		for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
@@ -163,9 +168,12 @@ export function testPng(breite = 4, hoehe = 2): Uint8Array {
 		const t = [...typ].map((c) => c.charCodeAt(0));
 		return [...u32(daten.length), ...t, ...daten, ...u32(crc(new Uint8Array([...t, ...daten])))];
 	};
-	// Bilddaten: je Zeile Filterbyte 0 + Graustufen-Pixel; zlib „stored“ (unkomprimiert)
+	// Bilddaten: je Zeile Filterbyte 0 + Pixel; zlib „stored“ (unkomprimiert)
 	const roh: number[] = [];
-	for (let y = 0; y < hoehe; y++) roh.push(0, ...Array.from({ length: breite }, (_, x) => ((x + y) % 2) * 255));
+	for (let y = 0; y < hoehe; y++) {
+		roh.push(0);
+		for (let x = 0; x < breite; x++) for (let c = 0; c < kanaele; c++) roh.push(c === 3 ? 128 : ((x + y) % 2) * 255);
+	}
 	const adler = (() => {
 		let a = 1,
 			b = 0;
@@ -182,8 +190,8 @@ export function testPng(breite = 4, hoehe = 2): Uint8Array {
 		bloecke.push(letzt, teil.length & 255, teil.length >> 8, ~teil.length & 255, (~teil.length >> 8) & 255, ...teil);
 		if (letzt) break;
 	}
-	const zlib = [0x78, 0x01, ...bloecke, ...u32(adler)];
-	const ihdr = [...u32(breite), ...u32(hoehe), 8, 0, 0, 0, 0];
+	const zlib = opts.idat ? [...opts.idat] : [0x78, 0x01, ...bloecke, ...u32(adler)];
+	const ihdr = [...u32(breite), ...u32(hoehe), 8, farbtyp, 0, 0, opts.interlace ? 1 : 0];
 	return new Uint8Array([
 		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 		...chunk('IHDR', ihdr),

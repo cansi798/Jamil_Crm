@@ -1,4 +1,4 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, ServerInit } from '@sveltejs/kit';
 import {
 	COOKIE_NAME,
 	loescheSitzungsCookie,
@@ -9,6 +9,12 @@ import { istNurLesen } from '$lib/server/tarif';
 import { schliesseDb } from '$lib/server/db';
 import { istAdminPfad, nichtGefundenAntwort, nurLesenAntwort } from '$lib/server/sperren';
 import { mitSicherheitsKopfzeilen } from '$lib/server/sicherheit';
+import { pruefeSchriften } from '$lib/server/pdf/angebot-pdf';
+
+/** Beim Start: Schriften fürs Angebots-PDF müssen da sein – sonst startet der Server nicht (lauter Fehler statt 500 später). */
+export const init: ServerInit = () => {
+	pruefeSchriften();
+};
 
 // adapter-node meldet das geordnete Beenden (SIGTERM/SIGINT) mit diesem Ereignis, nachdem der Server keine Anfragen
 // mehr annimmt. Dann die Datenbank-Pools schließen – offene Verbindungen hielten den Prozess sonst am Leben.

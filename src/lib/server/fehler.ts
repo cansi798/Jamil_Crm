@@ -32,21 +32,37 @@ export function alsAntwort(e: unknown): Response {
 	return json(500, { fehler: 'Interner Fehler. Bitte später erneut versuchen.' });
 }
 
+/** Höchstgröße eines JSON-Anfragekörpers (1 MB: größtes gültiges Angebot – 200 Positionen mit je 2000 Zeichen Beschreibung – passt noch). */
+export const JSON_MAX_BYTES = 1024 * 1024;
+
 /** `application/json`, Groß-/Kleinschreibung egal, Parameter (z. B. `; charset=utf-8`) erlaubt – aber nichts Ähnliches. */
 const JSON_TYP = /^\s*application\/json\s*(;|$)/i;
 
 /**
  * Liest den Anfragekörper als JSON-Objekt. Verlangt `Content-Type: application/json` (sonst 415): Ein fremdes
  * Formular im Browser kann keinen solchen Typ ohne Vorabfrage (CORS-Preflight) senden – das schließt einfache
- * Cross-Site-Anfragen aus. Kaputtes JSON, Listen, Zahlen und leere Körper sind ein 400.
+ * Cross-Site-Anfragen aus. Kaputtes JSON, Listen, Zahlen und leere Körper sind ein 400, mehr als 1 MB ein 413.
  */
 export async function leseJson(request: Request): Promise<Record<string, unknown>> {
 	if (!JSON_TYP.test(request.headers.get('content-type') ?? '')) {
 		throw new ApiFehler(415, 'Content-Type muss application/json sein');
 	}
+	// Eigene, kleine Grenze für JSON (BODY_SIZE_LIMIT von adapter-node gilt für alle Endpunkte gleich, z. B. 2 MB
+	// wegen des Logo-Uploads).
+	const laenge = Number(request.headers.get('content-length') ?? '0');
+	if (laenge > JSON_MAX_BYTES) throw new ApiFehler(413, 'Anfrage zu groß.');
+	let text: string;
+	try {
+		const bytes = new Uint8Array(await request.arrayBuffer());
+		if (bytes.byteLength > JSON_MAX_BYTES) throw new ApiFehler(413, 'Anfrage zu groß.');
+		text = new TextDecoder().decode(bytes);
+	} catch (e) {
+		if (e instanceof ApiFehler) throw e;
+		throw new ApiFehler(400, 'Ungültige Anfrage.');
+	}
 	let wert: unknown;
 	try {
-		wert = await request.json();
+		wert = JSON.parse(text);
 	} catch {
 		throw new ApiFehler(400, 'Ungültige Anfrage.');
 	}

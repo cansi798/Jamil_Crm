@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			listeTodos(k, sicht, { auftragId: auftrag.id }),
 			darfBearbeiten ? aktiveMitarbeiter(k) : Promise.resolve([]),
 			einsaetzeZumAuftrag(k, auftrag.id),
-			angeboteSichtbar ? listeAngebote(k, { auftragId: auftrag.id }) : Promise.resolve(null)
+			angeboteSichtbar ? listeAngebote(k, { auftragId: auftrag.id }, { sicht, auftragAendern: darfBearbeiten }) : Promise.resolve(null)
 		]);
 		return {
 			auftrag,
@@ -76,8 +76,8 @@ export const actions: Actions = {
 	angebotErstellen: async ({ locals, params }) => {
 		let id: string;
 		try {
-			await angeboteZugriff(locals);
-			id = (await legeAngebotAn(betriebKontext(locals), params.id)).id;
+			const zg = await angeboteZugriff(locals);
+			id = (await legeAngebotAn(betriebKontext(locals), params.id, zg)).id;
 		} catch (e) {
 			return alsFormFehler(e);
 		}

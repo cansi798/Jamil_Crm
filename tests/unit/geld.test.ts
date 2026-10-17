@@ -58,12 +58,12 @@ describe('Geld-Rechnen in Cent', () => {
 		expect(leseEuroInCent('1234,56')).toBe(123456);
 		expect(leseEuroInCent('1234.56')).toBe(123456);
 		expect(leseEuroInCent(1234.56)).toBe(123456);
-		expect(leseEuroInCent('1.234')).toBe(123400); // Tausenderpunkt
+		expect(leseEuroInCent('12.5')).toBe(1250);
 		expect(leseEuroInCent('12,5')).toBe(1250);
 		expect(leseEuroInCent('0')).toBe(0);
 		expect(leseEuroInCent('33,33 €')).toBe(3333);
 		expect(leseEuroInCent(0.1 + 0.2)).toBe(30);
-		for (const w of ['-1', '1,234', '1.2.3,4', 'abc', '', '12,345', -0.01, Number.NaN, '100000000,00']) {
+		for (const w of ['-1', '1,234', '1.2.3,4', 'abc', '', '12,345', -0.01, Number.NaN, '100000000,00', '1.2345']) {
 			expect(() => leseEuroInCent(w as never), String(w)).toThrow(RangeError);
 		}
 	});
@@ -79,5 +79,19 @@ describe('Geld-Rechnen in Cent', () => {
 		expect(mengeText(3)).toBe('3');
 		expect(centAlsEingabe(123456)).toBe('1234,56');
 		expect(centAlsEingabe(0)).toBe('0,00');
+	});
+
+	it('Gesamtprüfung 3: Punkt ohne Komma ist Dezimaltrenner; „1.234“ als Betrag → Fehler mit Hinweis auf das Komma', () => {
+		expect(leseMenge('0.125')).toBe(0.125);
+		expect(leseMenge('2.250')).toBe(2.25);
+		expect(leseMenge('1.000')).toBe(1);
+		expect(leseMenge('1.234,5')).toBe(1234.5);
+		expect(() => leseMenge('1.000.000')).toThrow(RangeError);
+		expect(() => leseEuroInCent('1.234')).toThrow('Bitte Betrag mit Komma angeben, z. B. 1.234,00');
+		expect(() => leseEuroInCent('1.234.567')).toThrow('Bitte Betrag mit Komma angeben, z. B. 1.234,00');
+		expect(() => leseEuroInCent('0.125')).toThrow(RangeError);
+		expect(leseEuroInCent('0.12')).toBe(12);
+		expect(leseEuroInCent('1.234,00')).toBe(123400);
+		expect(leseEuroInCent('1234.5')).toBe(123450);
 	});
 });

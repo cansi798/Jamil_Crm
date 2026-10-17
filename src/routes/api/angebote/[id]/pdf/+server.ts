@@ -11,9 +11,9 @@ import { angebotPdf } from '$lib/server/pdf/angebot-pdf';
  */
 export const GET: RequestHandler = async ({ locals, params }) => {
 	try {
-		await angeboteZugriff(locals);
+		const zg = await angeboteZugriff(locals);
 		const k = betriebKontext(locals);
-		const daten = await ladePdfDaten(k, params.id);
+		const daten = await ladePdfDaten(k, params.id, zg);
 		const [profil, logo] = await Promise.all([holeProfil(k), holeLogo(k)]);
 		const pdf = await angebotPdf({ profil, logo, ...daten });
 		const datei = `Angebot_${daten.angebot.nummer.replace(/[^A-Za-z0-9-]/g, '_')}.pdf`;

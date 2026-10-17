@@ -19,6 +19,7 @@ function testJpeg(breite: number, hoehe: number): Uint8Array {
 		0xff, 0xd8,
 		0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
 		0xff, 0xc0, 0x00, 0x0b, 0x08, hoehe >> 8, hoehe & 255, breite >> 8, breite & 255, 0x01, 0x01, 0x11, 0x00,
+		0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00, 0x12, 0x34, 0x56,
 		0xff, 0xd9
 	]);
 }
@@ -155,5 +156,26 @@ describe('Briefkopf und Logo', () => {
 		} as never);
 		expect(fehl).toMatchObject({ status: 400, data: { fehler: MELDUNG } });
 		await expect(speichereProfil(kA(), { firmenname: 'x'.repeat(201) })).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('Gesamtprüfung 1: PNG mit gültigem Kopf und kaputten Daten (RGBA, Palette/Interlace, abgeschnitten) und kaputtes JPEG → 400', async () => {
+		const alt = testPng(8, 8);
+		await speichereLogo(kA(), alt);
+		const muell = new TextEncoder().encode('kein zlib, nur Müll – incorrect header check');
+		for (const [name, bild] of [
+			['RGBA mit Müll-IDAT', testPng(20, 10, { farbtyp: 6, idat: muell })],
+			['Graustufen mit Müll-IDAT', testPng(20, 10, { idat: muell })],
+			['Interlace mit Müll-IDAT', testPng(20, 10, { farbtyp: 6, interlace: true, idat: muell })],
+			['RGBA zu wenig Daten', testPng(20, 10, { farbtyp: 6, idat: testPng(2, 2).subarray(41, 60) })],
+			['abgeschnitten', testPng(20, 10, { farbtyp: 6 }).subarray(0, 60)],
+			['JPEG ohne Bilddaten/Ende', testJpeg(100, 50).subarray(0, 33)]
+		] as const) {
+			const r = await hochladen(u.chefA, bild);
+			expect(r, name).toMatchObject({ status: 400, koerper: { fehler: MELDUNG } });
+		}
+		expect((await holeLogo(kA()))?.bytes).toEqual(alt);
+		// gültiges RGBA-PNG (Transparenz) geht
+		expect((await hochladen(u.chefA, testPng(30, 12, { farbtyp: 6 }))).status).toBe(200);
+		expect((await hochladen(u.chefA, testPng(30, 12, { farbtyp: 2 }))).status).toBe(200);
 	});
 });

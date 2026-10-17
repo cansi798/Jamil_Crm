@@ -203,6 +203,19 @@ describe('Katalog, Briefkopf, Angebote – Schema', () => {
 		expect(await root`select 1 from app.angebote where betrieb_id = ${tmp.id}`).toHaveLength(0);
 	});
 
+	it('Gesamtprüfung 4: Statuswechsel auch in der Datenbank nur entwurf→versendet, versendet→angenommen|abgelehnt|entwurf', async () => {
+		const a = await sqlAngebot(u.betriebA, u.ids.chefA, u.auftragA);
+		const setze = (s: string) => u.alsApp(u.betriebA, u.ids.chefA, (tx) => tx`update app.angebote set status = ${s} where id = ${a.id}`);
+		await expect(setze('angenommen')).rejects.toMatchObject({ code: '23514' });
+		await expect(setze('abgelehnt')).rejects.toMatchObject({ code: '23514' });
+		await setze('versendet');
+		await setze('entwurf');
+		await setze('versendet');
+		await setze('abgelehnt');
+		for (const s of ['entwurf', 'versendet', 'angenommen']) await expect(setze(s)).rejects.toMatchObject({ code: '23514' });
+		await expect(root`update app.angebote set status = 'entwurf' where id = ${a.id}`).rejects.toMatchObject({ code: '23514' });
+	});
+
 	it('Check-Constraints: Menge > 0, Preise ≥ 0, Einheit aus der Liste, MwSt 0/7/19, gültig bis ≥ Datum', async () => {
 		const a = await sqlAngebot(u.betriebA, u.ids.chefA, u.auftragA);
 		const faelle = [

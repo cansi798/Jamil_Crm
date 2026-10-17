@@ -1,9 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
+import normalUrl from './schriften/NotoSans-Regular.ttf?url&inline';
+import fettUrl from './schriften/NotoSans-Bold.ttf?url&inline';
 import type { Angebot, AngebotPosition } from '../angebote';
 import type { Profil } from '../betriebsprofil';
+import { pruefeBild } from '../bildpruefung';
 import { euro, mengeText } from '../../geld';
 
 /**
@@ -28,26 +28,31 @@ export type AngebotPdfDaten = {
 	objekt: PdfObjekt | null;
 };
 
-const SCHRIFT_DATEIEN = { normal: 'NotoSans-Regular.ttf', fett: 'NotoSans-Bold.ttf' } as const;
-
 /**
- * Schriftdateien finden: neben dieser Datei (Entwicklung, Tests) bzw. im Projektverzeichnis (gebaute Anwendung, die
- * aus dem Projektordner läuft – im Server-Bundle zeigt import.meta.url auf den Chunk) oder über CRM_SCHRIFTEN.
+ * Schriften als Teil des Server-Bundles (Vite `?url&inline` = data:-URL, base64): unabhängig vom Arbeitsverzeichnis
+ * und ohne zusätzliche Dateien neben dem Build. `pruefeSchriften` wird beim Serverstart aufgerufen (hooks.server.ts)
+ * und bricht laut ab, falls etwas fehlt.
  */
-function ladeSchrift(datei: string): Buffer {
-	const orte = [
-		process.env.CRM_SCHRIFTEN ? resolve(process.env.CRM_SCHRIFTEN, datei) : null,
-		fileURLToPath(new URL(`./schriften/${datei}`, import.meta.url)),
-		resolve(process.cwd(), 'src/lib/server/pdf/schriften', datei)
-	].filter((o): o is string => o !== null);
-	for (const ort of orte) if (existsSync(ort)) return readFileSync(ort);
-	throw new Error(`Schrift ${datei} nicht gefunden`);
+function ausDataUrl(url: string): Buffer {
+	const komma = url.indexOf(',');
+	if (!url.startsWith('data:') || komma < 0) throw new Error('Schrift für das Angebots-PDF ist nicht eingebettet');
+	return Buffer.from(url.slice(komma + 1), 'base64');
 }
 
 let schriften: { normal: Buffer; fett: Buffer } | null = null;
 function holeSchriften() {
-	schriften ??= { normal: ladeSchrift(SCHRIFT_DATEIEN.normal), fett: ladeSchrift(SCHRIFT_DATEIEN.fett) };
+	schriften ??= { normal: ausDataUrl(normalUrl), fett: ausDataUrl(fettUrl) };
 	return schriften;
+}
+
+/** Wirft, wenn die eingebetteten Schriften fehlen oder keine TrueType-Dateien sind. */
+export function pruefeSchriften(): void {
+	const s = holeSchriften();
+	for (const [name, b] of Object.entries(s)) {
+		if (b.length < 10_000 || b.readUInt32BE(0) !== 0x00010000) {
+			throw new Error(`Schrift „${name}“ für das Angebots-PDF fehlt oder ist beschädigt`);
+		}
+	}
 }
 
 const mm = (w: number) => (w * 72) / 25.4;
@@ -129,7 +134,11 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 	// ---------- Seite 1: Kopf, Anschrift, Angaben ----------
 	const logoBreite = mm(45);
 	let logoGezeichnet = false;
-	if (logo) {
+	// Logo nur, wenn es vollständig gültig ist: pdfkit dekodiert manche PNGs asynchron, ein Fehler dort würde den
+	// Server beenden. Ein kaputtes Logo (z. B. direkt in der Datenbank) wird übersprungen – das PDF entsteht trotzdem.
+	if (logo && !pruefeBild(logo.bytes)) {
+		console.warn('Angebots-PDF: Logo ist kein gültiges PNG/JPEG und wird weggelassen.');
+	} else if (logo) {
 		try {
 			doc.image(Buffer.from(logo.bytes), RECHTS - logoBreite, mm(12), { fit: [logoBreite, mm(25)], align: 'right' });
 			logoGezeichnet = true;

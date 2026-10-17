@@ -1,6 +1,7 @@
 import { mitBetrieb, type Kontext } from './db';
 import { ApiFehler } from './fehler';
 import { textFeld } from './kunden';
+import { pruefeBild } from './bildpruefung';
 
 /**
  * Briefkopf (Betriebsprofil) und Logo eines Betriebs – eine Zeile `app.betrieb_profil` je Betrieb (RLS). Das Logo
@@ -146,51 +147,15 @@ export async function speichereProfil(k: Kontext, e: Record<string, unknown>): P
 	});
 }
 
-/** Bildtyp und Abmessungen aus den ersten Bytes (PNG-IHDR bzw. JPEG-SOF) – oder `null`, wenn es keins ist. */
-export function bildInfo(b: Uint8Array): { typ: 'image/png' | 'image/jpeg'; breite: number; hoehe: number } | null {
-	const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-	if (b.length >= 24 && PNG.every((x, i) => b[i] === x)) {
-		// erster Block muss IHDR sein (Länge 13)
-		if (String.fromCharCode(b[12], b[13], b[14], b[15]) !== 'IHDR') return null;
-		const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
-		return { typ: 'image/png', breite: v.getUint32(16), hoehe: v.getUint32(20) };
-	}
-	if (b.length >= 4 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
-		let i = 2;
-		while (i + 4 <= b.length) {
-			if (b[i] !== 0xff) return null;
-			const marker = b[i + 1];
-			if (marker === 0xff) {
-				i++; // Füllbytes
-				continue;
-			}
-			if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
-				i += 2;
-				continue;
-			}
-			if (marker === 0xd9 || marker === 0xda) return null; // Bildende/Bilddaten vor einem SOF: kein gültiger Kopf
-			const laenge = (b[i + 2] << 8) | b[i + 3];
-			if (laenge < 2) return null;
-			const istSof = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
-			if (istSof) {
-				if (i + 9 > b.length) return null;
-				return { typ: 'image/jpeg', hoehe: (b[i + 5] << 8) | b[i + 6], breite: (b[i + 7] << 8) | b[i + 8] };
-			}
-			i += 2 + laenge;
-		}
-	}
-	return null;
-}
-
 /**
- * Prüft und speichert das Logo: PNG oder JPEG (erkannt an den ersten Bytes, nicht an Dateiname oder Typ-Angabe),
- * höchstens 1 MB und 1500 × 1500 Pixel. Bei einem Fehler bleibt das bisherige Logo unverändert.
+ * Prüft und speichert das Logo: PNG oder JPEG (erkannt an den Bytes, nicht an Dateiname oder Typ-Angabe; vollständig
+ * geprüft mit `pruefeBild`, damit kaputte Bilddaten nie bis zum PDF kommen), höchstens 1 MB und 1500 × 1500 Pixel. Bei einem Fehler bleibt das bisherige Logo unverändert.
  */
 export async function speichereLogo(k: Kontext, bytes: Uint8Array): Promise<Profil> {
 	if (!(bytes instanceof Uint8Array) || bytes.length === 0 || bytes.length > LOGO_MAX_BYTES) {
 		throw new ApiFehler(400, LOGO_MELDUNG);
 	}
-	const info = bildInfo(bytes);
+	const info = pruefeBild(bytes);
 	if (!info || info.breite < 1 || info.hoehe < 1) throw new ApiFehler(400, LOGO_MELDUNG);
 	if (info.breite > LOGO_MAX_PX || info.hoehe > LOGO_MAX_PX) {
 		throw new ApiFehler(

@@ -120,15 +120,14 @@
 		}
 	}
 
+	/** Kopf und Positionen in EINER Anfrage (eine Transaktion auf dem Server). */
 	async function speichernIntern() {
-		await api('PATCH', `/api/angebote/${angebot.id}`, {
+		const a = await api('PUT', `/api/angebote/${angebot.id}`, {
 			datum: kopf.datum,
 			gueltigBis: kopf.gueltigBis,
 			mwstSatz: kopf.mwstSatz,
 			einleitung: kopf.einleitung,
-			schluss: kopf.schluss
-		});
-		const a = await api('PUT', `/api/angebote/${angebot.id}/positionen`, {
+			schluss: kopf.schluss,
 			positionen: zeilen.map((z) => ({
 				katalogPositionId: z.katalogPositionId,
 				bezeichnung: z.bezeichnung,
@@ -163,8 +162,9 @@
 	const status = (nach: string, text: string) =>
 		aktion(async () => {
 			if (geaendert) await speichernIntern();
-			uebernehme(await api('POST', `/api/angebote/${angebot.id}/status`, { status: nach }));
-			meldung = text;
+			const a = await api('POST', `/api/angebote/${angebot.id}/status`, { status: nach });
+			uebernehme(a);
+			meldung = a.hinweis ? `${text} ${a.hinweis}` : text;
 			await invalidateAll();
 		});
 

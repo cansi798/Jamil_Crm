@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { angebotPdf } from '../../src/lib/server/pdf/angebot-pdf';
+import { describe, expect, it, vi } from 'vitest';
+import { angebotPdf, pruefeSchriften } from '../../src/lib/server/pdf/angebot-pdf';
 import type { Angebot, AngebotPosition } from '../../src/lib/server/angebote';
 import type { Profil } from '../../src/lib/server/betriebsprofil';
 import { positionsSumme, summen } from '../../src/lib/geld';
@@ -149,5 +149,44 @@ describe('Angebots-PDF', () => {
 		});
 		expect(Buffer.from(leer.subarray(0, 5)).toString('latin1')).toBe('%PDF-');
 		expect(leer.length).toBeGreaterThan(5000);
+	});
+
+	it('Gesamtprüfung 6: Schriften hängen nicht vom Arbeitsverzeichnis ab', async () => {
+		const vorher = process.cwd();
+		process.chdir('/tmp');
+		try {
+			expect(() => pruefeSchriften()).not.toThrow();
+			const pdf = await angebotPdf(
+				{ profil: PROFIL, logo: null, angebot: angebot([position(1, 1, 100, 'Ä')]), kunde: KUNDE, objekt: null },
+				{ komprimieren: false }
+			);
+			expect(pdfText(pdf)).toContain('Angebot AN-2026-0001');
+		} finally {
+			process.chdir(vorher);
+		}
+	});
+
+	it('Gesamtprüfung 1: kaputtes Logo (gültiger Kopf, Müll-Daten) → PDF ohne Bild, kein Absturz', async () => {
+		const muell = new TextEncoder().encode('incorrect header check');
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			for (const opts of [{ farbtyp: 6 as const, idat: muell }, { farbtyp: 6 as const, interlace: true, idat: muell }, { idat: muell }]) {
+				const pdf = await angebotPdf(
+					{ profil: PROFIL, logo: { bytes: testPng(40, 20, opts), typ: 'image/png' }, angebot: angebot([]), kunde: KUNDE, objekt: null },
+					{ komprimieren: false }
+				);
+				expect(Buffer.from(pdf).toString('latin1')).not.toContain('/Subtype /Image');
+			}
+			await new Promise((ok) => setTimeout(ok, 200));
+			expect(warn).toHaveBeenCalled();
+		} finally {
+			warn.mockRestore();
+		}
+		// gültiges RGBA-Logo (Transparenz) wird eingebettet
+		const gut = await angebotPdf(
+			{ profil: PROFIL, logo: { bytes: testPng(40, 20, { farbtyp: 6 }), typ: 'image/png' }, angebot: angebot([]), kunde: KUNDE, objekt: null },
+			{ komprimieren: false }
+		);
+		expect(Buffer.from(gut).toString('latin1')).toContain('/Subtype /Image');
 	});
 });

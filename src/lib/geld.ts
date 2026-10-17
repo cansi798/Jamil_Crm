@@ -46,24 +46,30 @@ export function summen(positionen: readonly { menge: number; einzelpreisCent: nu
 	return { nettoCent: Number(netto), mwstCent: Number(mwst), bruttoCent: Number(netto + mwst) };
 }
 
+export const KOMMA_HINWEIS = 'Bitte Betrag mit Komma angeben, z. B. 1.234,00';
+
 /**
  * Zerlegt eine Zahl in deutscher oder englischer Schreibweise in Vor- und Nachkommastellen (nur Ziffern):
  * - mit Komma: Komma = Dezimaltrenner, Punkte nur als Tausendertrenner in Dreiergruppen („1.234,56“),
- * - ohne Komma: „1.234“ / „1.234.567“ (Dreiergruppen) = Tausenderpunkte, sonst Punkt = Dezimaltrenner („2.5“).
+ * - ohne Komma: ein Punkt ist immer der Dezimaltrenner („2.5“, „0.125“, „2.250“ = 2,25).
+ * Bei Beträgen ist „1.234“ (drei Stellen nach dem Punkt, ohne Komma) mehrdeutig und wird mit `KOMMA_HINWEIS`
+ * abgelehnt, ebenso mehrere Punkte ohne Komma („1.234.567“).
  */
-function zerlege(text: string): { ganz: string; bruch: string } | null {
-	const t = text.replace(/[\s  ]/g, '');
+function zerlege(text: string, euro: boolean): { ganz: string; bruch: string } | null {
+	const t = text.replace(/[\s\u00a0\u202f]/g, '');
 	let m = /^(\d{1,3}(?:\.\d{3})+|\d+),(\d+)$/.exec(t);
 	if (m) return { ganz: m[1].replaceAll('.', ''), bruch: m[2] };
-	m = /^(\d{1,3}(?:\.\d{3})+)$/.exec(t);
-	if (m) return { ganz: m[1].replaceAll('.', ''), bruch: '' };
 	m = /^(\d+)(?:\.(\d+))?$/.exec(t);
-	if (m) return { ganz: m[1], bruch: m[2] ?? '' };
+	if (m) {
+		if (euro && m[2]?.length === 3) throw new RangeError(KOMMA_HINWEIS);
+		return { ganz: m[1], bruch: m[2] ?? '' };
+	}
+	if (euro && /^\d{1,3}(\.\d{3})+$/.test(t)) throw new RangeError(KOMMA_HINWEIS);
 	return null;
 }
 
 /** Liest einen Wert als ganze Vielfache von 10^-stellen (z. B. Cent bei 2, Tausendstel bei 3) – oder `null`. */
-function leseFestkomma(eingabe: string | number, stellen: number): number | null {
+function leseFestkomma(eingabe: string | number, stellen: number, euro: boolean): number | null {
 	const faktor = 10 ** stellen;
 	if (typeof eingabe === 'number') {
 		if (!Number.isFinite(eingabe) || eingabe < 0) return null;
@@ -72,7 +78,7 @@ function leseFestkomma(eingabe: string | number, stellen: number): number | null
 		return ganz;
 	}
 	if (typeof eingabe !== 'string') return null;
-	const z = zerlege(eingabe);
+	const z = zerlege(eingabe, euro);
 	if (!z || z.ganz.length > 12) return null;
 	const bruch = z.bruch.replace(/0+$/, '');
 	if (bruch.length > stellen) return null;
@@ -81,7 +87,7 @@ function leseFestkomma(eingabe: string | number, stellen: number): number | null
 
 /** Menge aus „2,5“, „2.5“ oder 2.5: > 0, höchstens 1 000 000 und 3 Nachkommastellen (sonst `RangeError`). */
 export function leseMenge(eingabe: string | number): number {
-	const t = leseFestkomma(eingabe, 3);
+	const t = leseFestkomma(eingabe, 3, false);
 	if (t === null) throw new RangeError('Bitte eine gültige Menge eingeben (höchstens 3 Nachkommastellen).');
 	if (t <= 0) throw new RangeError('Die Menge muss größer als 0 sein.');
 	if (t > MAX_MENGE * 1000) throw new RangeError('Die Menge ist zu groß (höchstens 1.000.000).');
@@ -91,7 +97,7 @@ export function leseMenge(eingabe: string | number): number {
 /** Euro-Betrag aus „1.234,56“, „1234,56“, „1234.56“ oder 1234.56 → 123456 Cent; ≥ 0, höchstens 2 Nachkommastellen. */
 export function leseEuroInCent(eingabe: string | number): number {
 	const ohneZeichen = typeof eingabe === 'string' ? eingabe.replace(/€/g, '') : eingabe;
-	const cent = leseFestkomma(ohneZeichen, 2);
+	const cent = leseFestkomma(ohneZeichen, 2, true);
 	if (cent === null) throw new RangeError('Bitte einen gültigen Betrag eingeben (z. B. 1.234,56; nicht negativ).');
 	if (cent > MAX_CENT) throw new RangeError('Der Betrag ist zu hoch (höchstens 10.000.000,00 €).');
 	return cent;
