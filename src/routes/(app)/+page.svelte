@@ -45,7 +45,7 @@
 	{/if}
 
 	{#if data.darfKundeAnlegen}
-		<a href="/kunden/neu" class="knopf gross">+ Kunde anlegen</a>
+		<a href="/kunden/neu" class="knopf gross">+ Kunde</a>
 	{/if}
 
 	{#if bereiche.length > 0}
