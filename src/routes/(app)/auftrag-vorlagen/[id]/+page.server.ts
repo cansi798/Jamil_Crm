@@ -1,5 +1,6 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { alsFormFehler } from '$lib/server/fehler';
 import { holeVorlage, aendereVorlage, loescheVorlage } from '$lib/server/auftrag-vorlagen';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { darf } from '$lib/server/tarif';
@@ -37,18 +38,18 @@ export const actions: Actions = {
 				beschreibung: beschreibung || undefined,
 				todos
 			});
-			redirect(303, `/auftrag-vorlagen/${params.id}`);
-		} catch (e: any) {
-			return fail(400, { fehler: e.message });
+		} catch (e) {
+			return alsFormFehler(e);
 		}
+		redirect(303, `/auftrag-vorlagen/${params.id}`);
 	},
 	loeschen: async ({ locals, params }) => {
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 			await loescheVorlage(betriebKontext(locals), params.id);
-			redirect(303, '/auftrag-vorlagen');
-		} catch (e: any) {
-			return fail(400, { fehler: e.message });
+		} catch (e) {
+			return alsFormFehler(e);
 		}
+		redirect(303, '/auftrag-vorlagen');
 	}
 };
