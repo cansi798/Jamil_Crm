@@ -4,6 +4,8 @@
 	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import { STATUS_NAMEN } from '$lib/auftrag-status';
+	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
+	import { euro } from '$lib/geld';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
 	import type { ActionData, PageData } from './$types';
 
@@ -52,6 +54,37 @@
 
 	{#if data.darfBearbeiten}
 		<a href={`/auftraege/${a.id}/bearbeiten`} class="kd-knopf hell">Auftrag bearbeiten</a>
+	{/if}
+
+	{#if data.angebote}
+		<h2>Angebote</h2>
+		<ul class="kd-liste">
+			{#each data.angebote as an (an.id)}
+				<li>
+					{#if data.darfAngebote}
+						<a href={`/angebote/${an.id}`}>
+							<span class="af-kopfzeile">
+								<strong>{an.nummer}</strong>
+								<span class={`an-status s-${an.status}`}>{ANGEBOT_STATUS_NAMEN[an.status]}</span>
+							</span>
+							<span class="kd-info">{tagDeutsch(an.datum)}{an.bruttoCent !== undefined ? ` · ${euro(an.bruttoCent)}` : ''}</span>
+						</a>
+					{:else}
+						<span class="af-kopfzeile kd-kein-link">
+							<strong>{an.nummer}</strong>
+							<span class={`an-status s-${an.status}`}>{ANGEBOT_STATUS_NAMEN[an.status]}</span>
+						</span>
+					{/if}
+				</li>
+			{:else}
+				<li class="kd-leer">Noch kein Angebot.</li>
+			{/each}
+		</ul>
+		{#if data.darfAngebote}
+			<form method="POST" action="?/angebotErstellen" use:enhance>
+				<button type="submit" class="kd-knopf">Angebot erstellen</button>
+			</form>
+		{/if}
 	{/if}
 
 	<h2>Einsätze</h2>

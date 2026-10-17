@@ -54,6 +54,10 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		if (module.includes('plantafel') && (hat('plantafel.bearbeiten') || hat('auftraege.alle_lesen'))) {
 			haupt.push({ name: 'Plantafel', href: '/plantafel', symbol: 'plantafel' });
 		}
+		// Angebote bestehen aus Preisen: nur mit `angebote.bearbeiten` UND `preise.sehen` (Monteur nie)
+		if (module.includes('angebote') && hat('angebote.bearbeiten') && hat('preise.sehen')) {
+			haupt.push({ name: 'Angebote', href: '/angebote', symbol: 'angebote' });
+		}
 		if (auftraegeLesen) {
 			mehr.push({ name: 'To-dos', href: '/todos', symbol: 'todos' });
 		}

@@ -11,7 +11,7 @@ import { berlinTag } from '$lib/zeit';
 import { todoAktionen } from '$lib/server/todo-aktionen';
 import { aktiveMitarbeiter, listeTodos } from '$lib/server/todos';
 import { einsaetzeZumAuftrag } from '$lib/server/plantafel';
-import { listeAngebote } from '$lib/server/angebote';
+import { angeboteZugriff, legeAngebotAn, listeAngebote } from '$lib/server/angebote';
 import { ohnePreise } from '$lib/server/preisschutz';
 import { hatModul } from '$lib/server/tarif';
 
@@ -71,6 +71,17 @@ export const actions: Actions = {
 			return alsFormFehler(e);
 		}
 		redirect(303, `/auftraege/${params.id}`);
+	},
+	/** Neues Angebot (Entwurf) zu diesem Auftrag anlegen und den Editor öffnen. */
+	angebotErstellen: async ({ locals, params }) => {
+		let id: string;
+		try {
+			await angeboteZugriff(locals);
+			id = (await legeAngebotAn(betriebKontext(locals), params.id)).id;
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+		redirect(303, `/angebote/${id}`);
 	},
 	loeschen: async ({ locals, params }) => {
 		try {
