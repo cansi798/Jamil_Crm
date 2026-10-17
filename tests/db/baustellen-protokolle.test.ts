@@ -2,6 +2,13 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schliesseDb } from '../../src/lib/server/db';
 import { antwort, baueUmgebung, jsonAnfrage, type Umgebung } from './hilfe-1c';
+import {
+	legeProtokollAn,
+	aktualisiereProtokoll,
+	speichereUnterschrift,
+	liesProtokoll,
+	protokolleFuerAuftrag
+} from '../../src/lib/server/baustellen-protokolle';
 
 describe('Baustellen-Protokolle – Tabelle und RLS', () => {
 	let u: Umgebung;
@@ -91,5 +98,60 @@ describe('Baustellen-Protokolle – Tabelle und RLS', () => {
 		await root`delete from app.auftraege where id = ${auftragId}`;
 		const rest = await root`select * from app.baustellen_protokolle where auftrag_id = ${auftragId}`;
 		expect(rest).toHaveLength(0);
+	});
+
+	// --- Dienst-Tests ---
+
+	const kA = () => ({ betriebId: u.betriebA, benutzerId: u.ids.chefA });
+
+	it('legeProtokollAn: legt ein Protokoll an', async () => {
+		const prot = await legeProtokollAn(kA(), u.auftragA, 'abnahme', { bemerkung: 'Alles fertig' }, u.ids.chefA);
+		expect(prot.typ).toBe('abnahme');
+		expect(prot.inhalt).toEqual({ bemerkung: 'Alles fertig' });
+		expect(prot.vonBenutzerId).toBe(u.ids.chefA);
+		expect(prot.unterschriftVorhanden).toBe(false);
+		expect(prot.pdfVorhanden).toBe(false);
+	});
+
+	it('legeProtokollAn: prüft Modul protokolle', async () => {
+		// Betrieb C hat keinen Premium-Tarif mit protokolle-Modul
+		await expect(legeProtokollAn(
+			{ betriebId: u.betriebC, benutzerId: u.ids.chefC },
+			u.auftragB, 'abnahme'
+		)).rejects.toThrow();
+	});
+
+	it('liesProtokoll: liest ein Protokoll', async () => {
+		const prot = await legeProtokollAn(kA(), u.auftragA, 'regiebericht', { text: 'Test' });
+		const gelesen = await liesProtokoll(kA(), prot.id);
+		expect(gelesen).not.toBeNull();
+		expect(gelesen!.typ).toBe('regiebericht');
+	});
+
+	it('speichereUnterschrift: speichert eine Unterschrift', async () => {
+		const prot = await legeProtokollAn(kA(), u.auftragA, 'abnahme');
+		await speichereUnterschrift(kA(), prot.id, Buffer.from('PNG-DUMMY'));
+		const gelesen = await liesProtokoll(kA(), prot.id);
+		expect(gelesen!.unterschriftVorhanden).toBe(true);
+	});
+
+	it('speichereUnterschrift: lehnt zu große Unterschriften ab', async () => {
+		const prot = await legeProtokollAn(kA(), u.auftragA, 'abnahme');
+		await expect(speichereUnterschrift(kA(), prot.id, Buffer.alloc(512001)))
+			.rejects.toThrow('Die Unterschrift ist zu groß');
+	});
+
+	it('aktualisiereProtokoll: aktualisiert den Inhalt', async () => {
+		const prot = await legeProtokollAn(kA(), u.auftragA, 'abnahme', { alt: 'wert' });
+		const aktualisiert = await aktualisiereProtokoll(kA(), prot.id, { neu: 'wert' });
+		expect(aktualisiert.inhalt).toEqual({ neu: 'wert' });
+	});
+
+	it('protokolleFuerAuftrag: gibt alle Protokolle eines Auftrags zurück', async () => {
+		await legeProtokollAn(kA(), u.auftragA, 'abnahme');
+		await legeProtokollAn(kA(), u.auftragA, 'regiebericht');
+		const liste = await protokolleFuerAuftrag(kA(), u.auftragA);
+		expect(liste).toHaveLength(2);
+		expect(liste.map((p) => p.typ).sort()).toEqual(['abnahme', 'regiebericht']);
 	});
 });
