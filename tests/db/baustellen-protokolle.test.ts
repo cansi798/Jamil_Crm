@@ -31,7 +31,7 @@ describe('Baustellen-Protokolle – Tabelle und RLS', () => {
 			select column_name from information_schema.columns
 			where table_schema = 'app' and table_name = 'baustellen_protokolle'
 			order by ordinal_position`;
-		const namen = spalten.map((s: { column_name: string }) => s.column_name);
+		const namen = (spalten as unknown as { column_name: string }[]).map((s) => s.column_name);
 		expect(namen).toContain('id');
 		expect(namen).toContain('betrieb_id');
 		expect(namen).toContain('auftrag_id');

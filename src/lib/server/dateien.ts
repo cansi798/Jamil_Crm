@@ -92,6 +92,6 @@ export async function dateienFuerAuftrag(k: Kontext, auftragId: string): Promise
 			select id, auftrag_id as "auftragId", name, typ, groesse, beschreibung, angelegt
 			from app.dateien where auftrag_id = ${auftragId}
 			order by angelegt desc`;
-		return zeilen as Datei[];
+		return zeilen as unknown as Datei[];
 	});
 }
