@@ -90,9 +90,9 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: var(--flaeche);
-		border-top: 1px solid var(--rand);
-		box-shadow: 0 -2px 8px rgb(0 0 0 / 0.05);
+		background: var(--m365-flaeche);
+		border-top: 1px solid var(--m365-rand);
+		box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
 		padding-bottom: env(safe-area-inset-bottom);
 	}
 	.liste {
@@ -119,17 +119,22 @@
 		border: 0;
 		border-radius: 0;
 		background: none;
-		color: var(--text-leise);
+		color: var(--m365-text-leise);
+		font-family: var(--m365-schrift);
 		font-size: 0.75rem;
 		line-height: 1.15;
 		text-align: center;
 		text-decoration: none;
 		cursor: pointer;
+		transition: color 150ms, background 150ms;
 	}
 	.eintrag[aria-current='page'] {
-		color: var(--primaer);
-		font-weight: 700;
-		box-shadow: inset 0 3px 0 var(--primaer);
+		color: var(--m365-primaer);
+		font-weight: 600;
+		box-shadow: inset 0 3px 0 var(--m365-primaer);
+	}
+	.eintrag:hover:not(.aus) {
+		color: var(--m365-text);
 	}
 	.eintrag.aus {
 		color: #8a9098;
@@ -165,9 +170,9 @@
 			gap: 0.25rem;
 			padding: 0.75rem;
 			border-top: 0;
-			border-right: 1px solid var(--rand);
+			border-right: 1px solid var(--m365-rand);
 			box-shadow: none;
-			background: var(--hintergrund);
+			background: var(--m365-nav);
 			overflow-y: auto;
 		}
 		.nur-breit {
@@ -181,10 +186,11 @@
 			align-items: center;
 			min-height: var(--tippziel);
 			padding: 0 0.75rem;
-			margin-bottom: 0.75rem;
-			color: var(--primaer);
-			font-size: 1.15rem;
-			font-weight: 700;
+			margin-bottom: 1rem;
+			color: var(--m365-primaer);
+			font-family: var(--m365-schrift);
+			font-size: 1.125rem;
+			font-weight: 600;
 			text-decoration: none;
 		}
 		.liste {
@@ -197,16 +203,17 @@
 			gap: 0.75rem;
 			min-height: var(--tippziel);
 			padding: 0.5rem 0.75rem;
-			border-radius: 0.5rem;
-			font-size: 1rem;
+			border-radius: var(--m365-radius);
+			font-family: var(--m365-schrift);
+			font-size: 0.9375rem;
 			text-align: left;
 		}
 		.eintrag[aria-current='page'] {
-			background: var(--primaer-hell);
-			box-shadow: inset 3px 0 0 var(--primaer);
+			background: var(--m365-primaer-hell);
+			box-shadow: inset 3px 0 0 var(--m365-primaer);
 		}
 		.eintrag:not(.aus):hover {
-			background: #e6e9ee;
+			background: #e0e0e0;
 		}
 		.hinweis {
 			font-size: 0.75rem;
@@ -214,7 +221,7 @@
 		.verwaltung {
 			margin-top: 0.75rem;
 			padding-top: 0.75rem;
-			border-top: 1px solid var(--rand);
+			border-top: 1px solid var(--m365-rand);
 		}
 		.abmelden {
 			margin-top: auto;
