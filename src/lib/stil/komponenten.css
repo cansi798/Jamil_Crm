@@ -1,0 +1,222 @@
+/* Fluent-Design-Komponenten: Buttons, Karten, Badges, Formulare.
+   Nutzt die --m365-*-Tokens aus basis.css. */
+
+/* ── Buttons ─────────────────────────────────────────────── */
+
+.knopf-gefuellt {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	min-height: var(--tippziel);
+	padding: 0.5rem 1.25rem;
+	border: 1px solid var(--m365-primaer);
+	border-radius: var(--m365-radius);
+	background: var(--m365-primaer);
+	color: #fff;
+	font-family: var(--m365-schrift);
+	font-weight: 600;
+	font-size: 0.875rem;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background 150ms, border-color 150ms;
+}
+.knopf-gefuellt:hover {
+	background: var(--m365-primaer-hover);
+	border-color: var(--m365-primaer-hover);
+}
+
+.knopf-subtil {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	min-height: var(--tippziel);
+	padding: 0.5rem 1.25rem;
+	border: 1px solid transparent;
+	border-radius: var(--m365-radius);
+	background: transparent;
+	color: var(--m365-text);
+	font-family: var(--m365-schrift);
+	font-weight: 600;
+	font-size: 0.875rem;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background 150ms;
+}
+.knopf-subtil:hover {
+	background: #f0f0f0;
+}
+
+.knopf-gefahr {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	min-height: var(--tippziel);
+	padding: 0.5rem 1.25rem;
+	border: 1px solid var(--m365-fehler);
+	border-radius: var(--m365-radius);
+	background: var(--m365-fehler);
+	color: #fff;
+	font-family: var(--m365-schrift);
+	font-weight: 600;
+	font-size: 0.875rem;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background 150ms;
+}
+.knopf-gefahr:hover {
+	background: #a4262c;
+}
+
+/* ── Karten ──────────────────────────────────────────────── */
+
+.karte {
+	background: var(--m365-flaeche);
+	border: 1px solid var(--m365-rand);
+	border-radius: var(--m365-radius);
+	box-shadow: var(--m365-schatten);
+	padding: 1.25rem;
+}
+
+.karte-kopf {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 1rem;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid var(--m365-rand);
+}
+
+.karte-titel {
+	margin: 0;
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: var(--m365-text);
+}
+
+.karte-aktionen {
+	display: flex;
+	gap: 0.5rem;
+}
+
+/* ── Badges ──────────────────────────────────────────────── */
+
+.badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.125rem 0.5rem;
+	border-radius: 1rem;
+	font-family: var(--m365-schrift);
+	font-size: 0.75rem;
+	font-weight: 600;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+.badge-blau {
+	background: var(--m365-primaer-hell);
+	color: var(--m365-primaer);
+}
+
+.badge-gruen {
+	background: #dff6dd;
+	color: var(--m365-erfolg);
+}
+
+.badge-gelb {
+	background: #fff4ce;
+	color: #986f0b;
+}
+
+.badge-rot {
+	background: #fde7e9;
+	color: var(--m365-fehler);
+}
+
+.badge-grau {
+	background: #f0f0f0;
+	color: var(--m365-text-leise);
+}
+
+/* ── Formulare ───────────────────────────────────────────── */
+
+.eingabe {
+	width: 100%;
+	min-height: var(--tippziel);
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--m365-rand);
+	border-radius: var(--m365-radius);
+	background: var(--m365-flaeche);
+	color: var(--m365-text);
+	font-family: var(--m365-schrift);
+	font-size: 1rem;
+	transition: border-color 150ms, box-shadow 150ms;
+}
+.eingabe:focus {
+	border-color: var(--m365-primaer);
+	box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
+	outline: none;
+}
+.eingabe::placeholder {
+	color: var(--m365-text-leise);
+}
+
+.beschriftung {
+	display: block;
+	margin-bottom: 0.25rem;
+	color: var(--m365-text-leise);
+	font-family: var(--m365-schrift);
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+/* ── Listen-Elemente ─────────────────────────────────────── */
+
+.listen-eintrag {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 1rem;
+	border-bottom: 1px solid var(--m365-rand);
+	transition: background 150ms;
+}
+.listen-eintrag:hover {
+	background: var(--m365-hintergrund);
+}
+.listen-eintrag:last-child {
+	border-bottom: 0;
+}
+
+/* ── Tabs / Pills ────────────────────────────────────────── */
+
+.pills {
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.375rem 0.75rem;
+	border: 1px solid var(--m365-rand);
+	border-radius: 1rem;
+	background: var(--m365-flaeche);
+	color: var(--m365-text);
+	font-family: var(--m365-schrift);
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 150ms, color 150ms;
+}
+.pill:hover {
+	background: var(--m365-hintergrund);
+}
+.pill.aktiv {
+	background: var(--m365-primaer);
+	color: #fff;
+	border-color: var(--m365-primaer);
+}

@@ -1,5 +1,6 @@
 /* Grundgestaltung für alle Seiten: Microsoft-365-Fluent-Design, mobil zuerst.
    Tippflächen mindestens 44 px (2,75 rem), kleinste Zielbreite 360 px ohne horizontales Scrollen. */
+@import '../stil/komponenten.css';
 :root {
 	/* Microsoft-365-Fluent-Palette */
 	--m365-primaer: #0078d4;
