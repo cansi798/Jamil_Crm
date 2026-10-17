@@ -19,7 +19,12 @@
 </svelte:head>
 
 <main class="kd-seite">
-	<h1>{data.alle ? 'Aufträge' : 'Meine Aufträge'}</h1>
+	<header class="seiten-kopf">
+		<h1>{data.alle ? 'Aufträge' : 'Meine Aufträge'}</h1>
+		{#if data.darfBearbeiten}
+			<a href="/auftraege/neu" class="knopf-gefuellt">+ Auftrag</a>
+		{/if}
+	</header>
 
 	<nav aria-label="Status">
 		<ul class="af-reiter">
@@ -43,12 +48,8 @@
 			autocomplete="off"
 			enterkeyhint="search"
 		/>
-		<button type="submit" class="kd-knopf">Suchen</button>
+		<button type="submit" class="knopf-subtil">Suchen</button>
 	</form>
-
-	{#if data.darfBearbeiten}
-		<a href="/auftraege/neu" class="kd-knopf gross">+ Auftrag</a>
-	{/if}
 
 	<ul class="kd-liste">
 		{#each data.auftraege as a (a.id)}

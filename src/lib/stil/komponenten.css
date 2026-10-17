@@ -220,3 +220,30 @@
 	color: #fff;
 	border-color: var(--m365-primaer);
 }
+
+/* ── Seitenkopf (Titel + Hauptaktion) ────────────────────── */
+
+.seiten-kopf {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+.seiten-kopf h1 {
+	margin: 0;
+}
+
+/* ── Bewegung reduzieren, wenn das System das wünscht ────── */
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}

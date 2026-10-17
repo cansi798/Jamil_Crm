@@ -65,11 +65,21 @@
 	width: 100%;
 	max-width: 100%;
 	min-height: 2.75rem;
-	padding: 0.5rem;
-	border: 1px solid #8a8a8a;
-	border-radius: 0.4rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--m365-rand);
+	border-radius: var(--m365-radius);
+	background: var(--m365-flaeche);
+	color: var(--m365-text);
 	font: inherit;
 	font-size: 1rem;
+	transition: border-color 150ms, box-shadow 150ms;
+}
+.kd-seite input:focus,
+.kd-seite select:focus,
+.kd-seite textarea:focus {
+	border-color: var(--m365-primaer);
+	box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+	outline: none;
 }
 .kd-seite textarea {
 	min-height: 6rem;
@@ -91,11 +101,18 @@
 	display: grid;
 	gap: 0.15rem;
 	min-height: 3.25rem;
-	padding: 0.6rem 0.75rem;
-	border: 1px solid #c8c8c8;
-	border-radius: 0.5rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid var(--m365-rand);
+	border-radius: var(--m365-radius);
+	background: var(--m365-flaeche);
+	box-shadow: var(--m365-schatten);
 	color: inherit;
 	text-decoration: none;
+	transition: border-color 150ms, box-shadow 150ms;
+}
+.kd-liste a:hover {
+	border-color: var(--m365-primaer);
+	box-shadow: var(--m365-schatten-hoch);
 }
 .kd-info {
 	color: #555;
