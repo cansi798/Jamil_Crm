@@ -46,6 +46,10 @@ describe('Aktions-Schema', () => {
 		expect(pruefeAktion({ aktion: 'kunde_anlegen', daten: { art: 'privat', vorname: 'Eva', nachname: 'Schulz', ort: 'Hamburg' } }).aktion).toBe('kunde_anlegen');
 		expect(pruefeAktion({ aktion: 'einsatz_anlegen', daten: { auftrag: 'Müller', mitarbeiter: ['Ali'], start: { tag: 'morgen', uhrzeit: '08:00' } } }).aktion).toBe('einsatz_anlegen');
 		expect(pruefeAktion({ aktion: 'einsatz_verschieben', daten: { mitarbeiter: 'Ali', nach: { tag: 'datum', datum: '2026-10-23' } } }).aktion).toBe('einsatz_verschieben');
+		// nur neue Uhrzeit, kein Tag – Server greift auf bisherigen Tag zurück
+		const vz = pruefeAktion({ aktion: 'einsatz_verschieben', daten: { mitarbeiter: 'Ali', nach: { uhrzeit: '10:00' } } });
+		expect(vz.aktion).toBe('einsatz_verschieben');
+		expect((vz as { daten: { nach: unknown } }).daten.nach).toEqual({ uhrzeit: '10:00' });
 		expect(pruefeAktion({ aktion: 'angebot_entwurf', daten: { auftrag: 'Müller', stichworte: '12 m² Fliesen' } }).aktion).toBe('angebot_entwurf');
 		expect(pruefeAktion({ aktion: 'unbekannt', daten: {} })).toEqual({ aktion: 'unbekannt', daten: {} });
 	});

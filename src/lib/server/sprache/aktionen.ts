@@ -105,6 +105,9 @@ const ZEIT: Schema = {
 	additionalProperties: false
 };
 
+/** Wie ZEIT, aber `tag` ist optional (nur für `einsatz_verschieben.nach`: „Verschiebe auf 10 Uhr“ ohne Tag). */
+const ZEIT_NACH: Schema = { ...ZEIT, required: undefined };
+
 export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 	kunde_anlegen: {
 		type: 'object',
@@ -171,7 +174,7 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 			mitarbeiter: text(100, 'Mitarbeiter des Termins'),
 			auftrag: text(200, 'Kunde oder Auftrag des Termins'),
 			von: ZEIT,
-			nach: ZEIT
+			nach: ZEIT_NACH
 		},
 		required: ['nach'],
 		additionalProperties: false

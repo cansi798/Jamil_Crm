@@ -351,7 +351,7 @@ async function einsatzVerschieben(k: Kontext, nutzer: Nutzer, d: Extract<KiAktio
 		});
 		if (kandidaten.length === 0) bau.fehlt.push('Keinen passenden Termin gefunden.');
 	}
-	const nachTag = loeseTag(d.nach, jetzt);
+	const nachTag = d.nach.tag ? loeseTag(d.nach, jetzt) : kandidaten.length > 0 ? berlinTag(kandidaten[0].beginn) : berlinTag(jetzt);
 	bau.werte.nachTag = nachTag;
 	bau.werte.nachUhrzeit = d.nach.uhrzeit ?? null;
 	bau.werte.einsatzId = null;
