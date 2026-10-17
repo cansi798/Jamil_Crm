@@ -8,7 +8,7 @@ const betriebsNutzer = (rechte: readonly string[]) => ({ istAdmin: false, betrie
 const namen = (eintraege: { name: string }[]) => eintraege.map((e) => e.name);
 
 describe('baueNavigation', () => {
-	it('Büro: Start, Kunden, Aufträge, Plantafel, Angebote; unter „Mehr“ To-dos, Abwesenheiten, Katalog, keine Verwaltung', () => {
+	it('Büro: Start, Kunden, Aufträge, Plantafel, Angebote; unter „Mehr“ To-dos, Vorlagen, Abwesenheiten, Katalog, keine Verwaltung', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.buero), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Plantafel', 'Angebote']);
 		expect(nav.haupt[4]).toMatchObject({ href: '/angebote', symbol: 'angebote' });
@@ -20,15 +20,16 @@ describe('baueNavigation', () => {
 		expect(nav.haupt[3].hinweis).toBeUndefined();
 		expect(nav.mehr).toEqual([
 			expect.objectContaining({ name: 'To-dos', href: '/todos', symbol: 'todos' }),
+			expect.objectContaining({ name: 'Vorlagen', href: '/auftrag-vorlagen' }),
 			expect.objectContaining({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten' }),
 			expect.objectContaining({ name: 'Katalog', href: '/katalog', symbol: 'katalog' })
 		]);
 	});
 
-	it('Chef: Haupt Start, Kunden, Aufträge, Plantafel, Angebote; „Mehr“ mit To-dos, Abwesenheiten, Katalog, Benutzer, Rollen, Briefkopf', () => {
+	it('Chef: Haupt Start, Kunden, Aufträge, Plantafel, Angebote; „Mehr“ mit To-dos, Vorlagen, Abwesenheiten, Katalog, Benutzer, Rollen, Briefkopf', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Plantafel', 'Angebote']);
-		expect(namen(nav.mehr)).toEqual(['To-dos', 'Abwesenheiten', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen', 'Abwesenheiten', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
 		expect(nav.mehr).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ name: 'Benutzer', href: '/einstellungen/benutzer' }),
@@ -37,18 +38,18 @@ describe('baueNavigation', () => {
 		);
 	});
 
-	it('Monteur (kunden.lesen, auftraege.lesen): Start, Kunden, Aufträge; To-dos unter „Mehr“; keine Plantafel', () => {
+	it('Monteur (kunden.lesen, auftraege.lesen): Start, Kunden, Aufträge; To-dos und Vorlagen unter „Mehr“; keine Plantafel', () => {
 		const nav = baueNavigation(betriebsNutzer(['kunden.lesen', 'auftraege.lesen']), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge']);
-		expect(namen(nav.mehr)).toEqual(['To-dos']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen']);
 		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE).haupt)).toEqual(['Start', 'Kunden', 'Aufträge']);
 	});
 
-	it('Tarif ohne Modul plantafel: keine Plantafel und keine Abwesenheiten; ohne auftraege keine Aufträge/To-dos', () => {
+	it('Tarif ohne Modul plantafel: keine Plantafel und keine Abwesenheiten; ohne auftraege keine Aufträge/To-dos/Vorlagen', () => {
 		const ohnePlantafel = ALLE_MODULE.filter((m) => m !== 'plantafel');
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ohnePlantafel);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Angebote']);
-		expect(namen(nav.mehr)).toEqual(['To-dos', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
 		const ohneAuftraege = ALLE_MODULE.filter((m) => m !== 'auftraege');
 		const n2 = baueNavigation(betriebsNutzer(VORLAGEN.chef), ohneAuftraege);
 		expect(namen(n2.haupt)).toEqual(['Start', 'Kunden', 'Plantafel', 'Angebote']);
@@ -61,7 +62,7 @@ describe('baueNavigation', () => {
 			'Aufträge',
 			'Plantafel'
 		]);
-		expect(namen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE).mehr)).toEqual(['To-dos']);
+		expect(namen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE).mehr)).toEqual(['To-dos', 'Vorlagen']);
 		const planer = baueNavigation(betriebsNutzer(['plantafel.bearbeiten']), ALLE_MODULE);
 		expect(namen(planer.haupt)).toEqual(['Start', 'Plantafel']);
 		expect(namen(planer.mehr)).toEqual(['Abwesenheiten']);
