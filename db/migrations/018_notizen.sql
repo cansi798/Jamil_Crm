@@ -18,19 +18,17 @@ create index notizen_betrieb_idx on app.notizen (betrieb_id, angelegt desc);
 
 -- Rechte
 revoke all on app.notizen from public, crm_app, crm_admin, crm_auth;
-grant select (id, auftrag_id, text, angelegt, geaendert, von_benutzer_id) on app.notizen to crm_app;
-grant insert (betrieb_id, auftrag_id, text, von_benutzer_id) on app.notizen to crm_app;
+grant select, insert, delete on app.notizen to crm_app;
 grant update (text) on app.notizen to crm_app;
-grant delete on app.notizen to crm_app;
 grant select on app.notizen to crm_admin;
-grant usage on schema app to crm_app, crm_admin;
 
 -- RLS
 alter table app.notizen enable row level security;
 alter table app.notizen force row level security;
 
-create policy notizen_mandant on app.notizen using (betrieb_id = app.mandant());
-create policy notizen_insert on app.notizen for insert with check (betrieb_id = app.mandant());
+create policy notizen_mandant on app.notizen
+	for all to crm_app
+	using (betrieb_id = nullif(current_setting('app.betrieb_id', true), '')::uuid);
 
 -- Änderungsprotokoll
 create trigger notizen_protokoll
