@@ -56,6 +56,7 @@
 	{#if data.darfBearbeiten}
 		<a href={`/auftraege/${a.id}/bearbeiten`} class="kd-knopf hell">Auftrag bearbeiten</a>
 	{/if}
+	<a href={`/auftraege/${a.id}/dokumentation`} class="kd-knopf hell">Dokumentation</a>
 
 	{#if data.angebote}
 		<h2>Angebote</h2>
