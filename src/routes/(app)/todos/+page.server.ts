@@ -1,7 +1,7 @@
 import type { Actions, PageServerLoad } from './$types';
 import { sichtVon } from '$lib/server/auftraege';
 import { hatRecht } from '$lib/server/rechte';
-import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
+import { alsSeitenFehler, seitenZugriff, vorbelegung } from '$lib/server/seite';
 import { todoAktionen } from '$lib/server/todo-aktionen';
 import { aktiveMitarbeiter, listeTodos, type TodoAuswahl } from '$lib/server/todos';
 import { berlinTag } from '$lib/zeit';
@@ -21,7 +21,17 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const [todos, mitarbeiter] = await alsSeitenFehler(() =>
 		Promise.all([listeTodos(k, sicht, { nur }), darfBearbeiten ? aktiveMitarbeiter(k) : Promise.resolve([])])
 	);
-	return { nur, reiter, todos, mitarbeiter, heute: berlinTag(new Date()), darfBearbeiten, benutzerId: nutzer.id };
+	return {
+		nur,
+		reiter,
+		todos,
+		mitarbeiter,
+		heute: berlinTag(new Date()),
+		darfBearbeiten,
+		benutzerId: nutzer.id,
+		// „+ To-do“ vorbelegt (z. B. „Ändern“ auf der Bestätigungskarte der Sprachsteuerung)
+		vorbelegt: vorbelegung(url, ['titel', 'faellig'])
+	};
 };
 
 export const actions: Actions = todoAktionen(false);

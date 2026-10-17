@@ -45,3 +45,16 @@ export function formWerte(form: FormData, felder: readonly string[]): Record<str
 	}
 	return werte;
 }
+
+/**
+ * Vorbelegung eines Formulars aus der Adresse (z. B. „Ändern“ auf der Bestätigungskarte der Sprachsteuerung):
+ * nur die genannten Felder, nur Text, höchstens 2000 Zeichen – geprüft wird wie immer erst beim Speichern.
+ */
+export function vorbelegung(url: URL, felder: readonly string[]): Record<string, string> {
+	const werte: Record<string, string> = {};
+	for (const f of felder) {
+		const w = url.searchParams.get(f);
+		if (w !== null && w !== '') werte[f] = w.replaceAll('\u0000', '').slice(0, 2000);
+	}
+	return werte;
+}

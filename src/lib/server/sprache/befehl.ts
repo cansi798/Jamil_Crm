@@ -14,6 +14,8 @@ import { signiere } from './vorschlag';
  */
 
 export const MAX_BEFEHL_ZEICHEN = 500;
+export const UNBEKANNT_HINWEIS =
+	'Ich kann Kunden, Aufträge, To-dos und Termine anlegen, Termine verschieben und Angebotsentwürfe erstellen.';
 
 export type Befehlsergebnis = { text: string; vorschlag: string | null; karte: Karte };
 
@@ -38,7 +40,7 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	await verbrauche(k, 'aktion');
 	const aktion = await kiAnbieter().aktionAusText(text, kiKontext(jetzt));
 	if (aktion.aktion === 'unbekannt') {
-		return { text, vorschlag: null, karte: hinweisKarte('unbekannt', 'Das kann ich noch nicht.') };
+		return { text, vorschlag: null, karte: hinweisKarte('unbekannt', UNBEKANNT_HINWEIS) };
 	}
 	const fehlt = await rechteHinweis(locals, aktion.aktion);
 	if (fehlt) return { text, vorschlag: null, karte: hinweisKarte(aktion.aktion, fehlt) };

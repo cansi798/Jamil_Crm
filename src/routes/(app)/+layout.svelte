@@ -4,6 +4,7 @@
 	import { istAktiv } from '$lib/navigation';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
+	import Mikrofon from '$lib/components/Mikrofon.svelte';
 	import { loesche, merkeNutzer, nutzerKennung } from '$lib/heute-kopie';
 	import type { LayoutData } from './$types';
 
@@ -68,10 +69,14 @@
 				</button>
 			</form>
 		</nav>
-		<div class="inhalt">
+		<div class="inhalt" class:mit-mikro={data.sprache}>
 			<NurLesenHinweis form={page.form} />
 			{@render children()}
 		</div>
+		{#if data.sprache}
+			<!-- Sprachsteuerung (Modul „sprache“): runder Knopf unten rechts über der Navigation -->
+			<Mikrofon />
+		{/if}
 	</div>
 {:else}
 	<!-- Vor-Sitzung (Einrichtung der Zwei-Faktor-Anmeldung): noch keine Navigation -->
@@ -145,6 +150,10 @@
 	.inhalt {
 		padding-bottom: calc(var(--nav-hoehe) + env(safe-area-inset-bottom));
 	}
+	/* Platz unter dem Inhalt, damit der Mikrofon-Knopf nichts dauerhaft verdeckt */
+	.inhalt.mit-mikro {
+		padding-bottom: calc(var(--nav-hoehe) + 5rem + env(safe-area-inset-bottom));
+	}
 
 	@media (min-width: 900px) {
 		.hauptnav {
@@ -214,6 +223,9 @@
 		.inhalt {
 			padding-bottom: 0;
 			margin-left: var(--seitenleiste);
+		}
+		.inhalt.mit-mikro {
+			padding-bottom: 5.5rem;
 		}
 	}
 </style>

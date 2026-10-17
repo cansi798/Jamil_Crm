@@ -131,6 +131,9 @@ describe('verlaufZeile', () => {
 		expect(z.wer).toBe('Chef');
 		expect(z.aenderungen).toEqual([]);
 	});
+	it('per Sprachsteuerung angelegt → „(per Sprache)“', () => {
+		expect(verlaufZeile({ ...basis, quelle: 'sprache' }).wer).toBe('Chef (per Sprache)');
+	});
 	it('geändert: nur geänderte Felder mit deutschen Namen, interne Schlüssel ausgeblendet', () => {
 		const z = verlaufZeile({
 			...basis,

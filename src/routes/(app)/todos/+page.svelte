@@ -43,7 +43,7 @@
 			aktion="?/anlegen"
 			mitarbeiter={data.mitarbeiter}
 			fehler={form?.todoWerte ? form.fehler : null}
-			werte={form?.todoWerte ?? {}}
+			werte={form?.todoWerte ?? data.vorbelegt}
 		/>
 	{/if}
 

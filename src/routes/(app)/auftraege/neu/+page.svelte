@@ -17,7 +17,7 @@
 	<h1>Neuer Auftrag</h1>
 	<AuftragFormular
 		aktion="?/anlegen"
-		werte={form?.werte ?? {}}
+		werte={form?.werte ?? data.vorbelegt}
 		kunde={auswahl.kunde}
 		objekte={auswahl.objekte}
 		kundenSuche={data.kundenSuche}

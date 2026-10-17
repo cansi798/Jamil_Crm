@@ -82,7 +82,8 @@ export function verlaufZeile(e: VerlaufEintrag): VerlaufZeile {
 	return {
 		id: e.id,
 		zeit: zeitFormat.format(new Date(e.zeit)),
-		wer: e.benutzerName ?? 'System',
+		// Aktionen per Sprachsteuerung sind im Verlauf erkennbar (Pflichtenheft: „auch bei Aktionen per Sprache“)
+		wer: `${e.benutzerName ?? 'System'}${e.quelle === 'sprache' ? ' (per Sprache)' : ''}`,
 		titel: TITEL[e.aktion],
 		aenderungen
 	};
