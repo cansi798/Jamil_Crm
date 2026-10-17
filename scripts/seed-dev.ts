@@ -166,7 +166,7 @@ async function sichereBenutzer(
 	return { id: z.id, neu: true };
 }
 
-export type SeedErgebnis = { neueBenutzer: number; neueKunden: number } & Planung & Angebote1c;
+export type SeedErgebnis = { neueBenutzer: number; neueKunden: number; neueVorlagen: number } & Planung & Angebote1c;
 
 type Angebote1c = { neueKatalogpositionen: number; neueAngebote: number };
 
@@ -391,8 +391,7 @@ const ANGEBOTE: {
  * bzw. noch kein Logo da ist), Startvorlagen Bad/Sanitär und Fliesen mit Beispielpreisen (nur Positionen, die noch
  * Preis 0 haben und nicht als Beispielpreis markiert sind), zwei Angebote (nur für Aufträge ohne Angebot).
  */
-export async function sichereKatalogUndAngebote(tx: Tx, betriebId: string): Promise<Angebote1c> {
-	await tx`
+export async function sichereKatalogUndAngebote(tx: Tx, betriebId: string): Promise<Angebote1c> {	await tx`
 		insert into app.betrieb_profil ${tx({ betrieb_id: betriebId, ...BRIEFKOPF })}
 		on conflict (betrieb_id) do nothing`;
 	if (existsSync(LOGO_DATEI)) {
@@ -448,6 +447,61 @@ export async function sichereKatalogUndAngebote(tx: Tx, betriebId: string): Prom
 		neueAngebote++;
 	}
 	return { neueKatalogpositionen: neu.length, neueAngebote };
+}
+
+export async function sichereVorlagen(tx: Tx, betriebId: string): Promise<number> {
+	const VORLAGEN_BEISPIELE = [
+		{
+			name: 'Wartung Heizung',
+			beschreibung: 'Jährliche Wartung der Heizungsanlage',
+			todos: [
+				{ titel: 'Filter wechseln', beschreibung: 'Luft- und Wasserfilter prüfen und ggf. tauschen' },
+				{ titel: 'Brenner reinigen', beschreibung: 'Brenner ausbauen und reinigen' },
+				{ titel: 'Abgas messen', beschreibung: 'Abgaswerte messen und protokollieren' },
+				{ titel: 'Sicherheitsventile prüfen', beschreibung: 'Überdruckventil und Not-Aus prüfen' }
+			]
+		},
+		{
+			name: 'Bad-Sanitär',
+			beschreibung: 'Standard-Arbeiten für Badsanierung',
+			todos: [
+				{ titel: 'Altbad ausbauen', beschreibung: 'Sanitärobjekte und Fliesen entfernen' },
+				{ titel: 'Leitungen verlegen', beschreibung: 'Zu- und Abwasserleitungen installieren' },
+				{ titel: 'Fliesen verlegen', beschreibung: 'Wand und Boden fliesen' },
+				{ titel: 'Sanitärobjekte montieren', beschreibung: 'WC, Waschtisch, Dusche installieren' }
+			]
+		},
+		{
+			name: 'Umzug',
+			beschreibung: 'To-dos für Umzugsaufträge',
+			todos: [
+				{ titel: 'Kartons besorgen', beschreibung: 'Ausreichend Umzugskartons bereitstellen' },
+				{ titel: 'Möbel demontieren', beschreibung: 'Große Möbel zerlegen' },
+				{ titel: 'Transport organisieren', beschreibung: 'Umzugswagen oder Firma beauftragen' },
+				{ titel: 'Aufbau am Zielort', beschreibung: 'Möbel wieder zusammensetzen' }
+			]
+		}
+	];
+
+	let neue = 0;
+	for (const v of VORLAGEN_BEISPIELE) {
+		const [vorhanden] = await tx`
+			select 1 from app.auftrag_vorlagen where betrieb_id = ${betriebId} and name = ${v.name}`;
+		if (vorhanden) continue;
+
+		const [vorlage] = await tx`
+			insert into app.auftrag_vorlagen (betrieb_id, name, beschreibung)
+			values (${betriebId}, ${v.name}, ${v.beschreibung})
+			returning id`;
+		for (let i = 0; i < v.todos.length; i++) {
+			const t = v.todos[i];
+			await tx`
+				insert into app.auftrag_vorlagen_todos (betrieb_id, vorlage_id, titel, beschreibung, sortierung)
+				values (${betriebId}, ${vorlage.id}, ${t.titel}, ${t.beschreibung}, ${i + 1})`;
+		}
+		neue++;
+	}
+	return neue;
 }
 
 export async function seedDev(url: string, opts: { datei?: string } = {}): Promise<SeedErgebnis> {
@@ -535,7 +589,8 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			}
 			const planung = await sichereBeispielplanung(tx, betrieb.id);
 			const angebote = await sichereKatalogUndAngebote(tx, betrieb.id);
-			return { neueBenutzer, neueKunden, ...planung, ...angebote };
+			const neueVorlagen = await sichereVorlagen(tx, betrieb.id);
+			return { neueBenutzer, neueKunden, ...planung, ...angebote, neueVorlagen };
 		});
 	} finally {
 		await sql.end();
@@ -547,7 +602,8 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			`(${ergebnis.neueBenutzer} neu), ${KUNDEN.length} Beispielkunden (${ergebnis.neueKunden} neu), ` +
 			`${AUFTRAEGE.length} Beispielaufträge (${ergebnis.neueAuftraege} neu), ` +
 			`${ergebnis.neueEinsaetze} neue Einsätze, ${ergebnis.neueTodos} neue To-dos, ` +
-			`${ergebnis.neueKatalogpositionen} neue Katalogpositionen, ${ergebnis.neueAngebote} neue Angebote. ` +
+			`${ergebnis.neueKatalogpositionen} neue Katalogpositionen, ${ergebnis.neueAngebote} neue Angebote, ` +
+			`${ergebnis.neueVorlagen} neue Vorlagen. ` +
 			`Zugangsdaten: ${datei}`
 	);
 	return ergebnis;
