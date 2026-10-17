@@ -10,6 +10,12 @@ import {
 	aendereVorlage,
 	loescheVorlage
 } from '../../src/lib/server/auftrag-vorlagen';
+import { GET as listeGet, POST as vorlagePost } from '../../src/routes/api/auftrag-vorlagen/+server';
+import {
+	GET as vorlageGet,
+	PUT as vorlagePut,
+	DELETE as vorlageDelete
+} from '../../src/routes/api/auftrag-vorlagen/[id]/+server';
 
 type Ant = { status: number; koerper: any };
 
@@ -194,6 +200,75 @@ describe('Auftrags-To-do-Vorlagen', () => {
 			await expect(
 				holeVorlage({ betriebId: betriebA, benutzerId: chefAId }, erg.id)
 			).rejects.toThrow('nicht gefunden');
+		});
+	});
+
+	describe('API', () => {
+		const jsonAnfrage = (methode: string, koerper?: unknown) =>
+			new Request('http://localhost/api/auftrag-vorlagen', {
+				method: methode,
+				headers: { 'content-type': 'application/json' },
+				body: koerper === undefined ? undefined : JSON.stringify(koerper)
+			});
+
+		const antwort = async (r: Response) => {
+			const text = await r.text();
+			return { status: r.status, koerper: text ? JSON.parse(text) : null };
+		};
+
+		it('GET ohne Recht → 403', async () => {
+			const monteur = nutzerVon(chefAId, betriebA, ['auftraege.lesen']);
+			const r = await antwort(await listeGet({ locals: { nutzer: monteur }, url: new URL('http://localhost/api/auftrag-vorlagen') } as never));
+			expect(r.status).toBe(200); // auftraege.lesen reicht für GET
+		});
+
+		it('POST mit Todos → 201 mit Todos', async () => {
+			const r = await antwort(await vorlagePost({
+				locals: { nutzer: chefA },
+				request: jsonAnfrage('POST', {
+					name: 'API Test',
+					todos: [{ titel: 'Todo 1' }, { titel: 'Todo 2', sortierung: 1 }]
+				})
+			} as never));
+			expect(r.status).toBe(201);
+			expect(r.koerper.name).toBe('API Test');
+			expect(r.koerper.todos).toHaveLength(2);
+		});
+
+		it('GET [id] mit fremder ID → 404', async () => {
+			const fremd = await legeVorlageAn({ betriebId: betriebB, benutzerId: chefBId }, { name: 'Fremd' });
+			const r = await antwort(await vorlageGet({
+				locals: { nutzer: chefA },
+				params: { id: fremd.id }
+			} as never));
+			expect(r.status).toBe(404);
+		});
+
+		it('PUT → Todos werden ersetzt', async () => {
+			const vorlage = await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, {
+				name: 'Zu ändern',
+				todos: [{ titel: 'Alt' }]
+			});
+			const r = await antwort(await vorlagePut({
+				locals: { nutzer: chefA },
+				params: { id: vorlage.id },
+				request: jsonAnfrage('PUT', {
+					name: 'Geändert',
+					todos: [{ titel: 'Neu 1' }, { titel: 'Neu 2' }]
+				})
+			} as never));
+			expect(r.status).toBe(200);
+			expect(r.koerper.name).toBe('Geändert');
+			expect(r.koerper.todos).toHaveLength(2);
+		});
+
+		it('DELETE → 204', async () => {
+			const vorlage = await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, { name: 'Löschen' });
+			const r = await antwort(await vorlageDelete({
+				locals: { nutzer: chefA },
+				params: { id: vorlage.id }
+			} as never));
+			expect(r.status).toBe(204);
 		});
 	});
 });
