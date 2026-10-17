@@ -3,6 +3,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schliesseDb } from '../../src/lib/server/db';
 import { POST as audioPost } from '../../src/routes/api/sprache/+server';
 import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
+import { POST as ausfuehrenPost } from '../../src/routes/api/sprache/ausfuehren/+server';
+import { signiere } from '../../src/lib/server/sprache/vorschlag';
+import { legeKundeAn } from '../../src/lib/server/kunden';
 import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
 import { FakeKi } from '../../src/lib/server/ki/fake';
 import { pruefeVorschlag } from '../../src/lib/server/sprache/vorschlag';
@@ -29,6 +32,9 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 	const verbrauch = async () => (await root`select coalesce(sum(anzahl), 0)::int as n from app.ki_nutzung`)[0].n as number;
 	const text = async (nutzer: Nutzer | null, koerper: unknown, typ: string | null = 'application/json') =>
 		antwort(await textPost({ locals: { nutzer }, request: jsonAnfrage('POST', koerper, typ) } as never));
+	const ausfuehren = async (nutzer: Nutzer | null, koerper: unknown) =>
+		antwort(await ausfuehrenPost({ locals: { nutzer }, request: jsonAnfrage('POST', koerper) } as never));
+	const anzahl = async (tabelle: string) => (await root.unsafe(`select count(*)::int as n from app.${tabelle}`))[0].n as number;
 
 	const senden = async (nutzer: Nutzer | null, bytes: Uint8Array, typ: string | null, laengeKopf?: string) =>
 		antwort(await audioPost({ locals: { nutzer }, request: audioAnfrage(bytes, typ, laengeKopf) } as never));
@@ -307,7 +313,7 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 	it('Termin bei Becker morgen 8 Uhr mit Ali → Einsatz 08:00–16:00', async () => {
 		const [auftrag] = await root`insert into app.auftraege (betrieb_id, titel, kunde_id) values (${u.betriebA}, 'Dachrinne', ${kundeBecker}) returning id, nummer`;
 		try {
-			const a = await text(u.bueroA, { text: 'Termin bei Becker morgen 8 Uhr mit Ali' });
+			const a = await text(u.bueroA, { text: 'Termin bei Becker Dachrinne morgen 8 Uhr mit Ali' });
 			const k = a.koerper.karte;
 			expect(k.titel).toBe('Termin einplanen');
 			expect(zeile(k, 'Auftrag')).toBe(`${auftrag.nummer} Dachrinne – Becker Bau GmbH`);
@@ -382,5 +388,195 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 		expect((await text(u.chefC, { text: 'x' })).status).toBe(402);
 		expect(ki.aufrufe).toBe(0);
 		expect(await verbrauch()).toBe(0);
+	});
+
+	// ---------------------------------------------------------------------------------------------------------------
+	// Task 5: Ausführen mit Rechten und Protokoll-Quelle
+
+	it('Auftrag mit 2 Mitarbeitern: legt Auftrag + 2 Einsätze an, liefert Plantafel-Warnungen, Protokoll quelle=sprache', async () => {
+		const montag = naechster(0);
+		// Ali hat am Montag Urlaub → Warnung (blockiert nicht)
+		await root`insert into app.abwesenheiten (betrieb_id, benutzer_id, art, von, bis) values (${u.betriebA}, ${u.ids.monteurA}, 'urlaub', ${montag}, ${montag})`;
+		try {
+			const v = await text(u.bueroA, { text: 'Neuer Auftrag für Montag, Ali und Mehmet, Badsanierung bei Becker' });
+			const vorher = { auftraege: await anzahl('auftraege'), einsaetze: await anzahl('einsaetze') };
+			const a = await ausfuehren(u.bueroA, { vorschlag: v.koerper.vorschlag });
+			expect(a.status).toBe(201);
+			expect(a.koerper.meldung).toMatch(/^Auftrag A-\d{4}-\d{4} „Badsanierung“ angelegt$/);
+			expect(a.koerper.link).toMatch(/^\/auftraege\/[0-9a-f-]{36}$/);
+			expect(a.koerper.warnungen).toEqual(['Ali Monteur: Urlaub']);
+			expect(await anzahl('auftraege')).toBe(vorher.auftraege + 1);
+			expect(await anzahl('einsaetze')).toBe(vorher.einsaetze + 2);
+			const id = a.koerper.link.split('/').at(-1);
+			const [auftrag] = await root`select titel, kunde_id, to_char(geplant_ab, 'YYYY-MM-DD') as geplant_ab from app.auftraege where id = ${id}`;
+			expect(auftrag).toEqual({ titel: 'Badsanierung', kunde_id: kundeBecker, geplant_ab: montag });
+			const einsaetze = await root`select benutzer_id from app.einsaetze where auftrag_id = ${id} order by beginn, benutzer_id`;
+			expect(einsaetze.map((e) => e.benutzer_id).sort()).toEqual([u.ids.monteurA, mehmetId].sort());
+			const protokoll = await root`
+				select tabelle, quelle, benutzer_id from app.aenderungen
+				where (tabelle = 'auftraege' and datensatz_id = ${id})
+					or (tabelle = 'einsaetze' and datensatz_id in (select id from app.einsaetze where auftrag_id = ${id}))`;
+			expect(protokoll).toHaveLength(3);
+			for (const p of protokoll) expect(p).toMatchObject({ quelle: 'sprache', benutzer_id: u.ids.bueroA });
+			// Zweites Mal derselbe Vorschlag → 409, nichts doppelt
+			const nochmal = await ausfuehren(u.bueroA, { vorschlag: v.koerper.vorschlag });
+			expect(nochmal.status).toBe(409);
+			expect(await anzahl('auftraege')).toBe(vorher.auftraege + 1);
+		} finally {
+			await root`delete from app.abwesenheiten`;
+		}
+	});
+
+	it('Änderungen über die Oberfläche bleiben quelle=oberflaeche', async () => {
+		const kd = await legeKundeAn({ betriebId: u.betriebA, benutzerId: u.ids.bueroA }, { art: 'privat', nachname: 'Oberfläche' });
+		const [p] = await root`select quelle from app.aenderungen where tabelle = 'kunden' and datensatz_id = ${kd.id}`;
+		expect(p.quelle).toBe('oberflaeche');
+	});
+
+	it('Kunde, To-do, Termin, Verschieben über den Vorschlag', async () => {
+		const kunde = await text(u.bueroA, { text: 'Neuer Kunde Eva Schulz aus Hamburg' });
+		const k = await ausfuehren(u.bueroA, { vorschlag: kunde.koerper.vorschlag });
+		expect(k.status).toBe(201);
+		expect(k.koerper.meldung).toBe('Kunde „Eva Schulz“ angelegt');
+		const [schulz] = await root`select id, ort from app.kunden where nachname = 'Schulz' and betrieb_id = ${u.betriebA}`;
+		expect(schulz.ort).toBe('Hamburg');
+		expect(k.koerper.link).toBe(`/kunden/${schulz.id}`);
+
+		const todo = await text(u.bueroA, { text: 'Neues To-do für Mehmet: Silikonfuge erneuern, bis Freitag' });
+		const t = await ausfuehren(u.bueroA, { vorschlag: todo.koerper.vorschlag });
+		expect(t.status).toBe(201);
+		const [td] = await root`select zustaendig_id, to_char(faellig, 'YYYY-MM-DD') as faellig from app.todos where titel = 'Silikonfuge erneuern'`;
+		expect(td).toEqual({ zustaendig_id: mehmetId, faellig: naechster(4) });
+
+		const [auftrag] = await root`insert into app.auftraege (betrieb_id, titel, kunde_id) values (${u.betriebA}, 'Dachrinne', ${kundeBecker}) returning id`;
+		try {
+			const termin = await text(u.bueroA, { text: 'Termin bei Becker Dachrinne morgen 8 Uhr mit Ali' });
+			const e = await ausfuehren(u.bueroA, { vorschlag: termin.koerper.vorschlag });
+			expect(e.status).toBe(201);
+			const [einsatz] = await root`select id, beginn, ende from app.einsaetze where auftrag_id = ${auftrag.id}`;
+			const morgen = tagPlus(berlinTag(new Date()), 1);
+			expect(berlinTag(new Date(einsatz.beginn))).toBe(morgen);
+			expect(new Date(einsatz.ende).getTime() - new Date(einsatz.beginn).getTime()).toBe(8 * 3600_000);
+
+			const schieben = await text(u.bueroA, { text: 'Verschiebe den Termin bei Becker Dachrinne auf übermorgen um 10 Uhr' });
+			const s = await ausfuehren(u.bueroA, { vorschlag: schieben.koerper.vorschlag });
+			expect(s.status).toBe(200);
+			const [neu] = await root`select beginn, ende from app.einsaetze where id = ${einsatz.id}`;
+			expect(berlinTag(new Date(neu.beginn))).toBe(tagPlus(berlinTag(new Date()), 2));
+			expect(new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(new Date(neu.beginn))).toBe('10:00');
+			expect(new Date(neu.ende).getTime() - new Date(neu.beginn).getTime()).toBe(8 * 3600_000);
+			const [prot] = await root`select quelle from app.aenderungen where tabelle = 'einsaetze' and datensatz_id = ${einsatz.id} and aktion = 'geaendert'`;
+			expect(prot.quelle).toBe('sprache');
+		} finally {
+			await root`delete from app.auftraege where id = ${auftrag.id}`;
+		}
+	});
+
+	it('Auswahl bei Mehrdeutigkeit: nur angebotene Option, sonst 400; ohne Auswahl 400', async () => {
+		const v = await text(u.bueroA, { text: 'Neuer Auftrag Fliesen Küche bei Müller' });
+		const vorher = await anzahl('auftraege');
+		const ohne = await ausfuehren(u.bueroA, { vorschlag: v.koerper.vorschlag });
+		expect(ohne.status).toBe(400);
+		expect(ohne.koerper.fehler).toBe('Bitte wählen: Meinen Sie Kunde Müller in Norderstedt oder in Hamburg?');
+		const fremd = await ausfuehren(u.bueroA, { vorschlag: v.koerper.vorschlag, auswahl: { kunde: kundeBecker } });
+		expect(fremd.status).toBe(400);
+		const unbekanntesFeld = await ausfuehren(u.bueroA, { vorschlag: v.koerper.vorschlag, auswahl: { kunde: kundeHamburg, preis: '1' } });
+		expect(unbekanntesFeld.status).toBe(400);
+		expect(await anzahl('auftraege')).toBe(vorher);
+		const ok = await ausfuehren(u.bueroA, { vorschlag: v.koerper.vorschlag, auswahl: { kunde: kundeHamburg } });
+		expect(ok.status).toBe(201);
+		const [a] = await root`select kunde_id from app.auftraege where id = ${ok.koerper.link.split('/').at(-1)}`;
+		expect(a.kunde_id).toBe(kundeHamburg);
+	});
+
+	it('Review Focus 2: manipulierter, fremder oder abgelaufener Vorschlag → 400/403, nichts gespeichert', async () => {
+		const v = await text(u.bueroA, { text: 'Neuer Kunde Rita Manipuliert aus Kiel' });
+		const token: string = v.koerper.vorschlag;
+		const vorher = await anzahl('kunden');
+		// fremder Benutzer, fremder Betrieb
+		expect((await ausfuehren(u.chefA, { vorschlag: token })).status).toBe(403);
+		expect((await ausfuehren(u.chefB, { vorschlag: token })).status).toBe(403);
+		// geänderte Felder
+		const [teil, sig] = token.split('.');
+		const daten = JSON.parse(Buffer.from(teil, 'base64url').toString('utf8'));
+		daten.vorschau.werte.kunde.nachname = 'Untergeschoben';
+		expect((await ausfuehren(u.bueroA, { vorschlag: `${Buffer.from(JSON.stringify(daten)).toString('base64url')}.${sig}` })).status).toBe(400);
+		// anderer Betrieb im Inhalt (ohne neue Signatur)
+		daten.vorschau.werte.kunde.nachname = 'Manipuliert';
+		daten.b = u.betriebB;
+		expect((await ausfuehren(u.chefB, { vorschlag: `${Buffer.from(JSON.stringify(daten)).toString('base64url')}.${sig}` })).status).toBe(400);
+		// abgelaufen (Uhr 11 Minuten vor)
+		const echt = Date.now;
+		Date.now = () => echt() + 11 * 60_000;
+		try {
+			const alt = await ausfuehren(u.bueroA, { vorschlag: token });
+			expect(alt.status).toBe(400);
+			expect(alt.koerper.fehler).toBe('Der Vorschlag ist abgelaufen – bitte noch einmal sprechen.');
+		} finally {
+			Date.now = echt;
+		}
+		// kaputt / fehlt / ohne Anmeldung
+		expect((await ausfuehren(u.bueroA, { vorschlag: 'abc.def' })).status).toBe(400);
+		expect((await ausfuehren(u.bueroA, {})).status).toBe(400);
+		expect((await ausfuehren(null, { vorschlag: token })).status).toBe(401);
+		expect(await anzahl('kunden')).toBe(vorher);
+		// das Original funktioniert danach noch
+		expect((await ausfuehren(u.bueroA, { vorschlag: token })).status).toBe(201);
+		expect(await anzahl('kunden')).toBe(vorher + 1);
+	});
+
+	it('Rechte werden beim Ausführen erneut geprüft (Recht inzwischen entzogen → 403, nichts gespeichert)', async () => {
+		const ohneKunden: Nutzer = { ...u.bueroA, rechte: u.bueroA.rechte.filter((r) => r !== 'kunden.bearbeiten') };
+		const v = await text(u.bueroA, { text: 'Neuer Kunde Rudi Entzogen aus Kiel' });
+		const vorher = await anzahl('kunden');
+		const a = await ausfuehren(ohneKunden, { vorschlag: v.koerper.vorschlag });
+		expect(a.status).toBe(403);
+		expect(await anzahl('kunden')).toBe(vorher);
+		// Plantafel-Recht fehlt beim Auftrag mit Mitarbeitern
+		const ohnePlanen: Nutzer = { ...u.bueroA, rechte: u.bueroA.rechte.filter((r) => r !== 'plantafel.bearbeiten') };
+		const w = await text(u.bueroA, { text: 'Neuer Auftrag für Montag, Ali und Mehmet, Badsanierung bei Becker' });
+		const auftraegeVorher = await anzahl('auftraege');
+		expect((await ausfuehren(ohnePlanen, { vorschlag: w.koerper.vorschlag })).status).toBe(403);
+		expect(await anzahl('auftraege')).toBe(auftraegeVorher);
+		// Karte für Nutzer ohne Planungsrecht: Hinweis statt Vorschlag
+		const karte = await text(ohnePlanen, { text: 'Neuer Auftrag für Montag, Ali und Mehmet, Badsanierung bei Becker' });
+		expect(karte.koerper.vorschlag).toBeNull();
+		expect(karte.koerper.karte.fehler).toBe('Dafür fehlt Ihnen die Berechtigung (Mitarbeiter einplanen).');
+	});
+
+	it('Alles oder nichts: scheitert ein Einsatz (Mitarbeiter inzwischen deaktiviert), bleibt auch der Auftrag weg', async () => {
+		const v = await text(u.bueroA, { text: 'Neuer Auftrag für Montag, Ali und Mehmet, Badsanierung bei Becker' });
+		await root`update app.benutzer set aktiv = false where id = ${mehmetId}`;
+		try {
+			const vorher = { auftraege: await anzahl('auftraege'), einsaetze: await anzahl('einsaetze'), protokoll: await anzahl('aenderungen') };
+			const a = await ausfuehren(u.bueroA, { vorschlag: v.koerper.vorschlag });
+			expect(a.status).toBe(400);
+			expect(a.koerper.fehler).toBe('Eingeplant werden kann nur ein aktiver Mitarbeiter des Betriebs.');
+			expect(await anzahl('auftraege')).toBe(vorher.auftraege);
+			expect(await anzahl('einsaetze')).toBe(vorher.einsaetze);
+			expect(await anzahl('aenderungen')).toBe(vorher.protokoll);
+		} finally {
+			await root`update app.benutzer set aktiv = true where id = ${mehmetId}`;
+		}
+	});
+
+	it('Review Focus 1: Monteur „Erstelle ein Angebot für Müller“ → Berechtigung fehlt, keine KI-Anfrage mit Katalog, nichts gespeichert', async () => {
+		const vorher = await anzahl('angebote');
+		const a = await text(u.monteurA, { text: 'Erstelle ein Angebot für Müller: 12 Quadratmeter Wandfliesen' });
+		expect(a.status).toBe(200);
+		expect(a.koerper.vorschlag).toBeNull();
+		expect(a.koerper.karte.fehler).toBe('Dafür fehlt Ihnen die Berechtigung');
+		expect(ki.entwurfAufrufe).toBe(0);
+		expect(ki.letzterEntwurf).toBeNull();
+		// selbst ein (z. B. vorher ausgestellter) Vorschlag hilft nicht: Ausführen prüft die Rechte vor dem Schreiben
+		const token = signiere(
+			{ aktion: 'angebot_entwurf', werte: { auftragId: u.auftragA, stichworte: '12 m² Fliesen' }, auswahl: [] },
+			u.ids.monteurA,
+			u.betriebA
+		);
+		const b = await ausfuehren(u.monteurA, { vorschlag: token });
+		expect(b.status).toBe(403);
+		expect(ki.entwurfAufrufe).toBe(0);
+		expect(await anzahl('angebote')).toBe(vorher);
 	});
 });

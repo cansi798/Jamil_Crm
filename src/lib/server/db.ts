@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import postgres from 'postgres';
 
 /**
@@ -150,13 +151,36 @@ async function inTransaktion<T>(
 	})) as T;
 }
 
+/**
+ * Gemeinsame Transaktion (`inEinerTransaktion`): Solange sie läuft, verwenden alle `mitBetrieb`-Aufrufe desselben
+ * Kontexts in dieser asynchronen Ausführung genau diese Transaktion – mehrere Dienste (z. B. Auftrag + Einsätze aus
+ * einem Sprachbefehl) speichern dann alles oder nichts, und `app.quelle` gilt für jeden Protokolleintrag.
+ */
+const laufend = new AsyncLocalStorage<{ k: Kontext; tx: TransactionSql }>();
+
 /** Fachliche Abfrage als `crm_app` im Kontext eines Betriebs und Benutzers (RLS greift). */
 export async function mitBetrieb<T>(k: Kontext, fn: (sql: TransactionSql) => Promise<T>): Promise<T> {
+	const offen = laufend.getStore();
+	if (offen && offen.k.betriebId === k.betriebId && offen.k.benutzerId === k.benutzerId) return fn(offen.tx);
 	const kontext = {
 		'app.betrieb_id': nichtLeer(k.betriebId, 'betriebId'),
 		'app.benutzer_id': nichtLeer(k.benutzerId, 'benutzerId')
 	};
 	return inTransaktion(hole().app, kontext, fn);
+}
+
+/** Erlaubte Herkunftsangaben fürs Änderungsprotokoll (`app.aenderungen.quelle`). */
+export type Quelle = 'oberflaeche' | 'sprache';
+
+/**
+ * Führt `fn` in EINER Transaktion als `crm_app` aus; alle `mitBetrieb`-Aufrufe für denselben Kontext darin teilen
+ * sie (alles oder nichts). `quelle` landet über `app.quelle` in jedem Protokolleintrag dieser Transaktion.
+ */
+export async function inEinerTransaktion<T>(k: Kontext, quelle: Quelle, fn: () => Promise<T>): Promise<T> {
+	return mitBetrieb(k, async (tx) => {
+		await tx`select set_config('app.quelle', ${quelle}, true)`;
+		return laufend.run({ k, tx }, fn);
+	});
 }
 
 /** Plattform-Verwaltung als `crm_admin`; `adminId` landet in `app.admin_id` (z. B. fürs Protokoll). */
