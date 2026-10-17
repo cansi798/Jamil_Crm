@@ -14,7 +14,12 @@
 </svelte:head>
 
 <main class="kd-seite">
-	<h1>Kunden</h1>
+	<header class="seiten-kopf">
+		<h1>Kunden</h1>
+		{#if data.darfBearbeiten}
+			<a href="/kunden/neu" class="knopf-gefuellt">+ Kunde</a>
+		{/if}
+	</header>
 
 	<form method="GET" role="search" class="kd-suche">
 		<input
@@ -26,12 +31,8 @@
 			autocomplete="off"
 			enterkeyhint="search"
 		/>
-		<button type="submit" class="kd-knopf">Suchen</button>
+		<button type="submit" class="knopf-subtil">Suchen</button>
 	</form>
-
-	{#if data.darfBearbeiten}
-		<a href="/kunden/neu" class="kd-knopf gross">+ Kunde</a>
-	{/if}
 
 	<ul class="kd-liste">
 		{#each data.kunden as kunde (kunde.id)}
