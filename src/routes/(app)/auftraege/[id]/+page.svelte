@@ -12,6 +12,7 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const a = $derived(data.auftrag);
+	let kiLaeuft = $state(false);
 </script>
 
 <svelte:head>
@@ -85,6 +86,42 @@
 				<button type="submit" class="kd-knopf">Angebot erstellen</button>
 			</form>
 		{/if}
+		{#if data.darfKiEntwurf}
+			<details class="ki-entwurf" open={!!form?.kiStichworte}>
+				<summary class="kd-knopf hell">KI-Entwurf</summary>
+				<form
+					method="POST"
+					action="?/kiEntwurf"
+					enctype="multipart/form-data"
+					class="kd-formular"
+					use:enhance={() => {
+						kiLaeuft = true;
+						return async ({ update }) => {
+							await update();
+							kiLaeuft = false;
+						};
+					}}
+				>
+					<p class="kd-info">
+						Die KI wählt nur Positionen aus Ihrem Leistungskatalog und schlägt Mengen vor. Preise kommen immer aus dem Katalog;
+						unklare Positionen sind gelb als „bitte prüfen“ markiert.
+					</p>
+					<label>
+						Leistungen (Stichworte)
+						<textarea name="stichworte" rows="3" maxlength="2000" placeholder="z. B. 12 m² Wandfliesen, Silikonfugen erneuern">{form?.kiStichworte ?? ''}</textarea>
+					</label>
+					<label>
+						Foto (optional, JPEG/PNG bis 5 MB)
+						<input type="file" name="foto" accept="image/jpeg,image/png" />
+					</label>
+					<label class="ki-zustimmung">
+						<input type="checkbox" name="zustimmung" value="ja" />
+						Das Foto darf zur Auswertung an die KI (Mistral, Verarbeitung in der EU) gesendet werden.
+					</label>
+					<button type="submit" class="kd-knopf" disabled={kiLaeuft}>{kiLaeuft ? 'KI arbeitet …' : 'Entwurf erstellen'}</button>
+				</form>
+			</details>
+		{/if}
 	{/if}
 
 	<h2>Einsätze</h2>
@@ -156,3 +193,27 @@
 		</details>
 	{/if}
 </main>
+
+<style>
+	.ki-entwurf {
+		margin-top: 0.75rem;
+	}
+	.ki-entwurf summary {
+		list-style: none;
+		display: inline-flex;
+		cursor: pointer;
+	}
+	.ki-entwurf form {
+		margin-top: 0.75rem;
+	}
+	.ki-zustimmung {
+		display: flex;
+		gap: 0.5rem;
+		align-items: flex-start;
+		font-weight: 400;
+	}
+	.ki-zustimmung input {
+		min-width: 1.25rem;
+		min-height: 1.25rem;
+	}
+</style>

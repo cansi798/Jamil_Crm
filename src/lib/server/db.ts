@@ -169,8 +169,8 @@ export async function mitBetrieb<T>(k: Kontext, fn: (sql: TransactionSql) => Pro
 	return inTransaktion(hole().app, kontext, fn);
 }
 
-/** Erlaubte Herkunftsangaben fürs Änderungsprotokoll (`app.aenderungen.quelle`). */
-export type Quelle = 'oberflaeche' | 'sprache';
+/** Erlaubte Herkunftsangaben fürs Änderungsprotokoll (`app.aenderungen.quelle`): Oberfläche, Sprachsteuerung, KI-Entwurf. */
+export type Quelle = 'oberflaeche' | 'sprache' | 'ki';
 
 /**
  * Führt `fn` in EINER Transaktion als `crm_app` aus; alle `mitBetrieb`-Aufrufe für denselben Kontext darin teilen

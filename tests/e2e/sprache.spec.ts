@@ -139,4 +139,33 @@ test.describe('Sprachsteuerung', () => {
 		const dialog = await befehlTippen(page, 'Schreib eine Rechnung für Schröder');
 		await expect(dialog.getByRole('heading', { name: 'Das kann ich noch nicht' })).toBeVisible();
 	});
+
+	test('KI-Angebotsentwurf im Auftrag: Stichworte → Entwurf aus Katalogpositionen, unsichere gelb „bitte prüfen“', async ({ page }, info) => {
+		await anmelden(page, BUERO);
+		await api(page, 'POST', '/api/katalog/vorlagen', { gewerk: 'fliesen' });
+		const kunden = await api(page, 'GET', '/api/kunden');
+		const auftrag = await api(page, 'POST', '/api/auftraege', { titel: `E2E KI-Entwurf ${info.project.name}`, kundeId: kunden[0].id });
+		let angebotId: string | null = null;
+		try {
+			await page.goto(`/auftraege/${auftrag.id}`);
+			await page.getByText('KI-Entwurf', { exact: true }).click();
+			await page.getByLabel('Leistungen (Stichworte)').fill('12 m² Bodenfliesen und Abdichtung');
+			await page.getByRole('button', { name: 'Entwurf erstellen' }).click();
+			await page.waitForURL(/\/angebote\/[0-9a-f-]{36}$/);
+			angebotId = page.url().split('/').pop()!;
+			const angebot = await api(page, 'GET', `/api/angebote/${angebotId}`);
+			expect(angebot.status).toBe('entwurf');
+			const boden = angebot.positionen.find((p: any) => /Bodenfliesen/.test(p.bezeichnung));
+			expect(boden).toMatchObject({ menge: 12 });
+			expect(boden.katalogPositionId).toBeTruthy();
+			const abdichtung = angebot.positionen.find((p: any) => /Abdichtung/.test(p.bezeichnung));
+			expect(abdichtung.beschreibung).toMatch(/^Bitte prüfen \(KI-Vorschlag\)/);
+			await expect(page.getByText('bitte prüfen (KI-Vorschlag)').first()).toBeVisible();
+			await page.getByTestId('position').filter({ hasText: 'bitte prüfen (KI-Vorschlag)' }).first().scrollIntoViewIfNeeded();
+			await foto(page, 'ki-angebotsentwurf', info.project.name);
+		} finally {
+			if (angebotId) await api(page, 'DELETE', `/api/angebote/${angebotId}`);
+			await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`);
+		}
+	});
 });

@@ -14,6 +14,7 @@ import { einsaetzeZumAuftrag } from '$lib/server/plantafel';
 import { angeboteZugriff, legeAngebotAn, listeAngebote } from '$lib/server/angebote';
 import { ohnePreise } from '$lib/server/preisschutz';
 import { hatModul } from '$lib/server/tarif';
+import { entwirfAngebot } from '$lib/server/ki/angebot-entwurf';
 
 /**
  * Auftrag mit Statuskette, Einsätzen, To-dos, Angeboten und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404.
@@ -49,7 +50,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			kundeLesbar: hatRecht(nutzer, 'kunden.lesen'),
 			// Preisschutz: Beträge nur mit `preise.sehen`
 			angebote: angebote && (preise ? angebote : ohnePreise(angebote)),
-			darfAngebote: angeboteSichtbar && preise
+			darfAngebote: angeboteSichtbar && preise,
+			// „KI-Entwurf“: zusätzlich Modul ki_angebote (Stichworte/Foto → Entwurf nur aus dem Katalog)
+			darfKiEntwurf: angeboteSichtbar && preise && (await hatModul(k.betriebId, 'ki_angebote'))
 		};
 	});
 };
@@ -80,6 +83,20 @@ export const actions: Actions = {
 			id = (await legeAngebotAn(betriebKontext(locals), params.id, zg)).id;
 		} catch (e) {
 			return alsFormFehler(e);
+		}
+		redirect(303, `/angebote/${id}`);
+	},
+	/** KI-Angebotsentwurf aus Stichworten (und optional Foto mit Zustimmung) – nur Katalogpositionen, Preise aus dem Katalog. */
+	kiEntwurf: async ({ locals, params, request }) => {
+		const form = await request.formData();
+		const stichworte = typeof form.get('stichworte') === 'string' ? (form.get('stichworte') as string) : '';
+		let id: string;
+		try {
+			const datei = form.get('foto');
+			const foto = datei instanceof File && datei.size > 0 ? new Uint8Array(await datei.arrayBuffer()) : null;
+			id = (await entwirfAngebot(locals, params.id, { stichworte, foto, zustimmung: form.get('zustimmung') === 'ja' })).angebotId;
+		} catch (e) {
+			return alsFormFehler(e, { kiStichworte: stichworte });
 		}
 		redirect(303, `/angebote/${id}`);
 	},

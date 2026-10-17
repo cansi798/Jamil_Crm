@@ -17,6 +17,7 @@
 <script lang="ts">
 	import { euro, leseEuroInCent, leseMenge, positionsSumme } from '$lib/geld';
 	import { EINHEITEN } from '$lib/katalog-werte';
+	import { istKiPruefen } from '$lib/ki-entwurf';
 
 	/**
 	 * Positionen eines Angebots: als Karten (Handy) bzw. Tabelle (ab 700 px). Menge und Einzelpreis direkt editierbar
@@ -71,7 +72,7 @@
 	{#each zeilen as z, i (z.schluessel)}
 		{@const nr = i + 1}
 		{@const s = summe(z)}
-		<li class="pe-zeile" data-testid="position">
+		<li class="pe-zeile" class:pe-pruefen={istKiPruefen(z.beschreibung)} data-testid="position">
 			<span class="pe-pos">{nr}</span>
 			<div class="pe-bez">
 				<label>
@@ -83,6 +84,7 @@
 					<textarea bind:value={z.beschreibung} maxlength="2000" rows="2" disabled={nurLesen} aria-label={`Beschreibung Position ${nr}`} placeholder="Beschreibung (optional)"></textarea>
 				</label>
 				{#if z.katalogPositionId}<span class="pe-hinweis">aus dem Katalog</span>{/if}
+				{#if istKiPruefen(z.beschreibung)}<span class="pe-ki">bitte prüfen (KI-Vorschlag)</span>{/if}
 			</div>
 			<label class="pe-menge">
 				<span class="pe-label">Menge</span>
@@ -117,6 +119,21 @@
 </div>
 
 <style>
+	/* KI-Vorschlag, bei dem die KI unsicher war: gelb, bis die Beschreibung angepasst ist */
+	.pe-zeile.pe-pruefen {
+		background: #fff6d6;
+		box-shadow: inset 4px 0 0 #e0b100;
+	}
+	.pe-ki {
+		display: inline-block;
+		margin-top: 0.25rem;
+		padding: 0.1rem 0.4rem;
+		border-radius: 0.25rem;
+		background: #ffe083;
+		color: #4d3b00;
+		font-size: 0.8rem;
+		font-weight: 700;
+	}
 	.pe {
 		display: grid;
 		gap: 0.6rem;

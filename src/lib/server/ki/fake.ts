@@ -463,7 +463,7 @@ function stamm(w: string): string {
 
 export function entwirf(e: EntwurfEingabe): { positionen: { schluessel: string; menge: number; unsicher: boolean }[] } {
 	const text = e.text.toLowerCase();
-	const positionen: { schluessel: string; menge: number; unsicher: boolean }[] = [];
+	const positionen: { schluessel: string; menge: number; unsicher: boolean; index: number }[] = [];
 	for (const p of e.katalog) {
 		const woerter = p.bezeichnung
 			.toLowerCase()
@@ -472,7 +472,7 @@ export function entwirf(e: EntwurfEingabe): { positionen: { schluessel: string; 
 		let treffer: { index: number; wort: string } | null = null;
 		for (const w of woerter) {
 			const s = stamm(w);
-			const i = text.search(new RegExp(`[a-zäöüß]*${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+			const i = text.search(new RegExp(`(?<![a-zäöüß])${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 			if (i >= 0) {
 				treffer = { index: i, wort: w };
 				break;
@@ -482,7 +482,8 @@ export function entwirf(e: EntwurfEingabe): { positionen: { schluessel: string; 
 		const davor = text.slice(Math.max(0, treffer.index - 40), treffer.index).split(/\bund\b|,|;|\bsowie\b/).pop() ?? '';
 		const m = new RegExp(`(\\d+(?:[.,]\\d+)?|${ZAHLWORT})\\s*${EINHEIT_WORT}?\\s*(?:[a-zäöüß-]+\\s+){0,2}$`).exec(davor);
 		const menge = m ? zahl(m[1]) : null;
-		positionen.push({ schluessel: p.schluessel, menge: menge && menge > 0 ? menge : 1, unsicher: !menge });
+		positionen.push({ schluessel: p.schluessel, menge: menge && menge > 0 ? menge : 1, unsicher: !menge, index: treffer.index });
 	}
-	return { positionen };
+	// Reihenfolge wie im gesprochenen Text
+	return { positionen: positionen.sort((a, b) => a.index - b.index).map(({ index: _i, ...rest }) => rest) };
 }

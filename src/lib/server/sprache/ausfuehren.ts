@@ -5,6 +5,7 @@ import { legeAuftragAn, sichtVon } from '../auftraege';
 import { legeKundeAn, UUID } from '../kunden';
 import { aendereEinsatz, holeEinsatz, legeEinsatzAn, ABWESENHEIT_NAMEN, type Einsatz } from '../plantafel';
 import { legeTodoAn } from '../todos';
+import { entwirfAngebot, entwurfHinweise } from '../ki/angebot-entwurf';
 import { AKTIONEN, type AktionsName } from './aktionen';
 import { neueZeiten, type Auswahl } from './aufloesen';
 import { pruefeSprachZugang } from './befehl';
@@ -76,6 +77,11 @@ export async function fuehreAus(locals: { nutzer: Nutzer | null }, token: unknow
 	const w = wendeAuswahlAn(inhalt.werte, inhalt.auswahl, auswahl);
 	markiereBenutzt(geprueft);
 	try {
+		if (inhalt.aktion === 'angebot_entwurf') {
+			// Eigene Transaktion erst nach der KI-Antwort (keine offene DB-Transaktion während der KI-Anfrage)
+			const e = await entwirfAngebot(locals, w.auftragId, { stichworte: w.stichworte }, 'sprache');
+			return { status: 201, meldung: `Angebotsentwurf ${e.nummer} angelegt – bitte prüfen`, link: `/angebote/${e.angebotId}`, warnungen: entwurfHinweise(e) };
+		}
 		return await inEinerTransaktion(k, 'sprache', () => ausfuehrenJe(k, nutzer, inhalt.aktion, w));
 	} catch (e) {
 		gibFrei(geprueft);
@@ -137,7 +143,7 @@ async function ausfuehrenJe(
 			return { status: 200, meldung: 'Termin verschoben', link: `/plantafel?tag=${tagVon(neu.beginn)}`, warnungen: warnTexte([e]) };
 		}
 		case 'angebot_entwurf':
-			throw new ApiFehler(501, 'Der Angebotsentwurf per Sprache folgt.');
+			throw new Error('angebot_entwurf läuft nicht über ausfuehrenJe');
 	}
 }
 
