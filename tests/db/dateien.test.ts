@@ -2,8 +2,7 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schliesseDb } from '../../src/lib/server/db';
 import { antwort, baueUmgebung, jsonAnfrage, type Umgebung } from './hilfe-1c';
-import { POST as dateienPost, GET as dateienGet } from '../../src/routes/api/dateien/+server';
-import { GET as dateiGet, DELETE as dateiDelete } from '../../src/routes/api/dateien/[id]/+server';
+import { speichereDatei, liesDatei, loescheDatei, dateienFuerAuftrag } from '../../src/lib/server/dateien';
 
 describe('Dateien – Dienst und API', () => {
 	let u: Umgebung;
@@ -76,5 +75,51 @@ describe('Dateien – Dienst und API', () => {
 		await root`delete from app.auftraege where id = ${auftragId}`;
 		const rest = await root`select * from app.dateien where auftrag_id = ${auftragId}`;
 		expect(rest).toHaveLength(0);
+	});
+
+	// --- Dienst-Tests ---
+
+	const kA = () => ({ betriebId: u.betriebA, benutzerId: u.ids.chefA });
+
+	it('speichereDatei: speichert eine Datei und gibt Metadaten zurück', async () => {
+		const datei = await speichereDatei(kA(), u.auftragA, 'foto.jpg', 'image/jpeg', 9, Buffer.from('testdaten'), 'Beschreibung');
+		expect(datei.name).toBe('foto.jpg');
+		expect(datei.typ).toBe('image/jpeg');
+		expect(datei.groesse).toBe(9);
+		expect(datei.beschreibung).toBe('Beschreibung');
+		expect(datei.id).toBeDefined();
+	});
+
+	it('speichereDatei: lehnt zu große Dateien ab', async () => {
+		await expect(speichereDatei(kA(), u.auftragA, 'gross.jpg', 'image/jpeg', 10485761, Buffer.from('x')))
+			.rejects.toThrow('Die Datei ist zu groß');
+	});
+
+	it('speichereDatei: lehnt unerlaubte MIME-Typen ab', async () => {
+		await expect(speichereDatei(kA(), u.auftragA, 'virus.exe', 'application/octet-stream', 100, Buffer.from('x')))
+			.rejects.toThrow('Dieser Dateityp ist nicht erlaubt');
+	});
+
+	it('liesDatei: liest eine Datei mit Inhalt', async () => {
+		const datei = await speichereDatei(kA(), u.auftragA, 'test.png', 'image/png', 4, Buffer.from('abcd'));
+		const gelesen = await liesDatei(kA(), datei.id);
+		expect(gelesen).not.toBeNull();
+		expect(gelesen!.name).toBe('test.png');
+		expect(gelesen!.inhalt).toBeDefined();
+	});
+
+	it('loescheDatei: löscht eine Datei', async () => {
+		const datei = await speichereDatei(kA(), u.auftragA, 'weg.jpg', 'image/jpeg', 3, Buffer.from('abc'));
+		await loescheDatei(kA(), datei.id);
+		const gelesen = await liesDatei(kA(), datei.id);
+		expect(gelesen).toBeNull();
+	});
+
+	it('dateienFuerAuftrag: gibt alle Dateien eines Auftrags zurück', async () => {
+		await speichereDatei(kA(), u.auftragA, 'a.jpg', 'image/jpeg', 1, Buffer.from('a'));
+		await speichereDatei(kA(), u.auftragA, 'b.png', 'image/png', 1, Buffer.from('b'));
+		const liste = await dateienFuerAuftrag(kA(), u.auftragA);
+		expect(liste).toHaveLength(2);
+		expect(liste.map((d) => d.name).sort()).toEqual(['a.jpg', 'b.png']);
 	});
 });
