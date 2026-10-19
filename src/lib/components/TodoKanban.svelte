@@ -6,6 +6,8 @@
 		id: string;
 		titel: string;
 		beschreibung?: string | null;
+		lautstaerke?: number | null;
+		schmutz?: number | null;
 		auftragId: string | null;
 		auftragNummer: string | null;
 		auftragTitel: string | null;
@@ -193,6 +195,12 @@
 							{#if todo.beschreibung}
 								<p class="karte-beschreibung">{todo.beschreibung}</p>
 							{/if}
+							{#if todo.lautstaerke || todo.schmutz}
+								<p class="karte-stufen">
+									{#if todo.lautstaerke}<span title="Lautstärke {todo.lautstaerke} von 5">Lautstärke {todo.lautstaerke}/5</span>{/if}
+									{#if todo.schmutz}<span title="Schmutz {todo.schmutz} von 5">Schmutz {todo.schmutz}/5</span>{/if}
+								</p>
+							{/if}
 							{#if zeigeAuftrag && todo.auftragNummer}
 								<p class="karte-auftrag">{todo.auftragNummer}</p>
 							{/if}
@@ -369,6 +377,21 @@
 		color: var(--m365-text-leise);
 		white-space: pre-line;
 		overflow-wrap: anywhere;
+	}
+
+	.karte-stufen {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		margin: 0 0 0.25rem;
+	}
+	.karte-stufen span {
+		padding: 0.05rem 0.4rem;
+		border-radius: 999px;
+		background: var(--m365-flaeche-hover);
+		color: var(--m365-text);
+		font-family: var(--m365-schrift);
+		font-size: 0.6875rem;
 	}
 
 	.karte-auftrag {

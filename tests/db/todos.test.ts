@@ -409,6 +409,30 @@ describe('To-dos', () => {
 		expect((await post(chefA, { titel: 'ohne' })).koerper.beschreibung).toBeNull();
 	});
 
+	it('Lautstärke und Schmutz (1–5, optional): anlegen (auch als Formular-Text), ändern, leeren; außerhalb → 400', async () => {
+		const r = await post(chefA, { titel: 'Stemmen', auftragId: auftragA, lautstaerke: 5, schmutz: '4' });
+		expect(r.status).toBe(201);
+		expect(r.koerper).toMatchObject({ lautstaerke: 5, schmutz: 4 });
+		const id = r.koerper.id as string;
+		expect((await patch(chefA, id, { schmutz: 2 })).koerper).toMatchObject({ lautstaerke: 5, schmutz: 2 });
+		expect((await patch(chefA, id, { lautstaerke: '' })).koerper).toMatchObject({ lautstaerke: null, schmutz: 2 });
+		expect((await post(chefA, { titel: 'ohne' })).koerper).toMatchObject({ lautstaerke: null, schmutz: null });
+		for (const falsch of [0, 6, 2.5, 'laut', '-1']) {
+			expect((await post(chefA, { titel: 'x', lautstaerke: falsch })).status, String(falsch)).toBe(400);
+			expect((await post(chefA, { titel: 'x', schmutz: falsch })).status, String(falsch)).toBe(400);
+		}
+		// Seite: „+ To-do“ im Auftrag mit beiden Stufen
+		expect(
+			await auftragAktionen.todoAnlegen({
+				locals: { nutzer: chefA },
+				params: { id: auftragA },
+				request: formAnfrage({ titel: 'Fliesen abschlagen', lautstaerke: '4', schmutz: '5' })
+			} as never)
+		).toBeUndefined();
+		const [z] = await root`select lautstaerke, schmutz from app.todos where titel = 'Fliesen abschlagen'`;
+		expect(z).toEqual({ lautstaerke: 4, schmutz: 5 });
+	});
+
 	it('legeTodosAn: mehrere To-dos in Reihenfolge mit Beschreibung; ungültiges → keins angelegt; unsichtbarer Auftrag → 400', async () => {
 		const liste = [
 			{ titel: 'Filter wechseln', beschreibung: 'F7' },

@@ -60,7 +60,7 @@ export function todoAktionen(auftragAusPfad: boolean) {
 				if (!id) throw new ApiFehler(404, 'To-do nicht gefunden.');
 				// Nur gesendete Felder ändern: Das Kanban-Ziehen schickt z. B. nur `faellig` (und ggf. `erledigt`) –
 				// fehlende Felder dürfen Titel oder Beschreibung nicht leeren.
-				const gesendet = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'erledigt'].filter((f) => form.has(f));
+				const gesendet = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz', 'erledigt'].filter((f) => form.has(f));
 				await aendereTodo(betriebKontext(locals), id, formWerte(form, gesendet), sichtVon(locals.nutzer!));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true });

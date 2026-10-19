@@ -18,6 +18,9 @@ export type Todo = {
 	id: string;
 	titel: string;
 	beschreibung: string | null;
+	/** Belastung für Bewohner: Lautstärke und Schmutz, je Stufe 1–5 (optional). */
+	lautstaerke: number | null;
+	schmutz: number | null;
 	auftragId: string | null;
 	auftragNummer: string | null;
 	auftragTitel: string | null;
@@ -34,8 +37,8 @@ export const TODO_AUSWAHL = ['meine', 'offen', 'alle'] as const;
 export type TodoAuswahl = (typeof TODO_AUSWAHL)[number];
 
 /** Felder beim Anlegen (Formular/JSON); `auftragId` nur beim Anlegen, danach fest. */
-export const TODO_FELDER = ['titel', 'beschreibung', 'auftragId', 'zustaendigId', 'faellig'] as const;
-const AENDERBAR = ['titel', 'beschreibung', 'zustaendigId', 'faellig'] as const;
+export const TODO_FELDER = ['titel', 'beschreibung', 'auftragId', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz'] as const;
+const AENDERBAR = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz'] as const;
 
 export const MAX_TODOS = 200;
 /** Höchstens so viele To-dos auf einmal (z. B. aus einer Auftrags-Vorlage). */
@@ -58,6 +61,16 @@ function datumFeld(wert: unknown): string | null {
 	return wert;
 }
 
+/** Stufe 1–5 (Zahl oder Text aus dem Formular); leer → null; sonst 400. */
+function stufeFeld(wert: unknown, name: string): number | null {
+	if (wert === undefined || wert === null || wert === '') return null;
+	const n = typeof wert === 'string' && /^\s*[1-5]\s*$/.test(wert) ? Number(wert) : wert;
+	if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > 5) {
+		throw new ApiFehler(400, `${name}: Bitte eine Stufe von 1 bis 5 wählen.`);
+	}
+	return n;
+}
+
 /** `true`/`false` (auch aus Formularen als Text). Alles andere → 400. */
 export function erledigtWert(w: unknown): boolean {
 	if (w === true || w === 'true') return true;
@@ -71,6 +84,8 @@ type TodoWerte = {
 	auftragId: string | null;
 	zustaendigId: string | null;
 	faellig: string | null;
+	lautstaerke: number | null;
+	schmutz: number | null;
 };
 
 function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
@@ -81,11 +96,13 @@ function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
 		beschreibung: textFeld(e.beschreibung, 'Beschreibung', 500),
 		auftragId: idFeld(e.auftragId, 'Der Auftrag ist ungültig.'),
 		zustaendigId: idFeld(e.zustaendigId, 'Zuständig: ungültige Auswahl.'),
-		faellig: datumFeld(e.faellig)
+		faellig: datumFeld(e.faellig),
+		lautstaerke: stufeFeld(e.lautstaerke, 'Lautstärke'),
+		schmutz: stufeFeld(e.schmutz, 'Schmutz')
 	};
 }
 
-const AUSWAHL = `t.id, t.titel, t.beschreibung, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
+const AUSWAHL = `t.id, t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
 	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am`;
 
 const VON = `app.todos t
@@ -97,6 +114,8 @@ function zuTodo(z: Record<string, any>): Todo {
 		id: z.id,
 		titel: z.titel,
 		beschreibung: z.beschreibung ?? null,
+		lautstaerke: z.lautstaerke ?? null,
+		schmutz: z.schmutz ?? null,
 		auftragId: z.auftrag_id,
 		auftragNummer: z.auftrag_nummer ?? null,
 		auftragTitel: z.auftrag_titel ?? null,
@@ -173,8 +192,9 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 		}
 		await pruefeZustaendig(tx, k, w.zustaendigId);
 		const [z] = await tx`
-			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig)
-			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${w.faellig})
+			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz)
+			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${w.faellig},
+				${w.lautstaerke}, ${w.schmutz})
 			returning id`;
 		return ladeEines(tx, k, ALLE(k), z.id);
 	});
@@ -268,13 +288,15 @@ export async function aendereTodo(
 	const erledigt = mitErledigt ? erledigtWert(e.erledigt) : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select t.titel, t.beschreibung, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am
+			select t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am
 			from ${tx.unsafe(VON)}
 			where t.id = ${id} and t.betrieb_id = ${k.betriebId} and ${todoSichtbar(tx, sicht)} for update of t`;
 		if (!alt) throw nichtGefunden();
 		const w = pruefeTodoEingabe({
 			titel: alt.titel,
 			beschreibung: alt.beschreibung,
+			lautstaerke: alt.lautstaerke,
+			schmutz: alt.schmutz,
 			zustaendigId: alt.zustaendig_id,
 			faellig: alt.faellig,
 			...Object.fromEntries(felder.map((f) => [f, e[f]]))
@@ -283,7 +305,8 @@ export async function aendereTodo(
 			await pruefeZustaendig(tx, k, w.zustaendigId);
 		}
 		await tx`
-			update app.todos set titel = ${w.titel}, beschreibung = ${w.beschreibung}, zustaendig_id = ${w.zustaendigId}, faellig = ${w.faellig}
+			update app.todos set titel = ${w.titel}, beschreibung = ${w.beschreibung},
+				lautstaerke = ${w.lautstaerke}, schmutz = ${w.schmutz}, zustaendig_id = ${w.zustaendigId}, faellig = ${w.faellig}
 				${erledigt === null ? tx`` : erledigt ? tx`, erledigt_am = coalesce(erledigt_am, now())` : tx`, erledigt_am = null`}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		return ladeEines(tx, k, sicht, id);

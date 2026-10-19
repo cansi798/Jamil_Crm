@@ -264,12 +264,22 @@
 		align-items: end;
 	}
 	/* breit: Beschreibung als eigene Zeile unter Titel/Zuständig/Fällig */
-	.td-neu-beschreibung {
+	.td-neu-beschreibung,
+	.td-neu-stufen {
 		order: 1;
+	}
+	.td-neu-stufen {
+		grid-column: 1 / 3;
 	}
 }
 .td-neu-beschreibung {
 	grid-column: 1 / -1;
+}
+/* Lautstärke/Schmutz (1–5) nebeneinander, auch am Handy */
+.td-neu-stufen {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.5rem;
 }
 .td-bearbeiten {
 	margin-top: 0.35rem;

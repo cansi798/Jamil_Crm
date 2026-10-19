@@ -180,6 +180,7 @@
 		/>
 		{#if data.darfBearbeiten}
 			<TodoNeu
+				mitBelastung
 				aktion="?/todoAnlegen"
 				mitarbeiter={data.mitarbeiter}
 				fehler={form?.todoWerte ? form.fehler : null}
