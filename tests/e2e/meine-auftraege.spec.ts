@@ -55,7 +55,7 @@ test('Büro weist „Jamil (Test) – Monteur“ im Auftrag zu → er sieht Auft
 		await expect(page.locator('.kanban-karte', { hasText: 'Material holen (E2E)' })).toBeVisible();
 
 		const monteur = await alsTestzugang(browser, 'jamil.monteur');
-		await monteur.goto(`/auftraege?suche=${encodeURIComponent(titel)}`);
+		await monteur.goto(`/auftraege?ansicht=liste&suche=${encodeURIComponent(titel)}`);
 		const karte = monteur.getByRole('link', { name: new RegExp(titel) });
 		await expect(karte).toBeVisible();
 		await expect(karte).toContainText('zuständig');
