@@ -15,8 +15,18 @@ export const PROTOKOLL_TABELLEN = {
 	benutzer: 'benutzer.verwalten',
 	einladungen: 'benutzer.verwalten',
 	kunden: 'kunden.lesen',
-	objekte: 'kunden.lesen'
-} as const satisfies Record<string, Recht>;
+	objekte: 'kunden.lesen',
+	// eigene oder alle Aufträge lesen; wer nur eigene sieht, bekommt fremde Verläufe nicht (404, siehe API)
+	auftraege: ['auftraege.lesen', 'auftraege.alle_lesen'],
+	todos: ['auftraege.lesen', 'auftraege.alle_lesen'],
+	einsaetze: 'plantafel.bearbeiten',
+	abwesenheiten: 'plantafel.bearbeiten',
+	// Preisspalten im Verlauf sieht nur, wer `preise.sehen` hat (siehe /api/protokoll, Preisschutz)
+	katalog_positionen: 'katalog.bearbeiten',
+	angebote: 'angebote.bearbeiten',
+	angebot_positionen: 'angebote.bearbeiten',
+	betrieb_profil: 'einstellungen'
+} as const satisfies Record<string, Recht | readonly Recht[]>;
 
 export type ProtokollTabelle = keyof typeof PROTOKOLL_TABELLEN;
 
@@ -26,7 +36,14 @@ export type ProtokollTabelle = keyof typeof PROTOKOLL_TABELLEN;
  */
 export const PROTOKOLL_MODULE: Partial<Record<ProtokollTabelle, Modul>> = {
 	kunden: 'kunden',
-	objekte: 'kunden'
+	objekte: 'kunden',
+	auftraege: 'auftraege',
+	todos: 'auftraege',
+	einsaetze: 'plantafel',
+	abwesenheiten: 'plantafel',
+	katalog_positionen: 'katalog',
+	angebote: 'angebote',
+	angebot_positionen: 'angebote'
 };
 
 export const SEITENGROESSE = 50;
@@ -68,12 +85,13 @@ export function pruefeSuche(params: URLSearchParams): ProtokollSuche {
 }
 
 /**
- * Darf dieser Nutzer das Protokoll der Tabelle lesen? Das Leserecht der Tabelle genügt immer. `einstellungen` genügt
+ * Darf dieser Nutzer das Protokoll der Tabelle lesen? Das Leserecht der Tabelle (bei einer Liste: eines davon) genügt immer. `einstellungen` genügt
  * nur bei Verwaltungstabellen – nicht bei Tabellen eines Moduls (Kundendaten): Wer Kunden nicht sehen darf, soll
  * ihre Daten auch nicht über den Verlauf lesen (Ruling R19).
  */
 export function darfProtokollLesen(nutzer: Nutzer, tabelle: ProtokollTabelle): boolean {
-	if (hatRecht(nutzer, PROTOKOLL_TABELLEN[tabelle])) return true;
+	const rechte: readonly Recht[] = [PROTOKOLL_TABELLEN[tabelle]].flat();
+	if (rechte.some((r) => hatRecht(nutzer, r))) return true;
 	return !Object.hasOwn(PROTOKOLL_MODULE, tabelle) && hatRecht(nutzer, 'einstellungen');
 }
 

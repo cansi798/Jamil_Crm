@@ -22,7 +22,8 @@ describe('darfProtokollLesen (Ruling R19)', () => {
 	it('jede Tabelle eines Moduls verlangt ihr eigenes Recht', () => {
 		for (const tabelle of Object.keys(PROTOKOLL_MODULE) as ProtokollTabelle[]) {
 			expect(darfProtokollLesen(nutzer(['einstellungen']), tabelle), tabelle).toBe(false);
-			expect(darfProtokollLesen(nutzer([PROTOKOLL_TABELLEN[tabelle]]), tabelle), tabelle).toBe(true);
+			const rechte = [PROTOKOLL_TABELLEN[tabelle]].flat() as string[];
+			for (const recht of rechte) expect(darfProtokollLesen(nutzer([recht]), tabelle), `${tabelle} ${recht}`).toBe(true);
 		}
 	});
 
@@ -33,5 +34,13 @@ describe('darfProtokollLesen (Ruling R19)', () => {
 		}
 		expect(darfProtokollLesen(nutzer(['benutzer.verwalten']), 'benutzer')).toBe(true);
 		expect(darfProtokollLesen(nutzer(['benutzer.verwalten']), 'rollen')).toBe(false);
+	});
+
+	it('Aufträge und To-dos: auftraege.lesen oder auftraege.alle_lesen genügt', () => {
+		for (const tabelle of ['auftraege', 'todos'] as const) {
+			expect(darfProtokollLesen(nutzer(['auftraege.lesen']), tabelle), tabelle).toBe(true);
+			expect(darfProtokollLesen(nutzer(['auftraege.alle_lesen']), tabelle), tabelle).toBe(true);
+			expect(darfProtokollLesen(nutzer(['auftraege.bearbeiten', 'einstellungen']), tabelle), tabelle).toBe(false);
+		}
 	});
 });

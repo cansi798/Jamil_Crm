@@ -8,7 +8,9 @@ describe('mitSicherheitsKopfzeilen', () => {
 		expect(antwort.headers.get('referrer-policy')).toBe('same-origin');
 		expect(antwort.headers.get('x-frame-options')).toBe('DENY');
 		const pp = antwort.headers.get('permissions-policy')!;
-		for (const f of ['camera', 'microphone', 'geolocation', 'payment', 'usb']) expect(pp).toContain(`${f}=()`);
+		for (const f of ['camera', 'geolocation', 'payment', 'usb']) expect(pp).toContain(`${f}=()`);
+		// Mikrofon nur für die eigene Seite (Sprachsteuerung, Stufe 1d) – nie für eingebettete fremde Seiten
+		expect(pp).toContain('microphone=(self)');
 		expect(antwort.headers.get('content-type')).toBe('text/plain');
 	});
 

@@ -81,14 +81,15 @@ test('Monteur sieht Kunden, aber keinen „+ Kunde“-Knopf', async ({ page }) =
 	await expect(page.getByRole('link', { name: 'Plattform-Verwaltung' })).toHaveCount(0);
 });
 
-test('Navigation: Einträge nach Recht, Plantafel „bald verfügbar“, Tippziele ≥ 44 px', async ({ page }, info) => {
+test('Navigation: Einträge nach Recht (Aufträge, Plantafel), Tippziele ≥ 44 px', async ({ page }, info) => {
 	await anmelden(page, BUERO);
 	const nav = hauptnavigation(page);
 	await expect(nav.getByRole('link', { name: 'Start' })).toBeVisible();
 	await expect(nav.getByRole('link', { name: 'Kunden' })).toBeVisible();
-	await expect(nav.getByText('Plantafel')).toBeVisible();
-	await expect(nav.getByText('bald verfügbar')).toBeVisible();
-	await expect(nav.getByRole('link', { name: 'Plantafel' })).toHaveCount(0);
+	await expect(nav.getByRole('link', { name: 'Aufträge' })).toBeVisible();
+	// Plantafel ist seit Stufe 1b ein Link (nicht mehr „bald verfügbar“)
+	await expect(nav.getByRole('link', { name: 'Plantafel' })).toBeVisible();
+	await expect(nav.getByText('bald verfügbar')).toHaveCount(0);
 	// Büro hat weder „benutzer.verwalten“ noch „einstellungen“, ist kein Admin
 	await expect(nav.getByRole('link', { name: 'Benutzer' })).toHaveCount(0);
 	await expect(nav.getByRole('link', { name: 'Plattform-Verwaltung' })).toHaveCount(0);

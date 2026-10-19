@@ -8,23 +8,82 @@ const betriebsNutzer = (rechte: readonly string[]) => ({ istAdmin: false, betrie
 const namen = (eintraege: { name: string }[]) => eintraege.map((e) => e.name);
 
 describe('baueNavigation', () => {
-	it('Büro: Start, Kunden, Plantafel (bald verfügbar); keine Verwaltung', () => {
+	it('Büro: Start, Kunden, Aufträge, Plantafel, Angebote; unter „Mehr“ To-dos, Vorlagen, Abwesenheiten, Katalog, keine Verwaltung', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.buero), ALLE_MODULE);
-		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Plantafel']);
+		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Plantafel', 'Angebote']);
+		expect(nav.haupt[4]).toMatchObject({ href: '/angebote', symbol: 'angebote' });
 		expect(nav.haupt[0]).toMatchObject({ href: '/' });
 		expect(nav.haupt[1]).toMatchObject({ href: '/kunden' });
-		// Plantafel ist noch kein Link (Plan 1b)
-		expect(nav.haupt[2]).toMatchObject({ href: null, hinweis: 'bald verfügbar' });
-		expect(nav.mehr).toEqual([]);
+		expect(nav.haupt[2]).toMatchObject({ href: '/auftraege', symbol: 'auftraege' });
+		// Plantafel ist jetzt ein Link (Plan 1b), ohne „bald verfügbar“
+		expect(nav.haupt[3]).toMatchObject({ href: '/plantafel', symbol: 'plantafel' });
+		expect(nav.haupt[3].hinweis).toBeUndefined();
+		expect(nav.mehr).toEqual([
+			expect.objectContaining({ name: 'To-dos', href: '/todos', symbol: 'todos' }),
+			expect.objectContaining({ name: 'Vorlagen', href: '/auftrag-vorlagen' }),
+			expect.objectContaining({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten' }),
+			expect.objectContaining({ name: 'Katalog', href: '/katalog', symbol: 'katalog' })
+		]);
 	});
 
-	it('Chef: zusätzlich Benutzer und Rollen unter „Mehr“', () => {
+	it('Chef: Haupt Start, Kunden, Aufträge, Plantafel, Angebote; „Mehr“ mit To-dos, Vorlagen, Abwesenheiten, Katalog, Benutzer, Rollen, Briefkopf', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE);
-		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Plantafel']);
-		expect(nav.mehr).toEqual([
-			expect.objectContaining({ name: 'Benutzer', href: '/einstellungen/benutzer' }),
-			expect.objectContaining({ name: 'Rollen', href: '/einstellungen/rollen' })
+		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Plantafel', 'Angebote']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen', 'Abwesenheiten', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(nav.mehr).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: 'Benutzer', href: '/einstellungen/benutzer' }),
+				expect.objectContaining({ name: 'Rollen', href: '/einstellungen/rollen' })
+			])
+		);
+	});
+
+	it('Monteur (kunden.lesen, auftraege.lesen): Start, Kunden, Aufträge; To-dos und Vorlagen unter „Mehr“; keine Plantafel', () => {
+		const nav = baueNavigation(betriebsNutzer(['kunden.lesen', 'auftraege.lesen']), ALLE_MODULE);
+		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen']);
+		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE).haupt)).toEqual(['Start', 'Kunden', 'Aufträge']);
+	});
+
+	it('Tarif ohne Modul plantafel: keine Plantafel und keine Abwesenheiten; ohne auftraege keine Aufträge/To-dos/Vorlagen', () => {
+		const ohnePlantafel = ALLE_MODULE.filter((m) => m !== 'plantafel');
+		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ohnePlantafel);
+		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Angebote']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
+		const ohneAuftraege = ALLE_MODULE.filter((m) => m !== 'auftraege');
+		const n2 = baueNavigation(betriebsNutzer(VORLAGEN.chef), ohneAuftraege);
+		expect(namen(n2.haupt)).toEqual(['Start', 'Kunden', 'Plantafel', 'Angebote']);
+		expect(namen(n2.mehr)).toEqual(['Abwesenheiten', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
+	});
+
+	it('Plantafel nur mit plantafel.bearbeiten oder auftraege.alle_lesen; Abwesenheiten nur mit plantafel.bearbeiten', () => {
+		expect(namen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE).haupt)).toEqual([
+			'Start',
+			'Aufträge',
+			'Plantafel'
 		]);
+		expect(namen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE).mehr)).toEqual(['To-dos', 'Vorlagen']);
+		const planer = baueNavigation(betriebsNutzer(['plantafel.bearbeiten']), ALLE_MODULE);
+		expect(namen(planer.haupt)).toEqual(['Start', 'Plantafel']);
+		expect(namen(planer.mehr)).toEqual(['Abwesenheiten']);
+	});
+
+	it('Angebote (Haupt) nur mit Modul angebote UND angebote.bearbeiten UND preise.sehen; Katalog (Mehr) mit katalog.bearbeiten oder angebote.bearbeiten; Briefkopf nur mit einstellungen', () => {
+		const ohneAngebote = ALLE_MODULE.filter((m) => m !== 'angebote');
+		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.chef), ohneAngebote).haupt)).not.toContain('Angebote');
+		expect(namen(baueNavigation(betriebsNutzer(['angebote.bearbeiten']), ALLE_MODULE).haupt)).toEqual(['Start']);
+		expect(namen(baueNavigation(betriebsNutzer(['angebote.bearbeiten']), ALLE_MODULE).mehr)).toEqual(['Katalog']);
+		expect(namen(baueNavigation(betriebsNutzer(['angebote.bearbeiten', 'preise.sehen']), ALLE_MODULE).haupt)).toEqual(['Start', 'Angebote']);
+		expect(namen(baueNavigation(betriebsNutzer(['katalog.bearbeiten']), ALLE_MODULE).mehr)).toEqual(['Katalog']);
+		const ohneKatalog = ALLE_MODULE.filter((m) => m !== 'katalog');
+		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.chef), ohneKatalog).mehr)).not.toContain('Katalog');
+		expect(namen(baueNavigation(betriebsNutzer(['einstellungen']), ALLE_MODULE).mehr)).toEqual(['Rollen', 'Briefkopf']);
+		// Monteur: nichts davon
+		const monteur = baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE);
+		for (const name of ['Angebote', 'Katalog', 'Briefkopf']) {
+			expect(namen(monteur.haupt), name).not.toContain(name);
+			expect(namen(monteur.mehr), name).not.toContain(name);
+		}
 	});
 
 	it('nur „benutzer.verwalten“ ohne „einstellungen“: Benutzer ja, Rollen nein', () => {
@@ -32,15 +91,9 @@ describe('baueNavigation', () => {
 		expect(namen(nav.mehr)).toEqual(['Benutzer']);
 	});
 
-	it('Monteur: Kunden (lesen) und Plantafel (eigene Aufträge)', () => {
-		const nav = baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE);
-		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Plantafel']);
-		expect(nav.mehr).toEqual([]);
-	});
-
 	it('Eintrag nur mit Modul UND Recht', () => {
 		// Recht ohne Modul
-		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.chef), ['auftraege']).haupt)).toEqual(['Start']);
+		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.chef), ['katalog']).haupt)).toEqual(['Start']);
 		// Modul ohne Recht
 		expect(namen(baueNavigation(betriebsNutzer(['auftraege.bearbeiten']), ALLE_MODULE).haupt)).toEqual(['Start']);
 	});

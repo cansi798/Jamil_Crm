@@ -108,6 +108,21 @@ export async function darf(locals: { nutzer: Nutzer | null }, modul: Modul, rech
 	await pruefeModul(locals, modul);
 }
 
+/**
+ * Wie `darf`, aber eines von mehreren Rechten genügt (z. B. Aufträge lesen: `auftraege.lesen` oder
+ * `auftraege.alle_lesen`). 401 ohne Anmeldung, 403 ohne jedes der Rechte, 402 ohne Modul.
+ */
+export async function darfEines(
+	locals: { nutzer: Nutzer | null },
+	modul: Modul,
+	rechte: readonly Recht[]
+): Promise<void> {
+	const nutzer = locals.nutzer;
+	if (!nutzer) throw new ApiFehler(401, 'Nicht angemeldet');
+	const recht = rechte.find((r) => nutzer.rechte.includes(r)) ?? rechte[0];
+	await darf(locals, modul, recht);
+}
+
 /** Module des Tarifs, den der Betrieb des Kontexts hat (z. B. für die Navigation). */
 export async function moduleDesBetriebs(k: { betriebId: string; benutzerId: string }): Promise<string[]> {
 	return mitBetrieb(k, async (tx) => {

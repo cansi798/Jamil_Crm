@@ -1,0 +1,83 @@
+/* Katalog und Angebote – ergänzt kunden.css/auftraege.css (kd-*, af-*), mobil zuerst. */
+.kt-preis {
+	font-weight: 600;
+	white-space: nowrap;
+}
+.kt-preis-fehlt {
+	display: inline-block;
+	padding: 0.05rem 0.5rem;
+	border-radius: 999px;
+	background: #fff1b8;
+	color: #5c4400;
+	font-size: 0.8rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+.kt-inaktiv {
+	opacity: 0.65;
+}
+.kt-hinweis {
+	padding: 0.6rem 0.75rem;
+	border-radius: 0.5rem;
+	background: var(--primaer-hell);
+	margin: 0.75rem 0;
+}
+.kt-hinweis.ok {
+	background: #e2f3ec;
+	color: #145c3c;
+}
+.kt-hinweis.warnung {
+	background: #fff4d6;
+	color: #5c4400;
+}
+.kt-vorlagen {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+	gap: 0.5rem;
+}
+.kt-vorlagen button {
+	width: 100%;
+	flex-direction: column;
+	gap: 0.1rem;
+}
+.kt-vorlagen button:disabled {
+	opacity: 0.55;
+	cursor: default;
+}
+.kt-klein {
+	font-size: 0.8rem;
+	font-weight: 400;
+}
+.kt-checkbox {
+	display: flex !important;
+	align-items: center;
+	gap: 0.6rem;
+	min-height: 2.75rem;
+}
+.kt-checkbox input {
+	width: 1.5rem !important;
+	min-height: 1.5rem !important;
+	height: 1.5rem;
+	margin: 0;
+}
+/* Angebotsstatus */
+.an-status {
+	display: inline-block;
+	padding: 0.05rem 0.5rem;
+	border-radius: 999px;
+	font-size: 0.8rem;
+	font-weight: 600;
+	white-space: nowrap;
+	background: #eef0f3;
+	color: #3a4048;
+}
+.an-status.s-versendet { background: #e3eefc; color: #0b4a8f; }
+.an-status.s-angenommen { background: #e2f3ec; color: #145c3c; }
+.an-status.s-abgelehnt { background: #fde8eb; color: #8a1027; }
+.kd-liste .kd-kein-link {
+	display: flex;
+	min-height: 3.25rem;
+	padding: 0.6rem 0.75rem;
+	border: 1px solid #c8c8c8;
+	border-radius: 0.5rem;
+}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { STATUS_NAMEN } from '$lib/auftrag-status';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -67,6 +68,25 @@
 	</ul>
 	{#if data.darfBearbeiten}
 		<a href={`/kunden/${k.id}/objekte/neu`} class="kd-knopf hell">+ Objekt</a>
+	{/if}
+
+	{#if data.auftraege}
+		<h2>Aufträge</h2>
+		<ul class="kd-liste">
+			{#each data.auftraege as auftrag (auftrag.id)}
+				<li>
+					<a href={`/auftraege/${auftrag.id}`}>
+						<strong>{auftrag.titel}</strong>
+						<span class="kd-info">{auftrag.nummer} · {STATUS_NAMEN[auftrag.status]}</span>
+					</a>
+				</li>
+			{:else}
+				<li class="kd-leer">Noch keine Aufträge.</li>
+			{/each}
+		</ul>
+		{#if data.darfAuftragAnlegen}
+			<a href={`/auftraege/neu?kunde=${k.id}`} class="kd-knopf hell">+ Auftrag</a>
+		{/if}
 	{/if}
 
 	<h2>Verlauf</h2>

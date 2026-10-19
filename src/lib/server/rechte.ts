@@ -12,6 +12,8 @@ export const RECHTE = {
 	'angebote.bearbeiten': 'Angebote und Rechnungen bearbeiten',
 	'preise.sehen': 'Preise und Beträge sehen',
 	'katalog.bearbeiten': 'Katalog und Leistungen bearbeiten',
+	'protokolle.lesen': 'Protokolle ansehen',
+	'protokolle.bearbeiten': 'Protokolle anlegen und ändern',
 	'benutzer.verwalten': 'Benutzer verwalten',
 	einstellungen: 'Einstellungen verwalten'
 } as const;

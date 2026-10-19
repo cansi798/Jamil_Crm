@@ -3,12 +3,13 @@ import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
 import { KUNDE_FELDER, legeKundeAn } from '$lib/server/kunden';
 import { betriebKontext } from '$lib/server/rechte';
-import { formWerte, seitenZugriff } from '$lib/server/seite';
+import { formWerte, seitenZugriff, vorbelegung } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
 
-export const load: PageServerLoad = async ({ locals }) => {
+/** Mit `?nachname=…&ort=…` usw. vorbelegt (z. B. „Ändern“ auf der Bestätigungskarte der Sprachsteuerung). */
+export const load: PageServerLoad = async ({ locals, url }) => {
 	await seitenZugriff(locals, 'kunden', 'kunden.bearbeiten');
-	return {};
+	return { vorbelegt: vorbelegung(url, KUNDE_FELDER) };
 };
 
 export const actions: Actions = {

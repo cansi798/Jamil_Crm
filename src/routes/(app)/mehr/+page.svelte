@@ -1,5 +1,6 @@
 <script lang="ts">
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
+	import { loesche } from '$lib/heute-kopie';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -27,7 +28,7 @@
 		</ul>
 	{/if}
 
-	<form method="POST" action="/api/abmelden">
+	<form method="POST" action="/api/abmelden" onsubmit={() => loesche()}>
 		<button type="submit" class="zeile abmelden">
 			<NavSymbol symbol="abmelden" />
 			<span>Abmelden</span>

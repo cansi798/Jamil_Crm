@@ -1,0 +1,327 @@
+/* Fluent-Design-Komponenten: Buttons, Karten, Badges, Formulare, Kommandoleiste.
+   Nutzt die --m365-*-Tokens aus basis.css. */
+
+/* ── Buttons ─────────────────────────────────────────────── */
+
+.knopf-gefuellt {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	min-height: var(--tippziel);
+	padding: 0.375rem 1rem;
+	border: 1px solid var(--m365-primaer);
+	border-radius: var(--m365-radius);
+	background: var(--m365-primaer);
+	color: #fff;
+	font-family: var(--m365-schrift);
+	font-weight: 600;
+	font-size: 0.875rem;
+	line-height: 1.2;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background 150ms, border-color 150ms;
+}
+.knopf-gefuellt:hover {
+	background: var(--m365-primaer-hover);
+	border-color: var(--m365-primaer-hover);
+}
+.knopf-gefuellt:active {
+	background: var(--m365-primaer-dunkel);
+	border-color: var(--m365-primaer-dunkel);
+}
+
+.knopf-subtil {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	min-height: var(--tippziel);
+	padding: 0.375rem 1rem;
+	border: 1px solid transparent;
+	border-radius: var(--m365-radius);
+	background: transparent;
+	color: var(--m365-text);
+	font-family: var(--m365-schrift);
+	font-weight: 600;
+	font-size: 0.875rem;
+	line-height: 1.2;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background 150ms;
+}
+.knopf-subtil:hover {
+	background: var(--m365-flaeche-hover);
+}
+.knopf-subtil:active {
+	background: var(--m365-rand);
+}
+
+.knopf-gefahr {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	min-height: var(--tippziel);
+	padding: 0.375rem 1rem;
+	border: 1px solid var(--m365-fehler);
+	border-radius: var(--m365-radius);
+	background: var(--m365-fehler);
+	color: #fff;
+	font-family: var(--m365-schrift);
+	font-weight: 600;
+	font-size: 0.875rem;
+	line-height: 1.2;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background 150ms;
+}
+.knopf-gefahr:hover {
+	background: #a4262c;
+}
+
+/* ── Karten (Fluent Card: Schatten statt Rahmen) ─────────── */
+
+.karte {
+	background: var(--m365-flaeche);
+	border: none;
+	border-radius: var(--m365-radius-karte);
+	box-shadow: var(--m365-schatten);
+	padding: 1.5rem;
+}
+
+.karte-kopf {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 1rem;
+	padding-bottom: 0.75rem;
+	border-bottom: 1px solid var(--m365-rand);
+}
+
+.karte-titel {
+	margin: 0;
+	font-size: 1.25rem;
+	font-weight: 600;
+	color: var(--m365-text);
+	line-height: 1.25;
+}
+
+.karte-aktionen {
+	display: flex;
+	gap: 0.5rem;
+}
+
+/* ── Badges (Fluent Pill Badge) ──────────────────────────── */
+
+.badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.0625rem 0.5rem;
+	border-radius: var(--m365-radius-gross);
+	font-family: var(--m365-schrift);
+	font-size: 0.75rem;
+	font-weight: 600;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+.badge-blau {
+	background: var(--m365-primaer-hell);
+	color: var(--m365-primaer-dunkel);
+}
+
+.badge-gruen {
+	background: var(--m365-erfolg-hell);
+	color: var(--m365-erfolg);
+}
+
+.badge-gelb {
+	background: var(--m365-warnung-hell);
+	color: #7a5a0a;
+}
+
+.badge-rot {
+	background: var(--m365-fehler-hell);
+	color: #b02a30;
+}
+
+.badge-grau {
+	background: var(--m365-flaeche-hover);
+	color: var(--m365-text-leise);
+}
+
+/* ── Formulare (Fluent Input) ────────────────────────────── */
+
+.eingabe {
+	width: 100%;
+	min-height: var(--tippziel);
+	padding: 0.375rem 0.625rem;
+	border: 1px solid var(--m365-rand-stark);
+	border-radius: var(--m365-radius);
+	background: var(--m365-flaeche);
+	color: var(--m365-text);
+	font-family: var(--m365-schrift);
+	font-size: 0.875rem;
+	line-height: 1.2;
+	transition: border-color 150ms, box-shadow 150ms;
+}
+.eingabe:focus {
+	border-color: var(--m365-primaer);
+	box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
+	outline: none;
+}
+.eingabe::placeholder {
+	color: var(--m365-text-leise);
+}
+
+.beschriftung {
+	display: block;
+	margin-bottom: 0.25rem;
+	color: var(--m365-text);
+	font-family: var(--m365-schrift);
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+/* ── Listen-Elemente (Fluent List Row) ───────────────────── */
+
+.listen-eintrag {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	min-height: 3rem;
+	padding: 0.625rem 1rem;
+	border-bottom: 1px solid var(--m365-rand);
+	transition: background 150ms;
+}
+.listen-eintrag:hover {
+	background: var(--m365-flaeche-hover);
+}
+.listen-eintrag:last-child {
+	border-bottom: 0;
+}
+
+/* ── Tabs / Pills (Fluent Tab) ───────────────────────────── */
+
+.pills {
+	display: flex;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.pill {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2rem;
+	padding: 0.25rem 0.75rem;
+	border: 1px solid var(--m365-rand-stark);
+	border-radius: var(--m365-radius);
+	background: var(--m365-flaeche);
+	color: var(--m365-text);
+	font-family: var(--m365-schrift);
+	font-size: 0.875rem;
+	font-weight: 600;
+	line-height: 1.2;
+	cursor: pointer;
+	transition: background 150ms, color 150ms, border-color 150ms;
+}
+.pill:hover {
+	background: var(--m365-flaeche-hover);
+}
+.pill.aktiv {
+	background: var(--m365-primaer);
+	color: #fff;
+	border-color: var(--m365-primaer);
+}
+.pill.aktiv:hover {
+	background: var(--m365-primaer-hover);
+}
+
+/* ── Seitenkopf (Titel + Hauptaktion) ────────────────────── */
+
+.seiten-kopf {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+.seiten-kopf h1 {
+	margin: 0;
+}
+
+/* ── Kommandoleiste (Fluent Command Bar) ─────────────────── */
+
+.kommandoleiste {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	flex-wrap: wrap;
+	padding: 0.5rem 0;
+	border-bottom: 1px solid var(--m365-rand);
+	margin-bottom: 1rem;
+}
+.kommandoleiste .knopf-subtil,
+.kommandoleiste .knopf-gefuellt {
+	min-height: 2.25rem;
+	padding: 0.25rem 0.75rem;
+	font-size: 0.875rem;
+}
+.kommandoleiste-trenner {
+	width: 1px;
+	height: 1.25rem;
+	background: var(--m365-rand);
+	margin: 0 0.25rem;
+}
+
+/* ── Tabelle (Fluent Data Grid) ──────────────────────────── */
+
+.tabelle {
+	width: 100%;
+	border-collapse: collapse;
+	font-family: var(--m365-schrift);
+	font-size: 0.875rem;
+}
+.tabelle thead th {
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--m365-rand);
+	color: var(--m365-text-leise);
+	font-weight: 600;
+	font-size: 0.875rem;
+	text-align: left;
+	white-space: nowrap;
+}
+.tabelle tbody td {
+	padding: 0.625rem 0.75rem;
+	border-bottom: 1px solid var(--m365-rand);
+	vertical-align: middle;
+}
+.tabelle tbody tr {
+	transition: background 150ms;
+}
+.tabelle tbody tr:hover {
+	background: var(--m365-flaeche-hover);
+}
+.tabelle tbody tr:nth-child(even) {
+	background: var(--m365-hintergrund);
+}
+.tabelle tbody tr:nth-child(even):hover {
+	background: var(--m365-flaeche-hover);
+}
+
+/* ── Bewegung reduzieren, wenn das System das wünscht ────── */
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}

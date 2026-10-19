@@ -1,0 +1,798 @@
+{
+	"beschreibung": "50 Test-Sprachbefehle (Stufe 1d, Pflichtenheft 6: Trefferquote ≥ 90 %). Erwartet: Aktion + Kernfelder der KI-Antwort (vor dem Auflösen). Zeiten relativ zu heute = 2026-10-17 (Samstag). Audio: synthetisch per espeak-ng -v de (16 kHz mono); echte Bauwelt-Aufnahmen später unter audio/echt/.",
+	"heute": "2026-10-17",
+	"wochentag": "Samstag",
+	"befehle": [
+		{
+			"nr": 1,
+			"text": "Neuer Kunde Eva Schulz aus Hamburg",
+			"erwartet": {
+				"aktion": "kunde_anlegen",
+				"felder": {
+					"art": "privat",
+					"vorname": "Eva",
+					"nachname": "Schulz",
+					"ort": "Hamburg"
+				}
+			},
+			"audio": "audio/01.wav"
+		},
+		{
+			"nr": 2,
+			"text": "Leg mal einen neuen Kunden an: Peter Krause, Lindenstraße 5 in Norderstedt",
+			"erwartet": {
+				"aktion": "kunde_anlegen",
+				"felder": {
+					"art": "privat",
+					"vorname": "Peter",
+					"nachname": "Krause",
+					"strasse": "Lindenstraße 5",
+					"ort": "Norderstedt"
+				}
+			},
+			"audio": "audio/02.wav"
+		},
+		{
+			"nr": 3,
+			"text": "Neue Kundin Frau Anna Weber, Telefon 0171 2345678",
+			"erwartet": {
+				"aktion": "kunde_anlegen",
+				"felder": {
+					"art": "privat",
+					"vorname": "Anna",
+					"nachname": "Weber",
+					"telefon": "0171 2345678"
+				}
+			},
+			"audio": "audio/03.wav"
+		},
+		{
+			"nr": 4,
+			"text": "Neuer Kunde Firma Becker Bau GmbH in Quickborn",
+			"erwartet": {
+				"aktion": "kunde_anlegen",
+				"felder": {
+					"art": "firma",
+					"firma": "Becker Bau GmbH",
+					"ort": "Quickborn"
+				}
+			},
+			"audio": "audio/04.wav"
+		},
+		{
+			"nr": 5,
+			"text": "Kunden anlegen: Hans Petersen aus Kiel",
+			"erwartet": {
+				"aktion": "kunde_anlegen",
+				"felder": {
+					"art": "privat",
+					"vorname": "Hans",
+					"nachname": "Petersen",
+					"ort": "Kiel"
+				}
+			},
+			"audio": "audio/05.wav"
+		},
+		{
+			"nr": 6,
+			"text": "Neuer Kunde Herr Klaus Neumann, Gartenweg 12, 22846 Norderstedt",
+			"erwartet": {
+				"aktion": "kunde_anlegen",
+				"felder": {
+					"art": "privat",
+					"vorname": "Klaus",
+					"nachname": "Neumann",
+					"strasse": "Gartenweg 12",
+					"plz": "22846",
+					"ort": "Norderstedt"
+				}
+			},
+			"audio": "audio/06.wav"
+		},
+		{
+			"nr": 7,
+			"text": "Lege einen neuen Kunden an, Firma Holzbau Lange KG aus Pinneberg",
+			"erwartet": {
+				"aktion": "kunde_anlegen",
+				"felder": {
+					"art": "firma",
+					"firma": "Holzbau Lange KG",
+					"ort": "Pinneberg"
+				}
+			},
+			"audio": "audio/07.wav"
+		},
+		{
+			"nr": 8,
+			"text": "Neuer Kunde Jens Hoffmann, E-Mail jens.hoffmann@example.org",
+			"erwartet": {
+				"aktion": "kunde_anlegen",
+				"felder": {
+					"art": "privat",
+					"vorname": "Jens",
+					"nachname": "Hoffmann",
+					"email": "jens.hoffmann@example.org"
+				}
+			},
+			"audio": "audio/08.wav"
+		},
+		{
+			"nr": 9,
+			"text": "Neuer Auftrag für Montag, Ali und Mehmet, Badsanierung bei Müller",
+			"mehrdeutig": true,
+			"erwartet": {
+				"aktion": "auftrag_anlegen",
+				"felder": {
+					"titel": "Badsanierung",
+					"kunde.name": "Müller",
+					"start.tag": "wochentag",
+					"start.wochentag": "montag",
+					"mitarbeiter": [
+						"Ali",
+						"Mehmet"
+					]
+				}
+			},
+			"audio": "audio/09.wav"
+		},
+		{
+			"nr": 10,
+			"text": "Neuer Auftrag Fliesen Küche bei Familie Schröder ab Mittwoch",
+			"erwartet": {
+				"aktion": "auftrag_anlegen",
+				"felder": {
+					"titel": "Fliesen Küche",
+					"kunde.name": "Schröder",
+					"start.tag": "wochentag",
+					"start.wochentag": "mittwoch"
+				}
+			},
+			"audio": "audio/10.wav"
+		},
+		{
+			"nr": 11,
+			"text": "Auftrag anlegen für Becker: Dachrinne reinigen",
+			"erwartet": {
+				"aktion": "auftrag_anlegen",
+				"felder": {
+					"titel": "Dachrinne reinigen",
+					"kunde.name": "Becker"
+				}
+			},
+			"audio": "audio/11.wav"
+		},
+		{
+			"nr": 12,
+			"text": "Neuer Auftrag Trockenbau Ladenumbau bei der Bäckerei Krümel, Start am 2. November",
+			"erwartet": {
+				"aktion": "auftrag_anlegen",
+				"felder": {
+					"titel": "Trockenbau Ladenumbau",
+					"kunde.name": "Bäckerei Krümel",
+					"start.tag": "datum",
+					"start.datum": "2026-11-02"
+				}
+			},
+			"audio": "audio/12.wav"
+		},
+		{
+			"nr": 13,
+			"text": "Lege einen Auftrag an: Malerarbeiten Wohnzimmer bei Weißenböck, morgen, mit Murat",
+			"erwartet": {
+				"aktion": "auftrag_anlegen",
+				"felder": {
+					"titel": "Malerarbeiten Wohnzimmer",
+					"kunde.name": "Weißenböck",
+					"start.tag": "morgen",
+					"mitarbeiter": [
+						"Murat"
+					]
+				}
+			},
+			"audio": "audio/13.wav"
+		},
+		{
+			"nr": 14,
+			"text": "Neuer Auftrag Badsanierung bei Müller in Norderstedt",
+			"erwartet": {
+				"aktion": "auftrag_anlegen",
+				"felder": {
+					"titel": "Badsanierung",
+					"kunde.name": "Müller",
+					"kunde.ort": "Norderstedt"
+				}
+			},
+			"audio": "audio/14.wav"
+		},
+		{
+			"nr": 15,
+			"text": "Neuer Auftrag für die Gärtnerei Grünfeld: Pflasterarbeiten Hof, übermorgen um 7 Uhr mit Ali und Tobias",
+			"erwartet": {
+				"aktion": "auftrag_anlegen",
+				"felder": {
+					"titel": "Pflasterarbeiten Hof",
+					"kunde.name": "Gärtnerei Grünfeld",
+					"start.tag": "uebermorgen",
+					"start.uhrzeit": "07:00",
+					"mitarbeiter": [
+						"Ali",
+						"Tobias"
+					]
+				}
+			},
+			"audio": "audio/15.wav"
+		},
+		{
+			"nr": 16,
+			"text": "Auftrag Heizkörper tauschen bei Größer, nächsten Freitag, mit Mehmet",
+			"erwartet": {
+				"aktion": "auftrag_anlegen",
+				"felder": {
+					"titel": "Heizkörper tauschen",
+					"kunde.name": "Größer",
+					"start.tag": "wochentag",
+					"start.wochentag": "freitag",
+					"mitarbeiter": [
+						"Mehmet"
+					]
+				}
+			},
+			"audio": "audio/16.wav"
+		},
+		{
+			"nr": 17,
+			"text": "Neues To-do für Murat: Silikonfuge erneuern, bis Freitag",
+			"erwartet": {
+				"aktion": "todo_anlegen",
+				"felder": {
+					"titel": "Silikonfuge erneuern",
+					"zustaendig": "Murat",
+					"faellig.tag": "wochentag",
+					"faellig.wochentag": "freitag"
+				}
+			},
+			"audio": "audio/17.wav"
+		},
+		{
+			"nr": 18,
+			"text": "Erinnere mich morgen an den Rückruf bei Frau Weber",
+			"erwartet": {
+				"aktion": "todo_anlegen",
+				"felder": {
+					"titel": "Rückruf bei Frau Weber",
+					"zustaendig": "mich",
+					"faellig.tag": "morgen"
+				}
+			},
+			"audio": "audio/18.wav"
+		},
+		{
+			"nr": 19,
+			"text": "To-do: Material für Baustelle Schröder bestellen",
+			"erwartet": {
+				"aktion": "todo_anlegen",
+				"felder": {
+					"titel": "Material für Baustelle Schröder bestellen"
+				}
+			},
+			"audio": "audio/19.wav"
+		},
+		{
+			"nr": 20,
+			"text": "Aufgabe für Ali: Fliesenkleber besorgen bis übermorgen",
+			"erwartet": {
+				"aktion": "todo_anlegen",
+				"felder": {
+					"titel": "Fliesenkleber besorgen",
+					"zustaendig": "Ali",
+					"faellig.tag": "uebermorgen"
+				}
+			},
+			"audio": "audio/20.wav"
+		},
+		{
+			"nr": 21,
+			"text": "Mehmet soll bis Mittwoch die Bohrmaschine zur Reparatur bringen",
+			"erwartet": {
+				"aktion": "todo_anlegen",
+				"felder": {
+					"titel": "Bohrmaschine zur Reparatur bringen",
+					"zustaendig": "Mehmet",
+					"faellig.tag": "wochentag",
+					"faellig.wochentag": "mittwoch"
+				}
+			},
+			"audio": "audio/21.wav"
+		},
+		{
+			"nr": 22,
+			"text": "Neues To-do: Angebot für Becker nachfassen, bis 23.10.",
+			"erwartet": {
+				"aktion": "todo_anlegen",
+				"felder": {
+					"titel": "Angebot für Becker nachfassen",
+					"faellig.tag": "datum",
+					"faellig.datum": "2026-10-23"
+				}
+			},
+			"audio": "audio/22.wav"
+		},
+		{
+			"nr": 23,
+			"text": "Erinnere Sabine an die Abnahme bei Größer am Donnerstag",
+			"erwartet": {
+				"aktion": "todo_anlegen",
+				"felder": {
+					"titel": "Abnahme bei Größer",
+					"zustaendig": "Sabine",
+					"faellig.tag": "wochentag",
+					"faellig.wochentag": "donnerstag"
+				}
+			},
+			"audio": "audio/23.wav"
+		},
+		{
+			"nr": 24,
+			"text": "Neue Aufgabe für Tobias: Gerüst abbauen",
+			"erwartet": {
+				"aktion": "todo_anlegen",
+				"felder": {
+					"titel": "Gerüst abbauen",
+					"zustaendig": "Tobias"
+				}
+			},
+			"audio": "audio/24.wav"
+		},
+		{
+			"nr": 25,
+			"text": "Termin bei Müller morgen 8 Uhr mit Ali",
+			"mehrdeutig": true,
+			"erwartet": {
+				"aktion": "einsatz_anlegen",
+				"felder": {
+					"auftrag": "Müller",
+					"mitarbeiter": [
+						"Ali"
+					],
+					"start.tag": "morgen",
+					"start.uhrzeit": "08:00"
+				}
+			},
+			"audio": "audio/25.wav"
+		},
+		{
+			"nr": 26,
+			"text": "Plane Mehmet am Donnerstag um 7 Uhr bei Schröder ein",
+			"erwartet": {
+				"aktion": "einsatz_anlegen",
+				"felder": {
+					"auftrag": "Schröder",
+					"mitarbeiter": [
+						"Mehmet"
+					],
+					"start.tag": "wochentag",
+					"start.wochentag": "donnerstag",
+					"start.uhrzeit": "07:00"
+				}
+			},
+			"audio": "audio/26.wav"
+		},
+		{
+			"nr": 27,
+			"text": "Einsatz für Ali und Murat übermorgen von 8 bis 12 Uhr bei Becker",
+			"erwartet": {
+				"aktion": "einsatz_anlegen",
+				"felder": {
+					"auftrag": "Becker",
+					"mitarbeiter": [
+						"Ali",
+						"Murat"
+					],
+					"start.tag": "uebermorgen",
+					"start.uhrzeit": "08:00",
+					"ende_uhrzeit": "12:00"
+				}
+			},
+			"audio": "audio/27.wav"
+		},
+		{
+			"nr": 28,
+			"text": "Termin mit Tobias am Montag um halb acht bei Familie Yilmaz",
+			"erwartet": {
+				"aktion": "einsatz_anlegen",
+				"felder": {
+					"auftrag": "Yilmaz",
+					"mitarbeiter": [
+						"Tobias"
+					],
+					"start.tag": "wochentag",
+					"start.wochentag": "montag",
+					"start.uhrzeit": "07:30"
+				}
+			},
+			"audio": "audio/28.wav"
+		},
+		{
+			"nr": 29,
+			"text": "Teile Murat morgen um 9 Uhr bei Weißenböck ein",
+			"erwartet": {
+				"aktion": "einsatz_anlegen",
+				"felder": {
+					"auftrag": "Weißenböck",
+					"mitarbeiter": [
+						"Murat"
+					],
+					"start.tag": "morgen",
+					"start.uhrzeit": "09:00"
+				}
+			},
+			"audio": "audio/29.wav"
+		},
+		{
+			"nr": 30,
+			"text": "Neuer Termin bei der Gärtnerei Grünfeld am 28.10. um 10 Uhr mit Jürgen",
+			"erwartet": {
+				"aktion": "einsatz_anlegen",
+				"felder": {
+					"auftrag": "Gärtnerei Grünfeld",
+					"mitarbeiter": [
+						"Jürgen"
+					],
+					"start.tag": "datum",
+					"start.datum": "2026-10-28",
+					"start.uhrzeit": "10:00"
+				}
+			},
+			"audio": "audio/30.wav"
+		},
+		{
+			"nr": 31,
+			"text": "Einsatz bei Größer heute ab 13 Uhr mit Mehmet",
+			"erwartet": {
+				"aktion": "einsatz_anlegen",
+				"felder": {
+					"auftrag": "Größer",
+					"mitarbeiter": [
+						"Mehmet"
+					],
+					"start.tag": "heute",
+					"start.uhrzeit": "13:00"
+				}
+			},
+			"audio": "audio/31.wav"
+		},
+		{
+			"nr": 32,
+			"text": "Plane Ali und Mehmet für Freitag 7 Uhr bei Müller ein",
+			"mehrdeutig": true,
+			"erwartet": {
+				"aktion": "einsatz_anlegen",
+				"felder": {
+					"auftrag": "Müller",
+					"mitarbeiter": [
+						"Ali",
+						"Mehmet"
+					],
+					"start.tag": "wochentag",
+					"start.wochentag": "freitag",
+					"start.uhrzeit": "07:00"
+				}
+			},
+			"audio": "audio/32.wav"
+		},
+		{
+			"nr": 33,
+			"text": "Verschiebe den Termin bei Müller auf Freitag",
+			"mehrdeutig": true,
+			"erwartet": {
+				"aktion": "einsatz_verschieben",
+				"felder": {
+					"auftrag": "Müller",
+					"nach.tag": "wochentag",
+					"nach.wochentag": "freitag"
+				}
+			},
+			"audio": "audio/33.wav"
+		},
+		{
+			"nr": 34,
+			"text": "Verschiebe Alis Einsatz von Montag auf Dienstag",
+			"erwartet": {
+				"aktion": "einsatz_verschieben",
+				"felder": {
+					"mitarbeiter": "Ali",
+					"von.tag": "wochentag",
+					"von.wochentag": "montag",
+					"nach.tag": "wochentag",
+					"nach.wochentag": "dienstag"
+				}
+			},
+			"audio": "audio/34.wav"
+		},
+		{
+			"nr": 35,
+			"text": "Termin mit Mehmet morgen auf 10 Uhr verschieben",
+			"erwartet": {
+				"aktion": "einsatz_verschieben",
+				"felder": {
+					"mitarbeiter": "Mehmet",
+					"nach.tag": "morgen",
+					"nach.uhrzeit": "10:00"
+				}
+			},
+			"audio": "audio/35.wav"
+		},
+		{
+			"nr": 36,
+			"text": "Verlege den Einsatz bei Schröder auf übermorgen 9 Uhr",
+			"erwartet": {
+				"aktion": "einsatz_verschieben",
+				"felder": {
+					"auftrag": "Schröder",
+					"nach.tag": "uebermorgen",
+					"nach.uhrzeit": "09:00"
+				}
+			},
+			"audio": "audio/36.wav"
+		},
+		{
+			"nr": 37,
+			"text": "Den Termin bei Becker bitte auf den 30.10. verschieben",
+			"erwartet": {
+				"aktion": "einsatz_verschieben",
+				"felder": {
+					"auftrag": "Becker",
+					"nach.tag": "datum",
+					"nach.datum": "2026-10-30"
+				}
+			},
+			"audio": "audio/37.wav"
+		},
+		{
+			"nr": 38,
+			"text": "Verschieb Murats Termin am Mittwoch auf Donnerstag um 8",
+			"erwartet": {
+				"aktion": "einsatz_verschieben",
+				"felder": {
+					"mitarbeiter": "Murat",
+					"von.tag": "wochentag",
+					"von.wochentag": "mittwoch",
+					"nach.tag": "wochentag",
+					"nach.wochentag": "donnerstag",
+					"nach.uhrzeit": "08:00"
+				}
+			},
+			"audio": "audio/38.wav"
+		},
+		{
+			"nr": 39,
+			"text": "Schieb den Einsatz von Tobias bei Größer auf nächsten Montag",
+			"erwartet": {
+				"aktion": "einsatz_verschieben",
+				"felder": {
+					"mitarbeiter": "Tobias",
+					"auftrag": "Größer",
+					"nach.tag": "wochentag",
+					"nach.wochentag": "montag"
+				}
+			},
+			"audio": "audio/39.wav"
+		},
+		{
+			"nr": 40,
+			"text": "Verschiebe den Termin bei Weißenböck von heute auf morgen",
+			"erwartet": {
+				"aktion": "einsatz_verschieben",
+				"felder": {
+					"auftrag": "Weißenböck",
+					"von.tag": "heute",
+					"nach.tag": "morgen"
+				}
+			},
+			"audio": "audio/40.wav"
+		},
+		{
+			"nr": 41,
+			"text": "Erstelle ein Angebot für Müller: 12 Quadratmeter Wandfliesen und Silikonfugen",
+			"mehrdeutig": true,
+			"erwartet": {
+				"aktion": "angebot_entwurf",
+				"felder": {
+					"auftrag": "Müller",
+					"stichworte": "12 Quadratmeter Wandfliesen"
+				}
+			},
+			"audio": "audio/41.wav"
+		},
+		{
+			"nr": 42,
+			"text": "Angebot für Schröder, 8 Meter Trockenbauwand und zwei Türen",
+			"erwartet": {
+				"aktion": "angebot_entwurf",
+				"felder": {
+					"auftrag": "Schröder",
+					"stichworte": "8 Meter Trockenbauwand"
+				}
+			},
+			"audio": "audio/42.wav"
+		},
+		{
+			"nr": 43,
+			"text": "Mach mir einen Angebotsentwurf für Becker mit 40 Quadratmetern Malerarbeiten",
+			"erwartet": {
+				"aktion": "angebot_entwurf",
+				"felder": {
+					"auftrag": "Becker",
+					"stichworte": "40 Quadratmetern Malerarbeiten"
+				}
+			},
+			"audio": "audio/43.wav"
+		},
+		{
+			"nr": 44,
+			"text": "Neues Angebot für die Bäckerei Krümel: Fliesenspiegel Küche, 6 Quadratmeter",
+			"erwartet": {
+				"aktion": "angebot_entwurf",
+				"felder": {
+					"auftrag": "Bäckerei Krümel",
+					"stichworte": "Fliesenspiegel Küche"
+				}
+			},
+			"audio": "audio/44.wav"
+		},
+		{
+			"nr": 45,
+			"text": "Angebotsentwurf Badsanierung Größer: Dusche, WC und 20 Quadratmeter Bodenfliesen",
+			"erwartet": {
+				"aktion": "angebot_entwurf",
+				"felder": {
+					"auftrag": "Größer",
+					"stichworte": "20 Quadratmeter Bodenfliesen"
+				}
+			},
+			"audio": "audio/45.wav"
+		},
+		{
+			"nr": 46,
+			"text": "Erstelle ein Angebot für Weißenböck über Raufaser tapezieren, 55 Quadratmeter",
+			"erwartet": {
+				"aktion": "angebot_entwurf",
+				"felder": {
+					"auftrag": "Weißenböck",
+					"stichworte": "Raufaser tapezieren"
+				}
+			},
+			"audio": "audio/46.wav"
+		},
+		{
+			"nr": 47,
+			"text": "Angebot für die Gärtnerei Grünfeld mit 30 Metern Zaun streichen",
+			"erwartet": {
+				"aktion": "angebot_entwurf",
+				"felder": {
+					"auftrag": "Gärtnerei Grünfeld",
+					"stichworte": "30 Metern Zaun streichen"
+				}
+			},
+			"audio": "audio/47.wav"
+		},
+		{
+			"nr": 48,
+			"text": "Schreib eine Rechnung für Müller",
+			"erwartet": {
+				"aktion": "unbekannt",
+				"felder": {}
+			},
+			"audio": "audio/48.wav"
+		},
+		{
+			"nr": 49,
+			"text": "Lösche den Kunden Schröder",
+			"erwartet": {
+				"aktion": "unbekannt",
+				"felder": {}
+			},
+			"audio": "audio/49.wav"
+		},
+		{
+			"nr": 50,
+			"text": "Wie viele Stunden hat Ali diese Woche gearbeitet?",
+			"erwartet": {
+				"aktion": "unbekannt",
+				"felder": {}
+			},
+			"audio": "audio/50.wav"
+		},
+		{
+			"nr": 51,
+			"text": "Protokoll für Auftrag A-2026-0001 ausfüllen: Abnahme, alles fertig",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0001" },
+					"typ": "abnahme"
+				}
+			},
+			"audio": "audio/51.wav"
+		},
+		{
+			"nr": 52,
+			"text": "Regiebericht für Müller schreiben: zusätzliche Fliesenarbeiten",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"typ": "regiebericht"
+				}
+			},
+			"audio": "audio/52.wav"
+		},
+		{
+			"nr": 53,
+			"text": "Aufmaß für Auftrag A-2026-0002: 15 Quadratmeter Fliesen",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0002" },
+					"typ": "aufmass"
+				}
+			},
+			"audio": "audio/53.wav"
+		},
+		{
+			"nr": 54,
+			"text": "Mängelliste für Auftrag A-2026-0001: Silikonfuge im Bad erneuern",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0001" },
+					"typ": "maengelliste"
+				}
+			},
+			"audio": "audio/54.wav"
+		},
+		{
+			"nr": 55,
+			"text": "Erstelle ein Abnahmeprotokoll für Auftrag A-2026-0003",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0003" },
+					"typ": "abnahme"
+				}
+			},
+			"audio": "audio/55.wav"
+		},
+		{
+			"nr": 56,
+			"text": "Protokoll für den Auftrag bei Müller: Regiebericht, zusätzliche Arbeiten Küche",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"typ": "regiebericht"
+				}
+			},
+			"audio": "audio/56.wav"
+		},
+		{
+			"nr": 57,
+			"text": "Schreib ein Abnahmeprotokoll für den Auftrag A-2026-0001, alles in Ordnung",
+			"erwartet": {
+				"aktion": "protokoll_ausfuellen",
+				"felder": {
+					"auftrag": { "nummer": "A-2026-0001" },
+					"typ": "abnahme"
+				}
+			},
+			"audio": "audio/57.wav"
+		},
+		{
+			"nr": 58,
+			"text": "Foto von der Baustelle hochladen",
+			"erwartet": {
+				"aktion": "unbekannt",
+				"felder": {}
+			},
+			"audio": "audio/58.wav"
+		}
+	]
+}

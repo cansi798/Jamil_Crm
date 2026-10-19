@@ -76,7 +76,7 @@ export const SUCHE_MAX_ZEICHEN = 100;
 export const SUCHE_MAX_WOERTER = 5;
 export const MAX_TREFFER = 50;
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Leichte Prüfung, keine RFC-Vollständigkeit: etwas@domain.endung, ohne Leerraum und ohne zweites @.
 const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
@@ -93,7 +93,7 @@ const pruefeObjektId = (id: string): string => {
 };
 
 /** Ein optionales Textfeld: trimmen, leer → null, nur Text, keine NUL-Zeichen, höchstens `max` Zeichen. */
-function textFeld(wert: unknown, beschriftung: string, max: number): string | null {
+export function textFeld(wert: unknown, beschriftung: string, max: number): string | null {
 	if (wert === undefined || wert === null) return null;
 	if (typeof wert !== 'string') throw new ApiFehler(400, `${beschriftung}: Bitte einen Text eingeben.`);
 	if (wert.includes('\u0000')) throw new ApiFehler(400, `${beschriftung} enthält ungültige Zeichen.`);
@@ -279,13 +279,23 @@ export function aendereKunde(k: Kontext, id: string, eingabe: Record<string, unk
 	});
 }
 
-/** Löscht den Kunden samt seiner Objekte (Fremdschlüssel mit Kaskade); beides steht im Änderungsprotokoll. */
-export function loescheKunde(k: Kontext, id: string): Promise<void> {
+/**
+ * Löscht den Kunden samt seiner Objekte (Fremdschlüssel mit Kaskade); beides steht im Änderungsprotokoll.
+ * Hat der Kunde Aufträge, bleibt alles stehen (409) – Aufträge verschwinden nie nebenbei (Migration 011).
+ */
+export async function loescheKunde(k: Kontext, id: string): Promise<void> {
 	pruefeKundenId(id);
-	return mitBetrieb(k, async (tx) => {
-		const z = await tx`delete from app.kunden where id = ${id} and betrieb_id = ${k.betriebId} returning id`;
-		if (z.length === 0) throw kundeNichtGefunden();
-	});
+	try {
+		await mitBetrieb(k, async (tx) => {
+			const z = await tx`delete from app.kunden where id = ${id} and betrieb_id = ${k.betriebId} returning id`;
+			if (z.length === 0) throw kundeNichtGefunden();
+		});
+	} catch (e) {
+		if ((e as { code?: string }).code === '23503') {
+			throw new ApiFehler(409, 'Der Kunde hat noch Aufträge und kann nicht gelöscht werden.');
+		}
+		throw e;
+	}
 }
 
 const SPALTEN_OBJEKT = 'id, kunde_id, bezeichnung, strasse, plz, ort, notiz, angelegt, geaendert';

@@ -52,3 +52,14 @@ describe('ApiFehler mit Zusatzfeldern', () => {
 		expect(await alsAntwort(new ApiFehler(403, 'Nein')).json()).toEqual({ fehler: 'Nein' });
 	});
 });
+
+describe('leseJson begrenzt die Größe (Gesamtprüfung 5)', () => {
+	it('mehr als 1 MB → 413, auch ohne Content-Length; darunter geht', async () => {
+		const gross = JSON.stringify({ text: 'x'.repeat(1024 * 1024) });
+		await expect(leseJson(anfrage({ 'content-type': 'application/json' }, gross))).rejects.toMatchObject({ status: 413 });
+		const r = anfrage({ 'content-type': 'application/json', 'content-length': String(10 * 1024 * 1024) }, '{}');
+		await expect(leseJson(r)).rejects.toMatchObject({ status: 413 });
+		const klein = JSON.stringify({ text: 'ü'.repeat(400 * 1024) });
+		await expect(leseJson(anfrage({ 'content-type': 'application/json' }, klein))).resolves.toMatchObject({ text: expect.any(String) });
+	});
+});

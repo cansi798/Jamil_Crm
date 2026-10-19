@@ -8,13 +8,14 @@
  *   (`no-referrer` auf `/einladung/…`, der Link enthält ein Geheimnis) bleibt erhalten,
  * - `X-Frame-Options: DENY` – kein Einbetten in fremde Seiten (ergänzt `frame-ancestors 'none'` der CSP, auch für
  *   Antworten ohne CSP wie JSON und ältere Browser),
- * - `Permissions-Policy` – Kamera, Mikrofon, Standort, Bezahlen, USB sind abgeschaltet (die App braucht sie nicht).
+ * - `Permissions-Policy` – Kamera, Standort, Bezahlen, USB sind abgeschaltet (die App braucht sie nicht); das Mikrofon
+ *   nur für die eigene Seite (Sprachsteuerung, Stufe 1d), nie für eingebettete fremde Inhalte.
  */
 export const SICHERHEITS_KOPFZEILEN: Readonly<Record<string, string>> = {
 	'x-content-type-options': 'nosniff',
 	'referrer-policy': 'same-origin',
 	'x-frame-options': 'DENY',
-	'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+	'permissions-policy': 'camera=(), microphone=(self), geolocation=(), payment=(), usb=()'
 };
 
 /** Kopfzeilen, die eine Route selbst strenger setzen darf (vorhandener Wert bleibt). */

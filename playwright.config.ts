@@ -1,5 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
+// Netzwerk des Service Workers für Playwright sichtbar machen (Chromium): Nur so wirkt context.route() auch auf seine
+// Anfragen – der Offline-Test (plantafel.spec.ts) braucht das, setOffline() allein erreicht den Service Worker nicht.
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS ??= '1';
+
 /**
  * Browser-Tests (E2E) gegen die laufende Vorschau (scripts/start-vorschau.sh, Daten aus scripts/seed-dev.ts).
  * Aufruf auf dem Host (Browser stecken im Playwright-Image):

@@ -15,11 +15,12 @@ const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
 export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const nutzer = locals.nutzer;
 	if (!nutzer) {
-		if (route.id === MIT_VORSITZUNG) return { navigation: null };
+		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false };
 		redirect(303, '/anmelden');
 	}
 	const module = nutzer.betriebId
 		? await moduleDesBetriebs({ betriebId: nutzer.betriebId, benutzerId: nutzer.id })
 		: [];
-	return { navigation: baueNavigation(nutzer, module) };
+	// Mikrofon-Knopf nur mit Modul „sprache“ (geprüft wird zusätzlich in jedem Sprach-Endpunkt)
+	return { navigation: baueNavigation(nutzer, module), benutzerId: nutzer.id, sprache: module.includes('sprache') };
 };

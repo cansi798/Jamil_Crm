@@ -7,6 +7,7 @@ import { frischeTestDb, type TestDb } from './setup';
 import { leseZugangsdaten, pruefeSandbox, seedDev } from '../../scripts/seed-dev';
 import { spawnSync } from 'node:child_process';
 import { pruefePasswort } from '../../src/lib/server/auth/passwort';
+import { berlinTag } from '../../src/lib/zeit';
 
 const EMAILS = ['chef@bauwelt.test', 'buero@bauwelt.test', 'monteur@bauwelt.test', 'admin@crm.test'];
 
@@ -63,6 +64,85 @@ describe('seed-dev', () => {
 		} finally {
 			log.mockRestore();
 		}
+	});
+
+	it('Aufträge, To-dos, Einsätze, Urlaub: zweiter Lauf legt nichts doppelt an; Nummern lückenlos 0001…0006', async () => {
+		const zaehleStufe1b = async () => {
+			const [z] = await sql`
+				select
+					(select count(*)::int from app.auftraege) as auftraege,
+					(select count(*)::int from app.todos) as todos,
+					(select count(*)::int from app.einsaetze) as einsaetze,
+					(select count(*)::int from app.abwesenheiten) as abwesenheiten`;
+			return z;
+		};
+		const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+		try {
+			const vorher = await zaehleStufe1b();
+			await seedDev(db.urlSuper, { datei });
+			const nachher = await zaehleStufe1b();
+			expect(nachher).toEqual(vorher);
+		} finally {
+			log.mockRestore();
+		}
+		const z = await zaehleStufe1b();
+		expect(z.auftraege).toBe(6);
+		expect(z.todos).toBeGreaterThanOrEqual(4);
+		expect(z.einsaetze).toBeGreaterThanOrEqual(6);
+		expect(z.abwesenheiten).toBeGreaterThanOrEqual(1);
+		const jahr = berlinTag(new Date()).slice(0, 4);
+		const auftraege = await sql`select nummer, status from app.auftraege order by nummer`;
+		expect(auftraege.map((a) => a.nummer)).toEqual([1, 2, 3, 4, 5, 6].map((n) => `A-${jahr}-000${n}`));
+		// alle sechs Status kommen vor
+		expect(new Set(auftraege.map((a) => a.status)).size).toBe(6);
+		// eine Doppelbelegung: zwei überlappende Einsätze desselben Mitarbeiters
+		const [doppelt] = await sql`
+			select count(*)::int as n from app.einsaetze a join app.einsaetze b
+				on a.benutzer_id = b.benutzer_id and a.id < b.id and a.beginn < b.ende and b.beginn < a.ende`;
+		expect(doppelt.n).toBeGreaterThanOrEqual(1);
+		// der Monteur hat heute Einsätze („Meine Einsätze heute“)
+		const [heute] = await sql`
+			select count(*)::int as n from app.einsaetze e join app.benutzer b on b.id = e.benutzer_id
+			where b.email = 'monteur@bauwelt.test'
+				and (e.beginn at time zone 'Europe/Berlin')::date = ${berlinTag(new Date())}::date`;
+		expect(heute.n).toBeGreaterThanOrEqual(1);
+	});
+
+	it('Stufe 1c: Briefkopf mit Logo, Startvorlagen Bad + Fliesen mit Beispielpreisen, 2 Angebote – zweiter Lauf ohne Duplikate', async () => {
+		const zaehle1c = async () => {
+			const [z] = await sql`
+				select
+					(select count(*)::int from app.katalog_positionen) as katalog,
+					(select count(*)::int from app.angebote) as angebote,
+					(select count(*)::int from app.angebot_positionen) as positionen,
+					(select count(*)::int from app.betrieb_profil) as profile`;
+			return z;
+		};
+		const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+		try {
+			const vorher = await zaehle1c();
+			await seedDev(db.urlSuper, { datei });
+			expect(await zaehle1c()).toEqual(vorher);
+		} finally {
+			log.mockRestore();
+		}
+		const [vorlagen] = await sql`
+			select count(*)::int as n from app.katalog_vorlagen where gewerk in ('bad_sanitaer', 'fliesen')`;
+		const z = await zaehle1c();
+		expect(z).toMatchObject({ katalog: vorlagen.n, angebote: 2, profile: 1 });
+		expect(z.positionen).toBeGreaterThanOrEqual(4);
+		// Beispielpreise: jede Position hat einen Preis und ist als Beispielpreis gekennzeichnet
+		const kat = await sql`select lohn_cent + material_cent as preis, beschreibung from app.katalog_positionen`;
+		for (const k of kat) {
+			expect(Number(k.preis)).toBeGreaterThan(0);
+			expect(k.beschreibung).toContain('Beispielpreis');
+		}
+		const angebote = await sql`select status from app.angebote order by nummer`;
+		expect(angebote.map((a) => a.status).sort()).toEqual(['entwurf', 'versendet']);
+		const [profil] = await sql`select firmenname, ort, logo_typ, octet_length(logo) as groesse, iban, steuernummer from app.betrieb_profil`;
+		expect(profil).toMatchObject({ firmenname: 'Bauwelt Handwerk GmbH', ort: 'Norderstedt', logo_typ: 'image/png', iban: null, steuernummer: null });
+		expect(profil.groesse).toBeGreaterThan(1000);
+		expect(profil.groesse).toBeLessThanOrEqual(1_048_576);
 	});
 
 	it('Zugangsdatei hat Modus 600', () => {

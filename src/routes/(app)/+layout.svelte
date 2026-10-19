@@ -4,11 +4,18 @@
 	import { istAktiv } from '$lib/navigation';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
+	import Mikrofon from '$lib/components/Mikrofon.svelte';
+	import { loesche, merkeNutzer, nutzerKennung } from '$lib/heute-kopie';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const pfad = $derived(page.url.pathname);
+
+	// Offline-Kopie gehört nur dem angemeldeten Benutzer: Kennung merken, fremde Kopie dabei löschen
+	$effect(() => {
+		if (data.benutzerId) merkeNutzer(nutzerKennung(data.benutzerId));
+	});
 	const mehrAktiv = $derived(pfad === '/mehr' || (data.navigation?.mehr ?? []).some((e) => istAktiv(e.href, pfad)));
 </script>
 
@@ -55,17 +62,21 @@
 					{/each}
 				</ul>
 			{/if}
-			<form method="POST" action="/api/abmelden" class="abmelden nur-breit">
+			<form method="POST" action="/api/abmelden" onsubmit={() => loesche()} class="abmelden nur-breit">
 				<button type="submit" class="eintrag">
 					<NavSymbol symbol="abmelden" />
 					<span class="text"><span class="name">Abmelden</span></span>
 				</button>
 			</form>
 		</nav>
-		<div class="inhalt">
+		<div class="inhalt" class:mit-mikro={data.sprache}>
 			<NurLesenHinweis form={page.form} />
 			{@render children()}
 		</div>
+		{#if data.sprache}
+			<!-- Sprachsteuerung (Modul „sprache“): runder Knopf unten rechts über der Navigation -->
+			<Mikrofon />
+		{/if}
 	</div>
 {:else}
 	<!-- Vor-Sitzung (Einrichtung der Zwei-Faktor-Anmeldung): noch keine Navigation -->
@@ -73,15 +84,16 @@
 {/if}
 
 <style>
+	/* Mobil: Bottom-Tab-Bar (wie M365-App auf dem Handy) */
 	.hauptnav {
 		position: fixed;
 		z-index: 10;
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: var(--flaeche);
-		border-top: 1px solid var(--rand);
-		box-shadow: 0 -2px 8px rgb(0 0 0 / 0.05);
+		background: var(--m365-flaeche);
+		border-top: 1px solid var(--m365-rand);
+		box-shadow: var(--m365-schatten);
 		padding-bottom: env(safe-area-inset-bottom);
 	}
 	.liste {
@@ -99,29 +111,36 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 0.15rem;
+		gap: 0.2rem;
 		width: 100%;
 		min-width: var(--tippziel);
 		min-height: var(--nav-hoehe);
 		margin: 0;
-		padding: 0.35rem 0.2rem;
+		padding: 0.4rem 0.25rem;
 		border: 0;
 		border-radius: 0;
 		background: none;
-		color: var(--text-leise);
-		font-size: 0.75rem;
-		line-height: 1.15;
+		color: var(--m365-text-leise);
+		font-family: var(--m365-schrift);
+		font-size: 0.6875rem;
+		font-weight: 400;
+		line-height: 1.2;
 		text-align: center;
 		text-decoration: none;
 		cursor: pointer;
+		transition: color 150ms, background 150ms;
 	}
 	.eintrag[aria-current='page'] {
-		color: var(--primaer);
-		font-weight: 700;
-		box-shadow: inset 0 3px 0 var(--primaer);
+		color: var(--m365-primaer);
+		font-weight: 600;
+		box-shadow: inset 0 2px 0 var(--m365-primaer);
+	}
+	.eintrag:hover:not(.aus) {
+		color: var(--m365-text);
+		background: var(--m365-flaeche-hover);
 	}
 	.eintrag.aus {
-		color: #8a9098;
+		color: var(--m365-text-leicht);
 		cursor: default;
 	}
 	.text {
@@ -139,7 +158,11 @@
 	.inhalt {
 		padding-bottom: calc(var(--nav-hoehe) + env(safe-area-inset-bottom));
 	}
+	.inhalt.mit-mikro {
+		padding-bottom: calc(var(--nav-hoehe) + 5rem + env(safe-area-inset-bottom));
+	}
 
+	/* Desktop: linke Seitenleiste wie M365 App */
 	@media (min-width: 900px) {
 		.hauptnav {
 			top: 0;
@@ -147,12 +170,12 @@
 			width: var(--seitenleiste);
 			display: flex;
 			flex-direction: column;
-			gap: 0.25rem;
-			padding: 0.75rem;
+			gap: 0;
+			padding: 0;
 			border-top: 0;
-			border-right: 1px solid var(--rand);
+			border-right: 1px solid var(--m365-rand);
 			box-shadow: none;
-			background: var(--hintergrund);
+			background: var(--m365-nav);
 			overflow-y: auto;
 		}
 		.nur-breit {
@@ -161,53 +184,86 @@
 		.nur-schmal {
 			display: none;
 		}
+		/* Branding-Bereich (wie M365 App-Kopf) */
 		.marke {
 			display: flex;
 			align-items: center;
-			min-height: var(--tippziel);
-			padding: 0 0.75rem;
-			margin-bottom: 0.75rem;
-			color: var(--primaer);
-			font-size: 1.15rem;
-			font-weight: 700;
+			gap: 0.5rem;
+			min-height: 3rem;
+			padding: 0 1rem;
+			margin-bottom: 0.5rem;
+			color: var(--m365-text);
+			font-family: var(--m365-schrift);
+			font-size: 1.125rem;
+			font-weight: 600;
 			text-decoration: none;
+			letter-spacing: -0.01em;
+		}
+		.marke::before {
+			content: '';
+			display: inline-block;
+			width: 1.5rem;
+			height: 1.5rem;
+			border-radius: var(--m365-radius);
+			background: var(--m365-primaer);
+			flex-shrink: 0;
 		}
 		.liste {
 			flex-direction: column;
-			gap: 0.25rem;
+			gap: 0;
+			padding: 0 0.5rem;
 		}
 		.eintrag {
 			flex-direction: row;
 			justify-content: flex-start;
 			gap: 0.75rem;
-			min-height: var(--tippziel);
-			padding: 0.5rem 0.75rem;
-			border-radius: 0.5rem;
-			font-size: 1rem;
+			min-height: 2.75rem; /* Tippziel ≥ 44 px */
+			margin: 0;
+			padding: 0.375rem 0.75rem;
+			border-radius: var(--m365-radius);
+			font-family: var(--m365-schrift);
+			font-size: 0.875rem;
+			font-weight: 400;
 			text-align: left;
+			line-height: 1.2;
 		}
 		.eintrag[aria-current='page'] {
-			background: var(--primaer-hell);
-			box-shadow: inset 3px 0 0 var(--primaer);
+			background: var(--m365-primaer-hell);
+			box-shadow: none;
+			font-weight: 600;
+			color: var(--m365-primaer-dunkel);
 		}
 		.eintrag:not(.aus):hover {
-			background: #e6e9ee;
+			background: var(--m365-flaeche-hover);
+		}
+		.eintrag.aus {
+			font-size: 0.875rem;
 		}
 		.hinweis {
 			font-size: 0.75rem;
 		}
 		.verwaltung {
-			margin-top: 0.75rem;
-			padding-top: 0.75rem;
-			border-top: 1px solid var(--rand);
+			margin-top: 0.5rem;
+			padding-top: 0.5rem;
+			border-top: 1px solid var(--m365-rand);
+		}
+		.verwaltung .liste {
+			padding: 0 0.5rem;
 		}
 		.abmelden {
 			margin-top: auto;
-			padding-top: 0.75rem;
+			padding: 0.5rem;
+			border-top: 1px solid var(--m365-rand);
+		}
+		.abmelden .eintrag {
+			width: 100%;
 		}
 		.inhalt {
 			padding-bottom: 0;
 			margin-left: var(--seitenleiste);
+		}
+		.inhalt.mit-mikro {
+			padding-bottom: 5.5rem;
 		}
 	}
 </style>

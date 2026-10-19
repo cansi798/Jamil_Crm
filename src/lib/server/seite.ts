@@ -2,7 +2,7 @@ import { error, redirect } from '@sveltejs/kit';
 import type { Kontext } from './db';
 import { ApiFehler } from './fehler';
 import { betriebKontext, type Recht } from './rechte';
-import { darf } from './tarif';
+import { darf, darfEines } from './tarif';
 import type { Modul } from '../tarife';
 
 /**
@@ -12,11 +12,13 @@ import type { Modul } from '../tarife';
 export async function seitenZugriff(
 	locals: { nutzer: Nutzer | null },
 	modul: Modul,
-	recht: Recht
+	recht: Recht | readonly Recht[]
 ): Promise<Kontext> {
 	if (!locals.nutzer) redirect(303, '/anmelden');
 	try {
-		await darf(locals, modul, recht);
+		// Liste: eines der Rechte genügt (z. B. eigene oder alle Aufträge lesen)
+		if (typeof recht === 'string') await darf(locals, modul, recht);
+		else await darfEines(locals, modul, recht);
 		return betriebKontext(locals);
 	} catch (e) {
 		if (e instanceof ApiFehler) error(e.status, e.message);
@@ -40,6 +42,19 @@ export function formWerte(form: FormData, felder: readonly string[]): Record<str
 	for (const f of felder) {
 		const w = form.get(f);
 		werte[f] = typeof w === 'string' ? w : '';
+	}
+	return werte;
+}
+
+/**
+ * Vorbelegung eines Formulars aus der Adresse (z. B. „Ändern“ auf der Bestätigungskarte der Sprachsteuerung):
+ * nur die genannten Felder, nur Text, höchstens 2000 Zeichen – geprüft wird wie immer erst beim Speichern.
+ */
+export function vorbelegung(url: URL, felder: readonly string[]): Record<string, string> {
+	const werte: Record<string, string> = {};
+	for (const f of felder) {
+		const w = url.searchParams.get(f);
+		if (w !== null && w !== '') werte[f] = w.replaceAll('\u0000', '').slice(0, 2000);
 	}
 	return werte;
 }

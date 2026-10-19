@@ -1,0 +1,367 @@
+<script lang="ts">
+	import { enhance } from '$app/forms';
+
+	type Kunde = { id: string; name: string };
+	type Objekt = { id: string; bezeichnung: string; adresse: string };
+	type Vorlage = { id: string; name: string };
+	type Todo = { titel: string; beschreibung: string };
+
+	/**
+	 * Formular für Aufträge (Neu und Bearbeiten). Kunde: vorbelegt (z. B. aus `?kunde=` oder beim Bearbeiten) oder über
+	 * die Kundensuche (`/api/kunden`, braucht „Kunden ansehen“) wählbar; danach stehen die Objekte dieses Kunden zur Wahl.
+	 * Gesendet wird nur die Kunden-ID – geprüft wird alles serverseitig.
+	 */
+	let {
+		aktion,
+		werte,
+		kunde = null,
+		objekte = [],
+		kundenSuche = true,
+		vorlagen = [],
+		todosZusaetzlich = false,
+		fehler = null,
+		knopf,
+		abbrechen
+	}: {
+		aktion: string;
+		werte: Record<string, string>;
+		kunde?: Kunde | null;
+		objekte?: Objekt[];
+		kundenSuche?: boolean;
+		vorlagen?: Vorlage[];
+		/** Bearbeiten: To-dos aus der Vorlage kommen zu den vorhandenen To-dos des Auftrags dazu. */
+		todosZusaetzlich?: boolean;
+		fehler?: string | null;
+		knopf: string;
+		abbrechen: string;
+	} = $props();
+
+	let gewaehlt = $state<{ kunde: Kunde; objekte: Objekt[] } | null>(null);
+	let aendern = $state(false);
+	let suchtext = $state('');
+	let treffer = $state<(Kunde & { info: string })[]>([]);
+	let meldung = $state<string | null>(null);
+	let laedt = $state(false);
+	let objektWahl = $state<string | null>(null);
+	let todos = $state<Todo[]>([]);
+	let vorlageWahl = $state<string>('');
+	let todosGeladen = $state(false);
+
+	const aktKunde = $derived(gewaehlt ? gewaehlt.kunde : kunde);
+	const aktObjekte = $derived(gewaehlt ? gewaehlt.objekte : objekte);
+	const sucheOffen = $derived(aendern || !aktKunde);
+	const objektWert = $derived(objektWahl ?? werte.objektId ?? '');
+
+	const adresse = (o: { strasse?: string | null; plz?: string | null; ort?: string | null }) =>
+		[o.strasse, [o.plz, o.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+
+	async function suchen() {
+		meldung = null;
+		laedt = true;
+		try {
+			const r = await fetch(`/api/kunden?suche=${encodeURIComponent(suchtext)}`);
+			if (!r.ok) {
+				treffer = [];
+				meldung = r.status === 403 ? 'Die Kundensuche ist für Ihr Konto nicht freigegeben.' : 'Die Suche hat nicht geklappt.';
+				return;
+			}
+			const liste: { id: string; name: string; ort: string | null; telefon: string | null }[] = await r.json();
+			treffer = liste.map((k) => ({ id: k.id, name: k.name, info: [k.ort, k.telefon].filter(Boolean).join(' · ') }));
+			if (treffer.length === 0) meldung = 'Keine Kunden gefunden.';
+		} catch {
+			meldung = 'Keine Verbindung. Bitte erneut versuchen.';
+		} finally {
+			laedt = false;
+		}
+	}
+
+	async function waehle(k: Kunde) {
+		let liste: Objekt[] = [];
+		try {
+			const r = await fetch(`/api/kunden/${k.id}/objekte`);
+			if (r.ok) {
+				const roh: { id: string; bezeichnung: string; strasse: string | null; plz: string | null; ort: string | null }[] =
+					await r.json();
+				liste = roh.map((o) => ({ id: o.id, bezeichnung: o.bezeichnung, adresse: adresse(o) }));
+			}
+		} catch {
+			// ohne Objekte weiter – der Auftrag braucht keins
+		}
+		gewaehlt = { kunde: { id: k.id, name: k.name }, objekte: liste };
+		objektWahl = '';
+		aendern = false;
+		treffer = [];
+		suchtext = '';
+		meldung = null;
+	}
+
+	function sucheTaste(e: KeyboardEvent) {
+		// Enter im Suchfeld sucht, statt das Auftragsformular abzuschicken
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			void suchen();
+		}
+	}
+
+	async function ladeVorlage() {
+		if (!vorlageWahl) {
+			todos = [];
+			todosGeladen = false;
+			return;
+		}
+		try {
+			const r = await fetch(`/api/auftrag-vorlagen/${vorlageWahl}`);
+			if (r.ok) {
+				const daten = await r.json();
+				todos = daten.todos.map((t: any) => ({ titel: t.titel, beschreibung: t.beschreibung ?? '' }));
+				todosGeladen = true;
+			}
+		} catch {
+			// Fehler ignorieren – Todos bleiben leer
+		}
+	}
+
+	function todoHinzufuegen() {
+		todos = [...todos, { titel: '', beschreibung: '' }];
+	}
+
+	function todoEntfernen(index: number) {
+		todos = todos.filter((_, i) => i !== index);
+	}
+
+	function todoVerschieben(index: number, richtung: -1 | 1) {
+		const ziel = index + richtung;
+		if (ziel < 0 || ziel >= todos.length) return;
+		const neu = [...todos];
+		[neu[index], neu[ziel]] = [neu[ziel], neu[index]];
+		todos = neu;
+	}
+</script>
+
+<form method="POST" action={aktion} use:enhance class="kd-formular">
+	{#if fehler}
+		<p role="alert" class="kd-fehler">{fehler}</p>
+	{/if}
+
+	<fieldset class="af-kunde">
+		<legend>Kunde *</legend>
+		<input type="hidden" name="kundeId" value={aktKunde?.id ?? ''} />
+		{#if aktKunde}
+			<div class="af-gewaehlt">
+				<strong>{aktKunde.name}</strong>
+				{#if kundenSuche && !aendern}
+					<button type="button" class="kd-knopf hell" onclick={() => (aendern = true)}>Anderen Kunden wählen</button>
+				{/if}
+			</div>
+		{/if}
+		{#if sucheOffen}
+			{#if kundenSuche}
+				<div class="kd-suche">
+					<input
+						type="search"
+						bind:value={suchtext}
+						onkeydown={sucheTaste}
+						placeholder="Name, Ort oder Telefon"
+						aria-label="Kunden suchen"
+						autocomplete="off"
+						enterkeyhint="search"
+					/>
+					<button type="button" class="kd-knopf" onclick={suchen} disabled={laedt}>Suchen</button>
+				</div>
+				{#if meldung}<p class="kd-info" role="status">{meldung}</p>{/if}
+				{#if treffer.length > 0}
+					<ul class="af-treffer" aria-label="Gefundene Kunden">
+						{#each treffer as t (t.id)}
+							<li>
+								<button type="button" onclick={() => waehle(t)}>
+									<strong>{t.name}</strong>
+									{#if t.info}<span class="kd-info"> · {t.info}</span>{/if}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			{:else if !aktKunde}
+				<p class="kd-info">Bitte den Auftrag über die Seite des Kunden anlegen („+ Auftrag“).</p>
+			{/if}
+		{/if}
+	</fieldset>
+
+	{#if aktKunde}
+		<label>
+			Objekt (Baustelle)
+			<select name="objektId" onchange={(e) => (objektWahl = e.currentTarget.value)}>
+				<option value="" selected={objektWert === ''}>– ohne Objekt –</option>
+				{#each aktObjekte as o (o.id)}
+					<option value={o.id} selected={o.id === objektWert}>
+						{o.bezeichnung}{o.adresse ? ` (${o.adresse})` : ''}
+					</option>
+				{/each}
+			</select>
+		</label>
+	{/if}
+
+	<label>
+		Titel *
+		<input type="text" name="titel" maxlength="200" required value={werte.titel ?? ''} placeholder="z. B. Badsanierung" />
+	</label>
+
+	<label>
+		Geplant ab
+		<input type="date" name="geplantAb" value={werte.geplantAb ?? ''} />
+	</label>
+
+	<label>
+		Beschreibung
+		<textarea name="beschreibung" maxlength="4000" rows="5">{werte.beschreibung ?? ''}</textarea>
+	</label>
+
+	{#if vorlagen.length > 0}
+		<fieldset class="af-vorlage">
+			<legend>{todosZusaetzlich ? 'To-dos aus Vorlage hinzufügen' : 'To-do-Vorlage'}</legend>
+			<select bind:value={vorlageWahl} onchange={ladeVorlage} aria-label="To-do-Vorlage">
+				<option value="">– ohne Vorlage –</option>
+				{#each vorlagen as v (v.id)}
+					<option value={v.id}>{v.name}</option>
+				{/each}
+			</select>
+			{#if todosGeladen && todos.length > 0}
+				<p class="kd-info">
+					{todos.length} To-dos aus der Vorlage werden angelegt{todosZusaetzlich
+						? ' – zusätzlich zu den vorhandenen To-dos des Auftrags'
+						: ''}.
+				</p>
+			{/if}
+		</fieldset>
+	{/if}
+
+	{#if todos.length > 0}
+		<fieldset class="af-todos">
+			<legend>To-dos</legend>
+			{#each todos as todo, i (i)}
+				<div class="af-todo">
+					<div class="af-todo-felder">
+						<input
+							type="text"
+							name="todo_{i}"
+							placeholder="To-do {i + 1}"
+							bind:value={todo.titel}
+							maxlength="200"
+						/>
+						<input
+							type="text"
+							name="todo_beschreibung_{i}"
+							placeholder="Beschreibung (optional)"
+							bind:value={todo.beschreibung}
+							maxlength="500"
+						/>
+					</div>
+					<div class="af-todo-knoepfe">
+						<button type="button" onclick={() => todoVerschieben(i, -1)} disabled={i === 0}>↑</button>
+						<button type="button" onclick={() => todoVerschieben(i, 1)} disabled={i === todos.length - 1}>↓</button>
+						<button type="button" onclick={() => todoEntfernen(i)} class="entfernen">×</button>
+					</div>
+				</div>
+			{/each}
+			<button type="button" onclick={todoHinzufuegen} class="af-todo-hinzufuegen">+ To-do hinzufügen</button>
+		</fieldset>
+	{:else if todosGeladen}
+		<button type="button" onclick={todoHinzufuegen} class="af-todo-hinzufuegen">+ To-do hinzufügen</button>
+	{/if}
+
+	<div class="kd-aktionen">
+		<button type="submit" class="kd-knopf">{knopf}</button>
+		<a href={abbrechen} class="kd-knopf hell">Abbrechen</a>
+	</div>
+</form>
+
+<style>
+	.af-vorlage {
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+	}
+	.af-vorlage legend {
+		font-weight: 600;
+		color: var(--text, #323130);
+		padding: 0 0.5rem;
+	}
+	.af-vorlage select {
+		width: 100%;
+		padding: 0.5rem;
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		font-size: 1rem;
+	}
+	.af-todos {
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+	}
+	.af-todos legend {
+		font-weight: 600;
+		color: var(--text, #323130);
+		padding: 0 0.5rem;
+	}
+	.af-todo {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 0.75rem;
+		align-items: flex-start;
+	}
+	.af-todo-felder {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.af-todo-felder input {
+		width: 100%;
+		padding: 0.5rem;
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		font-size: 1rem;
+		box-sizing: border-box;
+	}
+	.af-todo-knoepfe {
+		display: flex;
+		gap: 0.25rem;
+	}
+	.af-todo-knoepfe button {
+		width: 32px;
+		height: 32px;
+		border: 1px solid #d2d0ce;
+		background: white;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 1.25rem;
+		line-height: 1;
+	}
+	.af-todo-knoepfe button:hover:not(:disabled) {
+		background: #f3f2f1;
+	}
+	.af-todo-knoepfe button:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.af-todo-knoepfe .entfernen {
+		color: #a4262c;
+	}
+	.af-todo-hinzufuegen {
+		width: 100%;
+		padding: 0.5rem;
+		border: 2px dashed #d2d0ce;
+		background: transparent;
+		border-radius: 4px;
+		cursor: pointer;
+		color: var(--text-leise, #605e5c);
+		font-size: 1rem;
+		margin-top: 0.5rem;
+	}
+	.af-todo-hinzufuegen:hover {
+		border-color: var(--primar, #0078d4);
+		color: var(--primar, #0078d4);
+	}
+</style>
