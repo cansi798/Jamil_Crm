@@ -9,6 +9,9 @@ export default defineConfig({
 	},
 	test: {
 		include: ['tests/**/*.test.ts'],
-		environment: 'node'
+		environment: 'node',
+		// Datenbank-Tests legen im beforeAll eine frische Datenbank mit allen Migrationen an – unter Last länger als die
+		// üblichen 10 s (wächst mit jeder Migration)
+		hookTimeout: 60_000
 	}
 });
