@@ -5,6 +5,7 @@
 	type Todo = {
 		id: string;
 		titel: string;
+		beschreibung?: string | null;
 		auftragId: string | null;
 		auftragNummer: string | null;
 		auftragTitel: string | null;
@@ -189,6 +190,9 @@
 					>
 						<div class="karte-inhalt">
 							<p class="karte-titel">{todo.titel}</p>
+							{#if todo.beschreibung}
+								<p class="karte-beschreibung">{todo.beschreibung}</p>
+							{/if}
 							{#if zeigeAuftrag && todo.auftragNummer}
 								<p class="karte-auftrag">{todo.auftragNummer}</p>
 							{/if}
@@ -355,6 +359,16 @@
 		font-weight: 600;
 		color: var(--m365-text);
 		line-height: 1.3;
+	}
+
+	.karte-beschreibung {
+		margin: 0 0 0.25rem;
+		font-family: var(--m365-schrift);
+		font-size: 0.75rem;
+		line-height: 1.4;
+		color: var(--m365-text-leise);
+		white-space: pre-line;
+		overflow-wrap: anywhere;
 	}
 
 	.karte-auftrag {

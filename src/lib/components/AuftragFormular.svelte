@@ -18,6 +18,7 @@
 		objekte = [],
 		kundenSuche = true,
 		vorlagen = [],
+		todosZusaetzlich = false,
 		fehler = null,
 		knopf,
 		abbrechen
@@ -28,6 +29,8 @@
 		objekte?: Objekt[];
 		kundenSuche?: boolean;
 		vorlagen?: Vorlage[];
+		/** Bearbeiten: To-dos aus der Vorlage kommen zu den vorhandenen To-dos des Auftrags dazu. */
+		todosZusaetzlich?: boolean;
 		fehler?: string | null;
 		knopf: string;
 		abbrechen: string;
@@ -215,15 +218,19 @@
 
 	{#if vorlagen.length > 0}
 		<fieldset class="af-vorlage">
-			<legend>To-do-Vorlage</legend>
-			<select bind:value={vorlageWahl} onchange={ladeVorlage}>
+			<legend>{todosZusaetzlich ? 'To-dos aus Vorlage hinzufügen' : 'To-do-Vorlage'}</legend>
+			<select bind:value={vorlageWahl} onchange={ladeVorlage} aria-label="To-do-Vorlage">
 				<option value="">– ohne Vorlage –</option>
 				{#each vorlagen as v (v.id)}
 					<option value={v.id}>{v.name}</option>
 				{/each}
 			</select>
 			{#if todosGeladen && todos.length > 0}
-				<p class="kd-info">{todos.length} To-dos aus der Vorlage werden angelegt.</p>
+				<p class="kd-info">
+					{todos.length} To-dos aus der Vorlage werden angelegt{todosZusaetzlich
+						? ' – zusätzlich zu den vorhandenen To-dos des Auftrags'
+						: ''}.
+				</p>
 			{/if}
 		</fieldset>
 	{/if}

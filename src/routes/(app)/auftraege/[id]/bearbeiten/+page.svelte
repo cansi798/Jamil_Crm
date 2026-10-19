@@ -30,6 +30,8 @@
 		kunde={auswahl.kunde}
 		objekte={auswahl.objekte}
 		kundenSuche={data.kundenSuche}
+		vorlagen={data.vorlagen}
+		todosZusaetzlich
 		fehler={form?.fehler ?? null}
 		knopf="Speichern"
 		abbrechen={`/auftraege/${a.id}`}
