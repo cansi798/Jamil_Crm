@@ -16,6 +16,11 @@ import {
 	PUT as vorlagePut,
 	DELETE as vorlageDelete
 } from '../../src/routes/api/auftrag-vorlagen/[id]/+server';
+import { actions as neuAktionen, load as neuLoad } from '../../src/routes/(app)/auftraege/neu/+page.server';
+import {
+	actions as bearbeitenAktionen,
+	load as bearbeitenLoad
+} from '../../src/routes/(app)/auftraege/[id]/bearbeiten/+page.server';
 
 type Ant = { status: number; koerper: any };
 
@@ -269,6 +274,126 @@ describe('Auftrags-To-do-Vorlagen', () => {
 				params: { id: vorlage.id }
 			} as never));
 			expect(r.status).toBe(204);
+		});
+	});
+
+	describe('Auftrag-Formular (Neu und Bearbeiten)', () => {
+		let kundeA: string;
+		const ort = (nutzer: Nutzer) => ({ locals: { nutzer } });
+		const formAnfrage = (felder: [string, string][]) => {
+			const body = new URLSearchParams();
+			for (const [k, v] of felder) body.append(k, v);
+			return new Request('http://localhost/auftraege/neu', { method: 'POST', body });
+		};
+		/** Führt eine Formular-Aktion aus; eine Umleitung (redirect) kommt als { umleitung } zurück. */
+		const aktion = async (fn: () => unknown) => {
+			try {
+				return { ergebnis: (await fn()) as any };
+			} catch (e: any) {
+				if (e?.status === 303) return { umleitung: e.location as string };
+				throw e;
+			}
+		};
+		const todosVon = async (auftrag: string) =>
+			(await root`select titel, beschreibung from app.todos where auftrag_id = ${auftrag} order by angelegt, id`).map(
+				(z) => [z.titel, z.beschreibung]
+			);
+
+		beforeAll(async () => {
+			[{ id: kundeA }] = await root`
+				insert into app.kunden (betrieb_id, art, nachname) values (${betriebA}, 'privat', 'Vorlagenkunde') returning id`;
+		});
+
+		it('Neu: To-dos aus dem Formular mit Beschreibung und in Reihenfolge; leere Zeilen fallen weg', async () => {
+			const d = (await neuLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege/neu') } as never)) as any;
+			expect(Array.isArray(d.vorlagen)).toBe(true);
+			const r = await aktion(() =>
+				neuAktionen.anlegen({
+					...ort(chefA),
+					request: formAnfrage([
+						['kundeId', kundeA],
+						['titel', 'Wartung mit Vorlage'],
+						['todo_0', 'Filter wechseln'],
+						['todo_beschreibung_0', 'Typ F7'],
+						['todo_1', ''],
+						['todo_beschreibung_1', ''],
+						['todo_2', 'Abgas messen'],
+						['todo_beschreibung_2', '']
+					])
+				} as never)
+			);
+			expect(r.umleitung).toMatch(/^\/auftraege\/[0-9a-f-]{36}$/);
+			const id = r.umleitung!.split('/').pop()!;
+			expect(await todosVon(id)).toEqual([
+				['Filter wechseln', 'Typ F7'],
+				['Abgas messen', null]
+			]);
+		});
+
+		it('Neu: ungültiges To-do → 400 und KEIN Auftrag angelegt', async () => {
+			const r = await aktion(() =>
+				neuAktionen.anlegen({
+					...ort(chefA),
+					request: formAnfrage([
+						['kundeId', kundeA],
+						['titel', 'Darf nicht entstehen'],
+						['todo_0', 'Ok'],
+						['todo_beschreibung_0', 'x'.repeat(501)]
+					])
+				} as never)
+			);
+			expect(r.ergebnis?.status).toBe(400);
+			expect(await root`select 1 from app.auftraege where titel = 'Darf nicht entstehen'`).toHaveLength(0);
+		});
+
+		it('Bearbeiten: Vorlagen zur Auswahl; To-dos aus dem Formular kommen zu den vorhandenen dazu', async () => {
+			await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, { name: 'Heizung' });
+			const [{ id: auftrag }] = await root`
+				insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, 'Bestand', ${kundeA}) returning id`;
+			await root`insert into app.todos (betrieb_id, auftrag_id, titel) values (${betriebA}, ${auftrag}, 'Schon da')`;
+			const d = (await bearbeitenLoad({ ...ort(chefA), params: { id: auftrag } } as never)) as any;
+			expect(d.vorlagen.map((v: any) => v.name)).toEqual(['Heizung']);
+			const r = await aktion(() =>
+				bearbeitenAktionen.speichern({
+					...ort(chefA),
+					params: { id: auftrag },
+					request: formAnfrage([
+						['kundeId', kundeA],
+						['titel', 'Bestand geändert'],
+						['todo_0', 'Brenner reinigen'],
+						['todo_beschreibung_0', 'mit Bürste'],
+						['todo_1', 'Abgas messen']
+					])
+				} as never)
+			);
+			expect(r.umleitung).toBe(`/auftraege/${auftrag}`);
+			expect(await todosVon(auftrag)).toEqual([
+				['Schon da', null],
+				['Brenner reinigen', 'mit Bürste'],
+				['Abgas messen', null]
+			]);
+			const [a] = await root`select titel from app.auftraege where id = ${auftrag}`;
+			expect(a.titel).toBe('Bestand geändert');
+		});
+
+		it('Bearbeiten: ungültiges To-do → 400, Auftrag unverändert, keine To-dos', async () => {
+			const [{ id: auftrag }] = await root`
+				insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, 'Unverändert', ${kundeA}) returning id`;
+			const r = await aktion(() =>
+				bearbeitenAktionen.speichern({
+					...ort(chefA),
+					params: { id: auftrag },
+					request: formAnfrage([
+						['kundeId', kundeA],
+						['titel', 'Soll nicht gespeichert werden'],
+						['todo_0', ''],
+						['todo_beschreibung_0', 'Beschreibung ohne Titel']
+					])
+				} as never)
+			);
+			expect(r.ergebnis?.status).toBe(400);
+			expect((await root`select titel from app.auftraege where id = ${auftrag}`)[0].titel).toBe('Unverändert');
+			expect(await todosVon(auftrag)).toEqual([]);
 		});
 	});
 });

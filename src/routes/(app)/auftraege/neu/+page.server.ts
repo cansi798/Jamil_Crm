@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
 import { AUFTRAG_FELDER, ladeKundenAuswahl, legeAuftragAn } from '$lib/server/auftraege';
 import { listeVorlagen } from '$lib/server/auftrag-vorlagen';
+import { legeTodosAn, pruefeTodoListe, todosAusFormular } from '$lib/server/todos';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { formWerte, seitenZugriff, vorbelegung } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
@@ -25,36 +26,14 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const werte = formWerte(formData, AUFTRAG_FELDER);
 
-		// Todos aus Formular sammeln
-		const todos: { titel: string; beschreibung?: string }[] = [];
-		for (const [schluessel, wert] of formData.entries()) {
-			if (schluessel.startsWith('todo_') && !schluessel.startsWith('todo_beschreibung_') && wert) {
-				const index = schluessel.replace('todo_', '');
-				const titel = wert as string;
-				const todoBeschreibung = formData.get(`todo_beschreibung_${index}`) as string;
-				todos.push({ titel, beschreibung: todoBeschreibung || undefined });
-			}
-		}
-
 		let id: string;
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			// To-dos (z. B. aus einer Vorlage) zuerst prüfen – ein ungültiges To-do soll keinen halben Auftrag hinterlassen
+			const todos = pruefeTodoListe(todosAusFormular(formData));
 			const erg = await legeAuftragAn(betriebKontext(locals), werte);
 			id = erg.id;
-
-			// Todos anlegen, falls vorhanden
-			if (todos.length > 0) {
-				const { legeTodoAn } = await import('$lib/server/todos');
-				for (const todo of todos) {
-					await legeTodoAn(betriebKontext(locals), {
-						auftragId: id,
-						titel: todo.titel,
-						beschreibung: todo.beschreibung ?? null,
-						zustaendigId: null,
-						faellig: null
-					});
-				}
-			}
+			await legeTodosAn(betriebKontext(locals), id, todos);
 		} catch (e) {
 			// Kunde/Objekte für das erneut angezeigte Formular – nur für Berechtigte (verrät sonst Kundendaten)
 			const auswahl =

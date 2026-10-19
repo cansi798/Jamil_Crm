@@ -183,6 +183,26 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 export type NeuesTodo = { titel: string; beschreibung?: string | null };
 
 /**
+ * Neue To-dos aus dem Auftrag-Formular (Felder `todo_<n>` und `todo_beschreibung_<n>`, n = 0, 1, …) in der
+ * Reihenfolge von n. Ganz leere Zeilen fallen weg; eine Beschreibung ohne Titel bleibt drin (→ 400 beim Prüfen).
+ */
+export function todosAusFormular(form: FormData): NeuesTodo[] {
+	const nummern = new Set<number>();
+	for (const schluessel of form.keys()) {
+		const treffer = /^todo_(?:beschreibung_)?(\d{1,4})$/.exec(schluessel);
+		if (treffer) nummern.add(Number(treffer[1]));
+	}
+	const text = (name: string) => {
+		const w = form.get(name);
+		return typeof w === 'string' ? w : '';
+	};
+	return [...nummern]
+		.sort((a, b) => a - b)
+		.map((n) => ({ titel: text(`todo_${n}`), beschreibung: text(`todo_beschreibung_${n}`) }))
+		.filter((t) => t.titel.trim() !== '' || t.beschreibung.trim() !== '');
+}
+
+/**
  * Prüft eine Liste neuer To-dos (Titel Pflicht, Beschreibung ≤ 500, höchstens MAX_TODOS_AUF_EINMAL) – ohne Datenbank,
  * damit Aufrufer vor dem Anlegen eines Auftrags prüfen können und kein halber Auftrag entsteht.
  */
