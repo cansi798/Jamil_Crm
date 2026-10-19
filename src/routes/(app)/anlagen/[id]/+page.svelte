@@ -130,6 +130,7 @@
 				<p class="kd-info">
 					Mitarbeiter landen beim Scannen hier. Kunden sehen nur „Störung melden“ mit Ihren Kontaktdaten – keine Kundendaten.
 				</p>
+				<p class="kd-info">Link: <code class="an-qr-link">{data.qrUrl}</code></p>
 				<div class="kd-aktionen">
 					<a class="kd-knopf hell" href={`/anlagen/${a.id}/etikett`} target="_blank" rel="noopener">Etikett (PDF)</a>
 					<a class="kd-knopf hell" href={`/anlagen/${a.id}/etikett?format=bogen`} target="_blank" rel="noopener">A4-Bogen (24 Etiketten)</a>

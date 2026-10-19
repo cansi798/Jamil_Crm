@@ -86,7 +86,7 @@ test.describe('Angebote', () => {
 			await expect(page.getByTestId('angebot-status')).toHaveText('Versendet');
 			await expect(page.getByLabel('Menge Position 1')).toBeDisabled();
 			await page.goto(`/auftraege/${auftrag.id}`);
-			await expect(page.getByRole('list', { name: 'Statuskette' }).locator('[aria-current="step"]')).toHaveText('Angebot');
+			await expect(page.locator('ol[aria-label="Status"] [aria-current="step"]')).toHaveText('Angebot');
 			await expect(page.locator('main')).toContainText('Versendet');
 		} finally {
 			if (angebotId) {

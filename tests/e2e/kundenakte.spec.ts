@@ -71,22 +71,24 @@ test('Auftrags-To-do mit Lautstärke und Schmutz', async ({ page }, info) => {
 	const auftrag = await api(page, 'POST', '/api/auftraege', { titel: `E2E Belastung ${info.project.name} ${Date.now()}`, kundeId: kunden[0].id });
 	try {
 		await page.goto(`/auftraege/${auftrag.id}`);
+		await page.getByRole('button', { name: '+ To-do hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
 		await f.getByLabel('Neues To-do').fill('Fliesen abschlagen');
 		await f.getByLabel('Lautstärke').selectOption('3');
 		await f.getByLabel('Schmutz').selectOption('2');
-		await f.getByRole('button', { name: '+ To-do' }).click();
-		const karte = page.locator('.kanban-karte', { hasText: 'Fliesen abschlagen' });
-		await expect(karte.getByText('Lautstärke: hoch')).toBeVisible();
-		await expect(karte.getByText('Schmutz: mittel')).toBeVisible();
-		// nachträglich ändern über „Bearbeiten“ auf der Karte
-		await karte.getByText('Bearbeiten').click();
-		await karte.locator('select[name="lautstaerke"]').selectOption('1');
-		await karte.locator('select[name="schmutz"]').selectOption('');
-		await karte.getByRole('button', { name: 'Speichern' }).click();
-		const neu = page.locator('.kanban-karte', { hasText: 'Fliesen abschlagen' });
-		await expect(neu.getByText('Lautstärke: gering')).toBeVisible();
-		await expect(neu.getByText(/Schmutz:/)).toHaveCount(0);
+		await f.getByRole('button', { name: 'To-do speichern' }).click();
+		// Liste: Zeile aufklappen zeigt Details und Bearbeiten
+		const zeile = page.locator('.tl-zeile', { hasText: 'Fliesen abschlagen' });
+		await zeile.locator('.tl-titel').click();
+		await expect(zeile.getByText('Lautstärke: hoch · Schmutz: mittel')).toBeVisible();
+		await zeile.locator('select[name="lautstaerke"]').selectOption('1');
+		await zeile.locator('select[name="schmutz"]').selectOption('');
+		await zeile.getByRole('button', { name: 'Speichern' }).click();
+		// nach dem Speichern zugeklappt; erneut öffnen
+		await expect(zeile.locator('select[name="lautstaerke"]')).toHaveCount(0);
+		await zeile.locator('.tl-titel').click();
+		await expect(zeile.getByText('Lautstärke: gering')).toBeVisible();
+		await expect(zeile.getByText(/Schmutz:/)).toHaveCount(0);
 	} finally {
 		await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`);
 	}

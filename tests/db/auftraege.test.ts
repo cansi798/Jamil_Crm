@@ -429,6 +429,14 @@ describe('Aufträge und To-dos', () => {
 			expect(await setzeStatus(kA(), UNBEKANNT, 'angebot').catch((x) => x.status)).toBe(404);
 		});
 
+		it('setzeStatus mit Sprung (Statusleiste, msg 2581): beliebige Station, gleicher Status 409', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'x', kundeId: kundeA });
+			const alle = { alle: true, benutzerId: kA().benutzerId };
+			expect((await setzeStatus(kA(), a.id, 'in_arbeit', alle, { sprung: true })).status).toBe('in_arbeit');
+			expect((await setzeStatus(kA(), a.id, 'anfrage', alle, { sprung: true })).status).toBe('anfrage');
+			expect(await setzeStatus(kA(), a.id, 'anfrage', alle, { sprung: true }).catch((x) => x.status)).toBe(409);
+		});
+
 		it('loescheAuftrag: im Status angebot 409, als Anfrage ok, danach 404', async () => {
 			const a = await legeAuftragAn(kA(), { titel: 'x', kundeId: kundeA });
 			await setzeStatus(kA(), a.id, 'angebot');

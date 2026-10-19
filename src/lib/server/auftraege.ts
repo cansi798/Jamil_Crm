@@ -492,7 +492,9 @@ export async function setzeStatus(
 	k: Kontext,
 	id: string,
 	nach: AuftragStatus,
-	sicht: Sicht = ALLE(k.benutzerId)
+	sicht: Sicht = ALLE(k.benutzerId),
+	/** Statusleiste im Auftrag (Wunsch Jamil, msg 2581): direkt auf eine Station springen, nicht nur einen Schritt. */
+	opts: { sprung?: boolean } = {}
 ): Promise<Auftrag> {
 	pruefeStatus(nach);
 	pruefeAuftragsId(id);
@@ -501,7 +503,8 @@ export async function setzeStatus(
 			select a.status from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
 		if (!alt) throw nichtGefunden();
-		if (!erlaubterWechsel(alt.status, nach)) throw new ApiFehler(409, 'Statuswechsel nicht erlaubt');
+		const erlaubt = opts.sprung ? alt.status !== nach : erlaubterWechsel(alt.status, nach);
+		if (!erlaubt) throw new ApiFehler(409, 'Statuswechsel nicht erlaubt');
 		await tx`update app.auftraege set status = ${nach} where id = ${id} and betrieb_id = ${k.betriebId}`;
 		return ladeEinen(tx, k, sicht, id);
 	});

@@ -3,9 +3,8 @@
 	import { enhance } from '$app/forms';
 	import Karte from '$lib/components/Karte.svelte';
 	import StatusKette from '$lib/components/StatusKette.svelte';
-	import TodoKanban from '$lib/components/TodoKanban.svelte';
+	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
-	import { STATUS_NAMEN } from '$lib/auftrag-status';
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
@@ -18,8 +17,15 @@
 	const a = $derived(data.auftrag);
 	let kiLaeuft = $state(false);
 
-	// „Mitarbeiter zuweisen“ bleibt offen, solange man Häkchen setzt (nicht an die Anzahl gebunden)
-	let zuweisenOffen = $state(untrack(() => data.auftrag.zustaendige.length === 0));
+	// Eingeklappt bis gebraucht (Wunsch Jamil, msg 2579): „Mitarbeiter zuweisen“ bleibt offen, solange man Häkchen
+	// setzt, und schließt mit „Fertig“; „+ To-do“ und „+ Termin“ schließen nach dem Speichern bzw. „Abbrechen“.
+	let zuweisenOffen = $state(false);
+	let todoNeuOffen = $state(untrack(() => !!form?.todoWerte));
+	let terminOffen = $state(untrack(() => !!form?.terminFehler));
+	const terminGespeichert = () => async ({ result, update }: { result: { type: string }; update: () => Promise<void> }) => {
+		await update();
+		if (result.type === 'success') terminOffen = false;
+	};
 
 	// Felder direkt im Auftrag ändern (Wunsch Jamil): speichern sofort, kurze Rückmeldung „Gespeichert“
 	let gespeichert = $state(false);
@@ -43,7 +49,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>{a.titel}</h1>
-			<p class="kd-info">{a.nummer} · {STATUS_NAMEN[a.status]}</p>
+			<p class="kd-info">{a.nummer}</p>
 		</div>
 		<div class="karte-aktionen">
 			{#if data.darfBearbeiten}
@@ -52,6 +58,7 @@
 			<a href={`/auftraege/${a.id}/dokumentation`} class="knopf-gefuellt">Dokumentation</a>
 		</div>
 	</header>
+	<StatusKette status={a.status} darfBearbeiten={data.darfBearbeiten} />
 
 	{#if data.kundenHinweise && (data.kundenHinweise.notiz || data.kundenHinweise.notizen.length > 0)}
 		<aside class="af-hinweise" aria-label="Hinweise zum Kunden">
@@ -71,8 +78,6 @@
 	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
-
-	<StatusKette status={a.status} darfBearbeiten={data.darfBearbeiten} />
 
 	<Karte>
 		{#snippet titel()}Stammdaten{/snippet}
@@ -216,6 +221,7 @@
 							{m.name}
 						</label>
 					{/each}
+					<button type="button" class="kd-knopf hell af-fertig" onclick={() => (zuweisenOffen = false)}>Fertig</button>
 				</form>
 			</details>
 		{/if}
@@ -328,9 +334,9 @@
 			{/each}
 		</ul>
 		{#if data.darfTermine}
-			<details class="af-termin-neu" open={!!form?.terminFehler}>
-				<summary>+ Termin</summary>
-				<form method="POST" action="?/terminAnlegen" use:enhance class="kd-formular">
+			<details class="af-termin-neu af-aufklapp" bind:open={terminOffen}>
+				<summary class="kd-knopf hell">+ Termin hinzufügen</summary>
+				<form method="POST" action="?/terminAnlegen" use:enhance={terminGespeichert} class="kd-formular">
 					{#if form?.terminFehler}<p role="alert" class="kd-fehler">{form.terminFehler}</p>{/if}
 					<label>
 						Art
@@ -351,7 +357,10 @@
 						<label>bis <input type="time" name="bis" required value="12:00" /></label>
 					</div>
 					<label>Notiz (optional) <input type="text" name="notiz" maxlength="500" /></label>
-					<button type="submit" class="kd-knopf">Termin speichern</button>
+					<div class="td-neu-knoepfe">
+						<button type="submit" class="kd-knopf">Termin speichern</button>
+						<button type="button" class="kd-knopf hell" onclick={() => (terminOffen = false)}>Abbrechen</button>
+					</div>
 				</form>
 			</details>
 		{/if}
@@ -362,25 +371,31 @@
 		{#if form?.todoFehler && !form?.todoWerte}
 			<p role="alert" class="kd-fehler">{form.fehler}</p>
 		{/if}
-		<TodoKanban
-			todos={data.todos}
-			heute={data.heute}
-			benutzerId={data.benutzerId}
-			darfBearbeiten={data.darfBearbeiten}
-			mitarbeiter={data.mitarbeiter}
-			zeigeAuftrag={false}
-			aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen', serieBeenden: '?/todoSerieBeenden' }}
-			leer="Noch keine To-dos zu diesem Auftrag."
-		/>
-		{#if data.darfBearbeiten}
+		{#snippet aktionen()}
+			{#if data.darfBearbeiten && !todoNeuOffen}
+				<button type="button" class="knopf-subtil" onclick={() => (todoNeuOffen = true)}>+ To-do hinzufügen</button>
+			{/if}
+		{/snippet}
+		{#if data.darfBearbeiten && todoNeuOffen}
 			<TodoNeu
 				mitBelastung
 				aktion="?/todoAnlegen"
 				mitarbeiter={data.mitarbeiter}
 				fehler={form?.todoWerte ? form.fehler : null}
 				werte={form?.todoWerte ?? {}}
+				onfertig={() => (todoNeuOffen = false)}
+				onabbrechen={() => (todoNeuOffen = false)}
 			/>
 		{/if}
+		<TodoListe
+			todos={data.todos}
+			heute={data.heute}
+			benutzerId={data.benutzerId}
+			darfBearbeiten={data.darfBearbeiten}
+			mitarbeiter={data.mitarbeiter}
+			aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen', serieBeenden: '?/todoSerieBeenden' }}
+			leer="Noch keine To-dos zu diesem Auftrag."
+		/>
 	</Karte>
 
 	<Karte>
@@ -546,12 +561,25 @@
 		background: var(--m365-erfolg-hell);
 		color: var(--m365-erfolg);
 	}
-	.af-termin-neu summary {
+	.af-termin-neu {
+		margin-top: 0.5rem;
+	}
+	.af-termin-neu > summary {
+		list-style: none;
 		display: inline-flex;
 		align-items: center;
-		min-height: var(--tippziel, 44px);
-		color: var(--m365-primaer);
 		cursor: pointer;
+	}
+	.af-termin-neu > summary::-webkit-details-marker,
+	.af-zuweisen > summary::-webkit-details-marker {
+		display: none;
+	}
+	.af-termin-neu[open] > summary {
+		display: none;
+	}
+	.af-fertig {
+		justify-self: start;
+		margin-top: 0.5rem;
 	}
 	.ki-entwurf {
 		margin-top: 0.75rem;

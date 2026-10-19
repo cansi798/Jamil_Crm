@@ -10,7 +10,9 @@
 		mitarbeiter,
 		fehler = null,
 		werte = {},
-		mitBelastung = false
+		mitBelastung = false,
+		onfertig,
+		onabbrechen
 	}: {
 		aktion: string;
 		mitarbeiter: { id: string; name: string }[];
@@ -18,13 +20,24 @@
 		werte?: Record<string, string>;
 		/** Auftrags-To-dos: Stufen „Lautstärke“ und „Schmutz“ (gering, mittel, hoch; optional). */
 		mitBelastung?: boolean;
+		/** Eingeklappt im Auftrag (msg 2579): nach erfolgreichem Speichern bzw. „Abbrechen“ wieder zuklappen. */
+		onfertig?: () => void;
+		onabbrechen?: () => void;
 	} = $props();
 
 	// Wiederholen (Wunsch Jamil, msg 2501): täglich/wöchentlich/monatlich/jährlich, „alle N“, optional bis Datum
 	let wiederholen = $state(untrack(() => !!werte.wiederholung));
 </script>
 
-<form method="POST" action={aktion} use:enhance class="kd-formular td-neu">
+<form
+	method="POST"
+	action={aktion}
+	use:enhance={() => async ({ result, update }) => {
+		await update();
+		if (result.type === 'success') onfertig?.();
+	}}
+	class="kd-formular td-neu"
+>
 	{#if fehler}<p role="alert" class="kd-fehler">{fehler}</p>{/if}
 	<label>
 		Neues To-do
@@ -92,5 +105,8 @@
 			<p class="kd-info">Erster Termin ist „Fällig“ (sonst heute). Beim Abhaken entsteht automatisch das nächste To-do.</p>
 		{/if}
 	</div>
-	<button type="submit" class="kd-knopf">+ To-do</button>
+	<div class="td-neu-knoepfe">
+		<button type="submit" class="kd-knopf">{onabbrechen ? 'To-do speichern' : '+ To-do'}</button>
+		{#if onabbrechen}<button type="button" class="kd-knopf hell" onclick={() => onabbrechen?.()}>Abbrechen</button>{/if}
+	</div>
 </form>

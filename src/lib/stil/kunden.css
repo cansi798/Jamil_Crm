@@ -421,3 +421,7 @@
 		grid-template-columns: 1fr 1fr;
 	}
 }
+.an-qr-link {
+	overflow-wrap: anywhere;
+	font-size: 0.75rem;
+}

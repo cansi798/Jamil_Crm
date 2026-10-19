@@ -364,3 +364,9 @@
 	color: #fff;
 	font-weight: 600;
 }
+.td-neu-knoepfe {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: end;
+}

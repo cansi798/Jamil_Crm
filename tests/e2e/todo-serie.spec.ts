@@ -26,6 +26,9 @@ test('Wartung als wiederkehrendes To-do: anlegen, abhaken → nächstes, Wiederh
 	const auftrag = await api(page, 'POST', '/api/auftraege', { titel: `E2E Serie ${info.project.name} ${Date.now()}`, kundeId: kunden[0].id });
 	try {
 		await page.goto(`/auftraege/${auftrag.id}`);
+		// eingeklappt, bis man „+ To-do hinzufügen“ drückt (msg 2579)
+		await expect(page.locator('form.td-neu')).toHaveCount(0);
+		await page.getByRole('button', { name: '+ To-do hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
 		await f.getByLabel('Neues To-do').fill('Heizung warten');
 		const haken = f.getByRole('checkbox', { name: /Wiederkehrend/ });
@@ -40,21 +43,20 @@ test('Wartung als wiederkehrendes To-do: anlegen, abhaken → nächstes, Wiederh
 		await haken.check();
 		await f.locator('select[name="wiederholung"]').selectOption('woechentlich');
 		await f.locator('input[name="intervall"]').fill('2');
-		await f.getByRole('button', { name: '+ To-do' }).click();
-		const karten = page.locator('.kanban-karte', { hasText: 'Heizung warten' });
-		await expect(karten).toHaveCount(1);
-		await expect(karten.first()).toContainText('Wiederholt sich: alle 2 Wochen');
-		// abhaken → nächste Instanz entsteht automatisch
-		await karten.first().getByRole('button', { name: 'Als erledigt markieren' }).click();
-		await expect(karten).toHaveCount(2);
-		const offen = page.locator('.kanban-spalte[data-spalte="offen"] .kanban-karte, .kanban-spalte[data-spalte="in-arbeit"] .kanban-karte', {
-			hasText: 'Heizung warten'
-		});
+		await f.getByRole('button', { name: 'To-do speichern' }).click();
+		// nach dem Speichern wieder zu
+		await expect(page.locator('form.td-neu')).toHaveCount(0);
+		const offen = page.getByRole('list', { name: 'Offene To-dos' }).locator('.tl-zeile', { hasText: 'Heizung warten' });
 		await expect(offen).toHaveCount(1);
-		// Wiederholung beenden
-		await offen.getByText('Bearbeiten').click();
+		await expect(offen).toContainText('alle 2 Wochen');
+		// abhaken → nächste Instanz entsteht automatisch; die erledigte steht eingeklappt unten
+		await offen.getByRole('checkbox', { name: '„Heizung warten“ erledigt' }).check();
+		await expect(page.getByRole('button', { name: /1 erledigt anzeigen/ })).toBeVisible();
+		await expect(offen).toHaveCount(1);
+		// Wiederholung beenden (Zeile aufklappen)
+		await offen.locator('.tl-titel').click();
 		await offen.getByRole('button', { name: 'Wiederholung beenden' }).click();
-		await expect(page.locator('.kanban-karte', { hasText: 'Heizung warten' }).getByText('Wiederholung beendet').first()).toBeVisible();
+		await expect(offen.getByText('Wiederholung beendet')).toBeVisible();
 	} finally {
 		await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`);
 	}

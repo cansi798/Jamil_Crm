@@ -182,7 +182,9 @@ export const actions: Actions = {
 		const form = await request.formData();
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-			await setzeStatus(betriebKontext(locals), params.id, pruefeStatus(form.get('status')), sichtVon(locals.nutzer!));
+			await setzeStatus(betriebKontext(locals), params.id, pruefeStatus(form.get('status')), sichtVon(locals.nutzer!), {
+				sprung: form.get('sprung') === '1'
+			});
 		} catch (e) {
 			return alsFormFehler(e);
 		}
