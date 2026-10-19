@@ -54,11 +54,11 @@ test('Auftrag: Zuständige, Einsatzort, Termin mit Art, Hinweise zum Kunden', as
 		// Termin mit Art
 		await page.getByText('+ Termin').click();
 		const termin = page.locator('form[action="?/terminAnlegen"]');
-		await termin.getByLabel('Art', { exact: true }).selectOption('besichtigung');
-		await termin.getByLabel('Mitarbeiter', { exact: true }).selectOption({ label: 'Murat Öztürk' });
-		await termin.getByLabel('von', { exact: true }).fill('09:00');
-		await termin.getByLabel('bis', { exact: true }).fill('10:00');
-		await termin.getByLabel('Notiz (optional)').fill('Aufmaß nehmen');
+		await termin.locator('select[name="art"]').selectOption('besichtigung');
+		await termin.locator('select[name="benutzerId"]').selectOption({ label: 'Murat Öztürk' });
+		await termin.locator('input[name="von"]').fill('09:00');
+		await termin.locator('input[name="bis"]').fill('10:00');
+		await termin.locator('input[name="notiz"]').fill('Aufmaß nehmen');
 		await page.getByRole('button', { name: 'Termin speichern' }).click();
 		const termine = page.locator('.af-einsaetze');
 		await expect(termine.getByText('Besichtigung')).toBeVisible();
