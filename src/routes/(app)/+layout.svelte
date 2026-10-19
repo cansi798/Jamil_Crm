@@ -217,7 +217,7 @@
 			flex-direction: row;
 			justify-content: flex-start;
 			gap: 0.75rem;
-			min-height: 2.25rem;
+			min-height: 2.75rem; /* Tippziel ≥ 44 px */
 			margin: 0;
 			padding: 0.375rem 0.75rem;
 			border-radius: var(--m365-radius);
