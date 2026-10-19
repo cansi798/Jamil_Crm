@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
-	type Kunde = { id: string; name: string };
+	type Kunde = { id: string; name: string; adresse?: string | null };
 	type Objekt = { id: string; bezeichnung: string; adresse: string };
 	type Vorlage = { id: string; name: string };
 	type Todo = { titel: string; beschreibung: string };
@@ -19,6 +19,8 @@
 		kundenSuche = true,
 		vorlagen = [],
 		todosZusaetzlich = false,
+		mitarbeiter = [],
+		zustaendige = [],
 		fehler = null,
 		knopf,
 		abbrechen
@@ -31,6 +33,9 @@
 		vorlagen?: Vorlage[];
 		/** Bearbeiten: To-dos aus der Vorlage kommen zu den vorhandenen To-dos des Auftrags dazu. */
 		todosZusaetzlich?: boolean;
+		/** Aktive Mitarbeiter zur Auswahl „Zuständig“ und die schon gewählten IDs. */
+		mitarbeiter?: { id: string; name: string }[];
+		zustaendige?: string[];
 		fehler?: string | null;
 		knopf: string;
 		abbrechen: string;
@@ -65,8 +70,14 @@
 				meldung = r.status === 403 ? 'Die Kundensuche ist für Ihr Konto nicht freigegeben.' : 'Die Suche hat nicht geklappt.';
 				return;
 			}
-			const liste: { id: string; name: string; ort: string | null; telefon: string | null }[] = await r.json();
-			treffer = liste.map((k) => ({ id: k.id, name: k.name, info: [k.ort, k.telefon].filter(Boolean).join(' · ') }));
+			const liste: { id: string; name: string; strasse?: string | null; plz?: string | null; ort: string | null; telefon: string | null }[] =
+				await r.json();
+			treffer = liste.map((k) => ({
+				id: k.id,
+				name: k.name,
+				adresse: adresse({ strasse: k.strasse ?? null, plz: k.plz ?? null, ort: k.ort }) || null,
+				info: [k.ort, k.telefon].filter(Boolean).join(' · ')
+			}));
 			if (treffer.length === 0) meldung = 'Keine Kunden gefunden.';
 		} catch {
 			meldung = 'Keine Verbindung. Bitte erneut versuchen.';
@@ -87,7 +98,7 @@
 		} catch {
 			// ohne Objekte weiter – der Auftrag braucht keins
 		}
-		gewaehlt = { kunde: { id: k.id, name: k.name }, objekte: liste };
+		gewaehlt = { kunde: { id: k.id, name: k.name, adresse: k.adresse ?? null }, objekte: liste };
 		objektWahl = '';
 		aendern = false;
 		treffer = [];
@@ -191,7 +202,9 @@
 		<label>
 			Objekt (Baustelle)
 			<select name="objektId" onchange={(e) => (objektWahl = e.currentTarget.value)}>
-				<option value="" selected={objektWert === ''}>– ohne Objekt –</option>
+				<option value="" selected={objektWert === ''}>
+					Kundenadresse (Standard){aktKunde.adresse ? ` – ${aktKunde.adresse}` : ''}
+				</option>
 				{#each aktObjekte as o (o.id)}
 					<option value={o.id} selected={o.id === objektWert}>
 						{o.bezeichnung}{o.adresse ? ` (${o.adresse})` : ''}
@@ -199,6 +212,21 @@
 				{/each}
 			</select>
 		</label>
+	{/if}
+
+	{#if mitarbeiter.length > 0}
+		<fieldset class="af-zustaendig">
+			<legend>Zuständig</legend>
+			<input type="hidden" name="zustaendigeGesendet" value="1" />
+			<div class="af-zustaendig-liste">
+				{#each mitarbeiter as m (m.id)}
+					<label class="af-haken">
+						<input type="checkbox" name="zustaendige" value={m.id} checked={zustaendige.includes(m.id)} />
+						{m.name}
+					</label>
+				{/each}
+			</div>
+		</fieldset>
 	{/if}
 
 	<label>
@@ -276,6 +304,32 @@
 </form>
 
 <style>
+	.af-zustaendig {
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		padding: 0.75rem 1rem;
+		margin-bottom: 1rem;
+	}
+	.af-zustaendig legend {
+		font-weight: 600;
+		padding: 0 0.5rem;
+	}
+	.af-zustaendig-liste {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+	}
+	.af-haken {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: var(--tippziel, 44px);
+		font-weight: 400;
+	}
+	.af-haken input {
+		width: 1.25rem;
+		height: 1.25rem;
+	}
 	.af-vorlage {
 		border: 1px solid #d2d0ce;
 		border-radius: 4px;

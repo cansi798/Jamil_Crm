@@ -30,6 +30,8 @@
 		kunde={auswahl.kunde}
 		objekte={auswahl.objekte}
 		kundenSuche={data.kundenSuche}
+		mitarbeiter={data.mitarbeiter}
+		zustaendige={form?.zustaendige ?? a.zustaendige.map((z) => z.id)}
 		vorlagen={data.vorlagen}
 		todosZusaetzlich
 		fehler={form?.fehler ?? null}

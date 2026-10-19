@@ -8,6 +8,7 @@
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
+	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN } from '$lib/einsatz-art';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -35,7 +36,22 @@
 		</div>
 	</header>
 
-	{#if form?.fehler && !form?.todoFehler}
+	{#if data.kundenHinweise && (data.kundenHinweise.notiz || data.kundenHinweise.notizen.length > 0)}
+		<aside class="af-hinweise" aria-label="Hinweise zum Kunden">
+			<strong>Hinweise zum Kunden</strong>
+			<ul>
+				{#if data.kundenHinweise.notiz}<li>{data.kundenHinweise.notiz}</li>{/if}
+				{#each data.kundenHinweise.notizen as n (n.id)}
+					<li>{n.text} <span class="kd-info">· {tagDeutsch(berlinTag(new Date(n.angelegt)))}{n.vonName ? ` · ${n.vonName}` : ''}</span></li>
+				{/each}
+			</ul>
+			{#if data.kundenHinweise.weitere > 0}
+				<a href={`/kunden/${a.kundeId}`}>{data.kundenHinweise.weitere} weitere Notizen beim Kunden</a>
+			{/if}
+		</aside>
+	{/if}
+
+	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
 
@@ -48,6 +64,15 @@
 			<dd>
 				{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
 			</dd>
+			<dt>Einsatzort</dt>
+			<dd>
+				{a.adresse ?? 'Keine Adresse hinterlegt'}
+				<span class="kd-info">{a.adresseVonObjekt ? `(Objekt ${a.objektBezeichnung})` : '(Kundenadresse)'}</span>
+			</dd>
+			{#if a.zustaendige.length > 0}
+				<dt>Zuständig</dt>
+				<dd>{a.zustaendige.map((z) => z.name).join(', ')}</dd>
+			{/if}
 			{#if a.objektId}
 				<dt>Objekt</dt>
 				<dd>
@@ -147,20 +172,49 @@
 	{/if}
 
 	<Karte>
-		{#snippet titel()}Einsätze{/snippet}
+		{#snippet titel()}Termine{/snippet}
 		<ul class="kd-liste af-einsaetze">
 			{#each data.einsaetze as e (e.id)}
 				<li>
 					<span>
+						<span class={`af-art art-${e.art}`}>{EINSATZ_ART_NAMEN[e.art]}</span>
 						<strong>{tagKurz(berlinTag(new Date(e.beginn)))} {berlinUhrzeit(new Date(e.beginn))}–{berlinUhrzeit(new Date(e.ende))}</strong>
 						· {e.benutzerName}
 					</span>
 					{#if e.notiz}<span class="kd-info">{e.notiz}</span>{/if}
 				</li>
 			{:else}
-				<li class="kd-leer">Noch keine Einsätze geplant.</li>
+				<li class="kd-leer">Noch keine Termine geplant.</li>
 			{/each}
 		</ul>
+		{#if data.darfTermine}
+			<details class="af-termin-neu" open={!!form?.terminFehler}>
+				<summary>+ Termin</summary>
+				<form method="POST" action="?/terminAnlegen" use:enhance class="kd-formular">
+					{#if form?.terminFehler}<p role="alert" class="kd-fehler">{form.terminFehler}</p>{/if}
+					<label>
+						Art
+						<select name="art" required>
+							{#each EINSATZ_ARTEN as art (art)}<option value={art} selected={art === 'montage'}>{EINSATZ_ART_NAMEN[art]}</option>{/each}
+						</select>
+					</label>
+					<label>
+						Mitarbeiter
+						<select name="benutzerId" required>
+							<option value="">– bitte wählen –</option>
+							{#each data.mitarbeiter as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+						</select>
+					</label>
+					<label>Tag <input type="date" name="tag" required value={data.heute} /></label>
+					<div class="kd-zwei">
+						<label>von <input type="time" name="von" required value="08:00" /></label>
+						<label>bis <input type="time" name="bis" required value="12:00" /></label>
+					</div>
+					<label>Notiz (optional) <input type="text" name="notiz" maxlength="500" /></label>
+					<button type="submit" class="kd-knopf">Termin speichern</button>
+				</form>
+			</details>
+		{/if}
 	</Karte>
 
 	<Karte>
@@ -224,6 +278,40 @@
 </main>
 
 <style>
+	.af-hinweise {
+		margin: 0 0 1rem;
+		padding: 0.75rem 1rem;
+		border-left: 4px solid var(--m365-warnung);
+		border-radius: var(--m365-radius);
+		background: var(--m365-warnung-hell);
+	}
+	.af-hinweise ul {
+		margin: 0.25rem 0 0;
+		padding-left: 1.1rem;
+	}
+	.af-art {
+		display: inline-block;
+		margin-right: 0.35rem;
+		padding: 0.05rem 0.45rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		background: var(--m365-flaeche-hover);
+	}
+	.art-besichtigung {
+		background: var(--m365-primaer-hell);
+		color: var(--m365-primaer-dunkel);
+	}
+	.art-wartung {
+		background: var(--m365-erfolg-hell);
+		color: var(--m365-erfolg);
+	}
+	.af-termin-neu summary {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--tippziel, 44px);
+		color: var(--m365-primaer);
+		cursor: pointer;
+	}
 	.ki-entwurf {
 		margin-top: 0.75rem;
 	}

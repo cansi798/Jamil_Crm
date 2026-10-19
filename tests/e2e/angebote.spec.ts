@@ -107,7 +107,7 @@ test.describe('Angebote', () => {
 		await expect(erster).toBeVisible();
 		await erster.click();
 		await page.waitForURL(/\/auftraege\/[0-9a-f-]{36}$/);
-		await expect(page.getByRole('heading', { name: 'Einsätze' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Termine' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Angebote' })).toHaveCount(0);
 		expect(await page.content()).not.toContain('€');
 		const nav = page.getByRole('navigation', { name: 'Hauptnavigation' });
