@@ -9,6 +9,9 @@ const config = {
 			// 6 MB: Audio-Uploads (5 MB) + etwas Platz für JSON-Metadaten
 			bodySizeLimit: 6 * 1024 * 1024
 		}),
+		// Neue Version nach einem Deploy erkennen: alle 60 s fragen (`updated` aus $app/state); der nächste
+		// Seitenwechsel lädt dann die neue App-Hülle vollständig (src/routes/+layout.svelte, src/lib/aktualisierung.ts).
+		version: { pollInterval: 60_000 },
 		// Content-Security-Policy für alle Seiten. `mode: 'auto'`: SvelteKit versieht seine eigenen Inline-Skripte
 		// (Start der App, Registrierung des Service Workers) mit einer Nonce je Antwort – sonst laufen nur Skripte
 		// vom eigenen Server, nie Inline-Skripte oder eval. Weitere Kopfzeilen für alle Antworten: hooks.server.ts.
