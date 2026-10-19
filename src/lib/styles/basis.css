@@ -2,37 +2,66 @@
    Tippflächen mindestens 44 px (2,75 rem), kleinste Zielbreite 360 px ohne horizontales Scrollen. */
 @import '../stil/komponenten.css';
 :root {
-	/* Microsoft-365-Fluent-Palette (werte aus dem echten Fluent Design System) */
-	--m365-primaer: #0078d4;
-	--m365-primaer-hover: #106ebe;
-	--m365-primaer-dunkel: #005a9e;
-	--m365-primaer-hell: #eff6fc;
+	/* ── Design-Tokens (UX-Durchgang 20.10.2026, Wunsch Jamil msgs 2579–2583) ──────────────────────────────
+	   Eine Akzentfarbe, neutraler Seitenhintergrund, weiße Flächen mit zart getönten Kopfbändern.
+	   Die --m365-*-Namen bleiben (alle Seiten nutzen sie); nur ihre Werte kommen von hier. */
+	--ui-akzent: #0f6cbd;
+	--ui-akzent-hover: #115ea3;
+	--ui-akzent-dunkel: #0c3b6a;
+	--ui-akzent-hell: #ebf3fc;
+	--ui-akzent-zart: #f5f9fd;
+	--ui-hintergrund: #f2f4f7;
+	--ui-flaeche: #ffffff;
+	--ui-band: #f6f8fb; /* Kopfband von Abschnitten/Karten */
+	--ui-rand: #e3e6eb;
+	--ui-rand-stark: #c9ced6;
+	--ui-text: #1f2328;
+	--ui-text-leise: #59636e;
+	--ui-gefahr: #c42b1c;
+	--ui-gefahr-hell: #fdf0ef;
+
+	/* Abstände (4er-Raster), Radien, Höhen */
+	--ui-a1: 0.25rem;
+	--ui-a2: 0.5rem;
+	--ui-a3: 0.75rem;
+	--ui-a4: 1rem;
+	--ui-a5: 1.5rem;
+	--ui-radius: 8px; /* Eingabefelder, kleine Flächen */
+	--ui-knopf-radius: 10px; /* Knöpfe: runder, modern (Jamil msg 2597) */
+	--ui-chip-radius: 999px; /* kleine Chip-Knöpfe, Reiter, Filter */
+	--ui-radius-karte: 10px;
+	--ui-knopf-hoehe: 2.75rem; /* gleiche Höhe für alle Knöpfe, Tippziel ≥ 44 px */
+	--ui-schatten: 0 1px 2px rgba(16, 24, 40, 0.06);
+	--ui-fokus-ring: 0 0 0 3px rgba(15, 108, 189, 0.35);
+
+	--m365-primaer: var(--ui-akzent);
+	--m365-primaer-hover: var(--ui-akzent-hover);
+	--m365-primaer-dunkel: var(--ui-akzent-dunkel);
+	--m365-primaer-hell: var(--ui-akzent-hell);
 	--m365-erfolg: #107c10;
 	--m365-erfolg-hell: #dff6dd;
 	--m365-warnung: #ff8c00;
 	--m365-warnung-hell: #fff4ce;
-	--m365-fehler: #d13438;
-	--m365-fehler-hell: #fde7e9;
-	--m365-text: #323130;
-	--m365-text-leise: #605e5c;
+	--m365-fehler: var(--ui-gefahr);
+	--m365-fehler-hell: var(--ui-gefahr-hell);
+	--m365-text: var(--ui-text);
+	--m365-text-leise: var(--ui-text-leise);
 	--m365-text-leicht: #a19f9d;
-	--m365-rand: #edebe9;
-	--m365-rand-stark: #d2d0ce;
-	--m365-flaeche: #ffffff;
-	--m365-flaeche-hover: #f3f2f1;
-	--m365-hintergrund: #faf9f8;
+	--m365-rand: var(--ui-rand);
+	--m365-rand-stark: var(--ui-rand-stark);
+	--m365-flaeche: var(--ui-flaeche);
+	--m365-flaeche-hover: #eef1f5;
+	--m365-hintergrund: var(--ui-hintergrund);
 	--m365-nav: #ffffff;
-	--m365-fokus: #0078d4;
+	--m365-fokus: var(--ui-akzent);
 
-	/* Fluent-Radius (Fluent 4 Standard) */
-	--m365-radius-klein: 2px;
-	--m365-radius: 4px;
-	--m365-radius-karte: 8px;
+	--m365-radius-klein: 4px;
+	--m365-radius: var(--ui-radius);
+	--m365-radius-karte: var(--ui-radius-karte);
 	--m365-radius-gross: 12px;
 
-	/* Fluent-Schatten (Elevation 4/8/16) */
-	--m365-schatten: 0 1px 2px rgba(0,0,0,0.14), 0 0 2px rgba(0,0,0,0.12);
-	--m365-schatten-hoch: 0 2px 4px rgba(0,0,0,0.14), 0 8px 16px rgba(0,0,0,0.14);
+	--m365-schatten: var(--ui-schatten);
+	--m365-schatten-hoch: 0 2px 4px rgba(0,0,0,0.10), 0 8px 16px rgba(0,0,0,0.10);
 	--m365-schatten-pop: 0 3.2px 7.2px rgba(0,0,0,0.132), 0 0.6px 1.2px rgba(0,0,0,0.108);
 
 	/* Typografie */
@@ -95,43 +124,6 @@ svg {
 :focus-visible {
 	outline: 2px solid var(--m365-fokus);
 	outline-offset: 2px;
-}
-
-/* Gemeinsamer Knopf im Fluent-Design */
-.knopf {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.4rem;
-	min-height: var(--tippziel);
-	padding: 0.375rem 1rem;
-	border: 1px solid var(--m365-primaer);
-	border-radius: var(--m365-radius);
-	background: var(--m365-primaer);
-	color: #fff;
-	font-family: var(--m365-schrift);
-	font-weight: 600;
-	font-size: 0.875rem;
-	line-height: 1.2;
-	text-decoration: none;
-	cursor: pointer;
-	transition: background 150ms, border-color 150ms;
-}
-.knopf:hover {
-	background: var(--m365-primaer-hover);
-	border-color: var(--m365-primaer-hover);
-}
-.knopf:active {
-	background: var(--m365-primaer-dunkel);
-	border-color: var(--m365-primaer-dunkel);
-}
-.knopf.hell {
-	background: var(--m365-flaeche);
-	color: var(--m365-primaer);
-	border-color: var(--m365-rand-stark);
-}
-.knopf.hell:hover {
-	background: var(--m365-flaeche-hover);
 }
 
 /* Nur für Screenreader sichtbar */

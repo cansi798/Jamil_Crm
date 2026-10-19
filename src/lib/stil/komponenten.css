@@ -1,119 +1,246 @@
-/* Fluent-Design-Komponenten: Buttons, Karten, Badges, Formulare, Kommandoleiste.
-   Nutzt die --m365-*-Tokens aus basis.css. */
+/* Design-System der Oberfläche: Knöpfe, Abschnitte/Karten, Formulare, Listen, Tabellen, Seitenkopf.
+   Tokens (--ui-*, --m365-*) stehen in styles/basis.css.
 
-/* ── Buttons ─────────────────────────────────────────────── */
+   Warum „html …“ vor manchen Selektoren? Die Seiten-Stile (kunden.css, auftraege.css, angebote.css) werden nach
+   dieser Datei geladen und definieren eigene Knopf-Klassen (kd-knopf …). Mit dem „html“-Präfix gewinnt das
+   gemeinsame System bei Farbe/Höhe/Rahmen, ohne dass jede Seitendatei angepasst werden muss.
 
-.knopf-gefuellt {
+   Knopf-Arten (überall gleich hoch, sichtbarer Fokus):
+   - Primär (gefüllt):        .knopf  .knopf-gefuellt  .kd-knopf
+   - Sekundär (umrandet):     .knopf.hell  .kd-knopf.hell  .knopf-sekundaer
+   - Tertiär (getönt):        .knopf-subtil  .knopf-tertiaer
+   - Gefahr (rot umrandet):   .knopf-gefahr  .kd-knopf.gefahr
+   - klein:                   zusätzlich .klein (nur Desktop-Zeilen, mobil bleibt Tippziel 44 px) */
+
+/* ── Knöpfe ─────────────────────────────────────────────────────────────────────────────────────────── */
+
+html :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .kd-knopf) {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 0.5rem;
-	min-height: var(--tippziel);
+	gap: 0.45rem;
+	min-height: var(--ui-knopf-hoehe);
 	padding: 0.375rem 1rem;
-	border: 1px solid var(--m365-primaer);
-	border-radius: var(--m365-radius);
-	background: var(--m365-primaer);
+	border: 1px solid var(--ui-akzent);
+	border-radius: var(--ui-knopf-radius);
+	background: var(--ui-akzent);
 	color: #fff;
 	font-family: var(--m365-schrift);
-	font-weight: 600;
 	font-size: 0.875rem;
+	font-weight: 600;
 	line-height: 1.2;
+	text-align: center;
 	text-decoration: none;
+	white-space: normal;
 	cursor: pointer;
-	transition: background 150ms, border-color 150ms;
+	transition: background 150ms, border-color 150ms, color 150ms, box-shadow 150ms;
 }
-.knopf-gefuellt:hover {
-	background: var(--m365-primaer-hover);
-	border-color: var(--m365-primaer-hover);
+html :is(.knopf, .knopf-gefuellt, .kd-knopf):hover {
+	background: var(--ui-akzent-hover);
+	border-color: var(--ui-akzent-hover);
+	color: #fff;
 }
-.knopf-gefuellt:active {
-	background: var(--m365-primaer-dunkel);
-	border-color: var(--m365-primaer-dunkel);
+html :is(.knopf, .knopf-gefuellt, .kd-knopf):active {
+	background: var(--ui-akzent-dunkel);
+	border-color: var(--ui-akzent-dunkel);
 }
 
-.knopf-subtil {
+/* Sekundär: weiß mit Akzent-Rahmen */
+html :is(.knopf.hell, .kd-knopf.hell, .knopf-sekundaer) {
+	background: var(--ui-flaeche);
+	border-color: var(--ui-akzent);
+	color: var(--ui-akzent);
+}
+html :is(.knopf.hell, .kd-knopf.hell, .knopf-sekundaer):hover {
+	background: var(--ui-akzent-hell);
+	border-color: var(--ui-akzent-hover);
+	color: var(--ui-akzent-hover);
+}
+
+/* Tertiär: zart getönte Fläche – klar als Knopf erkennbar, aber zurückhaltend */
+html :is(.knopf-subtil, .knopf-tertiaer) {
+	background: var(--ui-akzent-hell);
+	border-color: transparent;
+	color: var(--ui-akzent);
+}
+html :is(.knopf-subtil, .knopf-tertiaer):hover {
+	background: #d9e8f8;
+	border-color: transparent;
+	color: var(--ui-akzent-hover);
+}
+
+/* Gefahr: rot umrandet, erst beim Überfahren gefüllt-zart */
+html :is(.knopf-gefahr, .kd-knopf.gefahr, .knopf.gefahr) {
+	background: var(--ui-flaeche);
+	border-color: var(--ui-gefahr);
+	color: var(--ui-gefahr);
+}
+html :is(.knopf-gefahr, .kd-knopf.gefahr, .knopf.gefahr):hover {
+	background: var(--ui-gefahr-hell);
+	border-color: #a52416;
+	color: #a52416;
+}
+
+html :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .kd-knopf):focus-visible {
+	outline: none;
+	box-shadow: var(--ui-fokus-ring);
+}
+html :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .kd-knopf):is(:disabled, [aria-disabled='true']) {
+	opacity: 0.5;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+/* <summary> als Knopf: kein Dreieck */
+html summary:is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .kd-knopf) {
+	list-style: none;
+}
+html summary:is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .kd-knopf)::-webkit-details-marker {
+	display: none;
+}
+/* Kleine Chip-Knöpfe (z. B. in Listenzeilen): volle Rundung */
+html :is(.kd-knopf, .knopf, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr).klein {
+	border-radius: var(--ui-chip-radius);
+}
+/* Reiter und Umschalter wie Chips */
+html .af-reiter a {
+	border-radius: var(--ui-chip-radius);
+}
+html .af-ansicht {
+	border-radius: var(--ui-chip-radius);
+}
+html .af-ansicht a {
+	border-radius: var(--ui-chip-radius);
+}
+
+/* Symbol im Knopf (z. B. „+“) */
+.knopf-symbol {
+	flex: none;
+	width: 1rem;
+	height: 1rem;
+}
+
+/* Knopfgruppe: Aktionen nebeneinander, umbrechend */
+.knopf-reihe {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--ui-a2);
+}
+
+/* Bekannte <summary>-Aktionen der Seiten (ohne Knopfklasse) sichtbar als Knopf */
+html :is(.kd-loeschen, .ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung, .af-termin-neu) > summary {
 	display: inline-flex;
 	align-items: center;
-	justify-content: center;
-	gap: 0.5rem;
-	min-height: var(--tippziel);
+	gap: 0.4rem;
+	min-height: var(--ui-knopf-hoehe);
 	padding: 0.375rem 1rem;
 	border: 1px solid transparent;
-	border-radius: var(--m365-radius);
-	background: transparent;
-	color: var(--m365-text);
-	font-family: var(--m365-schrift);
-	font-weight: 600;
+	border-radius: var(--ui-knopf-radius);
+	background: var(--ui-akzent-hell);
+	color: var(--ui-akzent);
 	font-size: 0.875rem;
-	line-height: 1.2;
-	text-decoration: none;
-	cursor: pointer;
-	transition: background 150ms;
-}
-.knopf-subtil:hover {
-	background: var(--m365-flaeche-hover);
-}
-.knopf-subtil:active {
-	background: var(--m365-rand);
-}
-
-.knopf-gefahr {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.5rem;
-	min-height: var(--tippziel);
-	padding: 0.375rem 1rem;
-	border: 1px solid var(--m365-fehler);
-	border-radius: var(--m365-radius);
-	background: var(--m365-fehler);
-	color: #fff;
-	font-family: var(--m365-schrift);
 	font-weight: 600;
-	font-size: 0.875rem;
-	line-height: 1.2;
-	text-decoration: none;
 	cursor: pointer;
-	transition: background 150ms;
+	list-style: none;
 }
-.knopf-gefahr:hover {
-	background: #a4262c;
+html :is(.kd-loeschen, .ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung, .af-termin-neu) > summary::-webkit-details-marker {
+	display: none;
+}
+html :is(.ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung) > summary::after {
+	content: '▾';
+	font-size: 0.75rem;
+}
+html :is(.ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung)[open] > summary::after {
+	content: '▴';
+}
+html .kd-loeschen {
+	padding: var(--ui-a3) var(--ui-a4);
+	border: 1px solid var(--ui-rand);
+	border-radius: var(--ui-radius-karte);
+	background: var(--ui-flaeche);
+}
+html .kd-loeschen > summary {
+	background: var(--ui-flaeche);
+	border-color: var(--ui-gefahr);
+	color: var(--ui-gefahr);
+}
+html .kd-loeschen > summary:hover {
+	background: var(--ui-gefahr-hell);
 }
 
-/* ── Karten (Fluent Card: Schatten statt Rahmen) ─────────── */
+/* ── Abschnitte und Karten: weiße Fläche, zart getöntes Kopfband ──────────────────────────────────────── */
 
-.karte {
-	background: var(--m365-flaeche);
-	border: none;
-	border-radius: var(--m365-radius-karte);
-	box-shadow: var(--m365-schatten);
-	padding: 1.5rem;
+.karte,
+.abschnitt {
+	background: var(--ui-flaeche);
+	border: 1px solid var(--ui-rand);
+	border-radius: var(--ui-radius-karte);
+	box-shadow: var(--ui-schatten);
+	padding: var(--ui-a4) var(--ui-a5) var(--ui-a5);
+	min-width: 0;
+}
+section.karte,
+.abschnitt {
+	margin: 0 0 var(--ui-a4);
 }
 
-.karte-kopf {
+.karte-kopf,
+.abschnitt-kopf {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 1rem;
-	margin-bottom: 1rem;
-	padding-bottom: 0.75rem;
-	border-bottom: 1px solid var(--m365-rand);
+	gap: var(--ui-a2) var(--ui-a4);
+	margin: calc(-1 * var(--ui-a4)) calc(-1 * var(--ui-a5)) var(--ui-a4);
+	padding: var(--ui-a2) var(--ui-a5);
+	min-height: 3.25rem;
+	background: var(--ui-band);
+	border-radius: var(--ui-radius-karte) var(--ui-radius-karte) 0 0;
 }
 
-.karte-titel {
+html :is(.karte-titel, .abschnitt-titel) {
 	margin: 0;
-	font-size: 1.25rem;
+	font-size: 1rem;
 	font-weight: 600;
-	color: var(--m365-text);
-	line-height: 1.25;
+	color: var(--ui-text);
+	line-height: 1.3;
+	letter-spacing: 0;
+}
+.abschnitt-anzahl {
+	display: inline-grid;
+	place-items: center;
+	min-width: 1.5rem;
+	height: 1.5rem;
+	margin-left: 0.4rem;
+	padding: 0 0.4rem;
+	border-radius: 999px;
+	background: var(--ui-flaeche);
+	border: 1px solid var(--ui-rand);
+	color: var(--ui-text-leise);
+	font-size: 0.75rem;
+	font-weight: 600;
+	vertical-align: 0.1em;
 }
 
-.karte-aktionen {
+.karte-aktionen,
+.abschnitt-aktionen {
 	display: flex;
-	gap: 0.5rem;
+	flex-wrap: wrap;
+	gap: var(--ui-a2);
+}
+/* Listen direkt im Abschnitt: ohne eigene Karte, bündig */
+html .abschnitt > .abschnitt-inhalt > .kd-liste:first-child {
+	margin-top: 0;
+}
+html .abschnitt > .abschnitt-inhalt > :last-child {
+	margin-bottom: 0;
+}
+html .abschnitt .kd-liste {
+	box-shadow: none;
+	border: 1px solid var(--ui-rand);
 }
 
-/* ── Badges (Fluent Pill Badge) ──────────────────────────── */
+/* ── Abzeichen ──────────────────────────────────────────────────────────────────────────────────────── */
 
 .badge {
 	display: inline-flex;
@@ -127,66 +254,101 @@
 	line-height: 1.5;
 	white-space: nowrap;
 }
-
 .badge-blau {
 	background: var(--m365-primaer-hell);
 	color: var(--m365-primaer-dunkel);
 }
-
 .badge-gruen {
 	background: var(--m365-erfolg-hell);
 	color: var(--m365-erfolg);
 }
-
 .badge-gelb {
 	background: var(--m365-warnung-hell);
 	color: #7a5a0a;
 }
-
 .badge-rot {
 	background: var(--m365-fehler-hell);
 	color: #b02a30;
 }
-
 .badge-grau {
 	background: var(--m365-flaeche-hover);
 	color: var(--m365-text-leise);
 }
 
-/* ── Formulare (Fluent Input) ────────────────────────────── */
+/* ── Formulare: Beschriftung über dem Feld, Häkchen in einer Zeile ───────────────────────────────────── */
 
 .eingabe {
 	width: 100%;
 	min-height: var(--tippziel);
 	padding: 0.375rem 0.625rem;
-	border: 1px solid var(--m365-rand-stark);
-	border-radius: var(--m365-radius);
-	background: var(--m365-flaeche);
-	color: var(--m365-text);
+	border: 1px solid var(--ui-rand-stark);
+	border-radius: var(--ui-radius);
+	background: var(--ui-flaeche);
+	color: var(--ui-text);
 	font-family: var(--m365-schrift);
 	font-size: 0.875rem;
 	line-height: 1.2;
 	transition: border-color 150ms, box-shadow 150ms;
 }
 .eingabe:focus {
-	border-color: var(--m365-primaer);
-	box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
+	border-color: var(--ui-akzent);
+	box-shadow: var(--ui-fokus-ring);
 	outline: none;
 }
 .eingabe::placeholder {
-	color: var(--m365-text-leise);
+	color: var(--ui-text-leise);
 }
-
 .beschriftung {
 	display: block;
 	margin-bottom: 0.25rem;
-	color: var(--m365-text);
+	color: var(--ui-text);
 	font-family: var(--m365-schrift);
 	font-size: 0.875rem;
 	font-weight: 600;
 }
 
-/* ── Listen-Elemente (Fluent List Row) ───────────────────── */
+/* Häkchen und Optionsfelder nie strecken – egal welche Seitenregel „input { width: 100% }“ setzt
+   (Fehler „Wied…“: riesige leere Kästchen, Jamil msg 2557). */
+html input:is([type='checkbox'], [type='radio']) {
+	flex: 0 0 auto;
+	width: 1.25rem;
+	min-width: 1.25rem;
+	height: 1.25rem;
+	min-height: 1.25rem;
+	padding: 0;
+	margin: 0;
+	accent-color: var(--ui-akzent);
+	cursor: pointer;
+}
+/* Beschriftung mit Häkchen: Kästchen und Text in einer Zeile */
+html label:has(> input:is([type='checkbox'], [type='radio'])) {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 0.6rem;
+	min-height: var(--tippziel);
+	cursor: pointer;
+}
+/* Fokus der Eingabefelder überall gleich */
+html :is(input, select, textarea):focus-visible {
+	outline: none;
+	border-color: var(--ui-akzent);
+	box-shadow: var(--ui-fokus-ring);
+}
+/* Dateiauswahl: der Knopf im Feld als Sekundärknopf */
+html input[type='file']::file-selector-button {
+	margin-right: 0.75rem;
+	padding: 0.35rem 0.8rem;
+	border: 1px solid var(--ui-akzent);
+	border-radius: var(--ui-knopf-radius);
+	background: var(--ui-flaeche);
+	color: var(--ui-akzent);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+/* ── Listen-Zeilen ───────────────────────────────────────────────────────────────────────────────────── */
 
 .listen-eintrag {
 	display: flex;
@@ -194,7 +356,7 @@
 	gap: 1rem;
 	min-height: 3rem;
 	padding: 0.625rem 1rem;
-	border-bottom: 1px solid var(--m365-rand);
+	border-bottom: 1px solid var(--ui-rand);
 	transition: background 150ms;
 }
 .listen-eintrag:hover {
@@ -203,28 +365,47 @@
 .listen-eintrag:last-child {
 	border-bottom: 0;
 }
+/* Listen der Seiten (kd-liste): Rahmen statt Schatten, zarter Wechsel beim Überfahren */
+html .kd-liste {
+	border: 1px solid var(--ui-rand);
+	box-shadow: var(--ui-schatten);
+}
+html .kd-liste > li:nth-child(even):not(.kd-leer) {
+	background: #fbfcfd;
+}
+/* Leerer Zustand: ruhig, mittig, gestrichelt */
+html .kd-leer {
+	padding: var(--ui-a4);
+	color: var(--ui-text-leise);
+	font-size: 0.875rem;
+	text-align: center;
+}
+html ul.kd-liste > li.kd-leer,
+html ol > li.kd-leer {
+	list-style: none;
+}
 
-/* ── Tabs / Pills (Fluent Tab) ───────────────────────────── */
+/* ── Reiter / Pills ──────────────────────────────────────────────────────────────────────────────────── */
 
 .pills {
 	display: flex;
 	gap: 0.5rem;
 	flex-wrap: wrap;
 }
-
 .pill {
 	display: inline-flex;
 	align-items: center;
-	min-height: 2rem;
-	padding: 0.25rem 0.75rem;
-	border: 1px solid var(--m365-rand-stark);
-	border-radius: var(--m365-radius);
-	background: var(--m365-flaeche);
-	color: var(--m365-text);
+	min-height: 2.25rem;
+	padding: 0.25rem 0.85rem;
+	border: 1px solid var(--ui-rand-stark);
+	border-radius: 999px;
+	background: var(--ui-flaeche);
+	color: var(--ui-text);
 	font-family: var(--m365-schrift);
 	font-size: 0.875rem;
 	font-weight: 600;
 	line-height: 1.2;
+	text-decoration: none;
 	cursor: pointer;
 	transition: background 150ms, color 150ms, border-color 150ms;
 }
@@ -232,29 +413,58 @@
 	background: var(--m365-flaeche-hover);
 }
 .pill.aktiv {
-	background: var(--m365-primaer);
+	background: var(--ui-akzent);
 	color: #fff;
-	border-color: var(--m365-primaer);
+	border-color: var(--ui-akzent);
 }
 .pill.aktiv:hover {
-	background: var(--m365-primaer-hover);
+	background: var(--ui-akzent-hover);
 }
 
-/* ── Seitenkopf (Titel + Hauptaktion) ────────────────────── */
+/* ── Überschriften: nie unterstrichen, keine Linie darunter (Jamil msg 2597) ─────────────────────────── */
 
-.seiten-kopf {
+html :is(h1, h2, h3, h4, .karte-titel, .abschnitt-titel) {
+	text-decoration: none;
+	border-bottom: 0;
+}
+html :is(h1, h2, h3, h4, .karte-titel, .abschnitt-titel) a,
+html a:has(> strong:first-child) {
+	text-decoration: none;
+}
+html :is(h1, h2, h3, h4, .karte-titel, .abschnitt-titel) a:hover,
+html a:has(> strong:first-child):hover {
+	text-decoration: underline;
+}
+
+/* ── Seitenkopf: Titel + Kennzahlen links, Hauptaktionen rechts ──────────────────────────────────────── */
+
+html .seiten-kopf {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 0.75rem;
-	margin-bottom: 1.5rem;
+	gap: var(--ui-a3);
+	margin: 0 0 var(--ui-a4);
 }
-.seiten-kopf h1 {
+html .seiten-kopf h1 {
 	margin: 0;
+	font-size: 1.375rem;
+	font-weight: 600;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+}
+.seiten-meta {
+	margin: 0.15rem 0 0;
+	color: var(--ui-text-leise);
+	font-size: 0.875rem;
+}
+.seiten-aktionen {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--ui-a2);
 }
 
-/* ── Kommandoleiste (Fluent Command Bar) ─────────────────── */
+/* ── Kommandoleiste ──────────────────────────────────────────────────────────────────────────────────── */
 
 .kommandoleiste {
 	display: flex;
@@ -262,23 +472,17 @@
 	gap: 0.25rem;
 	flex-wrap: wrap;
 	padding: 0.5rem 0;
-	border-bottom: 1px solid var(--m365-rand);
+	border-bottom: 1px solid var(--ui-rand);
 	margin-bottom: 1rem;
-}
-.kommandoleiste .knopf-subtil,
-.kommandoleiste .knopf-gefuellt {
-	min-height: 2.25rem;
-	padding: 0.25rem 0.75rem;
-	font-size: 0.875rem;
 }
 .kommandoleiste-trenner {
 	width: 1px;
 	height: 1.25rem;
-	background: var(--m365-rand);
+	background: var(--ui-rand);
 	margin: 0 0.25rem;
 }
 
-/* ── Tabelle (Fluent Data Grid) ──────────────────────────── */
+/* ── Tabelle ─────────────────────────────────────────────────────────────────────────────────────────── */
 
 .tabelle {
 	width: 100%;
@@ -288,32 +492,62 @@
 }
 .tabelle thead th {
 	padding: 0.5rem 0.75rem;
-	border-bottom: 1px solid var(--m365-rand);
-	color: var(--m365-text-leise);
+	background: var(--ui-band);
+	border-bottom: 1px solid var(--ui-rand);
+	color: var(--ui-text-leise);
 	font-weight: 600;
-	font-size: 0.875rem;
+	font-size: 0.8125rem;
 	text-align: left;
 	white-space: nowrap;
 }
 .tabelle tbody td {
 	padding: 0.625rem 0.75rem;
-	border-bottom: 1px solid var(--m365-rand);
+	border-bottom: 1px solid var(--ui-rand);
 	vertical-align: middle;
 }
 .tabelle tbody tr {
 	transition: background 150ms;
 }
+.tabelle tbody tr:nth-child(even) {
+	background: #fbfcfd;
+}
 .tabelle tbody tr:hover {
 	background: var(--m365-flaeche-hover);
 }
-.tabelle tbody tr:nth-child(even) {
-	background: var(--m365-hintergrund);
+
+/* ── Seiten (kd-seite): kompakter Kopf, weniger Luft, kein Querscrollen ──────────────────────────────── */
+
+html .kd-seite {
+	padding: var(--ui-a4);
 }
-.tabelle tbody tr:nth-child(even):hover {
-	background: var(--m365-flaeche-hover);
+html .kd-seite h1 {
+	margin: 0 0 var(--ui-a4);
+	font-size: 1.375rem;
+	line-height: 1.25;
+}
+html .kd-seite .seiten-kopf h1 {
+	margin: 0;
+}
+/* Wischbare Reiterleiste reicht bis an den Rand – passend zum Seitenabstand */
+html .kd-seite .af-reiter {
+	margin-inline: calc(-1 * var(--ui-a4));
+	padding-inline: var(--ui-a4);
+}
+html .kd-seite .kd-zurueck {
+	min-height: 2rem;
+	margin-bottom: 0.25rem;
+}
+@media (min-width: 900px) {
+	html .kd-seite {
+		padding: var(--ui-a5);
+	}
+	html .kd-seite .af-reiter {
+		margin-inline: calc(-1 * var(--ui-a5));
+		padding-inline: var(--ui-a5);
+	}
 }
 
-/* ── Bewegung reduzieren, wenn das System das wünscht ────── */
+/* ── Bewegung reduzieren, wenn das System das wünscht ────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
 	*,
