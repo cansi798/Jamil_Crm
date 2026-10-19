@@ -32,7 +32,7 @@ test('Neuer Auftrag mit Einmal-Kunde → Auftragsakte → in Kundendatenbank üb
 		await page.waitForURL(/\/kunden\/[0-9a-f-]{36}$/);
 		kundeId = page.url().split('/').pop()!;
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
-		await expect(page.getByRole('link', { name: /E2E Rohrbruch/ })).toBeVisible();
+		await expect(page.getByRole('link', { name: /E2E Rohrbruch/ }).first()).toBeVisible();
 
 		await page.goto('/auftraege/neu');
 		await page.getByRole('radio', { name: 'Ohne Kunde' }).check();
