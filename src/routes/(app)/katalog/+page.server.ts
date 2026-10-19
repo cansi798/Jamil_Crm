@@ -5,6 +5,7 @@ import { SUCHE_MAX_ZEICHEN } from '$lib/server/kunden';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { istGewerk } from '$lib/katalog-werte';
+import { ladeKalkulation } from '$lib/server/kalkulation';
 
 /** Katalog: Suche (`?suche=`), Filter Gewerk (`?gewerk=`), Startvorlagen übernehmen (nur `katalog.bearbeiten`). */
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -19,7 +20,15 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const vorlagen = darfBearbeiten
 		? (await listeVorlagen(k)).map(({ gewerk, name, anzahl, offen }) => ({ gewerk, name, anzahl, offen }))
 		: [];
-	return { positionen, gewerk, suche, mitPreisen, darfBearbeiten, vorlagen, maxTreffer: MAX_KATALOG };
+	// Vorschlag aus der Kalkulation (nur wer sie sehen darf): Firmenschnitt für Lohn-Positionen je Stunde – nur Hinweis,
+	// überschreibt nichts
+	const kalkulation =
+		mitPreisen && hatRecht(nutzer, 'einstellungen') ? (await ladeKalkulation(k)).uebersicht : null;
+	const stundensatz =
+		kalkulation && kalkulation.empfohlenCent !== null
+			? { empfohlenCent: kalkulation.empfohlenCent, kostendeckendCent: kalkulation.kostendeckendCent }
+			: null;
+	return { positionen, gewerk, suche, mitPreisen, darfBearbeiten, vorlagen, maxTreffer: MAX_KATALOG, stundensatz };
 };
 
 export const actions: Actions = {

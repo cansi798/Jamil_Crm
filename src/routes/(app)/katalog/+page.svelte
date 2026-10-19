@@ -22,6 +22,13 @@
 
 <main class="kd-seite">
 	<h1>Leistungskatalog</h1>
+	{#if data.stundensatz}
+		<p class="kt-hinweis" role="note">
+			Laut <a href="/kalkulation">Kalkulation</a>: empfohlener Stundensatz Ø {euro(data.stundensatz.empfohlenCent)}/h
+			(kostendeckend {data.stundensatz.kostendeckendCent === null ? '–' : `${euro(data.stundensatz.kostendeckendCent)}/h`}) – Richtwert
+			für Lohn-Positionen je Stunde.
+		</p>
+	{/if}
 
 	<nav aria-label="Gewerk">
 		<ul class="af-reiter">
