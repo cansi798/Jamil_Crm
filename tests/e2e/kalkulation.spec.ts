@@ -48,7 +48,7 @@ test('Kalkulation: Firmenwerte, Mitarbeiter, Ergebnis und Rechenweg', async ({ p
 			risikoProzent: '5',
 			aktuellerSatz: '50'
 		});
-		await expect(firma.locator('input[name="gemeinkosten"]')).toHaveValue('60.000,00');
+		await expect(firma.locator('input[name="gemeinkosten"]')).toHaveValue('60000,00');
 
 		// Mitarbeiter
 		const neu = page.locator('details.kk-neu');

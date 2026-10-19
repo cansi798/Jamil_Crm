@@ -47,6 +47,9 @@
 		mit_gewinn: ['Aktueller Satz bringt Gewinn', 'gut']
 	} as const;
 
+	// Nach dem Speichern zeigen die Felder die gespeicherten Werte – nicht per form.reset() die Startwerte
+	const ohneReset = () => async ({ update }: { update: (o?: { reset?: boolean }) => Promise<void> }) => update({ reset: false });
+
 	let agArtNeu = $state<string | null>(null);
 	let pufferArt = $state<string | null>(null);
 	const pufferAktuell = $derived(pufferArt ?? wert('firma', 'pufferArt', firmaFelder.pufferArt));
@@ -172,7 +175,7 @@
 	</details>
 
 	<h2>Firmenwerte</h2>
-	<form method="POST" action="?/firma" use:enhance class="kd-formular kk-firma">
+	<form method="POST" action="?/firma" use:enhance={ohneReset} class="kd-formular kk-firma">
 		{#if fehlerIn('firma')}<p role="alert" class="kd-fehler">{fehlerIn('firma')}</p>{/if}
 		<div class="kk-raster">
 			<label>Jahr <input type="number" name="jahr" min="2000" max="2100" required value={wert('firma', 'jahr', firmaFelder.jahr)} /></label>
@@ -218,7 +221,7 @@
 
 {#snippet mitarbeiterFormular(aktion: string, bereich: string, start: Record<string, string>, id: string | null)}
 	{@const agArt = bereich === 'neu' && agArtNeu ? agArtNeu : wert(bereich, 'agArt', start.agArt)}
-	<form method="POST" action={aktion} use:enhance class="kd-formular kk-ma-formular">
+	<form method="POST" action={aktion} use:enhance={id ? ohneReset : undefined} class="kd-formular kk-ma-formular">
 		{#if fehlerIn(bereich)}<p role="alert" class="kd-fehler">{fehlerIn(bereich)}</p>{/if}
 		{#if id}<input type="hidden" name="id" value={id} />{/if}
 		<div class="kk-raster">
