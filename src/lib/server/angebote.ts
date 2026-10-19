@@ -2,7 +2,7 @@ import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { anzeigeName, textFeld, UUID } from './kunden';
 import { hatRecht, pruefeRecht } from './rechte';
-import { sichtbar, sichtVon, type Sicht } from './auftraege';
+import { kundeNameAus, sichtbar, sichtVon, type Sicht } from './auftraege';
 import { darf } from './tarif';
 import { erlaubterAngebotWechsel, istAngebotStatus, type AngebotStatus } from '../angebot-status';
 import { istMwstSatz, leseEuroInCent, leseMenge, positionsSumme, summen, type MwstSatz } from '../geld';
@@ -43,7 +43,8 @@ export type Angebot = {
 	auftragId: string;
 	auftragNummer: string;
 	auftragTitel: string;
-	kundeId: string;
+	/** null bei Aufträgen mit Einmal-Kunden oder ohne Kunden (Phase 3). */
+	kundeId: string | null;
 	kundeName: string;
 	objektId: string | null;
 	status: AngebotStatus;
@@ -124,11 +125,12 @@ async function mitSchutz<T>(fn: () => Promise<T>): Promise<T> {
 const KOPF = `an.id, an.nummer, an.auftrag_id, an.status, to_char(an.datum, 'YYYY-MM-DD') as datum,
 	to_char(an.gueltig_bis, 'YYYY-MM-DD') as gueltig_bis, an.mwst_satz, an.einleitung, an.schluss, an.vorgaenger_id,
 	an.angelegt, an.geaendert, a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.objekt_id, a.kunde_id,
-	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname`;
+	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
+	a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort`;
 
 const VON = `app.angebote an
 	join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
-	join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id`;
+	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id`;
 
 const von = (tx: TransactionSql) => tx.unsafe(VON);
 
@@ -156,8 +158,8 @@ function zuAngebot(z: Record<string, any>, positionen: AngebotPosition[]): Angeb
 		auftragId: z.auftrag_id,
 		auftragNummer: z.auftrag_nummer,
 		auftragTitel: z.auftrag_titel,
-		kundeId: z.kunde_id,
-		kundeName: anzeigeName({ art: z.kunde_art, firma: z.kunde_firma, vorname: z.kunde_vorname, nachname: z.kunde_nachname }),
+		kundeId: z.kunde_id ?? null,
+		kundeName: kundeNameAus(z),
 		objektId: z.objekt_id,
 		status: z.status,
 		datum: z.datum,
@@ -593,9 +595,27 @@ export async function ladePdfDaten(k: Kontext, id: string, zg: AngebotZugriff = 
 	const aid = pruefeAngebotId(id);
 	return mitBetrieb(k, async (tx) => {
 		const angebot = await ladeEines(tx, k, aid, zg.sicht);
-		const [kd] = await tx`
-			select art, firma, anrede, vorname, nachname, strasse, plz, ort from app.kunden
-			where id = ${angebot.kundeId} and betrieb_id = ${k.betriebId}`;
+		// Anschrift: Kunde aus der Kundendatenbank, sonst Einmal-Kunde am Auftrag, sonst leer (Phase 3)
+		const [kunde] = angebot.kundeId
+			? await tx`
+				select art, firma, anrede, vorname, nachname, strasse, plz, ort from app.kunden
+				where id = ${angebot.kundeId} and betrieb_id = ${k.betriebId}`
+			: [];
+		const [einmal] = kunde
+			? []
+			: await tx`
+				select einmal_name, einmal_strasse, einmal_plz, einmal_ort from app.auftraege
+				where id = ${angebot.auftragId} and betrieb_id = ${k.betriebId}`;
+		const kd = kunde ?? {
+			art: 'privat',
+			firma: null,
+			anrede: null,
+			vorname: null,
+			nachname: einmal?.einmal_name ?? '',
+			strasse: einmal?.einmal_strasse ?? null,
+			plz: einmal?.einmal_plz ?? null,
+			ort: einmal?.einmal_ort ?? null
+		};
 		const person = [kd.anrede, kd.vorname, kd.nachname].filter(Boolean).join(' ');
 		const [ob] = angebot.objektId
 			? await tx`

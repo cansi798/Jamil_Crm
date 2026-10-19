@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { alsAntwort } from '$lib/server/fehler';
 import { zugriffEintrag } from '$lib/server/dokumentation-zugriff';
-import { anzeigeName } from '$lib/server/kunden';
+import { kundeNameAus } from '$lib/server/auftraege';
 import { berlinTag } from '$lib/zeit';
 import { liesProtokoll } from '$lib/server/baustellen-protokolle';
 import { sendeProtokollEmail } from '$lib/server/email';
@@ -21,14 +21,15 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 		const { mitBetrieb } = await import('$lib/server/db');
 		const [auftrag] = await mitBetrieb(k, (tx) => tx`
 			select a.nummer as "auftragNummer", a.titel as "auftragTitel",
-				k.art, k.firma, k.vorname, k.nachname, k.email as "kundeEmail",
+				k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname, a.einmal_name, a.einmal_email, k.email as "kundeEmail",
 				o.bezeichnung as "objektBezeichnung"
 			from app.auftraege a
-			join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
+			left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 			left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id
 			where a.id = ${prot.auftragId}`);
-		if (auftrag) auftrag.kundeName = anzeigeName({ art: auftrag.art, firma: auftrag.firma, vorname: auftrag.vorname, nachname: auftrag.nachname });
+		if (auftrag) auftrag.kundeName = kundeNameAus(auftrag);
 		if (!auftrag) return json({ fehler: 'Auftrag nicht gefunden' }, { status: 404 });
+		auftrag.kundeEmail = auftrag.kundeEmail ?? auftrag.einmal_email;
 		if (!auftrag.kundeEmail) return json({ fehler: 'Kunde hat keine E-Mail-Adresse' }, { status: 400 });
 		const inhalt = typeof prot.inhalt === 'string' ? JSON.parse(prot.inhalt) : prot.inhalt;
 		const [{ unterschrift } = { unterschrift: null }] = await mitBetrieb(k, (tx) => tx`

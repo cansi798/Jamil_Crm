@@ -2,6 +2,7 @@ import { mitBetrieb, type Kontext } from '../db';
 import { ApiFehler } from '../fehler';
 import { listeAuftraege, sichtVon, type Auftrag } from '../auftraege';
 import { anzeigeName, listeKunden, pruefeKundeEingabe, type Kunde } from '../kunden';
+import { kundeNameAus } from '../auftraege';
 import { MAX_STUNDEN } from '../plantafel';
 import { aktiveMitarbeiter } from '../todos';
 import { berlinTag, berlinUhrzeit, ausTagUndUhrzeit, istTag, tagDeutsch, tagPlus, wochentag, verschiebeAufTag } from '../../zeit';
@@ -333,10 +334,10 @@ async function einsatzVerschieben(k: Kontext, nutzer: Nutzer, d: Extract<KiAktio
 		const bisEnde = vonTag ? ausTagUndUhrzeit(tagPlus(vonTag, 1), '00:00') : new Date(jetzt.getTime() + 60 * 24 * MS_H);
 		const zeilen = await mitBetrieb(k, (tx) => tx`
 			select e.id, e.beginn, e.ende, b.name as benutzer_name, a.nummer, a.titel,
-				k.art, k.firma, k.vorname, k.nachname
+				k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname, a.einmal_name
 			from app.einsaetze e
 			join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
-			join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
+			left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 			join app.benutzer b on b.id = e.benutzer_id and b.betrieb_id = e.betrieb_id
 			where e.betrieb_id = ${k.betriebId} and e.ende > ${bisAb} and e.beginn < ${bisEnde}
 				${mitarbeiter ? tx`and e.benutzer_id = any(${mitarbeiter.map((m) => m.id)}::uuid[])` : tx``}
@@ -346,7 +347,7 @@ async function einsatzVerschieben(k: Kontext, nutzer: Nutzer, d: Extract<KiAktio
 		kandidaten = zeilen.map((z) => {
 			const beginn = new Date(z.beginn);
 			const ende = new Date(z.ende);
-			const kunde = anzeigeName({ art: z.art, firma: z.firma, vorname: z.vorname, nachname: z.nachname });
+			const kunde = kundeNameAus(z);
 			return { id: z.id, beginn, ende, label: `${zeitraumText(beginn, ende)} · ${z.benutzer_name} · ${z.titel} (${kunde})` };
 		});
 		if (kandidaten.length === 0) bau.fehlt.push('Keinen passenden Termin gefunden.');

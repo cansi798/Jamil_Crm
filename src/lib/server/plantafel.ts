@@ -1,6 +1,7 @@
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
-import { anzeigeName, textFeld, UUID } from './kunden';
+import { textFeld, UUID } from './kunden';
+import { kundeNameAus, ortAus } from './auftraege';
 import { darf, darfEines } from './tarif';
 import { berlinTag, istTag, tagesGrenzen, tagPlus, wocheVon } from '../zeit';
 import { istEinsatzArt, type EinsatzArt } from '../einsatz-art';
@@ -146,11 +147,12 @@ export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.benutzer_id, e.beginn, e.e
 	a.nummer as auftrag_nummer, a.titel as auftrag_titel, b.name as benutzer_name,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
-	o.id as objekt_id, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort`;
+	o.id as objekt_id, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
+	a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort`;
 
 export const EINSATZ_VON = `app.einsaetze e
 	join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
-	join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
+	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 	left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id
 	join app.benutzer b on b.id = e.benutzer_id and b.betrieb_id = e.betrieb_id`;
 
@@ -161,8 +163,8 @@ export function zuEinsatz(z: Record<string, any>, warnungen: Warnung[] = []): Ei
 		auftragId: z.auftrag_id,
 		auftragNummer: z.auftrag_nummer,
 		auftragTitel: z.auftrag_titel,
-		kundeName: anzeigeName({ art: z.kunde_art, firma: z.kunde_firma, vorname: z.kunde_vorname, nachname: z.kunde_nachname }),
-		ort: objektOrt ?? adresse(z.kunde_strasse, z.kunde_plz, z.kunde_ort),
+		kundeName: kundeNameAus(z),
+		ort: objektOrt ?? ortAus(z),
 		benutzerId: z.benutzer_id,
 		benutzerName: z.benutzer_name,
 		beginn: iso(z.beginn),

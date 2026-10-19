@@ -18,12 +18,30 @@ import { istTag } from '../zeit';
  * (Rechteprüfung macht der Aufrufer).
  */
 
+/** Wem der Auftrag gehört: Kunde aus der Kundendatenbank, Einmal-Kunde (nur am Auftrag) oder keinem (Phase 3). */
+export const KUNDEN_ARTEN = ['kunde', 'einmal', 'ohne'] as const;
+export type KundenArt = (typeof KUNDEN_ARTEN)[number];
+export const OHNE_KUNDE = 'Ohne Kunde';
+
+export type EinmalKunde = {
+	name: string;
+	telefon: string | null;
+	email: string | null;
+	strasse: string | null;
+	plz: string | null;
+	ort: string | null;
+};
+
 export type Auftrag = {
 	id: string;
 	nummer: string;
 	titel: string;
-	kundeId: string;
+	kundeArt: KundenArt;
+	/** null bei Einmal-Kunde oder ohne Kunde. */
+	kundeId: string | null;
+	/** Anzeigename: Kunde, Einmal-Kunde oder „Ohne Kunde“. */
 	kundeName: string;
+	einmalKunde: EinmalKunde | null;
 	objektId: string | null;
 	objektBezeichnung: string | null;
 	/** Einsatzort: Adresse des Objekts, sonst die Adresse des Kunden (Standard), sonst null. */
@@ -43,7 +61,9 @@ export type Sicht = { alle: boolean; benutzerId: string };
 
 export type AuftragWerte = {
 	titel: string;
-	kundeId: string;
+	kundeArt: KundenArt;
+	kundeId: string | null;
+	einmal: EinmalKunde | null;
 	objektId: string | null;
 	beschreibung: string | null;
 	geplantAb: string | null;
@@ -56,7 +76,8 @@ export const MAX_AUFTRAEGE = 100;
 export const MAX_ZUSTAENDIGE = 20;
 
 /** Felder, die beim Anlegen/Ändern angenommen werden (Formular und JSON). Status/Nummer gehören nicht dazu. */
-export const AUFTRAG_FELDER = ['titel', 'kundeId', 'objektId', 'beschreibung', 'geplantAb'] as const;
+export const EINMAL_FELDER = ['einmalName', 'einmalTelefon', 'einmalEmail', 'einmalStrasse', 'einmalPlz', 'einmalOrt'] as const;
+export const AUFTRAG_FELDER = ['titel', 'kundeArt', 'kundeId', 'objektId', 'beschreibung', 'geplantAb', ...EINMAL_FELDER] as const;
 
 const nichtGefunden = () => new ApiFehler(404, 'Auftrag nicht gefunden.');
 
@@ -86,16 +107,35 @@ function idFeld(wert: unknown, meldung: string): string | null {
 export function pruefeAuftragEingabe(e: Record<string, unknown>): AuftragWerte {
 	const titel = textFeld(e.titel, 'Titel', 200);
 	if (titel === null) throw new ApiFehler(400, 'Bitte einen Titel eingeben.');
-	const kundeId = idFeld(e.kundeId, 'Bitte einen Kunden wählen.');
-	if (kundeId === null) throw new ApiFehler(400, 'Bitte einen Kunden wählen.');
+	// Ohne Angabe: Kunde aus der Kundendatenbank (wie vor Phase 3 – API, Sprachsteuerung)
+	const kundeArt = e.kundeArt === undefined || e.kundeArt === null || e.kundeArt === '' ? 'kunde' : e.kundeArt;
+	if (!(KUNDEN_ARTEN as readonly unknown[]).includes(kundeArt)) throw new ApiFehler(400, 'Unbekannte Kundenart.');
+	let kundeId: string | null = null;
+	let einmal: EinmalKunde | null = null;
+	if (kundeArt === 'kunde') {
+		kundeId = idFeld(e.kundeId, 'Bitte einen Kunden wählen.');
+		if (kundeId === null) throw new ApiFehler(400, 'Bitte einen Kunden wählen.');
+	} else if (kundeArt === 'einmal') {
+		const name = textFeld(e.einmalName, 'Name des Einmal-Kunden', 200);
+		if (name === null) throw new ApiFehler(400, 'Bitte den Namen des Einmal-Kunden eingeben.');
+		einmal = {
+			name,
+			telefon: textFeld(e.einmalTelefon, 'Telefon', 50),
+			email: textFeld(e.einmalEmail, 'E-Mail', 200),
+			strasse: textFeld(e.einmalStrasse, 'Straße', 200),
+			plz: textFeld(e.einmalPlz, 'PLZ', 20),
+			ort: textFeld(e.einmalOrt, 'Ort', 200)
+		};
+	}
 	const objektId = idFeld(e.objektId, 'Das Objekt ist ungültig.');
+	if (objektId !== null && kundeId === null) throw new ApiFehler(400, 'Ein Objekt gibt es nur mit einem Kunden aus der Kundendatenbank.');
 	const beschreibung = textFeld(e.beschreibung, 'Beschreibung', 4000);
 	let geplantAb: string | null = null;
 	if (e.geplantAb !== undefined && e.geplantAb !== null && e.geplantAb !== '') {
 		if (!istTag(e.geplantAb)) throw new ApiFehler(400, 'Das Datum „Geplant ab“ ist ungültig.');
 		geplantAb = e.geplantAb;
 	}
-	return { titel, kundeId, objektId, beschreibung, geplantAb };
+	return { titel, kundeArt: kundeArt as KundenArt, kundeId, einmal, objektId, beschreibung, geplantAb };
 }
 
 /** Prüft einen Statusfilter bzw. Zielstatus (400 bei unbekanntem Wert). */
@@ -131,12 +171,13 @@ const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.status, a.b
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
+	a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort,
 	(select coalesce(json_agg(json_build_object('id', b.id, 'name', b.name) order by public.unaccent(lower(b.name)), b.id), '[]')
 		from app.auftrag_zustaendige z join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
 		where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id) as zustaendige`;
 
 const VON = `app.auftraege a
-	join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
+	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 	left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id`;
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
@@ -144,17 +185,41 @@ const iso = (d: unknown) => new Date(d as string | Date).toISOString();
 const adresseAus = (strasse: string | null, plz: string | null, ort: string | null) =>
 	[strasse, [plz, ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null;
 
+/**
+ * Anzeigename aus einer Zeile mit Kunden-Spalten (`kunde_art`, `kunde_firma`, `kunde_vorname`, `kunde_nachname`; bei
+ * left join ggf. null) und `einmal_name` – für Aufträge, Einsätze, Angebote, Sprachsteuerung und Protokolle.
+ */
+export function kundeNameAus(z: Record<string, any>): string {
+	if (z.kunde_art) {
+		return anzeigeName({ art: z.kunde_art, firma: z.kunde_firma, vorname: z.kunde_vorname, nachname: z.kunde_nachname });
+	}
+	return z.einmal_name ?? OHNE_KUNDE;
+}
+
+/** Einsatzort einer Zeile: Objekt, sonst Kunde, sonst Einmal-Kunde. */
+export function ortAus(z: Record<string, any>): string | null {
+	return (
+		(z.objekt_id ? adresseAus(z.objekt_strasse, z.objekt_plz, z.objekt_ort) : null) ??
+		adresseAus(z.kunde_strasse, z.kunde_plz, z.kunde_ort) ??
+		adresseAus(z.einmal_strasse ?? null, z.einmal_plz ?? null, z.einmal_ort ?? null)
+	);
+}
+
 function zuAuftrag(z: Record<string, any>): Auftrag {
 	const objektAdresse = z.objekt_id ? adresseAus(z.objekt_strasse, z.objekt_plz, z.objekt_ort) : null;
 	return {
 		id: z.id,
 		nummer: z.nummer,
 		titel: z.titel,
-		kundeId: z.kunde_id,
-		kundeName: anzeigeName({ art: z.kunde_art, firma: z.kunde_firma, vorname: z.kunde_vorname, nachname: z.kunde_nachname }),
+		kundeArt: z.kunde_id ? 'kunde' : z.einmal_name ? 'einmal' : 'ohne',
+		kundeId: z.kunde_id ?? null,
+		kundeName: kundeNameAus(z),
+		einmalKunde: z.einmal_name
+			? { name: z.einmal_name, telefon: z.einmal_telefon, email: z.einmal_email, strasse: z.einmal_strasse, plz: z.einmal_plz, ort: z.einmal_ort }
+			: null,
 		objektId: z.objekt_id,
 		objektBezeichnung: z.objekt_bezeichnung ?? null,
-		adresse: objektAdresse ?? adresseAus(z.kunde_strasse, z.kunde_plz, z.kunde_ort),
+		adresse: ortAus(z),
 		adresseVonObjekt: objektAdresse !== null,
 		zustaendige: typeof z.zustaendige === 'string' ? JSON.parse(z.zustaendige) : (z.zustaendige ?? []),
 		status: z.status,
@@ -197,6 +262,7 @@ export async function listeAuftraege(k: Kontext, sicht: Sicht, filter: AuftragFi
 						or lower(coalesce(k.firma, '')) like lower(s.m)
 						or lower(coalesce(k.vorname, '')) like lower(s.m)
 						or lower(coalesce(k.nachname, '')) like lower(s.m)
+						or lower(coalesce(a.einmal_name, '')) like lower(s.m)
 					)
 				)
 			order by a.angelegt desc, a.nummer desc
@@ -212,6 +278,7 @@ export async function holeAuftrag(k: Kontext, sicht: Sicht, id: string): Promise
 
 /** Kunde (und ggf. Objekt) müssen im eigenen Betrieb liegen und zusammenpassen – sonst 400 mit klarer Meldung. */
 async function pruefeBezuege(tx: TransactionSql, k: Kontext, w: AuftragWerte): Promise<void> {
+	if (w.kundeId === null) return;
 	const [kunde] = await tx`
 		select id from app.kunden where id = ${w.kundeId} and betrieb_id = ${k.betriebId} for key share`;
 	if (!kunde) throw new ApiFehler(400, 'Der Kunde wurde nicht gefunden.');
@@ -264,8 +331,11 @@ export async function legeAuftragAn(k: Kontext, e: Record<string, unknown>): Pro
 	return mitBetrieb(k, async (tx) => {
 		await pruefeBezuege(tx, k, w);
 		const [z] = await tx`
-			insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, beschreibung, geplant_ab)
-			values (${k.betriebId}, ${w.titel}, ${w.kundeId}, ${w.objektId}, ${w.beschreibung}, ${w.geplantAb})
+			insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, beschreibung, geplant_ab,
+				einmal_name, einmal_telefon, einmal_email, einmal_strasse, einmal_plz, einmal_ort)
+			values (${k.betriebId}, ${w.titel}, ${w.kundeId}, ${w.objektId}, ${w.beschreibung}, ${w.geplantAb},
+				${w.einmal?.name ?? null}, ${w.einmal?.telefon ?? null}, ${w.einmal?.email ?? null}, ${w.einmal?.strasse ?? null},
+				${w.einmal?.plz ?? null}, ${w.einmal?.ort ?? null})
 			returning id`;
 		await setzeZustaendige(tx, k, z.id, zustaendige);
 		return ladeEinen(tx, k, ALLE(k.benutzerId), z.id);
@@ -290,28 +360,67 @@ export async function aendereAuftrag(
 	const zustaendige = mitZustaendigen ? pruefeZustaendigeEingabe(e.zustaendige) : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select a.titel, a.kunde_id, a.objekt_id, a.beschreibung, to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab
+			select a.titel, a.kunde_id, a.objekt_id, a.beschreibung, to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab,
+				a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort
 			from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
 		if (!alt) throw nichtGefunden();
 		const bisher: Record<string, unknown> = {
 			titel: alt.titel,
+			kundeArt: alt.kunde_id ? 'kunde' : alt.einmal_name ? 'einmal' : 'ohne',
+			einmalName: alt.einmal_name,
+			einmalTelefon: alt.einmal_telefon,
+			einmalEmail: alt.einmal_email,
+			einmalStrasse: alt.einmal_strasse,
+			einmalPlz: alt.einmal_plz,
+			einmalOrt: alt.einmal_ort,
 			kundeId: alt.kunde_id,
 			objektId: alt.objekt_id,
 			beschreibung: alt.beschreibung,
 			geplantAb: alt.geplant_ab
 		};
 		const neu: Record<string, unknown> = { ...bisher, ...Object.fromEntries(felder.map((f) => [f, e[f]])) };
-		const kundeNeu = typeof neu.kundeId === 'string' && neu.kundeId.trim().toLowerCase() !== alt.kunde_id;
+		// Neuer Kunde (auch: kein Kunde mehr) und kein Objekt angegeben → bisheriges Objekt entfällt
+		const zielKunde = neu.kundeArt === 'kunde' || neu.kundeArt === undefined || neu.kundeArt === '' ? neu.kundeId : null;
+		const kundeNeu = (typeof zielKunde === 'string' ? zielKunde.trim().toLowerCase() : null) !== alt.kunde_id;
 		if (kundeNeu && !felder.includes('objektId')) neu.objektId = null;
 		const w = pruefeAuftragEingabe(neu);
 		await pruefeBezuege(tx, k, w);
 		await tx`
 			update app.auftraege set titel = ${w.titel}, kunde_id = ${w.kundeId}, objekt_id = ${w.objektId},
-				beschreibung = ${w.beschreibung}, geplant_ab = ${w.geplantAb}
+				beschreibung = ${w.beschreibung}, geplant_ab = ${w.geplantAb},
+				einmal_name = ${w.einmal?.name ?? null}, einmal_telefon = ${w.einmal?.telefon ?? null},
+				einmal_email = ${w.einmal?.email ?? null}, einmal_strasse = ${w.einmal?.strasse ?? null},
+				einmal_plz = ${w.einmal?.plz ?? null}, einmal_ort = ${w.einmal?.ort ?? null}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		if (zustaendige) await setzeZustaendige(tx, k, id, zustaendige);
 		// Wer sich selbst als Zuständigen entfernt und den Auftrag sonst nicht sieht, bekommt ihn trotzdem zurück
+		return ladeEinen(tx, k, ALLE(k.benutzerId), id);
+	});
+}
+
+/**
+ * Einmal-Kunden in die Kundendatenbank übernehmen: legt einen Privatkunden (Nachname = Name, Kontakt und Adresse) an
+ * und verknüpft ihn; die Einmal-Angaben am Auftrag entfallen. Kein Einmal-Kunde → 409.
+ */
+export async function uebernimmEinmalKunde(k: Kontext, id: string, sicht: Sicht = ALLE(k.benutzerId)): Promise<Auftrag> {
+	pruefeAuftragsId(id);
+	return mitBetrieb(k, async (tx) => {
+		const [a] = await tx`
+			select a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort
+			from app.auftraege a
+			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
+		if (!a) throw nichtGefunden();
+		if (!a.einmal_name) throw new ApiFehler(409, 'Dieser Auftrag hat keinen Einmal-Kunden.');
+		const [kd] = await tx`
+			insert into app.kunden (betrieb_id, art, nachname, telefon, email, strasse, plz, ort)
+			values (${k.betriebId}, 'privat', ${a.einmal_name}, ${a.einmal_telefon}, ${a.einmal_email}, ${a.einmal_strasse},
+				${a.einmal_plz}, ${a.einmal_ort})
+			returning id`;
+		await tx`
+			update app.auftraege set kunde_id = ${kd.id}, einmal_name = null, einmal_telefon = null, einmal_email = null,
+				einmal_strasse = null, einmal_plz = null, einmal_ort = null
+			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		return ladeEinen(tx, k, ALLE(k.benutzerId), id);
 	});
 }

@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler, ApiFehler } from '$lib/server/fehler';
-import { holeAuftrag, loescheAuftrag, pruefeStatus, setzeStatus, sichtVon } from '$lib/server/auftraege';
+import { holeAuftrag, loescheAuftrag, pruefeStatus, setzeStatus, sichtVon, uebernimmEinmalKunde } from '$lib/server/auftraege';
 import { liesProtokoll } from '$lib/server/protokoll';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
@@ -43,8 +43,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			darfBearbeiten || darfTermine ? aktiveMitarbeiter(k) : Promise.resolve([]),
 			einsaetzeZumAuftrag(k, auftrag.id),
 			angeboteSichtbar ? listeAngebote(k, { auftragId: auftrag.id }, { sicht, auftragAendern: darfBearbeiten }) : Promise.resolve(null),
-			kundenLesbar ? holeKunde(k, auftrag.kundeId) : Promise.resolve(null),
-			kundenLesbar ? listeKundenNotizen(k, auftrag.kundeId) : Promise.resolve([])
+			kundenLesbar && auftrag.kundeId ? holeKunde(k, auftrag.kundeId) : Promise.resolve(null),
+			kundenLesbar && auftrag.kundeId ? listeKundenNotizen(k, auftrag.kundeId) : Promise.resolve([])
 		]);
 		return {
 			auftrag,
@@ -57,6 +57,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
 			darfBearbeiten,
 			darfTermine,
+			// Einmal-Kunde → Kundendatenbank: Aufträge bearbeiten UND Kunden bearbeiten
+			darfKundeUebernehmen:
+				auftrag.kundeArt === 'einmal' && darfBearbeiten && hatRecht(nutzer, 'kunden.bearbeiten') && (await hatModul(k.betriebId, 'kunden')),
 			kundenHinweise: kunde ? { notiz: kunde.notiz ?? null, notizen: kundenNotizen.slice(0, 3), weitere: Math.max(0, kundenNotizen.length - 3) } : null,
 			kundeLesbar: hatRecht(nutzer, 'kunden.lesen'),
 			// Preisschutz: Beträge nur mit `preise.sehen`
@@ -106,6 +109,18 @@ export const actions: Actions = {
 			const meldung = e instanceof ApiFehler ? e.message : 'Interner Fehler. Bitte später erneut versuchen.';
 			return alsFormFehler(e, { terminFehler: meldung });
 		}
+	},
+	/** Einmal-Kunden in die Kundendatenbank übernehmen und zum neuen Kunden springen. */
+	kundeUebernehmen: async ({ locals, params }) => {
+		let kundeId: string | null;
+		try {
+			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			await darf(locals, 'kunden', 'kunden.bearbeiten');
+			kundeId = (await uebernimmEinmalKunde(betriebKontext(locals), params.id, sichtVon(locals.nutzer!))).kundeId;
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+		redirect(303, `/kunden/${kundeId}`);
 	},
 	todoAnlegen: todo.anlegen,
 	todoUmschalten: todo.umschalten,
