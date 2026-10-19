@@ -300,6 +300,67 @@ describe('To-dos', () => {
 			expect(await root`select 1 from app.todos where id = ${neu.id}`).toHaveLength(0);
 		});
 
+		it('„+ To-do“ mit Beschreibung (To-do-Seite und Auftragsseite); zu lang → 400 mit Eingaben zurück', async () => {
+			expect(
+				await seitenAktionen.anlegen({
+					...ort(chefA),
+					request: formAnfrage({ titel: 'Mit Text', beschreibung: ' Schlüssel beim Nachbarn ', zustaendigId: '', faellig: '' })
+				} as never)
+			).toBeUndefined();
+			expect((await root`select beschreibung from app.todos where titel = 'Mit Text'`)[0].beschreibung).toBe(
+				'Schlüssel beim Nachbarn'
+			);
+			expect(
+				await auftragAktionen.todoAnlegen({
+					...ort(chefA),
+					params: { id: auftragA },
+					request: formAnfrage({ titel: 'Am Auftrag mit Text', beschreibung: 'Zugang über Hof' })
+				} as never)
+			).toBeUndefined();
+			const [z] = await root`select auftrag_id, beschreibung from app.todos where titel = 'Am Auftrag mit Text'`;
+			expect(z).toEqual({ auftrag_id: auftragA, beschreibung: 'Zugang über Hof' });
+			expect(
+				await seitenAktionen.anlegen({ ...ort(chefA), request: formAnfrage({ titel: 'Ohne Text', beschreibung: '' }) } as never)
+			).toBeUndefined();
+			expect((await root`select beschreibung from app.todos where titel = 'Ohne Text'`)[0].beschreibung).toBeNull();
+			const fehler = (await seitenAktionen.anlegen({
+				...ort(chefA),
+				request: formAnfrage({ titel: 'Zu lang', beschreibung: 'x'.repeat(501) })
+			} as never)) as any;
+			expect(fehler.status).toBe(400);
+			expect(fehler.data.todoWerte).toMatchObject({ titel: 'Zu lang' });
+			expect(await root`select 1 from app.todos where titel = 'Zu lang'`).toHaveLength(0);
+		});
+
+		it('„aendern“ ändert nur gesendete Felder (Kanban-Ziehen sendet nur Fälligkeit); Beschreibung änderbar', async () => {
+			const t = await legeTodoAn(kA(), { titel: 'Ziehen', beschreibung: 'bleibt', zustaendigId: monteurAId });
+			const heute = berlinTag(new Date());
+			expect(
+				await seitenAktionen.aendern({ ...ort(chefA), request: formAnfrage({ id: t.id, faellig: heute }) } as never)
+			).toBeUndefined();
+			let [z] = await root`select titel, beschreibung, zustaendig_id, faellig::text from app.todos where id = ${t.id}`;
+			expect(z).toEqual({ titel: 'Ziehen', beschreibung: 'bleibt', zustaendig_id: monteurAId, faellig: heute });
+			expect(
+				await seitenAktionen.aendern({ ...ort(chefA), request: formAnfrage({ id: t.id, beschreibung: 'neu' }) } as never)
+			).toBeUndefined();
+			[z] = await root`select titel, beschreibung, faellig::text from app.todos where id = ${t.id}`;
+			expect(z).toEqual({ titel: 'Ziehen', beschreibung: 'neu', faellig: heute });
+			await root`update app.todos set erledigt_am = now() where id = ${t.id}`;
+			expect(
+				await seitenAktionen.aendern({
+					...ort(chefA),
+					request: formAnfrage({ id: t.id, erledigt: 'false', faellig: '' })
+				} as never)
+			).toBeUndefined();
+			[z] = await root`select erledigt_am, faellig from app.todos where id = ${t.id}`;
+			expect(z).toEqual({ erledigt_am: null, faellig: null });
+			const zuLang = (await seitenAktionen.aendern({
+				...ort(chefA),
+				request: formAnfrage({ id: t.id, beschreibung: 'x'.repeat(501) })
+			} as never)) as any;
+			expect(zuLang.status).toBe(400);
+		});
+
 		it('Auftragsseite: To-do-Bereich mit „+ To-do“ (Chef), Abhaken dort', async () => {
 			await legeTodoAn(kA(), { titel: 'Am Auftrag', auftragId: auftragA, zustaendigId: monteurAId });
 			await legeTodoAn(kA(), { titel: 'Anderswo', auftragId: auftrag2A });

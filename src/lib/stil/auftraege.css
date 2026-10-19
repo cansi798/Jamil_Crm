@@ -263,6 +263,13 @@
 		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
 		align-items: end;
 	}
+	/* breit: Beschreibung als eigene Zeile unter Titel/Zuständig/Fällig */
+	.td-neu-beschreibung {
+		order: 1;
+	}
+}
+.td-neu-beschreibung {
+	grid-column: 1 / -1;
 }
 .td-bearbeiten {
 	margin-top: 0.35rem;
