@@ -39,7 +39,8 @@ test('Auftrag: Zuständige, Einsatzort, Termin mit Art, Hinweise zum Kunden', as
 		await page.goto(`/auftraege/${auftrag.id}`);
 		await expect(page.getByRole('complementary', { name: 'Hinweise zum Kunden' })).toContainText('Zahlt nur bar');
 		await expect(page.getByText('Teichweg 5, 22846 Norderstedt')).toBeVisible();
-		await expect(page.getByText('(Kundenadresse – kein Objekt zugewiesen)')).toBeVisible();
+		// Büro darf bearbeiten → Objekt direkt im Auftrag wählbar, Standard ist die Kundenadresse
+		await expect(page.locator('dd.af-objekt select[name="objektId"] option:checked')).toHaveText('Kundenadresse (Standard)');
 
 		// Zuständige über „Auftrag bearbeiten“
 		await page.getByRole('link', { name: 'Auftrag bearbeiten' }).click();
@@ -49,7 +50,7 @@ test('Auftrag: Zuständige, Einsatzort, Termin mit Art, Hinweise zum Kunden', as
 		await page.getByRole('checkbox', { name: 'Murat Öztürk' }).check();
 		await page.getByRole('button', { name: 'Speichern' }).click();
 		await page.waitForURL(new RegExp(`/auftraege/${auftrag.id}$`));
-		await expect(page.locator('dd', { hasText: 'Murat Öztürk' })).toBeVisible();
+		await expect(page.getByRole('list', { name: 'Zuständige Mitarbeiter' }).getByText('Murat Öztürk')).toBeVisible();
 
 		// Termin mit Art
 		await page.getByText('+ Termin').click();
