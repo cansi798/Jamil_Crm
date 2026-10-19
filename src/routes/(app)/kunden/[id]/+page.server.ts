@@ -8,6 +8,8 @@ import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { darf, hatModul } from '$lib/server/tarif';
 import { listeAuftraege, sichtVon, type Auftrag } from '$lib/server/auftraege';
 import { verlaufZeile } from '$lib/verlauf';
+import { kundenVerlauf } from '$lib/server/kunden-verlauf';
+import { angeboteZugriff, legeAngebotOhneAuftragAn } from '$lib/server/angebote';
 import {
 	legeKundenNotizAn,
 	listeKundenDateien,
@@ -29,12 +31,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		(await hatModul(k.betriebId, 'auftraege'));
 	return alsSeitenFehler(async () => {
 		const kunde = await holeKunde(k, params.id);
-		const [objekte, protokoll, auftraege, notizen, dokumente] = await Promise.all([
+		const [objekte, protokoll, auftraege, notizen, dokumente, zeitleiste] = await Promise.all([
 			listeObjekte(k, kunde.id),
 			liesProtokoll(k, { tabelle: 'kunden', datensatz: kunde.id, vor: null }),
 			auftraegeLesbar ? listeAuftraege(k, sichtVon(nutzer), { kundeId: kunde.id }) : null,
 			listeKundenNotizen(k, kunde.id),
-			listeKundenDateien(k, kunde.id)
+			listeKundenDateien(k, kunde.id),
+			kundenVerlauf(k, nutzer, kunde.id)
 		]);
 		return {
 			kunde,
@@ -43,6 +46,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			darfAuftragAnlegen: auftraegeLesbar && hatRecht(nutzer, 'auftraege.bearbeiten'),
 			notizen,
 			dokumente,
+			zeitleiste,
+			// „+ Angebot ohne Auftrag“: Angebotsrechte + Preise + alle Aufträge sehen (sonst sähe man es danach nicht)
+			darfAngebotAnlegen:
+				hatRecht(nutzer, 'angebote.bearbeiten') &&
+				hatRecht(nutzer, 'preise.sehen') &&
+				hatRecht(nutzer, 'auftraege.alle_lesen') &&
+				(await hatModul(k.betriebId, 'angebote')),
 			verlauf: protokoll.eintraege.map(verlaufZeile),
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
 			darfBearbeiten: hatRecht(locals.nutzer!, 'kunden.bearbeiten')
@@ -67,6 +77,17 @@ async function akte(locals: App.Locals, bereich: 'notizFehler' | 'dokumentFehler
 }
 
 export const actions: Actions = {
+	/** Neues Angebot ohne Auftrag für diesen Kunden → Editor. */
+	angebotErstellen: async ({ locals, params }) => {
+		let id: string;
+		try {
+			const zg = await angeboteZugriff(locals);
+			id = (await legeAngebotOhneAuftragAn(betriebKontext(locals), params.id, zg)).id;
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+		redirect(303, `/angebote/${id}`);
+	},
 	notizAnlegen: async ({ locals, params, request }) => {
 		const f = await request.formData();
 		return akte(locals, 'notizFehler', () => legeKundenNotizAn(betriebKontext(locals), params.id, text(f, 'text')));

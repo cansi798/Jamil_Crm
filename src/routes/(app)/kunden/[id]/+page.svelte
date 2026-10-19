@@ -16,6 +16,18 @@
 	};
 	const groesse = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 	let notizText = $state('');
+
+	const TYP_NAMEN = { auftrag: 'Auftrag', angebot: 'Angebot', termin: 'Termin', notiz: 'Notiz', dokument: 'Dokument' } as const;
+	const FILTER = [
+		['alle', 'Alle'],
+		['auftrag', 'Aufträge'],
+		['angebot', 'Angebote'],
+		['termin', 'Termine'],
+		['notiz', 'Notizen'],
+		['dokument', 'Dokumente']
+	] as const;
+	let filter = $state<(typeof FILTER)[number][0]>('alle');
+	const gefiltert = $derived(filter === 'alle' ? data.zeitleiste : data.zeitleiste.filter((e) => e.typ === filter));
 </script>
 
 <svelte:head>
@@ -182,6 +194,38 @@
 	</section>
 
 	<h2>Verlauf</h2>
+	<div class="ka-verlauf-kopf">
+		<div class="pills" role="group" aria-label="Verlauf filtern">
+			{#each FILTER as [wert, text] (wert)}
+				<button type="button" class="pill" class:aktiv={filter === wert} aria-pressed={filter === wert} onclick={() => (filter = wert)}>
+					{text}
+				</button>
+			{/each}
+		</div>
+		{#if data.darfAngebotAnlegen}
+			<form method="POST" action="?/angebotErstellen" use:enhance>
+				<button type="submit" class="kd-knopf hell">+ Angebot ohne Auftrag</button>
+			</form>
+		{/if}
+	</div>
+	<ol class="ka-zeitleiste" aria-label="Verlauf des Kunden">
+		{#each gefiltert as e (e.id)}
+			<li class={`ka-eintrag typ-${e.typ}`}>
+				<span class="ka-typ">{TYP_NAMEN[e.typ]}</span>
+				<div class="ka-eintrag-inhalt">
+					{#if e.link}<a href={e.link}><strong>{e.titel}</strong></a>{:else}<strong>{e.titel}</strong>{/if}
+					{#if e.text}<p class="ka-text">{e.text}</p>{/if}
+					<span class="kd-info">{wann(e.zeit)}{new Date(e.zeit).getTime() > Date.now() ? ' · geplant' : ''}</span>
+				</div>
+			</li>
+		{:else}
+			<li class="kd-leer">Noch keine Einträge.</li>
+		{/each}
+	</ol>
+	<p class="kd-info">Termine legen Sie im Auftrag an. Rechnungen und E-Mails erscheinen hier, sobald sie angebunden sind.</p>
+
+	<details class="ka-protokoll">
+		<summary>Änderungsprotokoll der Kundendaten</summary>
 	<ol class="kd-verlauf">
 		{#each data.verlauf as eintrag (eintrag.id)}
 			<li>
@@ -201,6 +245,8 @@
 	{#if data.verlaufGekuerzt}
 		<p class="kd-info">Ältere Einträge werden hier nicht angezeigt.</p>
 	{/if}
+
+	</details>
 
 	{#if data.darfBearbeiten}
 		<details class="kd-loeschen">
@@ -235,6 +281,77 @@
 	.ka-notiz-neu,
 	.ka-dokument-neu {
 		margin-bottom: 0.75rem;
+	}
+	.ka-verlauf-kopf {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.5rem;
+	}
+	.pills {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+	.pill {
+		min-height: var(--tippziel, 44px);
+		padding: 0 0.9rem;
+		border: 1px solid var(--m365-rand);
+		border-radius: 999px;
+		background: var(--m365-flaeche);
+		font: inherit;
+		cursor: pointer;
+	}
+	.pill.aktiv {
+		background: var(--m365-primaer);
+		border-color: var(--m365-primaer);
+		color: #fff;
+	}
+	.ka-zeitleiste {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border-left: 2px solid var(--m365-rand);
+	}
+	.ka-eintrag {
+		position: relative;
+		display: grid;
+		grid-template-columns: 5.5rem minmax(0, 1fr);
+		gap: 0.5rem;
+		padding: 0.6rem 0 0.6rem 0.9rem;
+	}
+	.ka-eintrag::before {
+		content: '';
+		position: absolute;
+		left: -0.4rem;
+		top: 1rem;
+		width: 0.7rem;
+		height: 0.7rem;
+		border-radius: 50%;
+		background: var(--m365-rand-stark);
+	}
+	.typ-auftrag::before { background: var(--m365-primaer); }
+	.typ-angebot::before { background: var(--m365-erfolg); }
+	.typ-termin::before { background: var(--m365-warnung); }
+	.ka-typ {
+		font-size: 0.75rem;
+		color: var(--m365-text-leise);
+		padding-top: 0.15rem;
+	}
+	.ka-eintrag-inhalt {
+		display: grid;
+		gap: 0.15rem;
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+	.ka-protokoll summary {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--tippziel, 44px);
+		color: var(--m365-primaer);
+		cursor: pointer;
 	}
 	.ka-portal {
 		display: grid;
