@@ -8,6 +8,7 @@ import { erlaubterAngebotWechsel, istAngebotStatus, type AngebotStatus } from '.
 import { istMwstSatz, leseEuroInCent, leseMenge, positionsSumme, summen, type MwstSatz } from '../geld';
 import { istEinheit, EINHEITEN } from '../katalog-werte';
 import { istTag } from '../zeit';
+import { ladeVorlagePositionen, pruefeVorlageId } from './angebot-vorlagen';
 
 /**
  * Angebote zu Aufträgen (Modul `angebote`). Jeder Zugriff verlangt `angebote.bearbeiten` UND `preise.sehen` – ein
@@ -221,9 +222,18 @@ export async function holeAngebot(k: Kontext, id: string, zg: AngebotZugriff = v
 	return mitBetrieb(k, (tx) => ladeEines(tx, k, aid, zg.sicht));
 }
 
-/** Neues Angebot (Entwurf) zu einem Auftrag: Datum heute (Berlin), gültig 30 Tage, Standardtexte, MwSt 19 %. */
-export async function legeAngebotAn(k: Kontext, auftragId: unknown, zg: AngebotZugriff = voll(k)): Promise<Angebot> {
+/**
+ * Neues Angebot (Entwurf) zu einem Auftrag: Datum heute (Berlin), gültig 30 Tage, Standardtexte, MwSt 19 %. Mit
+ * `vorlageId` kommen die Positionen (und Texte) einer Angebots-Vorlage gleich mit – in derselben Transaktion.
+ */
+export async function legeAngebotAn(
+	k: Kontext,
+	auftragId: unknown,
+	zg: AngebotZugriff = voll(k),
+	vorlageId: string | null = null
+): Promise<Angebot> {
 	if (typeof auftragId !== 'string' || !UUID.test(auftragId)) throw new ApiFehler(400, 'Bitte einen Auftrag wählen.');
+	const vid = vorlageId ? pruefeVorlageId(vorlageId) : null;
 	return mitBetrieb(k, async (tx) => {
 		// unbekannte, fremde und unsichtbare Aufträge gleich: 404 (verrät nicht, dass es sie gibt)
 		const [auftrag] = await tx`
@@ -235,8 +245,75 @@ export async function legeAngebotAn(k: Kontext, auftragId: unknown, zg: AngebotZ
 			values (${k.betriebId}, ${auftrag.id},
 				(now() at time zone 'Europe/Berlin')::date + ${GUELTIG_TAGE}::int, ${STANDARD_EINLEITUNG}, ${STANDARD_SCHLUSS})
 			returning id`;
+		if (vid) await vorlageAnhaengen(tx, k, z.id, vid);
 		return ladeEines(tx, k, z.id, zg.sicht);
 	});
+}
+
+/**
+ * Angebots-Vorlage auf einen Entwurf anwenden: Ihre Positionen kommen HINTER die vorhandenen (Reihenfolge der
+ * Vorlage). Katalogpositionen bekommen den AKTUELLEN Katalogpreis (Lohn + Material) – wie „+ Aus Katalog“; fehlt die
+ * Katalogposition, bleibt die Zeile ohne Preis (Warnung „Preis fehlt“). Freie Positionen bringen ihren Preis mit.
+ * Einleitung/Schlusstext der Vorlage ersetzen die des Angebots, wenn die Vorlage welche hat. Danach ist alles normal
+ * änderbar. Nur im Entwurf (409); fremde/unbekannte Vorlage → 404; mehr als 200 Positionen → 400.
+ */
+export async function wendeAngebotVorlageAn(
+	k: Kontext,
+	angebotId: string,
+	vorlageId: unknown,
+	zg: AngebotZugriff = voll(k)
+): Promise<Angebot> {
+	const aid = pruefeAngebotId(angebotId);
+	const vid = pruefeVorlageId(vorlageId);
+	return mitSchutz(() =>
+		mitBetrieb(k, async (tx) => {
+			await sperreEntwurf(tx, k, aid, zg.sicht);
+			await vorlageAnhaengen(tx, k, aid, vid);
+			return ladeEines(tx, k, aid, zg.sicht);
+		})
+	);
+}
+
+/** In der laufenden Transaktion (Kopf gesperrt, Entwurf): Positionen und Texte einer Vorlage anhängen. */
+async function vorlageAnhaengen(tx: TransactionSql, k: Kontext, aid: string, vid: string): Promise<void> {
+	const [v] = await tx`select einleitung, schluss from app.angebot_vorlagen where id = ${vid} and betrieb_id = ${k.betriebId}`;
+	if (!v) throw new ApiFehler(404, 'Vorlage nicht gefunden.');
+	const neu = await ladeVorlagePositionen(tx, k, vid);
+	const alt = (await ladePositionen(tx, k, [aid])).get(aid) ?? [];
+	if (alt.length + neu.length > MAX_POSITIONEN) {
+		throw new ApiFehler(400, `Höchstens ${MAX_POSITIONEN} Positionen je Angebot – die Vorlage passt nicht mehr dazu.`);
+	}
+	const zeilen = neu.map((p) => ({
+		katalog_position_id: p.katalogPositionId,
+		bezeichnung: p.bezeichnung,
+		beschreibung: p.beschreibung,
+		menge: p.menge,
+		einheit: p.einheit,
+		einzelpreis_cent: p.katalogPositionId ? (p.katalogPreisCent ?? 0) : (p.einzelpreisCent ?? 0)
+	}));
+	const netto = summen(
+		[...alt, ...zeilen.map((z) => ({ menge: z.menge, einzelpreisCent: z.einzelpreis_cent }))],
+		0
+	).nettoCent;
+	if (netto > MAX_NETTO_CENT) throw new ApiFehler(400, 'Die Angebotssumme ist zu hoch (höchstens 100 Mrd. € netto).');
+	if (zeilen.length > 0) {
+		await tx`
+			insert into app.angebot_positionen ${tx(
+				zeilen.map((z, i) => ({ betrieb_id: k.betriebId, angebot_id: aid, pos: alt.length + i + 1, ...z })),
+				'betrieb_id',
+				'angebot_id',
+				'pos',
+				'katalog_position_id',
+				'bezeichnung',
+				'beschreibung',
+				'menge',
+				'einheit',
+				'einzelpreis_cent'
+			)}`;
+	}
+	await tx`
+		update app.angebote set einleitung = coalesce(${v.einleitung}, einleitung), schluss = coalesce(${v.schluss}, schluss)
+		where id = ${aid} and betrieb_id = ${k.betriebId}`;
 }
 
 /** Sperrt den Kopf und prüft „Entwurf“ (sonst 409); unbekannt/fremd → 404. */

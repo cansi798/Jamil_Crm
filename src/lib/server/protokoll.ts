@@ -25,6 +25,7 @@ export const PROTOKOLL_TABELLEN = {
 	katalog_positionen: 'katalog.bearbeiten',
 	angebote: 'angebote.bearbeiten',
 	angebot_positionen: 'angebote.bearbeiten',
+	angebot_vorlagen: 'angebote.bearbeiten',
 	betrieb_profil: 'einstellungen'
 } as const satisfies Record<string, Recht | readonly Recht[]>;
 
@@ -43,7 +44,8 @@ export const PROTOKOLL_MODULE: Partial<Record<ProtokollTabelle, Modul>> = {
 	abwesenheiten: 'plantafel',
 	katalog_positionen: 'katalog',
 	angebote: 'angebote',
-	angebot_positionen: 'angebote'
+	angebot_positionen: 'angebote',
+	angebot_vorlagen: 'angebote'
 };
 
 export const SEITENGROESSE = 50;

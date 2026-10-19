@@ -12,6 +12,7 @@ import { todoAktionen } from '$lib/server/todo-aktionen';
 import { aktiveMitarbeiter, listeTodos } from '$lib/server/todos';
 import { einsaetzeZumAuftrag } from '$lib/server/plantafel';
 import { angeboteZugriff, legeAngebotAn, listeAngebote } from '$lib/server/angebote';
+import { listeAngebotVorlagen } from '$lib/server/angebot-vorlagen';
 import { ohnePreise } from '$lib/server/preisschutz';
 import { hatModul } from '$lib/server/tarif';
 import { entwirfAngebot } from '$lib/server/ki/angebot-entwurf';
@@ -51,6 +52,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			// Preisschutz: Beträge nur mit `preise.sehen`
 			angebote: angebote && (preise ? angebote : ohnePreise(angebote)),
 			darfAngebote: angeboteSichtbar && preise,
+			// Auswahl „Vorlage“ beim „Angebot erstellen“ (Vorlagen enthalten Preise: nur mit beiden Rechten)
+			angebotVorlagen: angeboteSichtbar && preise ? await listeAngebotVorlagen(k) : [],
 			// „KI-Entwurf“: zusätzlich Modul ki_angebote (Stichworte/Foto → Entwurf nur aus dem Katalog)
 			darfKiEntwurf: angeboteSichtbar && preise && (await hatModul(k.betriebId, 'ki_angebote'))
 		};
@@ -76,11 +79,14 @@ export const actions: Actions = {
 		redirect(303, `/auftraege/${params.id}`);
 	},
 	/** Neues Angebot (Entwurf) zu diesem Auftrag anlegen und den Editor öffnen. */
-	angebotErstellen: async ({ locals, params }) => {
+	/** Neues Angebot (Entwurf); mit `vorlageId` gleich mit den Positionen und Texten einer Angebots-Vorlage. */
+	angebotErstellen: async ({ locals, params, request }) => {
+		const vorlage = (await request.formData()).get('vorlageId');
 		let id: string;
 		try {
 			const zg = await angeboteZugriff(locals);
-			id = (await legeAngebotAn(betriebKontext(locals), params.id, zg)).id;
+			const vorlageId = typeof vorlage === 'string' && vorlage !== '' ? vorlage : null;
+			id = (await legeAngebotAn(betriebKontext(locals), params.id, zg, vorlageId)).id;
 		} catch (e) {
 			return alsFormFehler(e);
 		}
