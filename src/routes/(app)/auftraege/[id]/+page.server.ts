@@ -13,7 +13,7 @@ import { listeKundenNotizen } from '$lib/server/kundenakte';
 import { todoAktionen } from '$lib/server/todo-aktionen';
 import { aktiveMitarbeiter, listeTodos } from '$lib/server/todos';
 import { einsaetzeZumAuftrag, legeEinsatzAn } from '$lib/server/plantafel';
-import { angeboteZugriff, legeAngebotAn, listeAngebote } from '$lib/server/angebote';
+import { angeboteZugriff, legeAngebotAn, listeAngebote, ordneAngebotZu } from '$lib/server/angebote';
 import { listeAngebotVorlagen } from '$lib/server/angebot-vorlagen';
 import { ohnePreise } from '$lib/server/preisschutz';
 import { hatModul } from '$lib/server/tarif';
@@ -65,6 +65,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			// Preisschutz: Beträge nur mit `preise.sehen`
 			angebote: angebote && (preise ? angebote : ohnePreise(angebote)),
 			darfAngebote: angeboteSichtbar && preise,
+			// „Angebot zuordnen“: noch nicht zugeordnete Angebote dieses Kunden oder ohne Kunden (nur wer sie sehen darf)
+			zuordenbareAngebote:
+				angeboteSichtbar && preise && darfBearbeiten
+					? (await listeAngebote(k, { ohneAuftrag: true }, { sicht, auftragAendern: darfBearbeiten })).filter(
+							(an) => an.kundeId === null || an.kundeId === auftrag.kundeId
+						)
+					: [],
 			// Auswahl „Vorlage“ beim „Angebot erstellen“ (Vorlagen enthalten Preise: nur mit beiden Rechten)
 			angebotVorlagen: angeboteSichtbar && preise ? await listeAngebotVorlagen(k) : [],
 			// „KI-Entwurf“: zusätzlich Modul ki_angebote (Stichworte/Foto → Entwurf nur aus dem Katalog)
@@ -108,6 +115,17 @@ export const actions: Actions = {
 		} catch (e) {
 			const meldung = e instanceof ApiFehler ? e.message : 'Interner Fehler. Bitte später erneut versuchen.';
 			return alsFormFehler(e, { terminFehler: meldung });
+		}
+	},
+	/** Bestehendes (noch nicht zugeordnetes) Angebot diesem Auftrag zuordnen. */
+	angebotZuordnen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const zg = await angeboteZugriff(locals);
+			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			await ordneAngebotZu(betriebKontext(locals), text(f, 'angebotId'), { auftragId: params.id }, zg);
+		} catch (e) {
+			return alsFormFehler(e);
 		}
 	},
 	/** Einmal-Kunden in die Kundendatenbank übernehmen und zum neuen Kunden springen. */

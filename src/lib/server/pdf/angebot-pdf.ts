@@ -175,7 +175,8 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 		['Angebot-Nr.', a.nummer],
 		['Datum', deutschesDatum(a.datum)],
 		['Gültig bis', deutschesDatum(a.gueltigBis)],
-		['Auftrag', a.auftragNummer]
+		// Angebote ohne Auftrag (Phase 4): Zeile „Auftrag“ entfällt
+		...(a.auftragNummer ? [['Auftrag', a.auftragNummer] as [string, string]] : [])
 	];
 	let iy = mm(50);
 	for (const [titel, wert] of angaben) {

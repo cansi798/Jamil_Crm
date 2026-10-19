@@ -40,10 +40,11 @@ export type AngebotWarnung = 'preis_fehlt';
 export type Angebot = {
 	id: string;
 	nummer: string;
-	auftragId: string;
-	auftragNummer: string;
-	auftragTitel: string;
-	/** null bei Aufträgen mit Einmal-Kunden oder ohne Kunden (Phase 3). */
+	/** null: Angebot ohne Auftrag (Phase 4) – später zuordenbar. */
+	auftragId: string | null;
+	auftragNummer: string | null;
+	auftragTitel: string | null;
+	/** Kunde des Auftrags bzw. (ohne Auftrag) des Angebots; null bei Einmal-Kunden oder ohne Kunden. */
 	kundeId: string | null;
 	kundeName: string;
 	objektId: string | null;
@@ -124,15 +125,25 @@ async function mitSchutz<T>(fn: () => Promise<T>): Promise<T> {
 
 const KOPF = `an.id, an.nummer, an.auftrag_id, an.status, to_char(an.datum, 'YYYY-MM-DD') as datum,
 	to_char(an.gueltig_bis, 'YYYY-MM-DD') as gueltig_bis, an.mwst_satz, an.einleitung, an.schluss, an.vorgaenger_id,
-	an.angelegt, an.geaendert, a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.objekt_id, a.kunde_id,
+	an.angelegt, an.geaendert, a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.objekt_id,
+	coalesce(a.kunde_id, an.kunde_id) as kunde_id,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort`;
 
 const VON = `app.angebote an
-	join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
-	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id`;
+	left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
+	left join app.kunden k on k.id = coalesce(a.kunde_id, an.kunde_id) and k.betrieb_id = an.betrieb_id`;
 
 const von = (tx: TransactionSql) => tx.unsafe(VON);
+
+/**
+ * Sichtbarkeit eines Angebots (Aliasse an, a): wie sein Auftrag. Angebote ohne Auftrag sieht nur, wer alle Aufträge
+ * sieht (`auftraege.alle_lesen`) – sie gehören zu keinem „eigenen“ Auftrag.
+ */
+function angebotSichtbar(tx: TransactionSql, sicht: Sicht) {
+	if (sicht.alle) return tx`true`;
+	return tx`(a.id is not null and ${sichtbar(tx, sicht)})`;
+}
 
 function zuPosition(z: Record<string, any>): AngebotPosition {
 	const menge = Number(z.menge);
@@ -191,23 +202,27 @@ async function ladePositionen(tx: TransactionSql, k: Kontext, ids: string[]): Pr
 async function ladeEines(tx: TransactionSql, k: Kontext, id: string, sicht: Sicht): Promise<Angebot> {
 	const [z] = await tx`
 		select ${tx.unsafe(KOPF)} from ${von(tx)}
-		where an.id = ${id} and an.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)}`;
+		where an.id = ${id} and an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, sicht)}`;
 	if (!z) throw nichtGefunden();
 	const pos = await ladePositionen(tx, k, [id]);
 	return zuAngebot(z, pos.get(id) ?? []);
 }
 
-export type AngebotFilter = { auftragId?: string; status?: string };
+/** `ohneAuftrag`: nur noch nicht zugeordnete Angebote; `kundeId`: Kunde des Auftrags bzw. des Angebots. */
+export type AngebotFilter = { auftragId?: string; status?: string; kundeId?: string; ohneAuftrag?: boolean };
 
 /** Angebote des Betriebs (neueste zuerst, höchstens 200), optional je Auftrag oder Status. */
 export async function listeAngebote(k: Kontext, filter: AngebotFilter = {}, zg: AngebotZugriff = voll(k)): Promise<AngebotKurz[]> {
 	if (filter.auftragId !== undefined && !UUID.test(filter.auftragId)) throw new ApiFehler(400, 'Ungültiger Auftrag.');
 	if (filter.status !== undefined && !istAngebotStatus(filter.status)) throw new ApiFehler(400, 'Unbekannter Status.');
+	if (filter.kundeId !== undefined && !UUID.test(filter.kundeId)) throw new ApiFehler(400, 'Ungültiger Kunde.');
 	return mitBetrieb(k, async (tx) => {
 		const z = await tx`
 			select ${tx.unsafe(KOPF)} from ${von(tx)}
-			where an.betrieb_id = ${k.betriebId} and ${sichtbar(tx, zg.sicht)}
+			where an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, zg.sicht)}
 				${filter.auftragId ? tx`and an.auftrag_id = ${filter.auftragId}` : tx``}
+				${filter.ohneAuftrag ? tx`and an.auftrag_id is null` : tx``}
+				${filter.kundeId ? tx`and coalesce(a.kunde_id, an.kunde_id) = ${filter.kundeId}` : tx``}
 				${filter.status ? tx`and an.status = ${filter.status}` : tx``}
 			order by an.angelegt desc, an.nummer desc
 			limit ${MAX_ANGEBOTE}`;
@@ -251,6 +266,94 @@ export async function legeAngebotAn(
 		return ladeEines(tx, k, z.id, zg.sicht);
 	});
 }
+
+/**
+ * Neues Angebot OHNE Auftrag (Phase 4) – optional schon mit Kunde (fremd/unbekannt → 404), sonst „Ohne Kunde“.
+ * Später mit `ordneAngebotZu` einem Kunden oder Auftrag zuordnen. Sehen nur Nutzer mit „Alle Aufträge sehen“.
+ */
+export async function legeAngebotOhneAuftragAn(
+	k: Kontext,
+	kundeId: unknown,
+	zg: AngebotZugriff = voll(k),
+	vorlageId: string | null = null
+): Promise<Angebot> {
+	// Ohne Auftrag sieht ein Angebot nur, wer alle Aufträge sieht – wer nur eigene sieht, verlöre es sofort
+	if (!zg.sicht.alle) throw new ApiFehler(403, 'Angebote ohne Auftrag erfordern das Recht „Alle Aufträge sehen“.');
+	const kid = kundeId === null || kundeId === undefined || kundeId === '' ? null : kundeId;
+	if (kid !== null && (typeof kid !== 'string' || !UUID.test(kid))) throw new ApiFehler(404, 'Kunde nicht gefunden.');
+	const vid = vorlageId ? pruefeVorlageId(vorlageId) : null;
+	return mitBetrieb(k, async (tx) => {
+		if (kid) {
+			const [kd] = await tx`select id from app.kunden where id = ${kid} and betrieb_id = ${k.betriebId} for key share`;
+			if (!kd) throw new ApiFehler(404, 'Kunde nicht gefunden.');
+		}
+		const [z] = await tx`
+			insert into app.angebote (betrieb_id, auftrag_id, kunde_id, gueltig_bis, einleitung, schluss)
+			values (${k.betriebId}, null, ${kid},
+				(now() at time zone 'Europe/Berlin')::date + ${GUELTIG_TAGE}::int, ${STANDARD_EINLEITUNG}, ${STANDARD_SCHLUSS})
+			returning id`;
+		if (vid) await vorlageAnhaengen(tx, k, z.id, vid);
+		return ladeEines(tx, k, z.id, zg.sicht);
+	});
+}
+
+/**
+ * Angebot zuordnen: `{ kundeId }` (nur ohne Auftrag) oder `{ auftragId }` (dann gilt der Kunde des Auftrags). Ein
+ * noch nicht zugeordnetes Angebot darf in jedem Status zugeordnet werden; eines, das schon an einem Auftrag hängt, nur
+ * als Entwurf (sonst 409, auch die Datenbank prüft das). Wird ein versendetes/angenommenes Angebot einem Auftrag
+ * zugeordnet, rückt der Auftrag wie beim Statuswechsel vor („Anfrage“ → „Angebot“ bzw. „Angebot“ → „Beauftragt“).
+ */
+export async function ordneAngebotZu(
+	k: Kontext,
+	id: string,
+	ziel: { kundeId?: unknown; auftragId?: unknown },
+	zg: AngebotZugriff = voll(k)
+): Promise<Angebot & { hinweis?: string }> {
+	const aid = pruefeAngebotId(id);
+	const hatKunde = ziel.kundeId !== undefined && ziel.kundeId !== null && ziel.kundeId !== '';
+	const hatAuftrag = ziel.auftragId !== undefined && ziel.auftragId !== null && ziel.auftragId !== '';
+	if (hatKunde === hatAuftrag) throw new ApiFehler(400, 'Bitte genau einen Kunden oder einen Auftrag wählen.');
+	const zielId = (hatKunde ? ziel.kundeId : ziel.auftragId) as unknown;
+	if (typeof zielId !== 'string' || !UUID.test(zielId)) throw new ApiFehler(404, hatKunde ? 'Kunde nicht gefunden.' : 'Auftrag nicht gefunden.');
+	return mitSchutz(() =>
+		mitBetrieb(k, async (tx) => {
+			const [alt] = await tx`
+				select an.status, an.auftrag_id from ${von(tx)}
+				where an.id = ${aid} and an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, zg.sicht)} for update of an`;
+			if (!alt) throw nichtGefunden();
+			if (alt.auftrag_id !== null && alt.status !== 'entwurf') throw nichtAenderbar();
+			let hinweis: string | undefined;
+			if (hatKunde) {
+				if (alt.auftrag_id !== null) throw new ApiFehler(409, 'Das Angebot hängt an einem Auftrag – dessen Kunde gilt.');
+				const [kd] = await tx`select id from app.kunden where id = ${zielId} and betrieb_id = ${k.betriebId} for key share`;
+				if (!kd) throw new ApiFehler(404, 'Kunde nicht gefunden.');
+				await tx`update app.angebote set kunde_id = ${zielId} where id = ${aid} and betrieb_id = ${k.betriebId}`;
+			} else {
+				const [auftrag] = await tx`
+					select a.id, a.status from app.auftraege a
+					where a.id = ${zielId} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, zg.sicht)} for update of a`;
+				if (!auftrag) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
+				await tx`update app.angebote set auftrag_id = ${zielId}, kunde_id = null where id = ${aid} and betrieb_id = ${k.betriebId}`;
+				const schritt = KOPPLUNG[alt.status as AngebotStatus];
+				if (schritt && auftrag.status === schritt[0]) {
+					if (zg.auftragAendern) {
+						await tx`update app.auftraege set status = ${schritt[1]} where id = ${zielId} and betrieb_id = ${k.betriebId}`;
+					} else {
+						hinweis = HINWEIS_OHNE_AUFTRAGSRECHT;
+					}
+				}
+			}
+			const angebot = await ladeEines(tx, k, aid, zg.sicht);
+			return hinweis ? { ...angebot, hinweis } : angebot;
+		})
+	);
+}
+
+/** Statuskopplung Angebot → Auftrag: [Auftragsstatus vorher, nachher]. */
+const KOPPLUNG: Partial<Record<AngebotStatus, [string, string]>> = {
+	versendet: ['anfrage', 'angebot'],
+	angenommen: ['angebot', 'beauftragt']
+};
 
 /**
  * Angebots-Vorlage auf einen Entwurf anwenden: Ihre Positionen kommen HINTER die vorhandenen (Reihenfolge der
@@ -323,8 +426,8 @@ async function sperreEntwurf(tx: TransactionSql, k: Kontext, id: string, sicht: 
 	const [z] = await tx`
 		select an.id, an.status, to_char(an.datum, 'YYYY-MM-DD') as datum, to_char(an.gueltig_bis, 'YYYY-MM-DD') as gueltig_bis,
 			an.mwst_satz, an.einleitung, an.schluss
-		from app.angebote an join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
-		where an.id = ${id} and an.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of an`;
+		from app.angebote an left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
+		where an.id = ${id} and an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, sicht)} for update of an`;
 	if (!z) throw nichtGefunden();
 	if (z.status !== 'entwurf') throw nichtAenderbar();
 	return z;
@@ -533,21 +636,17 @@ export async function setzeAngebotStatus(
 		const [alt] = await tx`
 			select an.status, an.auftrag_id, a.status as auftrag_status,
 				(select count(*)::int from app.angebot_positionen p where p.angebot_id = an.id and p.betrieb_id = an.betrieb_id) as anzahl
-			from app.angebote an join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
-			where an.id = ${aid} and an.betrieb_id = ${k.betriebId} and ${sichtbar(tx, zg.sicht)} for update of an`;
+			from app.angebote an left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
+			where an.id = ${aid} and an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, zg.sicht)} for update of an`;
 		if (!alt) throw nichtGefunden();
 		if (!erlaubterAngebotWechsel(alt.status, nach)) throw new ApiFehler(409, 'Statuswechsel nicht erlaubt');
 		if (nach === 'versendet' && alt.anzahl === 0) {
 			throw new ApiFehler(409, 'Ein Angebot ohne Positionen kann nicht versendet werden.');
 		}
 		await tx`update app.angebote set status = ${nach} where id = ${aid} and betrieb_id = ${k.betriebId}`;
-		const kopplung: Partial<Record<AngebotStatus, [string, string]>> = {
-			versendet: ['anfrage', 'angebot'],
-			angenommen: ['angebot', 'beauftragt']
-		};
-		const schritt = kopplung[nach];
+		const schritt = KOPPLUNG[nach];
 		let hinweis: string | undefined;
-		if (schritt && alt.auftrag_status === schritt[0]) {
+		if (schritt && alt.auftrag_id !== null && alt.auftrag_status === schritt[0]) {
 			if (zg.auftragAendern) {
 				await tx`
 					update app.auftraege set status = ${schritt[1]}
@@ -566,13 +665,13 @@ export async function neueVersion(k: Kontext, id: string, zg: AngebotZugriff = v
 	const aid = pruefeAngebotId(id);
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select an.auftrag_id, an.mwst_satz, an.einleitung, an.schluss
-			from app.angebote an join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
-			where an.id = ${aid} and an.betrieb_id = ${k.betriebId} and ${sichtbar(tx, zg.sicht)} for key share of an`;
+			select an.auftrag_id, an.kunde_id, an.mwst_satz, an.einleitung, an.schluss
+			from app.angebote an left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
+			where an.id = ${aid} and an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, zg.sicht)} for key share of an`;
 		if (!alt) throw nichtGefunden();
 		const [neu] = await tx`
-			insert into app.angebote (betrieb_id, auftrag_id, gueltig_bis, mwst_satz, einleitung, schluss, vorgaenger_id)
-			values (${k.betriebId}, ${alt.auftrag_id}, (now() at time zone 'Europe/Berlin')::date + ${GUELTIG_TAGE}::int,
+			insert into app.angebote (betrieb_id, auftrag_id, kunde_id, gueltig_bis, mwst_satz, einleitung, schluss, vorgaenger_id)
+			values (${k.betriebId}, ${alt.auftrag_id}, ${alt.kunde_id}, (now() at time zone 'Europe/Berlin')::date + ${GUELTIG_TAGE}::int,
 				${alt.mwst_satz}, ${alt.einleitung}, ${alt.schluss}, ${aid})
 			returning id`;
 		await tx`
@@ -601,7 +700,7 @@ export async function ladePdfDaten(k: Kontext, id: string, zg: AngebotZugriff = 
 				select art, firma, anrede, vorname, nachname, strasse, plz, ort from app.kunden
 				where id = ${angebot.kundeId} and betrieb_id = ${k.betriebId}`
 			: [];
-		const [einmal] = kunde
+		const [einmal] = kunde || !angebot.auftragId
 			? []
 			: await tx`
 				select einmal_name, einmal_strasse, einmal_plz, einmal_ort from app.auftraege
