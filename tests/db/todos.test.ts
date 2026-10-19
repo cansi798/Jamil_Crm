@@ -4,7 +4,7 @@ import { frischeTestDb, type TestDb } from './setup';
 import { initDb, schliesseDb } from '../../src/lib/server/db';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import { listeAuftraege } from '../../src/lib/server/auftraege';
-import { legeTodoAn, listeTodos } from '../../src/lib/server/todos';
+import { legeTodoAn, legeTodosAn, listeTodos } from '../../src/lib/server/todos';
 import { GET as listeGet, POST as todoPost } from '../../src/routes/api/todos/+server';
 import { DELETE as todoDelete, GET as todoGet, PATCH as todoPatch } from '../../src/routes/api/todos/[id]/+server';
 import { GET as protokollGet } from '../../src/routes/api/protokoll/+server';
@@ -333,6 +333,45 @@ describe('To-dos', () => {
 				} as never)) as any).status
 			).toBe(403);
 		});
+	});
+
+	it('Beschreibung: anlegen, lesen, ändern (bleibt bei anderen Änderungen), leeren; zu lang → 400', async () => {
+		const r = await post(chefA, { titel: 'Filter', auftragId: auftragA, beschreibung: '  Typ F7 nehmen ' });
+		expect(r.status).toBe(201);
+		expect(r.koerper).toMatchObject({ titel: 'Filter', beschreibung: 'Typ F7 nehmen' });
+		const id = r.koerper.id as string;
+		expect((await get(chefA, id)).koerper.beschreibung).toBe('Typ F7 nehmen');
+		expect((await patch(chefA, id, { beschreibung: 'Typ F9' })).koerper).toMatchObject({ titel: 'Filter', beschreibung: 'Typ F9' });
+		expect((await patch(chefA, id, { titel: 'Filter neu' })).koerper).toMatchObject({ beschreibung: 'Typ F9' });
+		expect((await patch(chefA, id, { beschreibung: '' })).koerper).toMatchObject({ beschreibung: null });
+		expect((await post(chefA, { titel: 'x', beschreibung: 'a'.repeat(501) })).status).toBe(400);
+		expect((await post(chefA, { titel: 'ohne' })).koerper.beschreibung).toBeNull();
+	});
+
+	it('legeTodosAn: mehrere To-dos in Reihenfolge mit Beschreibung; ungültiges → keins angelegt; unsichtbarer Auftrag → 400', async () => {
+		const liste = [
+			{ titel: 'Filter wechseln', beschreibung: 'F7' },
+			{ titel: 'Brenner reinigen', beschreibung: null },
+			{ titel: 'Abgas messen', beschreibung: 'Protokoll ausfüllen' }
+		];
+		const neu = await legeTodosAn(kA(), auftragA, liste);
+		expect(neu.map((t) => [t.titel, t.beschreibung, t.auftragId])).toEqual([
+			['Filter wechseln', 'F7', auftragA],
+			['Brenner reinigen', null, auftragA],
+			['Abgas messen', 'Protokoll ausfüllen', auftragA]
+		]);
+		const gelesen = await listeTodos(kA(), { alle: true, benutzerId: chefAId }, { auftragId: auftragA });
+		expect(gelesen.map((t) => t.titel)).toEqual(['Filter wechseln', 'Brenner reinigen', 'Abgas messen']);
+
+		await expect(legeTodosAn(kA(), auftrag2A, [{ titel: 'ok' }, { titel: '' }])).rejects.toMatchObject({ status: 400 });
+		await expect(legeTodosAn(kA(), auftrag2A, [{ titel: 'ok', beschreibung: 'a'.repeat(501) }])).rejects.toMatchObject({
+			status: 400
+		});
+		expect(await root`select 1 from app.todos where auftrag_id = ${auftrag2A}`).toHaveLength(0);
+		await expect(legeTodosAn(kA(), auftragB, [{ titel: 'fremd' }])).rejects.toMatchObject({ status: 400 });
+		const nurEigene = { alle: false, benutzerId: monteurAId };
+		await expect(legeTodosAn(kA(), auftrag2A, [{ titel: 'x' }], nurEigene)).rejects.toMatchObject({ status: 400 });
+		expect(await legeTodosAn(kA(), auftragA, [])).toEqual([]);
 	});
 
 	it('Schreiben ohne alle_lesen: To-dos unsichtbarer Aufträge → 404 (ändern, löschen), Anlegen daran → 400', async () => {
