@@ -169,7 +169,7 @@ export function sichtbar(tx: TransactionSql, sicht: Sicht) {
 	)`;
 }
 
-const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.status, a.beschreibung,
+export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.status, a.beschreibung,
 	to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab, a.angelegt, a.geaendert,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
@@ -179,7 +179,7 @@ const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.status, a.b
 		from app.auftrag_zustaendige z join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
 		where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id) as zustaendige`;
 
-const VON = `app.auftraege a
+export const VON = `app.auftraege a
 	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 	left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id`;
 
@@ -208,7 +208,7 @@ export function ortAus(z: Record<string, any>): string | null {
 	);
 }
 
-function zuAuftrag(z: Record<string, any>): Auftrag {
+export function zuAuftrag(z: Record<string, any>): Auftrag {
 	const objektAdresse = z.objekt_id ? adresseAus(z.objekt_strasse, z.objekt_plz, z.objekt_ort) : null;
 	return {
 		id: z.id,

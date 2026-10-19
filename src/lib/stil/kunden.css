@@ -6,6 +6,14 @@
 	padding: 1.5rem;
 	overflow-wrap: anywhere;
 }
+/* Listen, Boards und Übersichten nutzen die ganze Breite des Arbeitsbereichs (Wunsch Jamil); Formulare und
+   Detailseiten bleiben schmal und gut lesbar. */
+.kd-seite.breit {
+	max-width: none;
+}
+.kd-seite.breit .kd-suche {
+	max-width: 40rem;
+}
 .kd-seite *,
 .kd-seite *::before,
 .kd-seite *::after {

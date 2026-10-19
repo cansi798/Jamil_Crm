@@ -1,6 +1,7 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { frischeTestDb, type TestDb } from './setup';
+import { leereAngebote } from './hilfe-1c';
 import { initDb, mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import { berlinTag } from '../../src/lib/zeit';
@@ -580,21 +581,94 @@ describe('Aufträge und To-dos', () => {
 			const a = await legeAuftragAn(kA(), { titel: 'Badsanierung', kundeId: kundeA });
 			await legeAuftragAn(kA(), { titel: 'Anderes', kundeId: kundeA });
 			await seedTodo(betriebA, a.id, monteurAId);
-			const url = new URL('http://localhost/auftraege?status=anfrage&suche=bad');
+			const url = new URL('http://localhost/auftraege?ansicht=liste&status=anfrage&suche=bad');
 			const d = (await listeLoad({ ...ort(chefA), url } as never)) as any;
 			expect(d.status).toBe('anfrage');
 			expect(d.suche).toBe('bad');
 			expect(d.auftraege.map((x: any) => x.titel)).toEqual(['Badsanierung']);
 			expect(d.darfBearbeiten).toBe(true);
-			const m = (await listeLoad({ ...ort(monteurA), url: new URL('http://localhost/auftraege') } as never)) as any;
+			const m = (await listeLoad({ ...ort(monteurA), url: new URL('http://localhost/auftraege?ansicht=liste') } as never)) as any;
 			expect(m.auftraege.map((x: any) => x.titel)).toEqual(['Badsanierung']);
 			expect(m.darfBearbeiten).toBe(false);
 			// unbekannter Status im Reiter → Alle statt Fehlerseite
-			const u = (await listeLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege?status=xyz') } as never)) as any;
+			const u = (await listeLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege?ansicht=liste&status=xyz') } as never)) as any;
 			expect(u.status).toBeNull();
 			await expect(listeLoad({ ...ort(null), url } as never)).rejects.toMatchObject({ status: 303, location: '/anmelden' });
 			await expect(listeLoad({ ...ort(chefC), url } as never)).rejects.toMatchObject({ status: 402 });
 			await expect(listeLoad({ ...ort(admin), url } as never)).rejects.toMatchObject({ status: 403 });
+		});
+
+		it('Board (Standard): Spalten je Status mit Anzahl, nächster Termin, Angebotswert nur mit Preisrecht, Monteur nur eigene', async () => {
+			const a = await legeAuftragAn(kA(), { titel: 'Badsanierung', kundeId: kundeA, objektId: objektA, zustaendige: [monteurAId] });
+			const b = await legeAuftragAn(kA(), { titel: 'Fliesen', kundeId: kunde2A });
+			await legeAuftragAn(kA(), { titel: 'Dach', kundeId: kunde2A });
+			await setzeStatus(kA(), b.id, 'angebot');
+			// Termine: einer vorbei, einer morgen, einer übermorgen → „nächster“ ist morgen
+			const morgen = new Date(Date.now() + 24 * 3600_000);
+			for (const [beginn, std] of [[new Date(Date.now() - 48 * 3600_000), 2], [new Date(morgen.getTime() + 24 * 3600_000), 2], [morgen, 3]] as const) {
+				await root`
+					insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende)
+					values (${betriebA}, ${b.id}, ${chefAId}, ${beginn}, ${new Date(beginn.getTime() + std * 3600_000)})`;
+			}
+			// Angebote: abgelehntes zählt nicht, Entwurf (2,5 × 80,01 € = 200,025 € → kaufmännisch 200,03 €) schon
+			const angebot = async (st: string, preisCent: number, menge: number) => {
+				const [an] = await root`
+					insert into app.angebote (betrieb_id, auftrag_id, gueltig_bis, status)
+					values (${betriebA}, ${b.id}, current_date + 30, 'entwurf') returning id`;
+				await root`
+					insert into app.angebot_positionen (betrieb_id, angebot_id, pos, bezeichnung, menge, einheit, einzelpreis_cent)
+					values (${betriebA}, ${an.id}, 1, 'Arbeit', ${menge}, 'h', ${preisCent})`;
+				// Status direkt setzen (Schutz-Trigger aus) – hier geht es nur ums Lesen
+				await root.begin(async (tx) => {
+					await tx`set local session_replication_role = replica`;
+					await tx`update app.angebote set status = ${st} where id = ${an.id}`;
+				});
+			};
+			try {
+				await angebot('abgelehnt', 999_99, 1);
+				await angebot('entwurf', 8_001, 2.5);
+				const d = (await listeLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege') } as never)) as any;
+				expect(d.ansicht).toBe('board');
+				expect(d.auftraege).toEqual([]);
+				expect(d.mitPreisen).toBe(true);
+				expect(d.board.spalten.map((s: any) => s.status)).toEqual(['anfrage', 'angebot', 'beauftragt', 'in_arbeit', 'abgenommen', 'abgerechnet']);
+				const anfrage = d.board.spalten[0];
+				expect(anfrage.anzahl).toBe(2);
+				expect(anfrage.karten.map((k: any) => k.titel)).toEqual(['Dach', 'Badsanierung']);
+				const bad = anfrage.karten[1];
+				expect(bad.objektBezeichnung).toBe('Haus Müller');
+				expect(bad.adresse).toBe('Hauptstraße 1, 20095 Hamburg');
+				expect(bad.zustaendige).toEqual([{ id: monteurAId, name: 'Ali Monteur' }]);
+				expect(bad.naechsterTermin).toBeNull();
+				expect(bad.angebotNettoCent).toBeNull();
+				const fliesen = d.board.spalten[1].karten[0];
+				expect(fliesen.titel).toBe('Fliesen');
+				expect(new Date(fliesen.naechsterTermin).getTime()).toBe(morgen.getTime());
+				expect(fliesen.angebotNettoCent).toBe(20_003);
+				expect(fliesen.angebotStatus).toBe('entwurf');
+				// Suche wirkt auch auf das Board
+				const s = (await listeLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege?suche=flies') } as never)) as any;
+				expect(s.board.spalten.flatMap((x: any) => x.karten.map((k: any) => k.titel))).toEqual(['Fliesen']);
+				// „Meine“ auf dem Board: Chef hat nur in „Fliesen“ Termine
+				const mn = (await listeLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege?meine=1') } as never)) as any;
+				expect(mn.meine).toBe(true);
+				expect(mn.board.spalten.flatMap((x: any) => x.karten.map((k: any) => k.titel))).toEqual(['Fliesen']);
+				// Monteur: nur eigene Aufträge, keine Preise
+				const m = (await listeLoad({ ...ort(monteurA), url: new URL('http://localhost/auftraege') } as never)) as any;
+				expect(m.mitPreisen).toBe(false);
+				expect(m.darfBearbeiten).toBe(false);
+				expect(m.board.spalten.flatMap((x: any) => x.karten.map((k: any) => k.titel))).toEqual(['Badsanierung']);
+				expect(m.board.spalten.flatMap((x: any) => x.karten).every((k: any) => k.angebotNettoCent === null)).toBe(true);
+				// Verschieben über die API: ein Schritt ok, Sprung 409, Monteur 403
+				expect((await status(chefA, a.id, 'beauftragt')).status).toBe(409);
+				expect((await status(monteurA, a.id, 'angebot')).status).toBe(403);
+				expect((await status(chefA, a.id, 'angebot')).status).toBe(200);
+				const n = (await listeLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege') } as never)) as any;
+				expect(n.board.spalten[1].karten.map((k: any) => k.titel)).toEqual(['Fliesen', 'Badsanierung']);
+				expect(n.board.spalten[1].anzahl).toBe(2);
+			} finally {
+				await leereAngebote(root);
+			}
 		});
 
 		it('Neu: mit ?kunde= vorbelegt (Objekte des Kunden), Anlegen leitet weiter, Fehler behalten Eingaben, Monteur 403', async () => {

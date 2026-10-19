@@ -20,7 +20,7 @@
 	<title>Leistungskatalog</title>
 </svelte:head>
 
-<main class="kd-seite">
+<main class="kd-seite breit">
 	<h1>Leistungskatalog</h1>
 	{#if data.stundensatz}
 		<p class="kt-hinweis" role="note">

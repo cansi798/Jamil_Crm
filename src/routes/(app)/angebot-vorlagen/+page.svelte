@@ -8,7 +8,7 @@
 	<title>Angebots-Vorlagen</title>
 </svelte:head>
 
-<main class="kd-seite">
+<main class="kd-seite breit">
 	<div class="af-kopfzeile">
 		<h1>Angebots-Vorlagen</h1>
 		<a href="/angebot-vorlagen/neu" class="kd-knopf">+ Neue Vorlage</a>

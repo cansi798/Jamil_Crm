@@ -63,7 +63,7 @@ test('Objekt mit Kundenadresse vorbelegt; Auftrag zeigt Objekt und Adresse über
 		// 4. Kundenseite und Auftragsliste zeigen das Objekt
 		await page.goto(`/kunden/${kunde.id}`);
 		await expect(page.getByText('Objekt: Ferienhaus · Dünenweg 1, 25980 Sylt').first()).toBeVisible();
-		await page.goto(`/auftraege?suche=${encodeURIComponent(kunde.nachname ?? `E2E-Objekt ${stempel}`)}`);
+		await page.goto(`/auftraege?ansicht=liste&suche=${encodeURIComponent(kunde.nachname ?? `E2E-Objekt ${stempel}`)}`);
 		await expect(page.getByText('Objekt: Ferienhaus · Dünenweg 1, 25980 Sylt').first()).toBeVisible();
 	} finally {
 		if (auftragId) await api(page, 'DELETE', `/api/auftraege/${auftragId}`);

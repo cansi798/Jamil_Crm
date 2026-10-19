@@ -13,7 +13,7 @@
 	<title>Kunden</title>
 </svelte:head>
 
-<main class="kd-seite">
+<main class="kd-seite breit">
 	<header class="seiten-kopf">
 		<h1>Kunden</h1>
 		{#if data.darfBearbeiten}

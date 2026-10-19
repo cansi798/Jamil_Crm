@@ -17,7 +17,7 @@
 	<title>To-dos</title>
 </svelte:head>
 
-<main class="kd-seite">
+<main class="kd-seite breit">
 	<h1>To-dos</h1>
 
 	{#if data.reiter.length > 1}

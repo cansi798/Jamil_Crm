@@ -75,7 +75,7 @@
 	<title>Plantafel</title>
 </svelte:head>
 
-<main class="kd-seite pt-seite">
+<main class="kd-seite breit pt-seite">
 	<div class="pt-kopfzeile">
 		<h1>Plantafel</h1>
 		<p class="kd-info">KW {kalenderwoche(tage[0])} · {zeitraum}</p>
@@ -131,9 +131,6 @@
 </main>
 
 <style>
-	.pt-seite {
-		max-width: 80rem;
-	}
 	.pt-kopfzeile {
 		display: flex;
 		flex-wrap: wrap;

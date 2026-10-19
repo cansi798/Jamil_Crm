@@ -320,3 +320,36 @@
 	min-height: var(--tippziel, 44px);
 	max-width: 100%;
 }
+
+/* Kopf der Auftragsseite: Umschalter „Board / Liste“ + Hauptaktion */
+.af-werkzeuge {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
+}
+.af-ansicht {
+	display: inline-flex;
+	padding: 2px;
+	border: 1px solid var(--m365-rand-stark);
+	border-radius: var(--m365-radius);
+	background: var(--m365-flaeche);
+}
+.af-ansicht a {
+	display: inline-flex;
+	align-items: center;
+	min-height: calc(var(--tippziel, 44px) - 6px);
+	padding: 0 0.9rem;
+	border-radius: var(--m365-radius-klein);
+	color: var(--m365-text);
+	font-size: 0.875rem;
+	text-decoration: none;
+}
+.af-ansicht a:hover {
+	background: var(--m365-flaeche-hover);
+}
+.af-ansicht a[aria-current='page'] {
+	background: var(--m365-primaer);
+	color: #fff;
+	font-weight: 600;
+}

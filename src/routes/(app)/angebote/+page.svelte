@@ -12,7 +12,7 @@
 	<title>Angebote</title>
 </svelte:head>
 
-<main class="kd-seite">
+<main class="kd-seite breit">
 	<div class="af-kopfzeile">
 		<h1>Angebote</h1>
 		{#if data.darfOhneAuftrag}

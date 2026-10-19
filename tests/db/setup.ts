@@ -1,7 +1,8 @@
 import postgres from 'postgres';
 import { ladeEnv, migrate } from '../../scripts/migrate';
 
-const TEST_DB = 'crm_test';
+// Eigener Name per CRM_TEST_DB möglich, damit zwei Testläufe parallel nicht dieselbe Datenbank löschen
+const TEST_DB = process.env.CRM_TEST_DB ?? 'crm_test';
 
 export type TestDb = { urlSuper: string; urlApp: string; urlAdmin: string; urlAuth: string };
 

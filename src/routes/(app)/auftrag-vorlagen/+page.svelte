@@ -35,7 +35,7 @@
 
 <style>
 	.seite {
-		max-width: 800px;
+		/* ganze Breite des Arbeitsbereichs wie die anderen Listen */
 		margin: 0 auto;
 		padding: 1rem;
 	}
