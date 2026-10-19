@@ -72,6 +72,10 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		if (module.includes('angebote') && hat('angebote.bearbeiten') && hat('preise.sehen')) {
 			mehr.push({ name: 'Angebots-Vorlagen', href: '/angebot-vorlagen', symbol: 'angebote' });
 		}
+		// Kalkulation / Stundensatz: Gehälter sind vertraulich – „Preise sehen“ UND „Einstellungen“ (Chef)
+		if (module.includes('katalog') && hat('preise.sehen') && hat('einstellungen')) {
+			mehr.push({ name: 'Kalkulation', href: '/kalkulation', symbol: 'katalog' });
+		}
 		if (hat('benutzer.verwalten')) {
 			mehr.push({ name: 'Benutzer', href: '/einstellungen/benutzer', symbol: 'benutzer' });
 		}
