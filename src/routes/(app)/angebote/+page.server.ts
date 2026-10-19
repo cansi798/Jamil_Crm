@@ -1,6 +1,8 @@
-import { error } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
-import { listeAngebote, MAX_ANGEBOTE } from '$lib/server/angebote';
+import { error, redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import { angeboteZugriff, legeAngebotOhneAuftragAn, listeAngebote, MAX_ANGEBOTE } from '$lib/server/angebote';
+import { alsFormFehler } from '$lib/server/fehler';
+import { betriebKontext } from '$lib/server/rechte';
 import { sichtVon } from '$lib/server/auftraege';
 import { hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
@@ -18,6 +20,23 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			sicht: sichtVon(locals.nutzer!),
 			auftragAendern: hatRecht(locals.nutzer!, 'auftraege.bearbeiten')
 		})),
-		maxTreffer: MAX_ANGEBOTE
+		maxTreffer: MAX_ANGEBOTE,
+		// „+ Angebot ohne Auftrag“ nur, wer solche Angebote danach auch sieht
+		darfOhneAuftrag: hatRecht(locals.nutzer!, 'auftraege.alle_lesen')
 	};
+};
+
+export const actions: Actions = {
+	/** Neues Angebot ohne Auftrag (optional `kundeId`) → Editor. */
+	neu: async ({ locals, request }) => {
+		const kunde = (await request.formData()).get('kundeId');
+		let id: string;
+		try {
+			const zg = await angeboteZugriff(locals);
+			id = (await legeAngebotOhneAuftragAn(betriebKontext(locals), typeof kunde === 'string' ? kunde : null, zg)).id;
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+		redirect(303, `/angebote/${id}`);
+	}
 };

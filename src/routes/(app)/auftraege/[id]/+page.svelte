@@ -147,6 +147,17 @@
 					<li class="kd-leer">Noch kein Angebot.</li>
 				{/each}
 			</ul>
+			{#if data.zuordenbareAngebote.length > 0}
+				<form method="POST" action="?/angebotZuordnen" use:enhance class="an-erstellen af-zuordnen">
+					<select name="angebotId" aria-label="Bestehendes Angebot zuordnen" required>
+						<option value="">Bestehendes Angebot zuordnen …</option>
+						{#each data.zuordenbareAngebote as z (z.id)}
+							<option value={z.id}>{z.nummer} · {z.kundeName} · {tagDeutsch(z.datum)} · {euro(z.bruttoCent)}</option>
+						{/each}
+					</select>
+					<button type="submit" class="knopf-subtil">Zuordnen</button>
+				</form>
+			{/if}
 			{#if data.darfKiEntwurf}
 				<details class="ki-entwurf" open={!!form?.kiStichworte}>
 					<summary class="knopf-subtil">KI-Entwurf</summary>

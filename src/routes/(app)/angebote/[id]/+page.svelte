@@ -216,6 +216,40 @@
 			vorlageWahl = '';
 		});
 
+	// ── Zuordnen (nur Angebote ohne Auftrag): Kunde oder Auftrag suchen und wählen ──
+	let zuordnenArt = $state<'auftrag' | 'kunde'>('auftrag');
+	let zuordnenSuche = $state('');
+	let zuordnenTreffer = $state<{ id: string; text: string }[]>([]);
+	let zuordnenMeldung = $state<string | null>(null);
+
+	async function zuordnenSuchen() {
+		zuordnenMeldung = null;
+		try {
+			const q = encodeURIComponent(zuordnenSuche);
+			if (zuordnenArt === 'kunde') {
+				const liste: { id: string; name: string; ort: string | null }[] = await api('GET', `/api/kunden?suche=${q}`);
+				zuordnenTreffer = liste.map((k) => ({ id: k.id, text: [k.name, k.ort].filter(Boolean).join(' · ') }));
+			} else {
+				const liste: { id: string; nummer: string; titel: string; kundeName: string }[] = await api('GET', `/api/auftraege?suche=${q}&offen=1`);
+				zuordnenTreffer = liste.map((a) => ({ id: a.id, text: `${a.nummer} · ${a.titel} · ${a.kundeName}` }));
+			}
+			if (zuordnenTreffer.length === 0) zuordnenMeldung = 'Nichts gefunden.';
+		} catch (e) {
+			zuordnenMeldung = (e as Error).message;
+		}
+	}
+
+	const zuordnen = (id: string, text: string) =>
+		aktion(async () => {
+			if (geaendert) await speichernIntern();
+			const a = await api('POST', `/api/angebote/${angebot.id}/zuordnen`, zuordnenArt === 'kunde' ? { kundeId: id } : { auftragId: id });
+			uebernehme(a);
+			zuordnenTreffer = [];
+			zuordnenSuche = '';
+			meldung = a.hinweis ? `Zugeordnet: ${text}. ${a.hinweis}` : `Zugeordnet: ${text}.`;
+			await invalidateAll();
+		});
+
 	function freiePosition() {
 		zeilen = [
 			...zeilen,
@@ -229,12 +263,53 @@
 </svelte:head>
 
 <main class="kd-seite an-seite">
-	<a href={`/auftraege/${angebot.auftragId}`} class="kd-zurueck">← Auftrag {angebot.auftragNummer}</a>
+	{#if angebot.auftragId}
+		<a href={`/auftraege/${angebot.auftragId}`} class="kd-zurueck">← Auftrag {angebot.auftragNummer}</a>
+	{:else}
+		<a href="/angebote" class="kd-zurueck">← Angebote</a>
+	{/if}
 	<div class="af-kopfzeile">
 		<h1>Angebot {angebot.nummer}</h1>
 		<span class={`an-status s-${angebot.status}`} data-testid="angebot-status">{ANGEBOT_STATUS_NAMEN[angebot.status]}</span>
 	</div>
-	<p class="kd-info">{angebot.kundeName} · {angebot.auftragTitel}{angebot.vorgaengerId ? ' · neue Version' : ''}</p>
+	<p class="kd-info">{angebot.kundeName} · {angebot.auftragTitel ?? 'ohne Auftrag'}{angebot.vorgaengerId ? ' · neue Version' : ''}</p>
+
+	{#if !angebot.auftragId}
+		<section class="an-katalog an-zuordnen" aria-label="Angebot zuordnen">
+			<h3>Zuordnen</h3>
+			<p class="kd-info">
+				{angebot.kundeId ? `Kunde: ${angebot.kundeName}. ` : 'Noch keinem Kunden zugeordnet. '}Einem Auftrag zuordnen – dann gilt dessen
+				Kunde – oder nur einem Kunden.
+			</p>
+			<div class="an-zuordnen-art" role="radiogroup" aria-label="Zuordnen zu">
+				<label><input type="radio" bind:group={zuordnenArt} value="auftrag" onchange={() => (zuordnenTreffer = [])} /> Auftrag</label>
+				<label><input type="radio" bind:group={zuordnenArt} value="kunde" onchange={() => (zuordnenTreffer = [])} /> Kunde</label>
+			</div>
+			<div class="kd-suche">
+				<input
+					type="search"
+					bind:value={zuordnenSuche}
+					placeholder={zuordnenArt === 'kunde' ? 'Name, Ort oder Telefon' : 'Nummer, Titel oder Kunde'}
+					aria-label="Zum Zuordnen suchen"
+					onkeydown={(e) => {
+						if (e.key === 'Enter') {
+							e.preventDefault();
+							void zuordnenSuchen();
+						}
+					}}
+				/>
+				<button type="button" class="kd-knopf" onclick={zuordnenSuchen}>Suchen</button>
+			</div>
+			{#if zuordnenMeldung}<p class="kd-info" role="status">{zuordnenMeldung}</p>{/if}
+			{#if zuordnenTreffer.length > 0}
+				<ul class="kd-liste" aria-label="Treffer zum Zuordnen">
+					{#each zuordnenTreffer as t (t.id)}
+						<li><button type="button" class="an-treffer" onclick={() => zuordnen(t.id, t.text)} disabled={arbeitet}>{t.text}</button></li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	{/if}
 
 	{#if !entwurf}
 		<p class="kt-hinweis">
@@ -353,6 +428,30 @@
 		border: 1px solid var(--primaer);
 		border-radius: 0.5rem;
 		background: var(--primaer-hell);
+	}
+	.an-zuordnen {
+		margin: 0.75rem 0;
+	}
+	.an-zuordnen-art {
+		display: flex;
+		gap: 1.25rem;
+		margin-bottom: 0.5rem;
+	}
+	.an-zuordnen-art label {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		min-height: var(--tippziel, 44px);
+	}
+	.an-treffer {
+		width: 100%;
+		min-height: var(--tippziel, 44px);
+		text-align: left;
+		background: none;
+		border: none;
+		padding: 0.5rem 0.75rem;
+		cursor: pointer;
+		font: inherit;
 	}
 	.an-vorlage-wahl {
 		display: grid;

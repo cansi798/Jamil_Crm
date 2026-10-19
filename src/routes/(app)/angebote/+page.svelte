@@ -2,9 +2,10 @@
 	import { ANGEBOT_STATUS, ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { tagDeutsch } from '$lib/zeit';
-	import type { PageData } from './$types';
+	import { enhance } from '$app/forms';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 </script>
 
 <svelte:head>
@@ -12,8 +13,19 @@
 </svelte:head>
 
 <main class="kd-seite">
-	<h1>Angebote</h1>
-	<p class="kd-info">Neue Angebote legen Sie im Auftrag an („Angebot erstellen“).</p>
+	<div class="af-kopfzeile">
+		<h1>Angebote</h1>
+		{#if data.darfOhneAuftrag}
+			<form method="POST" action="?/neu" use:enhance>
+				<button type="submit" class="kd-knopf">+ Angebot ohne Auftrag</button>
+			</form>
+		{/if}
+	</div>
+	<p class="kd-info">
+		Angebote entstehen meist im Auftrag („Angebot erstellen“). Ein Angebot ohne Auftrag lässt sich später einem Kunden oder
+		Auftrag zuordnen.
+	</p>
+	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 
 	<nav aria-label="Status">
 		<ul class="af-reiter">
@@ -33,7 +45,7 @@
 						<span class={`an-status s-${a.status}`}>{ANGEBOT_STATUS_NAMEN[a.status]}</span>
 					</span>
 					<span class="af-kopfzeile">
-						<span class="kd-info">{a.auftragTitel} · {tagDeutsch(a.datum)}</span>
+						<span class="kd-info">{a.auftragTitel ?? 'ohne Auftrag'} · {tagDeutsch(a.datum)}</span>
 						<span class="kt-preis">{euro(a.bruttoCent)}</span>
 					</span>
 					{#if a.warnungen.includes('preis_fehlt')}<span class="kt-preis-fehlt">Preis fehlt</span>{/if}
