@@ -145,6 +145,29 @@ describe('seed-dev', () => {
 		expect(profil.groesse).toBeLessThanOrEqual(1_048_576);
 	});
 
+	it('Angebots-Vorlagen: 2 Beispiele „(Beispiel)“ mit Katalog- und freien Positionen – zweiter Lauf ohne Duplikate', async () => {
+		const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+		try {
+			await seedDev(db.urlSuper, { datei });
+		} finally {
+			log.mockRestore();
+		}
+		const vorlagen = await sql`
+			select v.name, v.einleitung,
+				count(p.*) filter (where p.katalog_position_id is not null)::int as katalog,
+				count(p.*) filter (where p.katalog_position_id is null)::int as frei,
+				count(p.*) filter (where p.katalog_position_id is null and p.einzelpreis_cent > 0)::int as frei_mit_preis
+			from app.angebot_vorlagen v left join app.angebot_vorlagen_positionen p on p.vorlage_id = v.id
+			group by v.id order by v.name`;
+		expect(vorlagen).toHaveLength(2);
+		for (const v of vorlagen) {
+			expect(v.name).toContain('(Beispiel)');
+			expect(v.katalog).toBeGreaterThan(0);
+			expect(v.frei).toBe(v.frei_mit_preis);
+		}
+		expect(vorlagen.some((v) => v.frei > 0)).toBe(true);
+	});
+
 	it('Zugangsdatei hat Modus 600', () => {
 		expect(statSync(datei).mode & 0o777).toBe(0o600);
 		expect(readFileSync(datei, 'utf8')).toContain('buero@bauwelt.test');

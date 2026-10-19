@@ -166,7 +166,9 @@ async function sichereBenutzer(
 	return { id: z.id, neu: true };
 }
 
-export type SeedErgebnis = { neueBenutzer: number; neueKunden: number; neueVorlagen: number } & Planung & Angebote1c;
+export type SeedErgebnis = { neueBenutzer: number; neueKunden: number; neueVorlagen: number; neueAngebotsVorlagen: number } &
+	Planung &
+	Angebote1c;
 
 type Angebote1c = { neueKatalogpositionen: number; neueAngebote: number };
 
@@ -504,6 +506,75 @@ export async function sichereVorlagen(tx: Tx, betriebId: string): Promise<number
 	return neue;
 }
 
+/** Zwei Angebots-Vorlagen (Beispiel): Katalogpositionen nach Bezeichnung (Preis beim Einfügen aus dem Katalog), freie mit Preis. */
+const ANGEBOTS_VORLAGEN: {
+	name: string;
+	einleitung: string | null;
+	schluss: string | null;
+	positionen: { katalog?: string; bezeichnung?: string; einheit?: string; preis?: number; menge: number }[];
+}[] = [
+	{
+		name: 'Badsanierung komplett (Beispiel)',
+		einleitung: 'Vielen Dank für Ihre Anfrage. Gerne bieten wir Ihnen die Sanierung Ihres Badezimmers wie folgt an:',
+		schluss: 'Alle Arbeiten aus einer Hand – wir freuen uns auf Ihren Auftrag.',
+		positionen: [
+			{ katalog: 'Demontage Altbad', menge: 1 },
+			{ katalog: 'Abdichtung im Verbund', menge: 8 },
+			{ katalog: 'Bodengleiche Dusche einbauen', menge: 1 },
+			{ katalog: 'WC wandhängend inkl. Vorwandelement montieren', menge: 1 },
+			{ katalog: 'Waschtisch inkl. Armatur montieren', menge: 1 },
+			{ katalog: 'Wandfliesen verlegen bis 30×60', menge: 22 },
+			{ bezeichnung: 'Entsorgung Bauschutt', einheit: 'psch', preis: 180, menge: 1 },
+			{ bezeichnung: 'Anfahrt und Baustelleneinrichtung', einheit: 'psch', preis: 85, menge: 1 }
+		]
+	},
+	{
+		name: 'Fliesen Boden (Beispiel)',
+		einleitung: null,
+		schluss: null,
+		positionen: [
+			{ katalog: 'Altbelag Fliesen entfernen', menge: 20 },
+			{ katalog: 'Untergrund vorbereiten und grundieren', menge: 20 },
+			{ katalog: 'Bodenfliesen verlegen bis 60×60', menge: 20 },
+			{ katalog: 'Sockelfliesen verlegen', menge: 18 },
+			{ bezeichnung: 'Anfahrt', einheit: 'psch', preis: 45, menge: 1 }
+		]
+	}
+];
+
+/** Angebots-Vorlagen (idempotent nach Name). Fehlt eine Katalogposition, wird diese Zeile übersprungen. */
+export async function sichereAngebotsVorlagen(tx: Tx, betriebId: string): Promise<number> {
+	let neue = 0;
+	for (const v of ANGEBOTS_VORLAGEN) {
+		const [da] = await tx`select 1 from app.angebot_vorlagen where betrieb_id = ${betriebId} and name = ${v.name}`;
+		if (da) continue;
+		const [vorlage] = await tx<{ id: string }[]>`
+			insert into app.angebot_vorlagen (betrieb_id, name, einleitung, schluss)
+			values (${betriebId}, ${v.name}, ${v.einleitung}, ${v.schluss}) returning id`;
+		let pos = 0;
+		for (const p of v.positionen) {
+			if (p.katalog) {
+				const z = await tx`
+					insert into app.angebot_vorlagen_positionen
+						(betrieb_id, vorlage_id, pos, katalog_position_id, bezeichnung, beschreibung, menge, einheit)
+					select ${betriebId}, ${vorlage.id}, ${pos + 1}, k.id, k.bezeichnung, null, ${p.menge}, k.einheit
+					from app.katalog_positionen k
+					where k.betrieb_id = ${betriebId} and k.bezeichnung = ${p.katalog} and k.vorlage_id is not null
+					order by k.angelegt limit 1
+					returning id`;
+				if (z.length > 0) pos++;
+			} else {
+				pos++;
+				await tx`
+					insert into app.angebot_vorlagen_positionen (betrieb_id, vorlage_id, pos, bezeichnung, menge, einheit, einzelpreis_cent)
+					values (${betriebId}, ${vorlage.id}, ${pos}, ${p.bezeichnung!}, ${p.menge}, ${p.einheit!}, ${Math.round(p.preis! * 100)})`;
+			}
+		}
+		neue++;
+	}
+	return neue;
+}
+
 export async function seedDev(url: string, opts: { datei?: string } = {}): Promise<SeedErgebnis> {
 	const datei = opts.datei ?? STANDARD_DATEI;
 	const daten = leseZugangsdaten(datei);
@@ -590,7 +661,8 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			const planung = await sichereBeispielplanung(tx, betrieb.id);
 			const angebote = await sichereKatalogUndAngebote(tx, betrieb.id);
 			const neueVorlagen = await sichereVorlagen(tx, betrieb.id);
-			return { neueBenutzer, neueKunden, ...planung, ...angebote, neueVorlagen };
+			const neueAngebotsVorlagen = await sichereAngebotsVorlagen(tx, betrieb.id);
+			return { neueBenutzer, neueKunden, ...planung, ...angebote, neueVorlagen, neueAngebotsVorlagen };
 		});
 	} finally {
 		await sql.end();
@@ -603,7 +675,7 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			`${AUFTRAEGE.length} Beispielaufträge (${ergebnis.neueAuftraege} neu), ` +
 			`${ergebnis.neueEinsaetze} neue Einsätze, ${ergebnis.neueTodos} neue To-dos, ` +
 			`${ergebnis.neueKatalogpositionen} neue Katalogpositionen, ${ergebnis.neueAngebote} neue Angebote, ` +
-			`${ergebnis.neueVorlagen} neue Vorlagen. ` +
+			`${ergebnis.neueVorlagen} neue Auftrags-Vorlagen, ${ergebnis.neueAngebotsVorlagen} neue Angebots-Vorlagen. ` +
 			`Zugangsdaten: ${datei}`
 	);
 	return ergebnis;
