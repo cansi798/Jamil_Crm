@@ -3,6 +3,7 @@ import { ApiFehler } from './fehler';
 import { anzeigeName, textFeld, UUID } from './kunden';
 import { darf, darfEines } from './tarif';
 import { berlinTag, istTag, tagesGrenzen, tagPlus, wocheVon } from '../zeit';
+import { istEinsatzArt, type EinsatzArt } from '../einsatz-art';
 
 /**
  * Plantafel (Modul `plantafel`): Einsätze (Mitarbeiter × Zeitraum in einem Auftrag) und Abwesenheiten (Urlaub,
@@ -38,6 +39,8 @@ export type Einsatz = {
 	beginn: string;
 	ende: string;
 	notiz: string | null;
+	/** Besichtigung, Montage oder Wartung. */
+	art: EinsatzArt;
 	warnungen: Warnung[];
 };
 
@@ -115,9 +118,9 @@ function zeitpunkt(wert: unknown, name: string): Date {
 	return d;
 }
 
-type EinsatzWerte = { auftragId: string; benutzerId: string; beginn: Date; ende: Date; notiz: string | null };
+type EinsatzWerte = { auftragId: string; benutzerId: string; beginn: Date; ende: Date; notiz: string | null; art: EinsatzArt };
 
-export const EINSATZ_FELDER = ['auftragId', 'benutzerId', 'beginn', 'ende', 'notiz'] as const;
+export const EINSATZ_FELDER = ['auftragId', 'benutzerId', 'beginn', 'ende', 'notiz', 'art'] as const;
 
 /** Prüft einen vollständigen Einsatz (400 mit klarer Meldung). */
 export function pruefeEinsatzEingabe(e: Record<string, unknown>): EinsatzWerte {
@@ -129,14 +132,17 @@ export function pruefeEinsatzEingabe(e: Record<string, unknown>): EinsatzWerte {
 	if (ende.getTime() - beginn.getTime() > MAX_STUNDEN * MS_STUNDE) {
 		throw new ApiFehler(400, 'Ein Einsatz darf höchstens 14 Stunden dauern');
 	}
-	return { auftragId, benutzerId, beginn, ende, notiz: textFeld(e.notiz, 'Notiz', 500) };
+	// Art: ohne Angabe „Montage“ (wie bisherige Einsätze)
+	const art = e.art === undefined || e.art === null || e.art === '' ? 'montage' : e.art;
+	if (!istEinsatzArt(art)) throw new ApiFehler(400, 'Bitte eine Art wählen: Besichtigung, Montage oder Wartung.');
+	return { auftragId, benutzerId, beginn, ende, notiz: textFeld(e.notiz, 'Notiz', 500), art };
 }
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
 const adresse = (strasse: string | null, plz: string | null, ort: string | null) =>
 	[strasse, [plz, ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null;
 
-export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.benutzer_id, e.beginn, e.ende, e.notiz,
+export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.benutzer_id, e.beginn, e.ende, e.notiz, e.art,
 	a.nummer as auftrag_nummer, a.titel as auftrag_titel, b.name as benutzer_name,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
@@ -162,6 +168,7 @@ export function zuEinsatz(z: Record<string, any>, warnungen: Warnung[] = []): Ei
 		beginn: iso(z.beginn),
 		ende: iso(z.ende),
 		notiz: z.notiz,
+		art: z.art ?? 'montage',
 		warnungen
 	};
 }
@@ -237,8 +244,8 @@ export async function legeEinsatzAn(k: Kontext, e: Record<string, unknown>): Pro
 		await pruefeAuftrag(tx, k, w.auftragId);
 		await pruefeMitarbeiter(tx, k, w.benutzerId);
 		const [z] = await tx`
-			insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz)
-			values (${k.betriebId}, ${w.auftragId}, ${w.benutzerId}, ${w.beginn}, ${w.ende}, ${w.notiz})
+			insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art)
+			values (${k.betriebId}, ${w.auftragId}, ${w.benutzerId}, ${w.beginn}, ${w.ende}, ${w.notiz}, ${w.art})
 			returning id`;
 		return ladeEinsatz(tx, k, z.id);
 	});
@@ -254,7 +261,7 @@ export async function aendereEinsatz(k: Kontext, id: string, e: Record<string, u
 	if (felder.length === 0) throw new ApiFehler(400, 'Nichts zu ändern.');
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select auftrag_id, benutzer_id, beginn, ende, notiz from app.einsaetze
+			select auftrag_id, benutzer_id, beginn, ende, notiz, art from app.einsaetze
 			where id = ${id} and betrieb_id = ${k.betriebId} for update`;
 		if (!alt) throw einsatzNichtGefunden();
 		const w = pruefeEinsatzEingabe({
@@ -263,13 +270,14 @@ export async function aendereEinsatz(k: Kontext, id: string, e: Record<string, u
 			beginn: iso(alt.beginn),
 			ende: iso(alt.ende),
 			notiz: alt.notiz,
+			art: alt.art,
 			...Object.fromEntries(felder.map((f) => [f, e[f]]))
 		});
 		if (w.auftragId !== alt.auftrag_id) await pruefeAuftrag(tx, k, w.auftragId);
 		if (w.benutzerId !== alt.benutzer_id) await pruefeMitarbeiter(tx, k, w.benutzerId);
 		await tx`
 			update app.einsaetze set auftrag_id = ${w.auftragId}, benutzer_id = ${w.benutzerId}, beginn = ${w.beginn},
-				ende = ${w.ende}, notiz = ${w.notiz}
+				ende = ${w.ende}, notiz = ${w.notiz}, art = ${w.art}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		return ladeEinsatz(tx, k, id);
 	});

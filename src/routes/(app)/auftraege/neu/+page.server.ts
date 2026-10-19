@@ -1,9 +1,9 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
-import { AUFTRAG_FELDER, ladeKundenAuswahl, legeAuftragAn } from '$lib/server/auftraege';
+import { AUFTRAG_FELDER, ladeKundenAuswahl, legeAuftragAn, zustaendigeAus } from '$lib/server/auftraege';
 import { listeVorlagen } from '$lib/server/auftrag-vorlagen';
-import { legeTodosAn, pruefeTodoListe, todosAusFormular } from '$lib/server/todos';
+import { aktiveMitarbeiter, legeTodosAn, pruefeTodoListe, todosAusFormular } from '$lib/server/todos';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { formWerte, seitenZugriff, vorbelegung } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
@@ -16,6 +16,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		...(await ladeKundenAuswahl(k, url.searchParams.get('kunde'))),
 		kundenSuche: hatRecht(locals.nutzer!, 'kunden.lesen'),
 		vorlagen,
+		mitarbeiter: await aktiveMitarbeiter(k),
 		// Titel/Start/Beschreibung vorbelegt (z. B. „Ändern“ auf der Bestätigungskarte der Sprachsteuerung)
 		vorbelegt: vorbelegung(url, ['titel', 'geplantAb', 'beschreibung'])
 	};
@@ -31,7 +32,7 @@ export const actions: Actions = {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 			// To-dos (z. B. aus einer Vorlage) zuerst prüfen – ein ungültiges To-do soll keinen halben Auftrag hinterlassen
 			const todos = pruefeTodoListe(todosAusFormular(formData));
-			const erg = await legeAuftragAn(betriebKontext(locals), werte);
+			const erg = await legeAuftragAn(betriebKontext(locals), { ...werte, ...zustaendigeAus(formData) });
 			id = erg.id;
 			await legeTodosAn(betriebKontext(locals), id, todos);
 		} catch (e) {
@@ -40,7 +41,7 @@ export const actions: Actions = {
 				locals.nutzer?.betriebId && hatRecht(locals.nutzer, 'auftraege.bearbeiten')
 					? await ladeKundenAuswahl(betriebKontext(locals), werte.kundeId).catch(() => null)
 					: null;
-			return alsFormFehler(e, { werte, auswahl });
+			return alsFormFehler(e, { werte, auswahl, zustaendige: formData.getAll('zustaendige').map(String) });
 		}
 		redirect(303, `/auftraege/${id}`);
 	}

@@ -26,6 +26,11 @@ export type Auftrag = {
 	kundeName: string;
 	objektId: string | null;
 	objektBezeichnung: string | null;
+	/** Einsatzort: Adresse des Objekts, sonst die Adresse des Kunden (Standard), sonst null. */
+	adresse: string | null;
+	adresseVonObjekt: boolean;
+	/** Zuständige Mitarbeiter (nach Name). */
+	zustaendige: { id: string; name: string }[];
 	status: AuftragStatus;
 	beschreibung: string | null;
 	geplantAb: string | null;
@@ -48,6 +53,7 @@ export type AuftragWerte = {
 export type AuftragFilter = { status?: AuftragStatus; kundeId?: string; suche?: string; offen?: boolean };
 
 export const MAX_AUFTRAEGE = 100;
+export const MAX_ZUSTAENDIGE = 20;
 
 /** Felder, die beim Anlegen/Ändern angenommen werden (Formular und JSON). Status/Nummer gehören nicht dazu. */
 export const AUFTRAG_FELDER = ['titel', 'kundeId', 'objektId', 'beschreibung', 'geplantAb'] as const;
@@ -113,13 +119,21 @@ export function sichtbar(tx: TransactionSql, sicht: Sicht) {
 			select 1 from app.einsaetze e
 			where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id and e.benutzer_id = ${sicht.benutzerId}
 		)
+		or exists (
+			select 1 from app.auftrag_zustaendige z
+			where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id and z.benutzer_id = ${sicht.benutzerId}
+		)
 	)`;
 }
 
 const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.status, a.beschreibung,
 	to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab, a.angelegt, a.geaendert,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
-	o.bezeichnung as objekt_bezeichnung`;
+	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
+	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
+	(select coalesce(json_agg(json_build_object('id', b.id, 'name', b.name) order by public.unaccent(lower(b.name)), b.id), '[]')
+		from app.auftrag_zustaendige z join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
+		where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id) as zustaendige`;
 
 const VON = `app.auftraege a
 	join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
@@ -127,7 +141,11 @@ const VON = `app.auftraege a
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
 
+const adresseAus = (strasse: string | null, plz: string | null, ort: string | null) =>
+	[strasse, [plz, ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null;
+
 function zuAuftrag(z: Record<string, any>): Auftrag {
+	const objektAdresse = z.objekt_id ? adresseAus(z.objekt_strasse, z.objekt_plz, z.objekt_ort) : null;
 	return {
 		id: z.id,
 		nummer: z.nummer,
@@ -136,6 +154,9 @@ function zuAuftrag(z: Record<string, any>): Auftrag {
 		kundeName: anzeigeName({ art: z.kunde_art, firma: z.kunde_firma, vorname: z.kunde_vorname, nachname: z.kunde_nachname }),
 		objektId: z.objekt_id,
 		objektBezeichnung: z.objekt_bezeichnung ?? null,
+		adresse: objektAdresse ?? adresseAus(z.kunde_strasse, z.kunde_plz, z.kunde_ort),
+		adresseVonObjekt: objektAdresse !== null,
+		zustaendige: typeof z.zustaendige === 'string' ? JSON.parse(z.zustaendige) : (z.zustaendige ?? []),
 		status: z.status,
 		beschreibung: z.beschreibung,
 		geplantAb: z.geplant_ab,
@@ -204,14 +225,49 @@ async function pruefeBezuege(tx: TransactionSql, k: Kontext, w: AuftragWerte): P
 
 const ALLE: (benutzerId: string) => Sicht = (benutzerId) => ({ alle: true, benutzerId });
 
+/** Liste zuständiger Mitarbeiter prüfen (IDs, ohne Doppelte, höchstens 20) – ohne Datenbank. */
+export function pruefeZustaendigeEingabe(w: unknown): string[] {
+	if (w === undefined || w === null || w === '') return [];
+	const liste = Array.isArray(w) ? w : [w];
+	if (liste.length > MAX_ZUSTAENDIGE) throw new ApiFehler(400, `Höchstens ${MAX_ZUSTAENDIGE} zuständige Mitarbeiter.`);
+	const ids = liste.filter((x) => x !== '').map((x) => idFeld(x, 'Zuständig: ungültige Auswahl.')!);
+	return [...new Set(ids)];
+}
+
+/** Formular: Häkchen „zustaendige“ – nur wenn das Formular sie gezeigt hat (Marker `zustaendigeGesendet`). */
+export const zustaendigeAus = (f: FormData): { zustaendige?: FormDataEntryValue[] } =>
+	f.has('zustaendigeGesendet') ? { zustaendige: f.getAll('zustaendige') } : {};
+
+/** Zuständige setzen (ersetzt die bisherigen); jeder muss ein aktiver Mitarbeiter des Betriebs sein (sonst 400). */
+async function setzeZustaendige(tx: TransactionSql, k: Kontext, auftragId: string, ids: string[]): Promise<void> {
+	if (ids.length > 0) {
+		const da = await tx`
+			select id from app.benutzer where betrieb_id = ${k.betriebId} and aktiv and id = any(${ids}::uuid[])`;
+		if (da.length !== ids.length) throw new ApiFehler(400, 'Zuständig kann nur ein aktiver Mitarbeiter des Betriebs sein.');
+	}
+	await tx`delete from app.auftrag_zustaendige where auftrag_id = ${auftragId} and betrieb_id = ${k.betriebId}`;
+	if (ids.length > 0) {
+		await tx`
+			insert into app.auftrag_zustaendige ${tx(
+				ids.map((b) => ({ betrieb_id: k.betriebId, auftrag_id: auftragId, benutzer_id: b })),
+				'betrieb_id',
+				'auftrag_id',
+				'benutzer_id'
+			)}`;
+	}
+}
+
+/** Neuer Auftrag; optional `zustaendige` (Liste von Mitarbeiter-IDs). */
 export async function legeAuftragAn(k: Kontext, e: Record<string, unknown>): Promise<Auftrag> {
 	const w = pruefeAuftragEingabe(e);
+	const zustaendige = pruefeZustaendigeEingabe(e.zustaendige);
 	return mitBetrieb(k, async (tx) => {
 		await pruefeBezuege(tx, k, w);
 		const [z] = await tx`
 			insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, beschreibung, geplant_ab)
 			values (${k.betriebId}, ${w.titel}, ${w.kundeId}, ${w.objektId}, ${w.beschreibung}, ${w.geplantAb})
 			returning id`;
+		await setzeZustaendige(tx, k, z.id, zustaendige);
 		return ladeEinen(tx, k, ALLE(k.benutzerId), z.id);
 	});
 }
@@ -219,7 +275,7 @@ export async function legeAuftragAn(k: Kontext, e: Record<string, unknown>): Pro
 /**
  * Ändert einen Auftrag teilweise (angegebene Felder ersetzen die bisherigen; das Ergebnis wird als Ganzes geprüft).
  * Wechselt der Kunde und wird kein Objekt angegeben, entfällt das bisherige Objekt (es gehört zum alten Kunden).
- * Den Status ändert nur `setzeStatus`.
+ * Den Status ändert nur `setzeStatus`. `zustaendige` (falls angegeben) ersetzt die bisherigen Zuständigen.
  */
 export async function aendereAuftrag(
 	k: Kontext,
@@ -229,7 +285,9 @@ export async function aendereAuftrag(
 ): Promise<Auftrag> {
 	pruefeAuftragsId(id);
 	const felder = AUFTRAG_FELDER.filter((f) => Object.hasOwn(e, f));
-	if (felder.length === 0) throw new ApiFehler(400, 'Nichts zu ändern.');
+	const mitZustaendigen = Object.hasOwn(e, 'zustaendige');
+	if (felder.length === 0 && !mitZustaendigen) throw new ApiFehler(400, 'Nichts zu ändern.');
+	const zustaendige = mitZustaendigen ? pruefeZustaendigeEingabe(e.zustaendige) : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
 			select a.titel, a.kunde_id, a.objekt_id, a.beschreibung, to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab
@@ -252,7 +310,9 @@ export async function aendereAuftrag(
 			update app.auftraege set titel = ${w.titel}, kunde_id = ${w.kundeId}, objekt_id = ${w.objektId},
 				beschreibung = ${w.beschreibung}, geplant_ab = ${w.geplantAb}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
-		return ladeEinen(tx, k, sicht, id);
+		if (zustaendige) await setzeZustaendige(tx, k, id, zustaendige);
+		// Wer sich selbst als Zuständigen entfernt und den Auftrag sonst nicht sieht, bekommt ihn trotzdem zurück
+		return ladeEinen(tx, k, ALLE(k.benutzerId), id);
 	});
 }
 
@@ -297,7 +357,8 @@ export async function loescheAuftrag(k: Kontext, id: string, sicht: Sicht = ALLE
 }
 
 export type KundenAuswahl = {
-	kunde: { id: string; name: string } | null;
+	/** `adresse`: Standardadresse des Kunden (Einsatzort, wenn kein Objekt gewählt ist). */
+	kunde: { id: string; name: string; adresse: string | null } | null;
 	objekte: { id: string; bezeichnung: string; adresse: string }[];
 };
 
@@ -309,14 +370,15 @@ export async function ladeKundenAuswahl(k: Kontext, kundeId: string | null | und
 	if (!kundeId || !UUID.test(kundeId)) return { kunde: null, objekte: [] };
 	return mitBetrieb(k, async (tx) => {
 		const [kunde] = await tx`
-			select id, art, firma, vorname, nachname from app.kunden where id = ${kundeId} and betrieb_id = ${k.betriebId}`;
+			select id, art, firma, vorname, nachname, strasse, plz, ort from app.kunden
+			where id = ${kundeId} and betrieb_id = ${k.betriebId}`;
 		if (!kunde) return { kunde: null, objekte: [] };
 		const objekte = await tx`
 			select id, bezeichnung, strasse, plz, ort from app.objekte
 			where kunde_id = ${kundeId} and betrieb_id = ${k.betriebId}
 			order by public.unaccent(lower(bezeichnung)), id`;
 		return {
-			kunde: { id: kunde.id, name: anzeigeName(kunde as never) },
+			kunde: { id: kunde.id, name: anzeigeName(kunde as never), adresse: adresseAus(kunde.strasse, kunde.plz, kunde.ort) },
 			objekte: objekte.map((o) => ({
 				id: o.id,
 				bezeichnung: o.bezeichnung,

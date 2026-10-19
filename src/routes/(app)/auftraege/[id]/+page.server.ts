@@ -1,16 +1,18 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { alsFormFehler } from '$lib/server/fehler';
+import { alsFormFehler, ApiFehler } from '$lib/server/fehler';
 import { holeAuftrag, loescheAuftrag, pruefeStatus, setzeStatus, sichtVon } from '$lib/server/auftraege';
 import { liesProtokoll } from '$lib/server/protokoll';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
 import { verlaufZeile } from '$lib/verlauf';
-import { berlinTag } from '$lib/zeit';
+import { ausTagUndUhrzeit, berlinTag, istTag } from '$lib/zeit';
+import { holeKunde } from '$lib/server/kunden';
+import { listeKundenNotizen } from '$lib/server/kundenakte';
 import { todoAktionen } from '$lib/server/todo-aktionen';
 import { aktiveMitarbeiter, listeTodos } from '$lib/server/todos';
-import { einsaetzeZumAuftrag } from '$lib/server/plantafel';
+import { einsaetzeZumAuftrag, legeEinsatzAn } from '$lib/server/plantafel';
 import { angeboteZugriff, legeAngebotAn, listeAngebote } from '$lib/server/angebote';
 import { listeAngebotVorlagen } from '$lib/server/angebot-vorlagen';
 import { ohnePreise } from '$lib/server/preisschutz';
@@ -31,12 +33,18 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const darfBearbeiten = hatRecht(nutzer, 'auftraege.bearbeiten');
 		const preise = hatRecht(nutzer, 'preise.sehen');
 		const angeboteSichtbar = hatRecht(nutzer, 'angebote.bearbeiten') && (await hatModul(k.betriebId, 'angebote'));
-		const [protokoll, todos, mitarbeiter, einsaetze, angebote] = await Promise.all([
+		// „+ Termin“ (Einsatz mit Art) im Auftrag: wie auf der Plantafel nur mit `plantafel.bearbeiten`
+		const darfTermine = hatRecht(nutzer, 'plantafel.bearbeiten') && (await hatModul(k.betriebId, 'plantafel'));
+		// Hinweise zum Kunden (Notiz am Kunden + neueste Kundennotizen) – nur wer Kunden sehen darf
+		const kundenLesbar = hatRecht(nutzer, 'kunden.lesen') && (await hatModul(k.betriebId, 'kunden'));
+		const [protokoll, todos, mitarbeiter, einsaetze, angebote, kunde, kundenNotizen] = await Promise.all([
 			liesProtokoll(k, { tabelle: 'auftraege', datensatz: auftrag.id, vor: null }),
 			listeTodos(k, sicht, { auftragId: auftrag.id }),
-			darfBearbeiten ? aktiveMitarbeiter(k) : Promise.resolve([]),
+			darfBearbeiten || darfTermine ? aktiveMitarbeiter(k) : Promise.resolve([]),
 			einsaetzeZumAuftrag(k, auftrag.id),
-			angeboteSichtbar ? listeAngebote(k, { auftragId: auftrag.id }, { sicht, auftragAendern: darfBearbeiten }) : Promise.resolve(null)
+			angeboteSichtbar ? listeAngebote(k, { auftragId: auftrag.id }, { sicht, auftragAendern: darfBearbeiten }) : Promise.resolve(null),
+			kundenLesbar ? holeKunde(k, auftrag.kundeId) : Promise.resolve(null),
+			kundenLesbar ? listeKundenNotizen(k, auftrag.kundeId) : Promise.resolve([])
 		]);
 		return {
 			auftrag,
@@ -48,6 +56,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			verlauf: protokoll.eintraege.map(verlaufZeile),
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
 			darfBearbeiten,
+			darfTermine,
+			kundenHinweise: kunde ? { notiz: kunde.notiz ?? null, notizen: kundenNotizen.slice(0, 3), weitere: Math.max(0, kundenNotizen.length - 3) } : null,
 			kundeLesbar: hatRecht(nutzer, 'kunden.lesen'),
 			// Preisschutz: Beträge nur mit `preise.sehen`
 			angebote: angebote && (preise ? angebote : ohnePreise(angebote)),
@@ -62,7 +72,41 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 const todo = todoAktionen(true);
 
+const text = (f: FormData, feld: string) => {
+	const w = f.get(feld);
+	return typeof w === 'string' ? w : '';
+};
+
 export const actions: Actions = {
+	/** Termin (Einsatz) mit Art im Auftrag anlegen: Art, Mitarbeiter, Tag, von, bis, Notiz (`plantafel.bearbeiten`). */
+	terminAnlegen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await darf(locals, 'plantafel', 'plantafel.bearbeiten');
+			const k = betriebKontext(locals);
+			await holeAuftrag(k, sichtVon(locals.nutzer!), params.id);
+			const tag = text(f, 'tag');
+			if (!istTag(tag)) throw new ApiFehler(400, 'Bitte einen Tag wählen.');
+			let beginn: Date, ende: Date;
+			try {
+				beginn = ausTagUndUhrzeit(tag, text(f, 'von'));
+				ende = ausTagUndUhrzeit(tag, text(f, 'bis'));
+			} catch {
+				throw new ApiFehler(400, 'Bitte Beginn und Ende als Uhrzeit angeben (z. B. 08:00).');
+			}
+			await legeEinsatzAn(k, {
+				auftragId: params.id,
+				benutzerId: text(f, 'benutzerId'),
+				beginn: beginn.toISOString(),
+				ende: ende.toISOString(),
+				notiz: text(f, 'notiz'),
+				art: text(f, 'art')
+			});
+		} catch (e) {
+			const meldung = e instanceof ApiFehler ? e.message : 'Interner Fehler. Bitte später erneut versuchen.';
+			return alsFormFehler(e, { terminFehler: meldung });
+		}
+	},
 	todoAnlegen: todo.anlegen,
 	todoUmschalten: todo.umschalten,
 	todoAendern: todo.aendern,
