@@ -60,13 +60,17 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		}
 		if (auftraegeLesen) {
 			mehr.push({ name: 'To-dos', href: '/todos', symbol: 'todos' });
-			mehr.push({ name: 'Vorlagen', href: '/auftrag-vorlagen', symbol: 'todos' });
+			mehr.push({ name: 'Auftrags-Vorlagen', href: '/auftrag-vorlagen', symbol: 'todos' });
 		}
 		if (module.includes('plantafel') && hat('plantafel.bearbeiten')) {
 			mehr.push({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten', symbol: 'abwesenheiten' });
 		}
 		if (module.includes('katalog') && (hat('katalog.bearbeiten') || hat('angebote.bearbeiten'))) {
 			mehr.push({ name: 'Katalog', href: '/katalog', symbol: 'katalog' });
+		}
+		// Angebots-Vorlagen enthalten Preise: wie Angebote nur mit `angebote.bearbeiten` UND `preise.sehen`
+		if (module.includes('angebote') && hat('angebote.bearbeiten') && hat('preise.sehen')) {
+			mehr.push({ name: 'Angebots-Vorlagen', href: '/angebot-vorlagen', symbol: 'angebote' });
 		}
 		if (hat('benutzer.verwalten')) {
 			mehr.push({ name: 'Benutzer', href: '/einstellungen/benutzer', symbol: 'benutzer' });

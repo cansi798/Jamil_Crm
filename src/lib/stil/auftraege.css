@@ -297,3 +297,16 @@
 	border-radius: var(--m365-radius);
 	background: var(--m365-flaeche);
 }
+
+/* „Angebot erstellen“ im Auftrag, optional mit Angebots-Vorlage */
+.an-erstellen {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	justify-content: flex-end;
+}
+.an-erstellen select {
+	min-height: var(--tippziel, 44px);
+	max-width: 100%;
+}

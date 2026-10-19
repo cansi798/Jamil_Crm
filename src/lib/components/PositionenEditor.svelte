@@ -23,8 +23,16 @@
 	 * Positionen eines Angebots: als Karten (Handy) bzw. Tabelle (ab 700 px). Menge und Einzelpreis direkt editierbar
 	 * (Komma-Eingabe), Verschieben mit Knöpfen hoch/runter, Entfernen. Die Gesamtsumme je Zeile rechnet live mit
 	 * denselben Funktionen wie der Server (`src/lib/geld.ts`); verbindlich ist die Rechnung beim Speichern.
+	 *
+	 * `katalogPreisFest` (Angebots-Vorlagen): Bei Katalogpositionen ist der Preis nicht änderbar – er kommt beim Einfügen
+	 * ins Angebot aus dem dann aktuellen Katalog; angezeigt wird der heutige Katalogpreis.
 	 */
-	let { zeilen = $bindable(), nurLesen = false }: { zeilen: EditorZeile[]; nurLesen?: boolean } = $props();
+	let {
+		zeilen = $bindable(),
+		nurLesen = false,
+		katalogPreisFest = false
+	}: { zeilen: EditorZeile[]; nurLesen?: boolean; katalogPreisFest?: boolean } = $props();
+	const preisFest = (z: EditorZeile) => katalogPreisFest && z.katalogPositionId !== null;
 
 	const menge = (z: EditorZeile) => {
 		try {
@@ -83,7 +91,9 @@
 					<span class="pe-label">Beschreibung</span>
 					<textarea bind:value={z.beschreibung} maxlength="2000" rows="2" disabled={nurLesen} aria-label={`Beschreibung Position ${nr}`} placeholder="Beschreibung (optional)"></textarea>
 				</label>
-				{#if z.katalogPositionId}<span class="pe-hinweis">aus dem Katalog</span>{/if}
+				{#if z.katalogPositionId}
+					<span class="pe-hinweis">{preisFest(z) ? 'aus dem Katalog – Preis wird beim Einfügen aktuell übernommen' : 'aus dem Katalog'}</span>
+				{/if}
 				{#if istKiPruefen(z.beschreibung)}<span class="pe-ki">bitte prüfen (KI-Vorschlag)</span>{/if}
 			</div>
 			<label class="pe-menge">
@@ -98,7 +108,7 @@
 			</label>
 			<label class="pe-preis">
 				<span class="pe-label">Einzelpreis (€)</span>
-				<input type="text" inputmode="decimal" bind:value={z.einzelpreis} disabled={nurLesen} aria-label={`Einzelpreis Position ${nr}`} aria-invalid={preis(z) === null} class="r" placeholder="0,00" />
+				<input type="text" inputmode="decimal" bind:value={z.einzelpreis} disabled={nurLesen || preisFest(z)} title={preisFest(z) ? 'Preis aus dem Katalog' : undefined} aria-label={`Einzelpreis Position ${nr}`} aria-invalid={preis(z) === null} class="r" placeholder="0,00" />
 			</label>
 			<span class="pe-summe r">
 				<span class="pe-label">Gesamt</span>

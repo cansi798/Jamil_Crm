@@ -72,7 +72,15 @@
 			{#snippet titel()}Angebote{/snippet}
 			{#snippet aktionen()}
 				{#if data.darfAngebote}
-					<form method="POST" action="?/angebotErstellen" use:enhance>
+					<form method="POST" action="?/angebotErstellen" use:enhance class="an-erstellen">
+						{#if data.angebotVorlagen.length > 0}
+							<select name="vorlageId" aria-label="Angebots-Vorlage">
+								<option value="">ohne Vorlage</option>
+								{#each data.angebotVorlagen as v (v.id)}
+									<option value={v.id}>Vorlage: {v.name}</option>
+								{/each}
+							</select>
+						{/if}
 						<button type="submit" class="knopf-subtil">Angebot erstellen</button>
 					</form>
 				{/if}

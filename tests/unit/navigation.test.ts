@@ -20,16 +20,17 @@ describe('baueNavigation', () => {
 		expect(nav.haupt[3].hinweis).toBeUndefined();
 		expect(nav.mehr).toEqual([
 			expect.objectContaining({ name: 'To-dos', href: '/todos', symbol: 'todos' }),
-			expect.objectContaining({ name: 'Vorlagen', href: '/auftrag-vorlagen' }),
+			expect.objectContaining({ name: 'Auftrags-Vorlagen', href: '/auftrag-vorlagen' }),
 			expect.objectContaining({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten' }),
-			expect.objectContaining({ name: 'Katalog', href: '/katalog', symbol: 'katalog' })
+			expect.objectContaining({ name: 'Katalog', href: '/katalog', symbol: 'katalog' }),
+			expect.objectContaining({ name: 'Angebots-Vorlagen', href: '/angebot-vorlagen', symbol: 'angebote' })
 		]);
 	});
 
 	it('Chef: Haupt Start, Kunden, Aufträge, Plantafel, Angebote; „Mehr“ mit To-dos, Vorlagen, Abwesenheiten, Katalog, Benutzer, Rollen, Briefkopf', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Plantafel', 'Angebote']);
-		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen', 'Abwesenheiten', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Auftrags-Vorlagen', 'Abwesenheiten', 'Katalog', 'Angebots-Vorlagen', 'Benutzer', 'Rollen', 'Briefkopf']);
 		expect(nav.mehr).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ name: 'Benutzer', href: '/einstellungen/benutzer' }),
@@ -41,7 +42,7 @@ describe('baueNavigation', () => {
 	it('Monteur (kunden.lesen, auftraege.lesen): Start, Kunden, Aufträge; To-dos und Vorlagen unter „Mehr“; keine Plantafel', () => {
 		const nav = baueNavigation(betriebsNutzer(['kunden.lesen', 'auftraege.lesen']), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge']);
-		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Auftrags-Vorlagen']);
 		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE).haupt)).toEqual(['Start', 'Kunden', 'Aufträge']);
 	});
 
@@ -49,11 +50,19 @@ describe('baueNavigation', () => {
 		const ohnePlantafel = ALLE_MODULE.filter((m) => m !== 'plantafel');
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ohnePlantafel);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Angebote']);
-		expect(namen(nav.mehr)).toEqual(['To-dos', 'Vorlagen', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Auftrags-Vorlagen', 'Katalog', 'Angebots-Vorlagen', 'Benutzer', 'Rollen', 'Briefkopf']);
 		const ohneAuftraege = ALLE_MODULE.filter((m) => m !== 'auftraege');
 		const n2 = baueNavigation(betriebsNutzer(VORLAGEN.chef), ohneAuftraege);
 		expect(namen(n2.haupt)).toEqual(['Start', 'Kunden', 'Plantafel', 'Angebote']);
-		expect(namen(n2.mehr)).toEqual(['Abwesenheiten', 'Katalog', 'Benutzer', 'Rollen', 'Briefkopf']);
+		expect(namen(n2.mehr)).toEqual(['Abwesenheiten', 'Katalog', 'Angebots-Vorlagen', 'Benutzer', 'Rollen', 'Briefkopf']);
+	});
+
+	it('Angebots-Vorlagen nur mit Modul angebote, angebote.bearbeiten UND preise.sehen (enthalten Preise)', () => {
+		const mit = (rechte: string[], module = ALLE_MODULE) => namen(baueNavigation(betriebsNutzer(rechte), module).mehr);
+		expect(mit(['angebote.bearbeiten', 'preise.sehen'])).toContain('Angebots-Vorlagen');
+		expect(mit(['angebote.bearbeiten'])).not.toContain('Angebots-Vorlagen');
+		expect(mit(['preise.sehen'])).not.toContain('Angebots-Vorlagen');
+		expect(mit(['angebote.bearbeiten', 'preise.sehen'], ALLE_MODULE.filter((m) => m !== 'angebote'))).not.toContain('Angebots-Vorlagen');
 	});
 
 	it('Plantafel nur mit plantafel.bearbeiten oder auftraege.alle_lesen; Abwesenheiten nur mit plantafel.bearbeiten', () => {
@@ -62,7 +71,7 @@ describe('baueNavigation', () => {
 			'Aufträge',
 			'Plantafel'
 		]);
-		expect(namen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE).mehr)).toEqual(['To-dos', 'Vorlagen']);
+		expect(namen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE).mehr)).toEqual(['To-dos', 'Auftrags-Vorlagen']);
 		const planer = baueNavigation(betriebsNutzer(['plantafel.bearbeiten']), ALLE_MODULE);
 		expect(namen(planer.haupt)).toEqual(['Start', 'Plantafel']);
 		expect(namen(planer.mehr)).toEqual(['Abwesenheiten']);

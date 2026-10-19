@@ -44,6 +44,8 @@
 	let meldung = $state<string | null>(null);
 	let arbeitet = $state(false);
 	let katalogOffen = $state(false);
+	let vorlageOffen = $state(false);
+	let vorlageWahl = $state('');
 	let zuletztHinzu = $state<string | null>(null);
 
 	function uebernehme(a: Angebot) {
@@ -198,6 +200,22 @@
 		zuletztHinzu = t.bezeichnung;
 	}
 
+	/** Angebots-Vorlage einfügen: erst ungespeicherte Änderungen sichern, dann hängt der Server die Positionen an
+	 * (Katalogpreise von heute) und übernimmt Einleitung/Schluss der Vorlage, falls sie welche hat. */
+	const ausVorlage = () =>
+		aktion(async () => {
+			const v = data.vorlagen.find((x) => x.id === vorlageWahl);
+			if (!v) return;
+			if (geaendert) await speichernIntern();
+			const vorher = angebot.positionen.length;
+			const a = await api('POST', `/api/angebote/${angebot.id}/vorlage`, { vorlageId: v.id });
+			uebernehme(a);
+			const neu = a.positionen.length - vorher;
+			meldung = `Vorlage „${v.name}“ eingefügt (${neu === 1 ? '1 Position' : `${neu} Positionen`}). Alles bleibt änderbar.`;
+			vorlageOffen = false;
+			vorlageWahl = '';
+		});
+
 	function freiePosition() {
 		zeilen = [
 			...zeilen,
@@ -248,7 +266,27 @@
 		<div class="an-hinzu">
 			<button type="button" class="kd-knopf hell" onclick={() => (katalogOffen = !katalogOffen)} aria-expanded={katalogOffen}>+ Aus Katalog</button>
 			<button type="button" class="kd-knopf hell" onclick={freiePosition}>+ Freie Position</button>
+			{#if data.vorlagen.length > 0}
+				<button type="button" class="kd-knopf hell" onclick={() => (vorlageOffen = !vorlageOffen)} aria-expanded={vorlageOffen}>
+					+ Aus Vorlage
+				</button>
+			{/if}
 		</div>
+		{#if vorlageOffen}
+			<section class="an-katalog an-vorlage" aria-label="Aus Vorlage einfügen">
+				<h3>Aus Vorlage einfügen</h3>
+				<p class="kd-info">Die Positionen kommen ans Ende; Katalogpositionen mit dem heutigen Katalogpreis.</p>
+				<div class="an-vorlage-wahl">
+					<select bind:value={vorlageWahl} aria-label="Angebots-Vorlage">
+						<option value="">– Vorlage wählen –</option>
+						{#each data.vorlagen as v (v.id)}
+							<option value={v.id}>{v.name} ({v.anzahlPositionen === 1 ? '1 Position' : `${v.anzahlPositionen} Positionen`})</option>
+						{/each}
+					</select>
+					<button type="button" class="kd-knopf" onclick={ausVorlage} disabled={arbeitet || !vorlageWahl}>Einfügen</button>
+				</div>
+			</section>
+		{/if}
 		{#if katalogOffen}
 			<section class="an-katalog" aria-label="Aus Katalog wählen">
 				<h3>Aus Katalog wählen</h3>
@@ -315,6 +353,18 @@
 		border: 1px solid var(--primaer);
 		border-radius: 0.5rem;
 		background: var(--primaer-hell);
+	}
+	.an-vorlage-wahl {
+		display: grid;
+		gap: 0.5rem;
+	}
+	.an-vorlage-wahl select {
+		min-height: var(--tippziel, 44px);
+	}
+	@media (min-width: 700px) {
+		.an-vorlage-wahl {
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
 	}
 	.an-katalog h3 {
 		margin: 0 0 0.5rem;
