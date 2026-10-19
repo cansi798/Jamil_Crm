@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DateiUpload from '$lib/components/DateiUpload.svelte';
 	import Karte from '$lib/components/Karte.svelte';
+	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Unterschrift from '$lib/components/Unterschrift.svelte';
 
 	let { data } = $props();
@@ -182,13 +183,27 @@
 		<Karte>
 			{#snippet titel()}Notizen{/snippet}
 			{#if data.darfBearbeiten}
-			<form onsubmit={(e) => { e.preventDefault(); notizAnlegen(); }} class="notiz-form">
-				<textarea bind:value={neueNotiz} placeholder="Neue Notiz eingeben…" rows="3" maxlength="10000"></textarea>
-				{#if notizFehler}<p class="fehler">{notizFehler}</p>{/if}
-				<button type="submit" class="knopf-gefuellt" disabled={notizLaedt || !neueNotiz.trim()}>
-					{notizLaedt ? 'Wird gespeichert…' : 'Notiz speichern'}
-				</button>
-			</form>
+				<AddPanel label="Notiz hinzufügen" art="primaer">
+					{#snippet children(schliessen)}
+						<form
+							onsubmit={async (e) => {
+								e.preventDefault();
+								await notizAnlegen();
+								if (!notizFehler) schliessen();
+							}}
+							class="notiz-form"
+						>
+							<textarea bind:value={neueNotiz} placeholder="Neue Notiz eingeben…" rows="3" maxlength="10000" aria-label="Neue Notiz"></textarea>
+							{#if notizFehler}<p class="fehler">{notizFehler}</p>{/if}
+							<div class="knopf-reihe">
+								<button type="submit" class="knopf-gefuellt" disabled={notizLaedt || !neueNotiz.trim()}>
+									{notizLaedt ? 'Wird gespeichert…' : 'Notiz speichern'}
+								</button>
+								<button type="button" class="knopf-sekundaer" onclick={schliessen}>Abbrechen</button>
+							</div>
+						</form>
+					{/snippet}
+				</AddPanel>
 			{/if}
 
 			{#if notizen.length === 0}

@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import '$lib/stil/kunden.css';
+	import AddPanel from '$lib/components/AddPanel.svelte';
+	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -30,214 +33,199 @@
 	<title>Benutzer</title>
 </svelte:head>
 
-<main>
-	<h1>Benutzer</h1>
+<main class="kd-seite">
+	<header class="seiten-kopf">
+		<div>
+			<h1>Benutzer</h1>
+			<p class="seiten-meta">{data.benutzer.length} Benutzer · {data.einladungen.length} offene Einladungen</p>
+		</div>
+	</header>
 
-	<section aria-labelledby="einladen">
-		<h2 id="einladen">Neue Person einladen</h2>
-		<p class="hinweis">
-			Sie erhalten einen Link, den Sie selbst weitergeben (z. B. per Messenger oder E-Mail). Er ist
-			{data.einladungTage} Tage gültig und funktioniert nur einmal.
-		</p>
-		<form
-			method="POST"
-			action="?/einladen"
-			use:enhance={() => {
-				kopiert = false;
-				return async ({ update }) => update();
-			}}
-		>
-			{#if fehlerFuer('einladen')}
-				<p role="alert" class="fehler">{fehlerFuer('einladen')}</p>
-			{/if}
-			<label>
-				E-Mail
-				<input
-					type="email"
-					name="email"
-					required
-					maxlength="254"
-					autocomplete="off"
-					value={form && 'email' in form && !link ? form.email : ''}
-				/>
-			</label>
-			<label>
-				Rolle
-				<select name="rolleId" required>
-					{#each vergebbar as rolle (rolle.id)}
-						<option value={rolle.id}>{rolle.name}</option>
-					{/each}
-				</select>
-			</label>
-			<button type="submit" disabled={vergebbar.length === 0}>Einladungslink erstellen</button>
-		</form>
+	<AddPanel label="Person einladen" art="primaer" offen={!!fehlerFuer('einladen')}>
+		{#snippet children(schliessen)}
+			<p class="kd-info">
+				Sie erhalten einen Link, den Sie selbst weitergeben (z. B. per Messenger oder E-Mail). Er ist
+				{data.einladungTage} Tage gültig und funktioniert nur einmal.
+			</p>
+			<form
+				method="POST"
+				action="?/einladen"
+				class="kd-formular"
+				use:enhance={() => {
+					kopiert = false;
+					return async ({ update }) => update();
+				}}
+			>
+				{#if fehlerFuer('einladen')}
+					<p role="alert" class="kd-fehler">{fehlerFuer('einladen')}</p>
+				{/if}
+				<div class="kd-zwei">
+					<label>
+						E-Mail
+						<input
+							type="email"
+							name="email"
+							required
+							maxlength="254"
+							autocomplete="off"
+							value={form && 'email' in form && !link ? form.email : ''}
+						/>
+					</label>
+					<label>
+						Rolle
+						<select name="rolleId" required>
+							{#each vergebbar as rolle (rolle.id)}
+								<option value={rolle.id}>{rolle.name}</option>
+							{/each}
+						</select>
+					</label>
+				</div>
+				<div class="knopf-reihe">
+					<button type="submit" class="kd-knopf" disabled={vergebbar.length === 0}>Einladungslink erstellen</button>
+					<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+				</div>
+			</form>
+		{/snippet}
+	</AddPanel>
 
-		{#if link}
-			<div class="link" role="status">
-				<p>Einladung für <strong>{form && 'email' in form ? form.email : ''}</strong> erstellt:</p>
+	{#if link}
+		<div class="bn-link" role="status">
+			<p>Einladung für <strong>{form && 'email' in form ? form.email : ''}</strong> erstellt:</p>
+			<div class="bn-link-zeile">
 				<input type="text" readonly value={link} aria-label="Einladungslink" onfocus={(e) => e.currentTarget.select()} />
-				<button type="button" onclick={kopieren}>{kopiert ? 'Kopiert ✓' : 'Link kopieren'}</button>
-				<p class="hinweis">Der Link wird nur jetzt angezeigt.</p>
+				<button type="button" class="kd-knopf" onclick={kopieren}>{kopiert ? 'Kopiert ✓' : 'Link kopieren'}</button>
 			</div>
-		{/if}
-	</section>
+			<p class="kd-info">Der Link wird nur jetzt angezeigt.</p>
+		</div>
+	{/if}
 
-	<section aria-labelledby="offen">
-		<h2 id="offen">Offene Einladungen</h2>
+	<Abschnitt titel="Offene Einladungen" id="offen" anzahl={data.einladungen.length}>
 		{#if fehlerFuer('widerrufen')}
-			<p role="alert" class="fehler">{fehlerFuer('widerrufen')}</p>
+			<p role="alert" class="kd-fehler">{fehlerFuer('widerrufen')}</p>
 		{/if}
-		<ul class="liste">
+		<ul class="kd-liste bn-liste">
 			{#each data.einladungen as e (e.id)}
-				<li class="karte">
-					<div>
+				<li class="bn-zeile">
+					<div class="bn-wer">
 						<strong>{e.email}</strong>
-						<span class="info">{e.rolleName} · gültig bis {datum(e.laeuftAb)}</span>
+						<span class="kd-info">{e.rolleName} · gültig bis {datum(e.laeuftAb)}</span>
 					</div>
 					<form method="POST" action="?/widerrufen" use:enhance>
 						<input type="hidden" name="id" value={e.id} />
-						<button type="submit" class="gefahr">Widerrufen</button>
+						<button type="submit" class="kd-knopf gefahr">Widerrufen</button>
 					</form>
 				</li>
 			{:else}
-				<li class="leer">Keine offenen Einladungen.</li>
+				<li class="kd-leer">Keine offenen Einladungen.</li>
 			{/each}
 		</ul>
-	</section>
+	</Abschnitt>
 
-	<section aria-labelledby="alle">
-		<h2 id="alle">Alle Benutzer</h2>
-		<ul class="liste">
+	<Abschnitt titel="Alle Benutzer" id="alle" anzahl={data.benutzer.length}>
+		<ul class="kd-liste bn-liste">
 			{#each data.benutzer as b (b.id)}
 				{@const rolleVergebbar = data.rollen.find((r) => r.id === b.rolleId)?.vergebbar ?? true}
-				<li class="karte" class:inaktiv={!b.aktiv}>
-					<div>
-						<strong>{b.name}</strong>
-						{#if b.id === data.ichId}<span class="info">(Sie)</span>{/if}
-						<span class="info">{b.email}</span>
-						<span class="info">{b.rolleName ?? 'Keine Rolle'} · {b.aktiv ? 'aktiv' : 'deaktiviert'}</span>
+				<li class="bn-zeile" class:inaktiv={!b.aktiv}>
+					<div class="bn-wer">
+						<strong>{b.name}{#if b.id === data.ichId} <span class="kd-info">(Sie)</span>{/if}</strong>
+						<span class="kd-info">{b.email}</span>
+						<span class="kd-info">{b.rolleName ?? 'Keine Rolle'} · {b.aktiv ? 'aktiv' : 'deaktiviert'}</span>
 					</div>
 					{#if fehlerFuer('aendern', b.id) || fehlerFuer('aktiv', b.id)}
-						<p role="alert" class="fehler">{fehlerFuer('aendern', b.id) ?? fehlerFuer('aktiv', b.id)}</p>
+						<p role="alert" class="kd-fehler bn-breit">{fehlerFuer('aendern', b.id) ?? fehlerFuer('aktiv', b.id)}</p>
 					{/if}
 					{#if rolleVergebbar}
-						<form method="POST" action="?/aendern" use:enhance class="zeile">
-							<input type="hidden" name="id" value={b.id} />
-							<label class="unsichtbar" for={`rolle-${b.id}`}>Rolle von {b.name}</label>
-							<select id={`rolle-${b.id}`} name="rolleId">
-								{#each vergebbar as rolle (rolle.id)}
-									<option value={rolle.id} selected={rolle.id === b.rolleId}>{rolle.name}</option>
-								{/each}
-							</select>
-							<button type="submit">Rolle speichern</button>
-						</form>
-						{#if b.id !== data.ichId}
-							<form method="POST" action="?/aktiv" use:enhance>
+						<div class="bn-aktionen">
+							<form method="POST" action="?/aendern" use:enhance class="bn-rolle">
 								<input type="hidden" name="id" value={b.id} />
-								<input type="hidden" name="aktiv" value={b.aktiv ? 'false' : 'true'} />
-								<button type="submit" class:gefahr={b.aktiv}>{b.aktiv ? 'Deaktivieren' : 'Wieder aktivieren'}</button>
+								<label class="unsichtbar" for={`rolle-${b.id}`}>Rolle von {b.name}</label>
+								<select id={`rolle-${b.id}`} name="rolleId">
+									{#each vergebbar as rolle (rolle.id)}
+										<option value={rolle.id} selected={rolle.id === b.rolleId}>{rolle.name}</option>
+									{/each}
+								</select>
+								<button type="submit" class="kd-knopf hell">Rolle speichern</button>
 							</form>
-						{/if}
+							{#if b.id !== data.ichId}
+								<form method="POST" action="?/aktiv" use:enhance>
+									<input type="hidden" name="id" value={b.id} />
+									<input type="hidden" name="aktiv" value={b.aktiv ? 'false' : 'true'} />
+									<button type="submit" class={b.aktiv ? 'kd-knopf gefahr' : 'kd-knopf hell'}>{b.aktiv ? 'Deaktivieren' : 'Wieder aktivieren'}</button>
+								</form>
+							{/if}
+						</div>
 					{:else}
-						<p class="hinweis">Nur mit dem Recht „Einstellungen verwalten“ änderbar.</p>
+						<p class="kd-info">Nur mit dem Recht „Einstellungen verwalten“ änderbar.</p>
 					{/if}
 				</li>
 			{/each}
 		</ul>
-		<p class="hinweis">Deaktivierte Benutzer werden sofort abgemeldet und zählen nicht zur Benutzergrenze.</p>
-	</section>
+		<p class="kd-info">Deaktivierte Benutzer werden sofort abgemeldet und zählen nicht zur Benutzergrenze.</p>
+	</Abschnitt>
 </main>
 
 <style>
-	main {
-		max-width: 40rem;
-		margin: 1.5rem auto;
-		padding: 0 1rem;
+	.bn-liste {
+		margin: 0 0 0.75rem;
 	}
-	section {
-		margin-bottom: 2rem;
-	}
-	form {
-		display: grid;
-		gap: 0.75rem;
-	}
-	label {
-		display: grid;
-		gap: 0.25rem;
-	}
-	input,
-	select,
-	button {
-		font: inherit;
-		padding: 0.5rem;
-		min-height: 2.75rem;
-	}
-	.liste {
-		list-style: none;
-		margin: 0.5rem 0;
-		padding: 0;
-		display: grid;
-		gap: 0.5rem;
-	}
-	.karte {
-		display: grid;
-		gap: 0.5rem;
-		padding: 0.75rem;
-		border: 1px solid #c8c8c8;
-		border-radius: 0.4rem;
-	}
-	.karte > div {
-		display: grid;
-		gap: 0.15rem;
-	}
-	.inaktiv {
-		background: #f4f4f4;
-		color: #555;
-	}
-	.zeile {
-		grid-template-columns: 1fr auto;
+	.bn-zeile {
+		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem 1rem;
+		padding: 0.75rem 1rem;
+		border-bottom: 1px solid var(--ui-rand);
 	}
-	.link {
+	.bn-zeile:last-child {
+		border-bottom: 0;
+	}
+	.bn-zeile.inaktiv {
+		color: var(--ui-text-leise);
+	}
+	.bn-wer {
+		display: grid;
+		gap: 0.1rem;
+		min-width: 12rem;
+		flex: 1 1 14rem;
+	}
+	.bn-breit {
+		flex-basis: 100%;
+	}
+	.bn-aktionen,
+	.bn-rolle {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.bn-rolle {
+		flex-wrap: nowrap;
+		flex: 1 1 16rem;
+	}
+	.bn-rolle select {
+		flex: 1 1 auto;
+		width: auto;
+		min-width: 0;
+	}
+	.bn-aktionen {
+		flex: 0 1 26rem;
+	}
+	.bn-link {
 		display: grid;
 		gap: 0.5rem;
-		margin-top: 1rem;
-		padding: 0.75rem;
-		border: 1px solid #1b6e2d;
-		border-radius: 0.4rem;
+		margin: 0 0 1rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid #9fd89f;
+		border-radius: var(--ui-radius-karte);
+		background: #f1faf1;
 	}
-	.link p {
+	.bn-link p {
 		margin: 0;
 	}
-	.info {
-		font-size: 0.9rem;
-		color: #555;
-	}
-	.hinweis {
-		font-size: 0.9rem;
-		color: #555;
-	}
-	.leer {
-		color: #555;
-	}
-	.fehler {
-		color: #b00020;
-		margin: 0;
-	}
-	.gefahr {
-		color: #b00020;
-	}
-	.unsichtbar {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-		white-space: nowrap;
-	}
-	@media (max-width: 30rem) {
-		.zeile {
-			grid-template-columns: 1fr;
-		}
+	.bn-link-zeile {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 0.5rem;
 	}
 </style>

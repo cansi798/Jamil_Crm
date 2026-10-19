@@ -31,7 +31,7 @@
 				required
 			/>
 		</label>
-		<button type="submit">Bestätigen</button>
+		<button type="submit" class="kd-knopf">Bestätigen</button>
 	</form>
 	<p><a href="/anmelden">Zurück zur Anmeldung</a></p>
 </main>

@@ -31,12 +31,17 @@ test('Kundenakte: Notiz schreiben, Dokument hochladen und herunterladen, lösche
 		await page.goto(`/kunden/${kunde.id}`);
 		// Notiz
 		const notiz = `Hund im Garten – bitte klingeln ${Date.now()}`;
+		// Formulare sind eingeklappt (AddPanel) und gehen nach dem Speichern wieder zu
+		await expect(page.getByLabel('Neue Notiz')).toHaveCount(0);
+		await page.getByRole('button', { name: 'Notiz hinzufügen' }).click();
 		await page.getByLabel('Neue Notiz').fill(notiz);
 		await page.getByRole('button', { name: 'Notiz speichern' }).click();
 		const notizen = page.getByRole('list', { name: 'Notizen' });
 		await expect(notizen.getByText(notiz)).toBeVisible();
-		await expect(page.getByLabel('Neue Notiz')).toHaveValue('');
+		await expect(page.getByLabel('Neue Notiz')).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Notiz hinzufügen' })).toBeVisible();
 		// Dokument
+		await page.getByRole('button', { name: 'Dokument hochladen' }).click();
 		await page.locator('input[type="file"][name="datei"]').setInputFiles({ name: 'Grundriss Bad.pdf', mimeType: 'application/pdf', buffer: PDF });
 		await page.getByLabel('Beschreibung (optional)').fill('vom Kunden');
 		await page.getByRole('button', { name: 'Hochladen' }).click();
@@ -46,7 +51,8 @@ test('Kundenakte: Notiz schreiben, Dokument hochladen und herunterladen, lösche
 		await expect(dokumente.getByText(/vom Kunden/)).toBeVisible();
 		const download = await Promise.all([page.waitForEvent('download'), link.click()]).then(([d]) => d);
 		expect(download.suggestedFilename()).toBe('Grundriss Bad.pdf');
-		// falscher Inhalt → Fehlermeldung, nichts gespeichert
+		// falscher Inhalt → Fehlermeldung, Feld bleibt offen, nichts gespeichert
+		await page.getByRole('button', { name: 'Dokument hochladen' }).click();
 		await page.locator('input[type="file"][name="datei"]').setInputFiles({ name: 'falsch.pdf', mimeType: 'application/pdf', buffer: Buffer.from('<html>') });
 		await page.getByRole('button', { name: 'Hochladen' }).click();
 		await expect(page.getByRole('alert')).toContainText('passt nicht zum Dateityp');

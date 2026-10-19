@@ -1,6 +1,7 @@
 <script lang="ts">
 	import TodoKanban from '$lib/components/TodoKanban.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
+	import AddPanel from '$lib/components/AddPanel.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -18,7 +19,9 @@
 </svelte:head>
 
 <main class="kd-seite breit">
-	<h1>To-dos</h1>
+	<header class="seiten-kopf">
+		<h1>To-dos</h1>
+	</header>
 
 	{#if data.reiter.length > 1}
 		<nav aria-label="Auswahl">
@@ -61,12 +64,18 @@
 	{/if}
 
 	{#if data.darfBearbeiten}
-		<TodoNeu
-			aktion="?/anlegen"
-			mitarbeiter={data.mitarbeiter}
-			fehler={form?.todoWerte ? form.fehler : null}
-			werte={form?.todoWerte ?? data.vorbelegt}
-		/>
+		<AddPanel label="To-do hinzufügen" art="primaer" offen={!!form?.todoWerte || Object.values(data.vorbelegt ?? {}).some(Boolean)}>
+			{#snippet children(schliessen)}
+				<TodoNeu
+					aktion="?/anlegen"
+					mitarbeiter={data.mitarbeiter}
+					fehler={form?.todoWerte ? form.fehler : null}
+					werte={form?.todoWerte ?? data.vorbelegt}
+					onfertig={schliessen}
+					onabbrechen={schliessen}
+				/>
+			{/snippet}
+		</AddPanel>
 	{/if}
 
 	<TodoKanban

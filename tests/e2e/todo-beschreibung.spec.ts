@@ -9,15 +9,18 @@ test('„+ To-do“ mit Beschreibung → Beschreibung steht auf der Karte', asyn
 	await anmelden(page, BUERO);
 	await page.goto('/todos?nur=alle');
 	const titel = `E2E-Beschreibung-${Date.now()}`;
+	await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
 	const formular = page.locator('form.td-neu');
 	await formular.getByLabel('Neues To-do').fill(titel);
 	await formular.getByLabel('Beschreibung (optional)').fill('Schlüssel beim Nachbarn abholen');
-	await formular.getByRole('button', { name: '+ To-do' }).click();
+	await formular.getByRole('button', { name: 'To-do speichern' }).click();
 
 	const karte = page.locator('.kanban-karte', { hasText: titel });
 	await expect(karte).toBeVisible();
 	await expect(karte.locator('.karte-beschreibung')).toHaveText('Schlüssel beim Nachbarn abholen');
-	// Nach dem Anlegen ist das Formular wieder leer
+	// Nach dem Anlegen klappt das Formular zu; erneut geöffnet ist es leer
+	await expect(formular).toHaveCount(0);
+	await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
 	await expect(formular.getByLabel('Beschreibung (optional)')).toHaveValue('');
 
 	const liste: { id: string; titel: string; beschreibung: string | null }[] = await (

@@ -44,7 +44,7 @@
 				required
 			/>
 		</label>
-		<button type="submit">Einrichten und anmelden</button>
+		<button type="submit" class="kd-knopf">Einrichten und anmelden</button>
 	</form>
 </main>
 

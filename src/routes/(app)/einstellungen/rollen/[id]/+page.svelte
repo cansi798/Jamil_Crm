@@ -41,11 +41,11 @@
 			Wer „Einstellungen verwalten“ hat, muss sich künftig mit einem zweiten Faktor anmelden und wird dafür
 			einmal abgemeldet.
 		</p>
-		<button type="submit">Speichern</button>
+		<button type="submit" class="kd-knopf">Speichern</button>
 	</form>
 
 	<form method="POST" action="?/loeschen" use:enhance class="loeschen">
-		<button type="submit" class="gefahr">Rolle löschen</button>
+		<button type="submit" class="kd-knopf gefahr">Rolle löschen</button>
 	</form>
 </main>
 

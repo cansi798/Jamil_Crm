@@ -42,7 +42,7 @@
 				Passwort wiederholen
 				<input type="password" name="passwort2" minlength="10" required autocomplete="new-password" />
 			</label>
-			<button type="submit">Konto einrichten</button>
+			<button type="submit" class="kd-knopf">Konto einrichten</button>
 		</form>
 	{/if}
 </main>
