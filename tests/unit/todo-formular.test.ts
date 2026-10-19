@@ -17,9 +17,14 @@ describe('todosAusFormular', () => {
 			['todo_beschreibung_10', '']
 		]);
 		expect(todosAusFormular(f)).toEqual([
-			{ titel: 'Zwei', beschreibung: 'B2' },
-			{ titel: 'Zehn', beschreibung: '' }
+			{ titel: 'Zwei', beschreibung: 'B2', lautstaerke: '', schmutz: '' },
+			{ titel: 'Zehn', beschreibung: '', lautstaerke: '', schmutz: '' }
 		]);
+		// Stufen je To-do (Vorlagen und Auftrag-Formular)
+		const mitStufen = todosAusFormular(form([['todo_0', 'Laut'], ['todo_lautstaerke_0', '3'], ['todo_schmutz_0', '1']]));
+		expect(mitStufen).toEqual([{ titel: 'Laut', beschreibung: '', lautstaerke: '3', schmutz: '1' }]);
+		expect(pruefeTodoListe(mitStufen)).toEqual([{ titel: 'Laut', beschreibung: null, lautstaerke: 3, schmutz: 1 }]);
+		expect(() => pruefeTodoListe([{ titel: 'x', lautstaerke: '5' }])).toThrow(/Lautstärke/);
 	});
 
 	it('ganz leere Zeilen fallen weg, Beschreibung ohne Titel bleibt (wird beim Prüfen abgelehnt)', () => {
@@ -30,7 +35,7 @@ describe('todosAusFormular', () => {
 			['todo_beschreibung_1', 'nur Beschreibung']
 		]);
 		const liste = todosAusFormular(f);
-		expect(liste).toEqual([{ titel: '', beschreibung: 'nur Beschreibung' }]);
+		expect(liste).toEqual([{ titel: '', beschreibung: 'nur Beschreibung', lautstaerke: '', schmutz: '' }]);
 		expect(() => pruefeTodoListe(liste)).toThrow(/Titel/);
 	});
 
@@ -42,8 +47,8 @@ describe('todosAusFormular', () => {
 describe('pruefeTodoListe', () => {
 	it('bereinigt Titel/Beschreibung, leere Beschreibung → null', () => {
 		expect(pruefeTodoListe([{ titel: ' A ', beschreibung: ' ' }, { titel: 'B', beschreibung: 'b' }])).toEqual([
-			{ titel: 'A', beschreibung: null },
-			{ titel: 'B', beschreibung: 'b' }
+			{ titel: 'A', beschreibung: null, lautstaerke: null, schmutz: null },
+			{ titel: 'B', beschreibung: 'b', lautstaerke: null, schmutz: null }
 		]);
 	});
 

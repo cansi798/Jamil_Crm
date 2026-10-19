@@ -7,6 +7,7 @@ export const RECHTE = {
 	'kunden.bearbeiten': 'Kunden anlegen und ändern',
 	'auftraege.lesen': 'Eigene Aufträge ansehen',
 	'auftraege.alle_lesen': 'Alle Aufträge ansehen',
+	'todos.alle_lesen': 'Alle To-dos ansehen',
 	'auftraege.bearbeiten': 'Aufträge anlegen und ändern',
 	'plantafel.bearbeiten': 'Plantafel bearbeiten',
 	'angebote.bearbeiten': 'Angebote und Rechnungen bearbeiten',

@@ -12,5 +12,8 @@
 <main class="kd-seite">
 	<a href={`/kunden/${data.kunde.id}`} class="kd-zurueck">← {data.kunde.name}</a>
 	<h1>Neues Objekt</h1>
-	<ObjektFormular aktion="?/anlegen" werte={form?.werte ?? {}} fehler={form?.fehler ?? null} knopf="Objekt anlegen" abbrechen={`/kunden/${data.kunde.id}`} />
+	{#if data.vorbelegt.strasse || data.vorbelegt.ort}
+		<p class="kd-info">Die Adresse ist mit der Adresse des Kunden vorbelegt – bei einer abweichenden Baustelle einfach ändern.</p>
+	{/if}
+	<ObjektFormular aktion="?/anlegen" werte={form?.werte ?? data.vorbelegt} fehler={form?.fehler ?? null} knopf="Objekt anlegen" abbrechen={`/kunden/${data.kunde.id}`} />
 </main>

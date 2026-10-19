@@ -15,6 +15,18 @@
 
 	const a = $derived(data.auftrag);
 	let kiLaeuft = $state(false);
+
+	// Felder direkt im Auftrag ändern (Wunsch Jamil): speichern sofort, kurze Rückmeldung „Gespeichert“
+	let gespeichert = $state(false);
+	let gespeichertZeit: ReturnType<typeof setTimeout> | undefined;
+	const sofort = () => async ({ result, update }: { result: { type: string }; update: (o?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void> }) => {
+		await update({ reset: false });
+		if (result.type === 'success') {
+			gespeichert = true;
+			clearTimeout(gespeichertZeit);
+			gespeichertZeit = setTimeout(() => (gespeichert = false), 2500);
+		}
+	};
 </script>
 
 <svelte:head>
@@ -51,7 +63,7 @@
 		</aside>
 	{/if}
 
-	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler}
+	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
 
@@ -77,34 +89,92 @@
 					<span class="kd-info">Ohne Kunde</span>
 				{/if}
 			</dd>
-			<dt>Einsatzort</dt>
-			<dd>
-				{a.adresse ?? 'Keine Adresse hinterlegt'}
-				{#if a.adresse}
-					<span class="kd-info">{a.adresseVonObjekt ? `(Objekt ${a.objektBezeichnung})` : a.kundeArt === 'einmal' ? '(Einmal-Kunde)' : '(Kundenadresse)'}</span>
+			<dt>Objekt / Einsatzort</dt>
+			<dd class="af-objekt">
+				{#if data.darfBearbeiten && a.kundeArt === 'kunde'}
+					<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
+						<select name="objektId" aria-label="Objekt" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+							<option value="" selected={!a.objektId}>Kundenadresse (Standard)</option>
+							{#each data.objekte as o (o.id)}
+								<option value={o.id} selected={o.id === a.objektId}>{o.bezeichnung}{o.adresse ? ` – ${o.adresse}` : ''}</option>
+							{/each}
+						</select>
+					</form>
+					<span>{a.adresse ?? 'Keine Adresse hinterlegt'}</span>
+					{#if a.objektId && data.kundeLesbar}
+						<a href={`/kunden/${a.kundeId}/objekte/${a.objektId}`}>Objekt öffnen</a>
+					{/if}
+				{:else if a.objektId && a.kundeId}
+					{#if data.kundeLesbar}
+						<a href={`/kunden/${a.kundeId}/objekte/${a.objektId}`}><strong>{a.objektBezeichnung}</strong></a>
+					{:else}<strong>{a.objektBezeichnung}</strong>{/if}
+					<span>{a.adresse ?? 'Keine Adresse hinterlegt'}</span>
+				{:else}
+					<span>
+						{a.adresse ?? 'Keine Adresse hinterlegt'}
+						<span class="kd-info">{a.kundeArt === 'einmal' ? '(Einmal-Kunde)' : a.kundeArt === 'kunde' ? '(Kundenadresse – kein Objekt zugewiesen)' : ''}</span>
+					</span>
 				{/if}
 			</dd>
-			{#if a.zustaendige.length > 0}
-				<dt>Zuständig</dt>
-				<dd>{a.zustaendige.map((z) => z.name).join(', ')}</dd>
-			{/if}
-			{#if a.objektId && a.kundeId}
-				<dt>Objekt</dt>
-				<dd>
-					{#if data.kundeLesbar}
-						<a href={`/kunden/${a.kundeId}/objekte/${a.objektId}`}>{a.objektBezeichnung}</a>
-					{:else}{a.objektBezeichnung}{/if}
-				</dd>
-			{/if}
-			{#if a.geplantAb}
-				<dt>Geplant ab</dt>
-				<dd>{tagDeutsch(a.geplantAb)}</dd>
-			{/if}
-			{#if a.beschreibung}
-				<dt>Beschreibung</dt>
-				<dd>{a.beschreibung}</dd>
-			{/if}
+			<dt>Geplant ab</dt>
+			<dd>
+				{#if data.darfBearbeiten}
+					<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
+						<input type="date" name="geplantAb" aria-label="Geplant ab" value={a.geplantAb ?? ''} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
+					</form>
+				{:else}{a.geplantAb ? tagDeutsch(a.geplantAb) : '–'}{/if}
+			</dd>
+			<dt>Beschreibung</dt>
+			<dd>
+				{#if data.darfBearbeiten}
+					<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
+						<textarea
+							name="beschreibung"
+							aria-label="Beschreibung"
+							maxlength="4000"
+							rows="3"
+							placeholder="Infos zum Auftrag …"
+							onblur={(ev) => {
+								if (ev.currentTarget.value !== (a.beschreibung ?? '')) ev.currentTarget.form?.requestSubmit();
+							}}>{a.beschreibung ?? ''}</textarea
+						>
+					</form>
+				{:else}{a.beschreibung ?? '–'}{/if}
+			</dd>
 		</dl>
+		{#if form?.aendernFehler}<p role="alert" class="kd-fehler">{form.aendernFehler}</p>{/if}
+	</Karte>
+
+	<Karte>
+		{#snippet titel()}Mitarbeiter{/snippet}
+		<ul class="af-chips" aria-label="Zuständige Mitarbeiter">
+			{#each a.zustaendige as z (z.id)}
+				<li class="af-chip"><span class="af-chip-avatar">{z.name.charAt(0)}</span>{z.name}</li>
+			{:else}
+				<li class="kd-info">Noch keine Mitarbeiter zugewiesen.</li>
+			{/each}
+		</ul>
+		{#if data.darfBearbeiten}
+			<details class="af-zuweisen" open={a.zustaendige.length === 0}>
+				<summary class="kd-knopf hell">Mitarbeiter zuweisen</summary>
+				<form method="POST" action="?/aendern" use:enhance={sofort} class="af-zuweisen-liste">
+					<input type="hidden" name="zustaendigeGesendet" value="1" />
+					<p class="kd-info">Mehrere möglich – jedes Häkchen wird sofort gespeichert. Zugewiesene sehen den Auftrag unter „Aufträge“.</p>
+					{#each data.mitarbeiter as m (m.id)}
+						<label class="af-haken-zeile">
+							<input
+								type="checkbox"
+								name="zustaendige"
+								value={m.id}
+								checked={a.zustaendige.some((z) => z.id === m.id)}
+								onchange={(ev) => ev.currentTarget.form?.requestSubmit()}
+							/>
+							{m.name}
+						</label>
+					{/each}
+				</form>
+			</details>
+		{/if}
 	</Karte>
 
 	{#if data.angebote}
@@ -301,9 +371,82 @@
 			</form>
 		</details>
 	{/if}
+	{#if gespeichert}<p class="af-gespeichert" role="status">Gespeichert</p>{/if}
 </main>
 
 <style>
+	.af-inline select,
+	.af-inline input,
+	.af-inline textarea {
+		width: 100%;
+		max-width: 32rem;
+	}
+	.af-gespeichert {
+		position: fixed;
+		left: 50%;
+		bottom: 5.5rem;
+		transform: translateX(-50%);
+		z-index: 50;
+		margin: 0;
+		padding: 0.5rem 1rem;
+		border-radius: 999px;
+		background: var(--m365-erfolg);
+		color: #fff;
+		box-shadow: var(--m365-schatten-pop);
+	}
+	.af-chips {
+		list-style: none;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin: 0 0 0.75rem;
+		padding: 0;
+	}
+	.af-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+		border-radius: 999px;
+		background: var(--m365-primaer-hell);
+		color: var(--m365-primaer-dunkel);
+	}
+	.af-chip-avatar {
+		display: inline-grid;
+		place-items: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		border-radius: 50%;
+		background: var(--m365-primaer);
+		color: #fff;
+		font-size: 0.8125rem;
+	}
+	.af-zuweisen > summary {
+		list-style: none;
+		display: inline-flex;
+		align-items: center;
+		cursor: pointer;
+	}
+	.af-zuweisen-liste {
+		display: grid;
+		gap: 0.1rem;
+		margin-top: 0.5rem;
+	}
+	.af-haken-zeile {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		min-height: var(--tippziel, 44px);
+	}
+	.af-haken-zeile input {
+		width: 1.25rem;
+		height: 1.25rem;
+	}
+	.af-objekt {
+		display: grid;
+		gap: 0.15rem;
+		justify-items: start;
+	}
 	.af-hinweise {
 		margin: 0 0 1rem;
 		padding: 0.75rem 1rem;

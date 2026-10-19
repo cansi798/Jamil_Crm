@@ -49,6 +49,8 @@ export type Auftrag = {
 	adresseVonObjekt: boolean;
 	/** Zuständige Mitarbeiter (nach Name). */
 	zustaendige: { id: string; name: string }[];
+	/** Nur in Listen: Bezug des angemeldeten Nutzers – zuständig, eigenes To-do, eigener Termin (Einsatz). */
+	meinBezug?: ('zustaendig' | 'todo' | 'termin')[];
 	status: AuftragStatus;
 	beschreibung: string | null;
 	geplantAb: string | null;
@@ -70,7 +72,8 @@ export type AuftragWerte = {
 };
 
 /** `offen`: ohne abgerechnete Aufträge (z. B. Auswahl beim Einplanen). */
-export type AuftragFilter = { status?: AuftragStatus; kundeId?: string; suche?: string; offen?: boolean };
+/** `meine`: nur Aufträge mit Bezug zum Nutzer (zuständig, eigenes To-do oder eigener Termin) – auch für Chefs. */
+export type AuftragFilter = { status?: AuftragStatus; kundeId?: string; suche?: string; offen?: boolean; meine?: boolean };
 
 export const MAX_AUFTRAEGE = 100;
 export const MAX_ZUSTAENDIGE = 20;
@@ -247,10 +250,19 @@ export async function listeAuftraege(k: Kontext, sicht: Sicht, filter: AuftragFi
 	if (filter.status !== undefined) pruefeStatus(filter.status);
 	if (filter.kundeId !== undefined && !UUID.test(filter.kundeId)) throw new ApiFehler(400, 'Ungültiger Kunde.');
 	return mitBetrieb(k, async (tx) => {
+		const ich = sicht.benutzerId;
 		const z = await tx`
-			select ${tx.unsafe(AUSWAHL)} from ${tx.unsafe(VON)}
+			select ${tx.unsafe(AUSWAHL)},
+				exists (select 1 from app.auftrag_zustaendige z where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id
+					and z.benutzer_id = ${ich}) as mein_zustaendig,
+				exists (select 1 from app.todos t where t.auftrag_id = a.id and t.betrieb_id = a.betrieb_id
+					and t.zustaendig_id = ${ich}) as mein_todo,
+				exists (select 1 from app.einsaetze e where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id
+					and e.benutzer_id = ${ich}) as mein_termin
+			from ${tx.unsafe(VON)}
 			where a.betrieb_id = ${k.betriebId}
 				and ${sichtbar(tx, sicht)}
+				${filter.meine ? tx`and ${sichtbar(tx, { alle: false, benutzerId: ich })}` : tx``}
 				${filter.status ? tx`and a.status = ${filter.status}` : tx``}
 				${filter.kundeId ? tx`and a.kunde_id = ${filter.kundeId}` : tx``}
 				${filter.offen ? tx`and a.status <> 'abgerechnet'` : tx``}
@@ -267,7 +279,14 @@ export async function listeAuftraege(k: Kontext, sicht: Sicht, filter: AuftragFi
 				)
 			order by a.angelegt desc, a.nummer desc
 			limit ${MAX_AUFTRAEGE}`;
-		return z.map(zuAuftrag);
+		return z.map((r) => ({
+			...zuAuftrag(r),
+			meinBezug: [
+				...(r.mein_zustaendig ? ['zustaendig' as const] : []),
+				...(r.mein_todo ? ['todo' as const] : []),
+				...(r.mein_termin ? ['termin' as const] : [])
+			]
+		}));
 	});
 }
 

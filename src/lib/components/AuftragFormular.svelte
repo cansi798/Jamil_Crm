@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { STUFEN, STUFE_NAMEN } from '$lib/stufen';
 
 	type Kunde = { id: string; name: string; adresse?: string | null };
 	type Objekt = { id: string; bezeichnung: string; adresse: string };
 	type Vorlage = { id: string; name: string };
-	type Todo = { titel: string; beschreibung: string };
+	type Todo = { titel: string; beschreibung: string; lautstaerke: string; schmutz: string };
 
 	/**
 	 * Formular für Aufträge (Neu und Bearbeiten). Kunde: vorbelegt (z. B. aus `?kunde=` oder beim Bearbeiten) oder über
@@ -102,7 +103,8 @@
 			// ohne Objekte weiter – der Auftrag braucht keins
 		}
 		gewaehlt = { kunde: { id: k.id, name: k.name, adresse: k.adresse ?? null }, objekte: liste };
-		objektWahl = '';
+		// Hat der Kunde genau ein Objekt, ist es vorausgewählt (änderbar)
+		objektWahl = liste.length === 1 ? liste[0].id : '';
 		aendern = false;
 		treffer = [];
 		suchtext = '';
@@ -127,7 +129,12 @@
 			const r = await fetch(`/api/auftrag-vorlagen/${vorlageWahl}`);
 			if (r.ok) {
 				const daten = await r.json();
-				todos = daten.todos.map((t: any) => ({ titel: t.titel, beschreibung: t.beschreibung ?? '' }));
+				todos = daten.todos.map((t: { titel: string; beschreibung: string | null; lautstaerke: number | null; schmutz: number | null }) => ({
+					titel: t.titel,
+					beschreibung: t.beschreibung ?? '',
+					lautstaerke: t.lautstaerke ? String(t.lautstaerke) : '',
+					schmutz: t.schmutz ? String(t.schmutz) : ''
+				}));
 				todosGeladen = true;
 			}
 		} catch {
@@ -136,7 +143,7 @@
 	}
 
 	function todoHinzufuegen() {
-		todos = [...todos, { titel: '', beschreibung: '' }];
+		todos = [...todos, { titel: '', beschreibung: '', lautstaerke: '', schmutz: '' }];
 	}
 
 	function todoEntfernen(index: number) {
@@ -252,7 +259,7 @@
 
 	{#if mitarbeiter.length > 0}
 		<fieldset class="af-zustaendig">
-			<legend>Zuständig</legend>
+			<legend>Zuständige Mitarbeiter (mehrere möglich)</legend>
 			<input type="hidden" name="zustaendigeGesendet" value="1" />
 			<div class="af-zustaendig-liste">
 				{#each mitarbeiter as m (m.id)}
@@ -319,6 +326,16 @@
 							bind:value={todo.beschreibung}
 							maxlength="500"
 						/>
+						<div class="af-todo-stufen">
+							<select name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke To-do {i + 1}">
+								<option value="">Lautstärke –</option>
+								{#each STUFEN as n (n)}<option value={String(n)}>Lautstärke: {STUFE_NAMEN[n]}</option>{/each}
+							</select>
+							<select name="todo_schmutz_{i}" bind:value={todo.schmutz} aria-label="Schmutz To-do {i + 1}">
+								<option value="">Schmutz –</option>
+								{#each STUFEN as n (n)}<option value={String(n)}>Schmutz: {STUFE_NAMEN[n]}</option>{/each}
+							</select>
+						</div>
 					</div>
 					<div class="af-todo-knoepfe">
 						<button type="button" onclick={() => todoVerschieben(i, -1)} disabled={i === 0}>↑</button>
@@ -433,6 +450,17 @@
 		border-radius: 4px;
 		font-size: 1rem;
 		box-sizing: border-box;
+	}
+	.af-todo-stufen {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
+	}
+	.af-todo-stufen select {
+		padding: 0.5rem;
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		font-size: 0.9rem;
 	}
 	.af-todo-knoepfe {
 		display: flex;

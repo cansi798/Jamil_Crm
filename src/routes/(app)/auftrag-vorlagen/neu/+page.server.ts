@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
 import { legeVorlageAn } from '$lib/server/auftrag-vorlagen';
+import { todosAusFormular } from '$lib/server/todos';
 import { betriebKontext } from '$lib/server/rechte';
 import { darf } from '$lib/server/tarif';
 
@@ -19,14 +20,8 @@ export const actions: Actions = {
 			const name = daten.get('name') as string;
 			const beschreibung = daten.get('beschreibung') as string;
 
-			// Todos aus Formular sammeln (ohne Beschreibungen, da Tabelle keine Beschreibung hat)
-			const todos: { titel: string }[] = [];
-			for (const [schluessel, wert] of daten.entries()) {
-				if (schluessel.startsWith('todo_') && !schluessel.startsWith('todo_beschreibung_') && wert) {
-					const titel = wert as string;
-					todos.push({ titel });
-				}
-			}
+			// To-dos mit Beschreibung und Stufen (Lautstärke/Schmutz) – gleiche Felder wie im Auftrag-Formular
+			const todos = todosAusFormular(daten).map((t, i) => ({ ...t, sortierung: i }));
 
 			erg = await legeVorlageAn(betriebKontext(locals), {
 				name,

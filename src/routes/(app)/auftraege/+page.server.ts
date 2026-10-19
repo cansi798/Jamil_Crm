@@ -15,12 +15,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const roh = url.searchParams.get('status');
 	const status = istStatus(roh) ? roh : null;
 	const suche = (url.searchParams.get('suche') ?? '').slice(0, SUCHE_MAX_ZEICHEN);
+	// „Meine“ (zuständig, eigenes To-do oder eigener Termin): wer nur eigene Aufträge sieht, sieht ohnehin nur diese;
+	// wer alle sieht (Chef/Büro), kann umschalten (`?meine=1`)
+	const meine = url.searchParams.get('meine') === '1';
 	const auftraege = await alsSeitenFehler(() =>
-		listeAuftraege(k, sichtVon(nutzer), { status: status ?? undefined, suche })
+		listeAuftraege(k, sichtVon(nutzer), { status: status ?? undefined, suche, meine })
 	);
 	return {
 		status,
 		suche,
+		meine,
 		auftraege,
 		maxTreffer: MAX_AUFTRAEGE,
 		alle: hatRecht(nutzer, 'auftraege.alle_lesen'),

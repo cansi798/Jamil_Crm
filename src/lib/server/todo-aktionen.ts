@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { alsFormFehler, ApiFehler } from './fehler';
-import { auftragsSicht, sichtVon } from './auftraege';
+import { todoSicht, todoSichtVon } from './todos';
 import { betriebKontext, hatRecht } from './rechte';
 import { formWerte } from './seite';
 import { darf } from './tarif';
@@ -25,7 +25,7 @@ export function todoAktionen(auftragAusPfad: boolean) {
 			try {
 				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 				if (auftragAusPfad) werte.auftragId = params.id ?? '';
-				await legeTodoAn(betriebKontext(locals), werte, sichtVon(locals.nutzer!));
+				await legeTodoAn(betriebKontext(locals), werte, todoSichtVon(locals.nutzer!));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true, todoWerte: werte });
 			}
@@ -40,10 +40,10 @@ export function todoAktionen(auftragAusPfad: boolean) {
 						betriebKontext(locals),
 						text(form, 'id'),
 						{ erledigt: erledigtWert(text(form, 'erledigt')) },
-						sichtVon(n)
+						todoSichtVon(n)
 					);
 				} else {
-					const sicht = await auftragsSicht(locals);
+					const sicht = await todoSicht(locals);
 					await aendereTodoAls(betriebKontext(locals), sicht, false, text(form, 'id'), {
 						erledigt: text(form, 'erledigt')
 					});
@@ -61,7 +61,7 @@ export function todoAktionen(auftragAusPfad: boolean) {
 				// Nur gesendete Felder ändern: Das Kanban-Ziehen schickt z. B. nur `faellig` (und ggf. `erledigt`) –
 				// fehlende Felder dürfen Titel oder Beschreibung nicht leeren.
 				const gesendet = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz', 'erledigt'].filter((f) => form.has(f));
-				await aendereTodo(betriebKontext(locals), id, formWerte(form, gesendet), sichtVon(locals.nutzer!));
+				await aendereTodo(betriebKontext(locals), id, formWerte(form, gesendet), todoSichtVon(locals.nutzer!));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true });
 			}
@@ -70,7 +70,7 @@ export function todoAktionen(auftragAusPfad: boolean) {
 			const form = await request.formData();
 			try {
 				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-				await loescheTodo(betriebKontext(locals), text(form, 'id'), sichtVon(locals.nutzer!));
+				await loescheTodo(betriebKontext(locals), text(form, 'id'), todoSichtVon(locals.nutzer!));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true });
 			}

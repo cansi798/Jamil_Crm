@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
 import { holeVorlage, aendereVorlage, loescheVorlage } from '$lib/server/auftrag-vorlagen';
+import { todosAusFormular } from '$lib/server/todos';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { darf } from '$lib/server/tarif';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
@@ -23,15 +24,8 @@ export const actions: Actions = {
 			const name = daten.get('name') as string;
 			const beschreibung = daten.get('beschreibung') as string;
 
-			const todos: { titel: string; beschreibung?: string }[] = [];
-			for (const [schluessel, wert] of daten.entries()) {
-				if (schluessel.startsWith('todo_') && !schluessel.startsWith('todo_beschreibung_') && wert) {
-					const index = schluessel.replace('todo_', '');
-					const titel = wert as string;
-					const todoBeschreibung = daten.get(`todo_beschreibung_${index}`) as string;
-					todos.push({ titel, beschreibung: todoBeschreibung || undefined });
-				}
-			}
+			// To-dos mit Beschreibung und Stufen (Lautstärke/Schmutz)
+			const todos = todosAusFormular(daten).map((t, i) => ({ ...t, sortierung: i }));
 
 			await aendereVorlage(betriebKontext(locals), params.id, {
 				name,

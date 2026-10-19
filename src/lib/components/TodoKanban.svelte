@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { tagDeutsch } from '$lib/zeit';
+	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
 
 	type Todo = {
 		id: string;
@@ -8,6 +9,7 @@
 		beschreibung?: string | null;
 		lautstaerke?: number | null;
 		schmutz?: number | null;
+		mirDirekt?: boolean;
 		auftragId: string | null;
 		auftragNummer: string | null;
 		auftragTitel: string | null;
@@ -34,6 +36,7 @@
 		darfBearbeiten = false,
 		mitarbeiter = [],
 		zeigeAuftrag = true,
+		zeigeQuelle = false,
 		aktionen,
 		leer = 'Keine To-dos.'
 	}: {
@@ -43,6 +46,8 @@
 		darfBearbeiten?: boolean;
 		mitarbeiter?: { id: string; name: string }[];
 		zeigeAuftrag?: boolean;
+		/** „Meine To-dos“: kennzeichnen, was nur über einen Auftrag (Zuständig) hier steht. */
+		zeigeQuelle?: boolean;
 		aktionen: { umschalten: string; aendern: string; loeschen: string };
 		leer?: string;
 	} = $props();
@@ -199,12 +204,14 @@
 							{/if}
 							{#if todo.lautstaerke || todo.schmutz}
 								<p class="karte-stufen">
-									{#if todo.lautstaerke}<span title="Lautstärke {todo.lautstaerke} von 5">Lautstärke {todo.lautstaerke}/5</span>{/if}
-									{#if todo.schmutz}<span title="Schmutz {todo.schmutz} von 5">Schmutz {todo.schmutz}/5</span>{/if}
+									{#if todo.lautstaerke}<span class={`stufe-${todo.lautstaerke}`}>Lautstärke: {stufeName(todo.lautstaerke)}</span>{/if}
+									{#if todo.schmutz}<span class={`stufe-${todo.schmutz}`}>Schmutz: {stufeName(todo.schmutz)}</span>{/if}
 								</p>
 							{/if}
 							{#if zeigeAuftrag && todo.auftragNummer}
-								<p class="karte-auftrag">{todo.auftragNummer}</p>
+								<p class="karte-auftrag">
+									{todo.auftragNummer}{zeigeQuelle && todo.mirDirekt === false ? ' · über den Auftrag (du bist zuständig)' : ''}
+								</p>
 							{/if}
 							{#if darfBearbeiten}
 								<details class="karte-bearbeiten">
@@ -221,14 +228,14 @@
 												Lautstärke
 												<select name="lautstaerke">
 													<option value="" selected={!todo.lautstaerke}>–</option>
-													{#each [1, 2, 3, 4, 5] as n (n)}<option value={String(n)} selected={todo.lautstaerke === n}>{n}</option>{/each}
+													{#each STUFEN as n (n)}<option value={String(n)} selected={todo.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
 												</select>
 											</label>
 											<label>
 												Schmutz
 												<select name="schmutz">
 													<option value="" selected={!todo.schmutz}>–</option>
-													{#each [1, 2, 3, 4, 5] as n (n)}<option value={String(n)} selected={todo.schmutz === n}>{n}</option>{/each}
+													{#each STUFEN as n (n)}<option value={String(n)} selected={todo.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
 												</select>
 											</label>
 										</div>
@@ -455,6 +462,14 @@
 		color: var(--m365-text);
 		font-family: var(--m365-schrift);
 		font-size: 0.6875rem;
+	}
+
+	.karte-stufen .stufe-2 {
+		background: var(--m365-warnung-hell);
+	}
+	.karte-stufen .stufe-3 {
+		background: var(--m365-fehler-hell);
+		color: var(--m365-fehler);
 	}
 
 	.karte-auftrag {

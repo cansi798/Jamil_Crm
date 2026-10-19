@@ -1,12 +1,13 @@
 <script lang="ts">
+	import { STUFEN, STUFE_NAMEN } from '$lib/stufen';
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
 	export let form: ActionData;
 
-	let todos: { titel: string; beschreibung: string }[] = [{ titel: '', beschreibung: '' }];
+	let todos: { titel: string; beschreibung: string; lautstaerke: string; schmutz: string }[] = [{ titel: '', beschreibung: '', lautstaerke: '', schmutz: '' }];
 
 	function todoHinzufuegen() {
-		todos = [...todos, { titel: '', beschreibung: '' }];
+		todos = [...todos, { titel: '', beschreibung: '', lautstaerke: '', schmutz: '' }];
 	}
 
 	function todoEntfernen(index: number) {
@@ -66,6 +67,16 @@
 							bind:value={todo.beschreibung}
 							maxlength="500"
 						/>
+						<div class="todo-stufen">
+							<select name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke To-do {i + 1}">
+								<option value="">Lautstärke –</option>
+								{#each STUFEN as n (n)}<option value={String(n)}>Lautstärke: {STUFE_NAMEN[n]}</option>{/each}
+							</select>
+							<select name="todo_schmutz_{i}" bind:value={todo.schmutz} aria-label="Schmutz To-do {i + 1}">
+								<option value="">Schmutz –</option>
+								{#each STUFEN as n (n)}<option value={String(n)}>Schmutz: {STUFE_NAMEN[n]}</option>{/each}
+							</select>
+						</div>
 					</div>
 					<div class="todo-knoepfe">
 						<button type="button" on:click={() => todoVerschieben(i, -1)} disabled={i === 0}>↑</button>
@@ -125,6 +136,17 @@
 	input:focus, textarea:focus {
 		outline: 2px solid var(--primar, #0078d4);
 		outline-offset: -1px;
+	}
+	.todo-stufen {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.5rem;
+	}
+	.todo-stufen select {
+		padding: 0.5rem;
+		border: 1px solid #d2d0ce;
+		border-radius: 4px;
+		font-size: 0.9rem;
 	}
 	.todos {
 		border: 1px solid #d2d0ce;

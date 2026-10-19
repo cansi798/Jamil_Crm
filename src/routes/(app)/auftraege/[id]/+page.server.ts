@@ -1,7 +1,17 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler, ApiFehler } from '$lib/server/fehler';
-import { holeAuftrag, loescheAuftrag, pruefeStatus, setzeStatus, sichtVon, uebernimmEinmalKunde } from '$lib/server/auftraege';
+import {
+	aendereAuftrag,
+	holeAuftrag,
+	ladeKundenAuswahl,
+	loescheAuftrag,
+	pruefeStatus,
+	setzeStatus,
+	sichtVon,
+	uebernimmEinmalKunde,
+	zustaendigeAus
+} from '$lib/server/auftraege';
 import { liesProtokoll } from '$lib/server/protokoll';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
@@ -11,7 +21,7 @@ import { ausTagUndUhrzeit, berlinTag, istTag } from '$lib/zeit';
 import { holeKunde } from '$lib/server/kunden';
 import { listeKundenNotizen } from '$lib/server/kundenakte';
 import { todoAktionen } from '$lib/server/todo-aktionen';
-import { aktiveMitarbeiter, listeTodos } from '$lib/server/todos';
+import { aktiveMitarbeiter, listeTodos, todoSichtVon } from '$lib/server/todos';
 import { einsaetzeZumAuftrag, legeEinsatzAn } from '$lib/server/plantafel';
 import { angeboteZugriff, legeAngebotAn, listeAngebote, ordneAngebotZu } from '$lib/server/angebote';
 import { listeAngebotVorlagen } from '$lib/server/angebot-vorlagen';
@@ -39,7 +49,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const kundenLesbar = hatRecht(nutzer, 'kunden.lesen') && (await hatModul(k.betriebId, 'kunden'));
 		const [protokoll, todos, mitarbeiter, einsaetze, angebote, kunde, kundenNotizen] = await Promise.all([
 			liesProtokoll(k, { tabelle: 'auftraege', datensatz: auftrag.id, vor: null }),
-			listeTodos(k, sicht, { auftragId: auftrag.id }),
+			listeTodos(k, todoSichtVon(nutzer), { auftragId: auftrag.id }),
 			darfBearbeiten || darfTermine ? aktiveMitarbeiter(k) : Promise.resolve([]),
 			einsaetzeZumAuftrag(k, auftrag.id),
 			angeboteSichtbar ? listeAngebote(k, { auftragId: auftrag.id }, { sicht, auftragAendern: darfBearbeiten }) : Promise.resolve(null),
@@ -57,6 +67,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
 			darfBearbeiten,
 			darfTermine,
+			// Objekte des Kunden für die Auswahl direkt im Auftrag
+			objekte: darfBearbeiten && auftrag.kundeId ? (await ladeKundenAuswahl(k, auftrag.kundeId)).objekte : [],
 			// Einmal-Kunde → Kundendatenbank: Aufträge bearbeiten UND Kunden bearbeiten
 			darfKundeUebernehmen:
 				auftrag.kundeArt === 'einmal' && darfBearbeiten && hatRecht(nutzer, 'kunden.bearbeiten') && (await hatModul(k.betriebId, 'kunden')),
@@ -88,6 +100,23 @@ const text = (f: FormData, feld: string) => {
 };
 
 export const actions: Actions = {
+	/**
+	 * Einzelne Felder direkt im Auftrag ändern (Wunsch Jamil): Objekt, Geplant ab, Beschreibung, Titel, Zuständige –
+	 * nur die gesendeten Felder; Rechte wie „Auftrag bearbeiten“.
+	 */
+	aendern: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		const e: Record<string, unknown> = { ...zustaendigeAus(f) };
+		for (const feld of ['objektId', 'geplantAb', 'beschreibung', 'titel']) if (f.has(feld)) e[feld] = text(f, feld);
+		try {
+			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			await aendereAuftrag(betriebKontext(locals), params.id, e, sichtVon(locals.nutzer!));
+		} catch (e) {
+			const meldung = e instanceof ApiFehler ? e.message : 'Interner Fehler. Bitte später erneut versuchen.';
+			return alsFormFehler(e, { aendernFehler: meldung });
+		}
+		return { gespeichert: true };
+	},
 	/** Termin (Einsatz) mit Art im Auftrag anlegen: Art, Mitarbeiter, Tag, von, bis, Notiz (`plantafel.bearbeiten`). */
 	terminAnlegen: async ({ locals, params, request }) => {
 		const f = await request.formData();

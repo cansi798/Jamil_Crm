@@ -3,8 +3,8 @@ import type { RequestHandler } from './$types';
 import { alsAntwort, ApiFehler, leseJson } from '$lib/server/fehler';
 import { betriebKontext } from '$lib/server/rechte';
 import { darf } from '$lib/server/tarif';
-import { auftragsSicht, sichtVon } from '$lib/server/auftraege';
 import { istTodoAuswahl, legeTodoAn, listeTodos } from '$lib/server/todos';
+import { todoSicht, todoSichtVon } from '$lib/server/todos';
 
 /**
  * To-dos: `GET /api/todos?nur=meine|offen|alle&auftrag=<id>` (Standard: alle sichtbaren). Lesen: Modul `auftraege` +
@@ -12,7 +12,7 @@ import { istTodoAuswahl, legeTodoAn, listeTodos } from '$lib/server/todos';
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
 	try {
-		const sicht = await auftragsSicht(locals);
+		const sicht = await todoSicht(locals);
 		const nur = url.searchParams.get('nur') ?? 'alle';
 		if (!istTodoAuswahl(nur)) throw new ApiFehler(400, 'Unbekannte Auswahl.');
 		const auftrag = url.searchParams.get('auftrag');
@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
 		await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-		const sicht = sichtVon(locals.nutzer!);
+		const sicht = todoSichtVon(locals.nutzer!);
 		return json(await legeTodoAn(betriebKontext(locals), await leseJson(request), sicht), { status: 201 });
 	} catch (e) {
 		return alsAntwort(e);

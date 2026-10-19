@@ -1,6 +1,8 @@
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { sichtbar, type Sicht } from './auftraege';
+import { hatRecht } from './rechte';
+import { darfEines } from './tarif';
 import { textFeld, UUID } from './kunden';
 import { istTag } from '../zeit';
 
@@ -29,9 +31,12 @@ export type Todo = {
 	faellig: string | null;
 	erledigt: boolean;
 	erledigtAm: string | null;
+	/** Nur in Listen: dem Nutzer direkt zugewiesen (sonst über einen Auftrag, für den er zuständig ist). */
+	mirDirekt?: boolean;
 };
 
-export type TodoFilter = { auftragId?: string; nur?: TodoAuswahl };
+/** Filter (Wunsch Jamil, msg 2500): `zustaendigId` (zugewiesen an), `status` offen/erledigt – kombinierbar mit `nur`. */
+export type TodoFilter = { auftragId?: string; nur?: TodoAuswahl; zustaendigId?: string; status?: 'offen' | 'erledigt' };
 
 export const TODO_AUSWAHL = ['meine', 'offen', 'alle'] as const;
 export type TodoAuswahl = (typeof TODO_AUSWAHL)[number];
@@ -61,12 +66,12 @@ function datumFeld(wert: unknown): string | null {
 	return wert;
 }
 
-/** Stufe 1–5 (Zahl oder Text aus dem Formular); leer → null; sonst 400. */
-function stufeFeld(wert: unknown, name: string): number | null {
+/** Stufe 1–3 (gering, mittel, hoch; Zahl oder Text aus dem Formular); leer → null; sonst 400. */
+export function stufeFeld(wert: unknown, name: string): number | null {
 	if (wert === undefined || wert === null || wert === '') return null;
-	const n = typeof wert === 'string' && /^\s*[1-5]\s*$/.test(wert) ? Number(wert) : wert;
-	if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > 5) {
-		throw new ApiFehler(400, `${name}: Bitte eine Stufe von 1 bis 5 wählen.`);
+	const n = typeof wert === 'string' && /^\s*[1-3]\s*$/.test(wert) ? Number(wert) : wert;
+	if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > 3) {
+		throw new ApiFehler(400, `${name}: Bitte gering, mittel oder hoch wählen.`);
 	}
 	return n;
 }
@@ -128,9 +133,33 @@ function zuTodo(z: Record<string, any>): Todo {
 }
 
 /** SQL-Bedingung „To-do für diese Sicht sichtbar“ (Aliasse t, a wie in VON). */
+/**
+ * Sicht auf To-dos (Wunsch Jamil, msg 2499): `alle` = Recht „Alle To-dos ansehen“ (`todos.alle_lesen`), sonst die
+ * eigenen – direkt zugewiesen oder in Aufträgen mit eigenem Bezug (zuständig, eigenes To-do, eigener Termin).
+ * `auftraegeAlle` (Recht „Alle Aufträge ansehen“) gilt nur dafür, an welche Aufträge man To-dos hängen darf.
+ */
+export type TodoSicht = Sicht & { auftraegeAlle?: boolean };
+
+export function todoSichtVon(nutzer: Nutzer): TodoSicht {
+	return {
+		alle: hatRecht(nutzer, 'todos.alle_lesen'),
+		benutzerId: nutzer.id,
+		auftraegeAlle: hatRecht(nutzer, 'auftraege.alle_lesen')
+	};
+}
+
+/** Lesen (Modul `auftraege` + Aufträge lesen) prüfen und die To-do-Sicht liefern. */
+export async function todoSicht(locals: { nutzer: Nutzer | null }): Promise<TodoSicht> {
+	await darfEines(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
+	return todoSichtVon(locals.nutzer!);
+}
+
+/** Aufträge, an die man To-dos hängen darf: alle (mit „Alle Aufträge ansehen“) oder die eigenen. */
+const auftragsSichtAus = (sicht: TodoSicht): Sicht => ({ alle: sicht.auftraegeAlle ?? sicht.alle, benutzerId: sicht.benutzerId });
+
 function todoSichtbar(tx: TransactionSql, sicht: Sicht) {
 	if (sicht.alle) return tx`true`;
-	return tx`(t.zustaendig_id = ${sicht.benutzerId} or (a.id is not null and ${sichtbar(tx, sicht)}))`;
+	return tx`(t.zustaendig_id = ${sicht.benutzerId} or (a.id is not null and ${sichtbar(tx, { alle: false, benutzerId: sicht.benutzerId })}))`;
 }
 
 async function ladeEines(tx: TransactionSql, k: Kontext, sicht: Sicht, id: string): Promise<Todo> {
@@ -154,17 +183,28 @@ export async function listeTodos(k: Kontext, sicht: Sicht, filter: TodoFilter): 
 	const nur = filter.nur ?? 'alle';
 	if (!istTodoAuswahl(nur)) throw new ApiFehler(400, 'Unbekannte Auswahl.');
 	if (filter.auftragId !== undefined && !UUID.test(filter.auftragId)) throw new ApiFehler(400, 'Ungültiger Auftrag.');
+	if (filter.zustaendigId !== undefined && !UUID.test(filter.zustaendigId)) throw new ApiFehler(400, 'Ungültige Person.');
+	if (filter.status !== undefined && filter.status !== 'offen' && filter.status !== 'erledigt') {
+		throw new ApiFehler(400, 'Unbekannter Status.');
+	}
 	return mitBetrieb(k, async (tx) => {
 		const z = await tx`
-			select ${tx.unsafe(AUSWAHL)} from ${tx.unsafe(VON)}
+			select ${tx.unsafe(AUSWAHL)}, coalesce(t.zustaendig_id = ${sicht.benutzerId}, false) as mir_direkt
+			from ${tx.unsafe(VON)}
 			where t.betrieb_id = ${k.betriebId}
 				and ${todoSichtbar(tx, sicht)}
 				${filter.auftragId ? tx`and t.auftrag_id = ${filter.auftragId}` : tx``}
-				${nur === 'meine' ? tx`and t.zustaendig_id = ${sicht.benutzerId}` : tx``}
+				${nur === 'meine'
+					? tx`and (t.zustaendig_id = ${sicht.benutzerId} or exists (
+							select 1 from app.auftrag_zustaendige az
+							where az.auftrag_id = t.auftrag_id and az.betrieb_id = t.betrieb_id and az.benutzer_id = ${sicht.benutzerId}))`
+					: tx``}
 				${nur === 'offen' ? tx`and t.erledigt_am is null` : tx``}
+				${filter.zustaendigId ? tx`and t.zustaendig_id = ${filter.zustaendigId}` : tx``}
+				${filter.status === 'offen' ? tx`and t.erledigt_am is null` : filter.status === 'erledigt' ? tx`and t.erledigt_am is not null` : tx``}
 			order by (t.erledigt_am is not null), t.faellig asc nulls last, t.angelegt, t.id
 			limit ${MAX_TODOS}`;
-		return z.map(zuTodo);
+		return z.map((r) => ({ ...zuTodo(r), mirDirekt: r.mir_direkt as boolean }));
 	});
 }
 
@@ -179,7 +219,7 @@ async function pruefeZustaendig(tx: TransactionSql, k: Kontext, id: string | nul
 	if (!b) throw new ApiFehler(400, 'Zuständig kann nur ein aktiver Mitarbeiter des Betriebs sein.');
 }
 
-const ALLE = (k: Kontext): Sicht => ({ alle: true, benutzerId: k.benutzerId });
+const ALLE = (k: Kontext): TodoSicht => ({ alle: true, benutzerId: k.benutzerId, auftraegeAlle: true });
 
 export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: Sicht = ALLE(k)): Promise<Todo> {
 	const w = pruefeTodoEingabe(e);
@@ -187,7 +227,7 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 		if (w.auftragId !== null) {
 			const [a] = await tx`
 				select 1 from app.auftraege a
-				where a.id = ${w.auftragId} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for key share of a`;
+				where a.id = ${w.auftragId} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, auftragsSichtAus(sicht))} for key share of a`;
 			if (!a) throw new ApiFehler(400, 'Der Auftrag wurde nicht gefunden.');
 		}
 		await pruefeZustaendig(tx, k, w.zustaendigId);
@@ -200,7 +240,7 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 	});
 }
 
-export type NeuesTodo = { titel: string; beschreibung?: string | null };
+export type NeuesTodo = { titel: string; beschreibung?: string | null; lautstaerke?: unknown; schmutz?: unknown };
 
 /**
  * Neue To-dos aus dem Auftrag-Formular (Felder `todo_<n>` und `todo_beschreibung_<n>`, n = 0, 1, …) in der
@@ -209,7 +249,7 @@ export type NeuesTodo = { titel: string; beschreibung?: string | null };
 export function todosAusFormular(form: FormData): NeuesTodo[] {
 	const nummern = new Set<number>();
 	for (const schluessel of form.keys()) {
-		const treffer = /^todo_(?:beschreibung_)?(\d{1,4})$/.exec(schluessel);
+		const treffer = /^todo_(?:beschreibung_|lautstaerke_|schmutz_)?(\d{1,4})$/.exec(schluessel);
 		if (treffer) nummern.add(Number(treffer[1]));
 	}
 	const text = (name: string) => {
@@ -218,7 +258,12 @@ export function todosAusFormular(form: FormData): NeuesTodo[] {
 	};
 	return [...nummern]
 		.sort((a, b) => a - b)
-		.map((n) => ({ titel: text(`todo_${n}`), beschreibung: text(`todo_beschreibung_${n}`) }))
+		.map((n) => ({
+			titel: text(`todo_${n}`),
+			beschreibung: text(`todo_beschreibung_${n}`),
+			lautstaerke: text(`todo_lautstaerke_${n}`),
+			schmutz: text(`todo_schmutz_${n}`)
+		}))
 		.filter((t) => t.titel.trim() !== '' || t.beschreibung.trim() !== '');
 }
 
@@ -226,14 +271,21 @@ export function todosAusFormular(form: FormData): NeuesTodo[] {
  * Prüft eine Liste neuer To-dos (Titel Pflicht, Beschreibung ≤ 500, höchstens MAX_TODOS_AUF_EINMAL) – ohne Datenbank,
  * damit Aufrufer vor dem Anlegen eines Auftrags prüfen können und kein halber Auftrag entsteht.
  */
-export function pruefeTodoListe(liste: readonly NeuesTodo[]): { titel: string; beschreibung: string | null }[] {
+export function pruefeTodoListe(
+	liste: readonly NeuesTodo[]
+): { titel: string; beschreibung: string | null; lautstaerke: number | null; schmutz: number | null }[] {
 	if (liste.length > MAX_TODOS_AUF_EINMAL) {
 		throw new ApiFehler(400, `Höchstens ${MAX_TODOS_AUF_EINMAL} To-dos auf einmal.`);
 	}
 	return liste.map((t, i) => {
 		const titel = textFeld(t.titel, `To-do ${i + 1}: Titel`, 200);
 		if (titel === null) throw new ApiFehler(400, `To-do ${i + 1}: Bitte einen Titel eingeben.`);
-		return { titel, beschreibung: textFeld(t.beschreibung, `To-do ${i + 1}: Beschreibung`, 500) };
+		return {
+			titel,
+			beschreibung: textFeld(t.beschreibung, `To-do ${i + 1}: Beschreibung`, 500),
+			lautstaerke: stufeFeld(t.lautstaerke, `To-do ${i + 1}: Lautstärke`),
+			schmutz: stufeFeld(t.schmutz, `To-do ${i + 1}: Schmutz`)
+		};
 	});
 }
 
@@ -255,13 +307,13 @@ export async function legeTodosAn(
 	return mitBetrieb(k, async (tx) => {
 		const [a] = await tx`
 			select 1 from app.auftraege a
-			where a.id = ${auftrag} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for key share of a`;
+			where a.id = ${auftrag} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, auftragsSichtAus(sicht))} for key share of a`;
 		if (!a) throw new ApiFehler(400, 'Der Auftrag wurde nicht gefunden.');
 		const ids: string[] = [];
 		for (const w of werte) {
 			const [z] = await tx`
-				insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung)
-				values (${k.betriebId}, ${auftrag}, ${w.titel}, ${w.beschreibung})
+				insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, lautstaerke, schmutz)
+				values (${k.betriebId}, ${auftrag}, ${w.titel}, ${w.beschreibung}, ${w.lautstaerke}, ${w.schmutz})
 				returning id`;
 			ids.push(z.id as string);
 		}

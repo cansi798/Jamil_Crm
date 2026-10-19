@@ -73,20 +73,20 @@ test('Auftrags-To-do mit Lautstärke und Schmutz', async ({ page }, info) => {
 		await page.goto(`/auftraege/${auftrag.id}`);
 		const f = page.locator('form.td-neu');
 		await f.getByLabel('Neues To-do').fill('Fliesen abschlagen');
-		await f.getByLabel('Lautstärke').selectOption('5');
-		await f.getByLabel('Schmutz').selectOption('4');
+		await f.getByLabel('Lautstärke').selectOption('3');
+		await f.getByLabel('Schmutz').selectOption('2');
 		await f.getByRole('button', { name: '+ To-do' }).click();
 		const karte = page.locator('.kanban-karte', { hasText: 'Fliesen abschlagen' });
-		await expect(karte.getByText('Lautstärke 5/5')).toBeVisible();
-		await expect(karte.getByText('Schmutz 4/5')).toBeVisible();
+		await expect(karte.getByText('Lautstärke: hoch')).toBeVisible();
+		await expect(karte.getByText('Schmutz: mittel')).toBeVisible();
 		// nachträglich ändern über „Bearbeiten“ auf der Karte
 		await karte.getByText('Bearbeiten').click();
-		await karte.locator('select[name="lautstaerke"]').selectOption('2');
+		await karte.locator('select[name="lautstaerke"]').selectOption('1');
 		await karte.locator('select[name="schmutz"]').selectOption('');
 		await karte.getByRole('button', { name: 'Speichern' }).click();
 		const neu = page.locator('.kanban-karte', { hasText: 'Fliesen abschlagen' });
-		await expect(neu.getByText('Lautstärke 2/5')).toBeVisible();
-		await expect(neu.getByText(/Schmutz \d\/5/)).toHaveCount(0);
+		await expect(neu.getByText('Lautstärke: gering')).toBeVisible();
+		await expect(neu.getByText(/Schmutz:/)).toHaveCount(0);
 	} finally {
 		await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`);
 	}

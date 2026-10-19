@@ -98,6 +98,9 @@
 					<a href={`/auftraege/${auftrag.id}`}>
 						<strong>{auftrag.titel}</strong>
 						<span class="kd-info">{auftrag.nummer} · {STATUS_NAMEN[auftrag.status]}</span>
+						<span class="kd-info">
+							{auftrag.objektBezeichnung ? `Objekt: ${auftrag.objektBezeichnung}` : 'Kundenadresse'}{auftrag.adresse ? ` · ${auftrag.adresse}` : ''}
+						</span>
 					</a>
 				</li>
 			{:else}

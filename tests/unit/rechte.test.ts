@@ -12,12 +12,13 @@ const nutzer = (rechte: string[], extra: Partial<Nutzer> = {}): Nutzer => ({
 });
 
 describe('Rechte und Vorlagen', () => {
-	it('RECHTE enthält genau die dreizehn Rechte mit deutschen Beschriftungen', () => {
+	it('RECHTE enthält genau die vierzehn Rechte mit deutschen Beschriftungen', () => {
 		expect(Object.keys(RECHTE)).toEqual([
 			'kunden.lesen',
 			'kunden.bearbeiten',
 			'auftraege.lesen',
 			'auftraege.alle_lesen',
+			'todos.alle_lesen',
 			'auftraege.bearbeiten',
 			'plantafel.bearbeiten',
 			'angebote.bearbeiten',

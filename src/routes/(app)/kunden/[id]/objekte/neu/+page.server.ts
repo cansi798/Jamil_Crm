@@ -8,7 +8,9 @@ import { darf } from '$lib/server/tarif';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'kunden', 'kunden.bearbeiten');
-	return { kunde: await alsSeitenFehler(() => holeKunde(k, params.id)) };
+	const kunde = await alsSeitenFehler(() => holeKunde(k, params.id));
+	// Wunsch Jamil: Ein neues Objekt hat standardmäßig die Adresse des Kunden – bei Abweichung im Formular ändern
+	return { kunde, vorbelegt: { strasse: kunde.strasse ?? '', plz: kunde.plz ?? '', ort: kunde.ort ?? '' } };
 };
 
 export const actions: Actions = {

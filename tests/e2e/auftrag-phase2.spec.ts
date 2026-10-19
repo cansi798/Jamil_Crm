@@ -39,7 +39,7 @@ test('Auftrag: Zuständige, Einsatzort, Termin mit Art, Hinweise zum Kunden', as
 		await page.goto(`/auftraege/${auftrag.id}`);
 		await expect(page.getByRole('complementary', { name: 'Hinweise zum Kunden' })).toContainText('Zahlt nur bar');
 		await expect(page.getByText('Teichweg 5, 22846 Norderstedt')).toBeVisible();
-		await expect(page.getByText('(Kundenadresse)')).toBeVisible();
+		await expect(page.getByText('(Kundenadresse – kein Objekt zugewiesen)')).toBeVisible();
 
 		// Zuständige über „Auftrag bearbeiten“
 		await page.getByRole('link', { name: 'Auftrag bearbeiten' }).click();

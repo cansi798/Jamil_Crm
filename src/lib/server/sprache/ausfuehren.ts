@@ -1,10 +1,10 @@
 import { inEinerTransaktion } from '../db';
 import { ApiFehler } from '../fehler';
 import { betriebKontext } from '../rechte';
-import { legeAuftragAn, sichtVon } from '../auftraege';
+import { legeAuftragAn } from '../auftraege';
 import { legeKundeAn, UUID } from '../kunden';
 import { aendereEinsatz, holeEinsatz, legeEinsatzAn, ABWESENHEIT_NAMEN, type Einsatz } from '../plantafel';
-import { legeTodoAn } from '../todos';
+import { legeTodoAn, todoSichtVon } from '../todos';
 import { entwirfAngebot, entwurfHinweise } from '../ki/angebot-entwurf';
 import { AKTIONEN, type AktionsName } from './aktionen';
 import { neueZeiten, type Auswahl } from './aufloesen';
@@ -118,7 +118,7 @@ async function ausfuehrenJe(
 			const t = await legeTodoAn(
 				k,
 				{ titel: w.titel, zustaendigId: w.zustaendigId ?? null, faellig: w.faellig ?? null, auftragId: w.auftragId ?? null },
-				sichtVon(nutzer)
+				todoSichtVon(nutzer)
 			);
 			return { status: 201, meldung: `To-do „${t.titel}“ angelegt`, link: t.auftragId ? `/auftraege/${t.auftragId}` : '/todos', warnungen: [] };
 		}
