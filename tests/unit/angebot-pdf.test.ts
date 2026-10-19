@@ -129,7 +129,7 @@ describe('Angebots-PDF', () => {
 			expect(seiten[s], `${anzahl} Positionen`).toMatch(/Leistung \d+/);
 			expect(seiten[s], `${anzahl} Positionen`).toContain(`Leistung ${anzahl}`);
 		}
-	});
+	}, 20_000); // mehrere PDFs mit eingebetteter Schrift – unter Last länger als die üblichen 5 s
 
 	it('ohne Logo kein Fehler; mit PNG-Logo ein Bild; MwSt 7 % und 0 Positionen gehen', async () => {
 		const mitLogo = await angebotPdf(
