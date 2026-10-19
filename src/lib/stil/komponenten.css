@@ -348,6 +348,160 @@ html input[type='file']::file-selector-button {
 	cursor: pointer;
 }
 
+/* ── Eingabefelder im SaaS-Stil: 40 px (mobil 44 px), weicher Rahmen, Fokusring ─────────────────────── */
+
+html :is(input:not([type='checkbox'], [type='radio'], [type='file'], [type='range'], [type='color'], [type='hidden'], [type='submit'], [type='button']), select, textarea) {
+	min-height: var(--ui-feld-hoehe);
+	padding: 0 0.75rem;
+	border: 1px solid var(--ui-rand-stark);
+	border-radius: var(--ui-radius);
+	background-color: var(--ui-flaeche);
+	color: var(--ui-text);
+	font-family: var(--m365-schrift);
+	font-size: var(--ui-schrift-m);
+	line-height: 1.4;
+	transition: border-color 120ms, box-shadow 120ms;
+}
+html textarea {
+	padding: 0.6rem 0.75rem;
+	min-height: 5.5rem;
+	line-height: 1.5;
+	resize: vertical;
+}
+html select {
+	appearance: none;
+	padding-right: 2.25rem;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23646b7d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 0.7rem center;
+	background-size: 14px 14px;
+	cursor: pointer;
+}
+/* Seitenregeln setzen „background“ als Kurzform – Pfeil der Auswahlfelder dort wiederherstellen */
+html :is(.kd-seite, .kd-formular, main) select {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23646b7d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 0.7rem center;
+	background-size: 14px 14px;
+	padding-right: 2.25rem;
+}
+html :is(input, select, textarea):hover:not(:focus, :disabled) {
+	border-color: #b3bacb;
+}
+html :is(input, textarea)::placeholder {
+	color: #9aa1b1;
+}
+html :is(input, select, textarea):disabled {
+	background-color: var(--ui-grau-hell);
+	color: var(--ui-text-leise);
+}
+
+/* Beschriftungen: mittelstark, gedämpft, über dem Feld */
+html :is(.kd-formular, .ui-formular) label {
+	gap: 0.3rem;
+	color: var(--ui-text-leise);
+	font-size: var(--ui-schrift-s);
+	font-weight: 500;
+}
+html :is(.kd-formular, .ui-formular) label:has(> input:is([type='checkbox'], [type='radio'])) {
+	color: var(--ui-text);
+	font-size: var(--ui-schrift-m);
+}
+html :is(.kd-formular, .ui-formular) fieldset {
+	border-color: var(--ui-rand);
+	border-radius: var(--ui-radius-karte);
+}
+
+/* ── Chips (Auswahl-Knöpfe in Formularen: Person, Datum …) und Popover ────────────────────────────── */
+
+.ui-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+	max-width: 100%;
+	min-height: var(--ui-feld-hoehe);
+	padding: 0 0.8rem 0 0.45rem;
+	border: 1px solid var(--ui-rand-stark);
+	border-radius: 999px;
+	background: var(--ui-flaeche);
+	color: var(--ui-text);
+	font-family: var(--m365-schrift);
+	font-size: var(--ui-schrift-m);
+	font-weight: 500;
+	line-height: 1.2;
+	cursor: pointer;
+	transition: border-color 120ms, background 120ms, box-shadow 120ms;
+}
+.ui-chip:hover {
+	border-color: #b3bacb;
+	background: var(--ui-akzent-zart);
+}
+.ui-chip:focus-visible {
+	outline: none;
+	border-color: var(--ui-akzent);
+	box-shadow: var(--ui-fokus-ring);
+}
+.ui-chip.gesetzt {
+	border-color: #bcd0f7;
+	background: var(--ui-akzent-zart);
+}
+.ui-popover {
+	border: 1px solid var(--ui-rand);
+	border-radius: var(--ui-radius-karte);
+	background: var(--ui-flaeche);
+	box-shadow: 0 12px 32px rgba(23, 29, 48, 0.14), 0 2px 6px rgba(23, 29, 48, 0.08);
+}
+.ui-popover:focus {
+	outline: none;
+}
+
+/* Ghost-Knopf (z. B. „Abbrechen“): ohne Rahmen, klar klickbar */
+html .knopf-ghost {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	min-height: var(--ui-knopf-hoehe);
+	padding: 0 1rem;
+	border: 1px solid transparent;
+	border-radius: var(--ui-knopf-radius);
+	background: transparent;
+	color: var(--ui-text);
+	font-family: var(--m365-schrift);
+	font-size: var(--ui-schrift-m);
+	font-weight: 600;
+	cursor: pointer;
+}
+html .knopf-ghost:hover {
+	background: var(--m365-flaeche-hover);
+}
+html .knopf-ghost:focus-visible {
+	outline: none;
+	box-shadow: var(--ui-fokus-ring);
+}
+
+/* Status-Pills (farbig, Monday-artig) – .ui-pill.gruen/.orange/.rot/.lila/.blau/.grau */
+.ui-pill {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 1.5rem;
+	padding: 0 0.6rem;
+	border-radius: 999px;
+	font-size: var(--ui-schrift-xs);
+	font-weight: 600;
+	line-height: 1;
+	white-space: nowrap;
+	color: #fff;
+	background: var(--ui-grau);
+}
+.ui-pill.gruen { background: var(--ui-gruen); }
+.ui-pill.orange { background: var(--ui-orange); }
+.ui-pill.rot { background: var(--ui-rot); }
+.ui-pill.lila { background: var(--ui-lila); }
+.ui-pill.blau { background: var(--ui-blau); }
+.ui-pill.grau { background: var(--ui-grau); }
+
 /* ── Listen-Zeilen ───────────────────────────────────────────────────────────────────────────────────── */
 
 .listen-eintrag {
@@ -368,17 +522,82 @@ html input[type='file']::file-selector-button {
 /* Listen der Seiten (kd-liste): Rahmen statt Schatten, zarter Wechsel beim Überfahren */
 html .kd-liste {
 	border: 1px solid var(--ui-rand);
+	border-radius: var(--ui-radius-karte);
 	box-shadow: var(--ui-schatten);
 }
-html .kd-liste > li:nth-child(even):not(.kd-leer) {
-	background: #fbfcfd;
+/* Zeilen wie in modernen Boards: ruhig, beim Überfahren getönt, farbiger Rand links je Status */
+html .kd-liste > li > a {
+	transition: background 120ms, box-shadow 120ms;
 }
-/* Leerer Zustand: ruhig, mittig, gestrichelt */
+html .kd-liste > li > a:hover {
+	background: var(--ui-akzent-zart);
+}
+html .kd-liste > li:has(.s-anfrage) > a { box-shadow: inset 4px 0 0 var(--ui-grau); }
+html .kd-liste > li:has(.s-angebot) > a { box-shadow: inset 4px 0 0 var(--ui-lila); }
+html .kd-liste > li:has(.s-beauftragt) > a { box-shadow: inset 4px 0 0 var(--ui-blau); }
+html .kd-liste > li:has(.s-in_arbeit) > a { box-shadow: inset 4px 0 0 var(--ui-orange); }
+html .kd-liste > li:has(.s-abgenommen) > a { box-shadow: inset 4px 0 0 var(--ui-gruen); }
+html .kd-liste > li:has(.s-abgerechnet) > a { box-shadow: inset 4px 0 0 #5c6370; }
+html .kd-liste > li:has(.an-status.s-versendet) > a { box-shadow: inset 4px 0 0 var(--ui-blau); }
+html .kd-liste > li:has(.an-status.s-angenommen) > a { box-shadow: inset 4px 0 0 var(--ui-gruen); }
+html .kd-liste > li:has(.an-status.s-abgelehnt) > a { box-shadow: inset 4px 0 0 var(--ui-rot); }
+html .kd-liste > li:has(.an-status.s-entwurf) > a { box-shadow: inset 4px 0 0 var(--ui-grau); }
+
+/* Status-Abzeichen als farbige Pills */
+html :is(.af-status, .an-status) {
+	display: inline-flex;
+	align-items: center;
+	min-height: 1.375rem;
+	padding: 0 0.6rem;
+	border-radius: 999px;
+	color: #fff;
+	font-size: var(--ui-schrift-xs);
+	font-weight: 600;
+	line-height: 1;
+	background: var(--ui-grau);
+}
+html .af-status.s-anfrage { background: var(--ui-grau); color: #fff; }
+html .af-status.s-angebot { background: var(--ui-lila); color: #fff; }
+html .af-status.s-beauftragt { background: var(--ui-blau); color: #fff; }
+html .af-status.s-in_arbeit { background: var(--ui-orange); color: #fff; }
+html .af-status.s-abgenommen { background: var(--ui-gruen); color: #fff; }
+html .af-status.s-abgerechnet { background: #5c6370; color: #fff; }
+html .an-status.s-versendet { background: var(--ui-blau); color: #fff; }
+html .an-status.s-angenommen { background: var(--ui-gruen); color: #fff; }
+html .an-status.s-abgelehnt { background: var(--ui-rot); color: #fff; }
+/* Leerer Zustand: Symbol + hilfreicher Text, ruhig und mittig */
 html .kd-leer {
-	padding: var(--ui-a4);
+	display: grid;
+	justify-items: center;
+	gap: 0.5rem;
+	padding: 1.5rem 1rem;
 	color: var(--ui-text-leise);
-	font-size: 0.875rem;
+	font-size: var(--ui-schrift-m);
 	text-align: center;
+}
+html .kd-leer::before {
+	content: '';
+	width: 2.5rem;
+	height: 2.5rem;
+	border-radius: 999px;
+	background: var(--ui-akzent-hell) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h16M4 12h10M4 17h7'/%3E%3C/svg%3E") center / 1.25rem no-repeat;
+}
+html .kd-leer > :is(a, button, form) {
+	margin-top: 0.25rem;
+}
+/* Brotkrume / Zurück über dem Seitentitel */
+html .kd-zurueck {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	color: var(--ui-text-leise);
+	font-size: var(--ui-schrift-s);
+	font-weight: 500;
+	text-decoration: none;
+}
+html .kd-zurueck:hover {
+	color: var(--ui-akzent);
+	text-decoration: none;
 }
 html ul.kd-liste > li.kd-leer,
 html ol > li.kd-leer {

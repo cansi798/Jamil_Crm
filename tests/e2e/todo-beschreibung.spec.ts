@@ -12,6 +12,7 @@ test('„+ To-do“ mit Beschreibung → Beschreibung steht auf der Karte', asyn
 	await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
 	const formular = page.locator('form.td-neu');
 	await formular.getByLabel('Neues To-do').fill(titel);
+	await formular.getByRole('button', { name: '+ Beschreibung' }).click();
 	await formular.getByLabel('Beschreibung (optional)').fill('Schlüssel beim Nachbarn abholen');
 	await formular.getByRole('button', { name: 'To-do speichern' }).click();
 
@@ -21,7 +22,8 @@ test('„+ To-do“ mit Beschreibung → Beschreibung steht auf der Karte', asyn
 	// Nach dem Anlegen klappt das Formular zu; erneut geöffnet ist es leer
 	await expect(formular).toHaveCount(0);
 	await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
-	await expect(formular.getByLabel('Beschreibung (optional)')).toHaveValue('');
+	await expect(formular.getByLabel('Neues To-do')).toHaveValue('');
+	await expect(formular.getByLabel('Beschreibung (optional)')).toHaveCount(0);
 
 	const liste: { id: string; titel: string; beschreibung: string | null }[] = await (
 		await page.request.get('/api/todos?nur=alle')

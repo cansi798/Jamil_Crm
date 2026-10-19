@@ -27,7 +27,10 @@
 				</a>
 			</li>
 		{:else}
-			<li class="kd-leer">Noch keine Angebots-Vorlagen.</li>
+			<li class="kd-leer">
+				<span>Noch keine Angebots-Vorlagen. Häufige Angebote einmal anlegen und immer wieder verwenden.</span>
+				<a href="/angebot-vorlagen/neu" class="kd-knopf hell">+ Erste Vorlage anlegen</a>
+			</li>
 		{/each}
 	</ul>
 </main>

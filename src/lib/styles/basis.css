@@ -1,24 +1,33 @@
 /* Grundgestaltung für alle Seiten: Microsoft-365-Fluent-Design, mobil zuerst.
    Tippflächen mindestens 44 px (2,75 rem), kleinste Zielbreite 360 px ohne horizontales Scrollen. */
 @import '../stil/komponenten.css';
+
+/* Inter (SIL Open Font License, static/schriften/Inter-LIZENZ.txt), eine variable Datei für alle Stärken */
+@font-face {
+	font-family: 'Inter';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('/schriften/InterVariable.woff2') format('woff2');
+}
 :root {
 	/* ── Design-Tokens (UX-Durchgang 20.10.2026, Wunsch Jamil msgs 2579–2583) ──────────────────────────────
 	   Eine Akzentfarbe, neutraler Seitenhintergrund, weiße Flächen mit zart getönten Kopfbändern.
 	   Die --m365-*-Namen bleiben (alle Seiten nutzen sie); nur ihre Werte kommen von hier. */
-	--ui-akzent: #0f6cbd;
-	--ui-akzent-hover: #115ea3;
-	--ui-akzent-dunkel: #0c3b6a;
-	--ui-akzent-hell: #ebf3fc;
-	--ui-akzent-zart: #f5f9fd;
-	--ui-hintergrund: #f2f4f7;
+	--ui-akzent: #2563eb;
+	--ui-akzent-hover: #1d4fd7;
+	--ui-akzent-dunkel: #1e3a8a;
+	--ui-akzent-hell: #eaf1fe;
+	--ui-akzent-zart: #f6f9ff;
+	--ui-hintergrund: #f5f6fa;
 	--ui-flaeche: #ffffff;
-	--ui-band: #f6f8fb; /* Kopfband von Abschnitten/Karten */
-	--ui-rand: #e3e6eb;
-	--ui-rand-stark: #c9ced6;
-	--ui-text: #1f2328;
-	--ui-text-leise: #59636e;
-	--ui-gefahr: #c42b1c;
-	--ui-gefahr-hell: #fdf0ef;
+	--ui-band: #f8f9fc; /* Kopfband von Abschnitten/Karten */
+	--ui-rand: #e4e7ef;
+	--ui-rand-stark: #cdd2de;
+	--ui-text: #1f2430;
+	--ui-text-leise: #646b7d;
+	--ui-gefahr: #d92d43;
+	--ui-gefahr-hell: #fdeef0;
 
 	/* Abstände (4er-Raster), Radien, Höhen */
 	--ui-a1: 0.25rem;
@@ -29,10 +38,34 @@
 	--ui-radius: 8px; /* Eingabefelder, kleine Flächen */
 	--ui-knopf-radius: 10px; /* Knöpfe: runder, modern (Jamil msg 2597) */
 	--ui-chip-radius: 999px; /* kleine Chip-Knöpfe, Reiter, Filter */
-	--ui-radius-karte: 10px;
-	--ui-knopf-hoehe: 2.75rem; /* gleiche Höhe für alle Knöpfe, Tippziel ≥ 44 px */
-	--ui-schatten: 0 1px 2px rgba(16, 24, 40, 0.06);
-	--ui-fokus-ring: 0 0 0 3px rgba(15, 108, 189, 0.35);
+	--ui-radius-karte: 12px;
+	--ui-knopf-hoehe: var(--ui-feld-hoehe); /* Knöpfe so hoch wie Felder: 40 px Desktop, 44 px mobil */
+	--ui-schatten: 0 1px 2px rgba(23, 29, 48, 0.05), 0 1px 3px rgba(23, 29, 48, 0.04);
+	--ui-schatten-hoch: 0 4px 12px rgba(23, 29, 48, 0.08), 0 1px 3px rgba(23, 29, 48, 0.06);
+	--ui-fokus-ring: 0 0 0 3px rgba(37, 99, 235, 0.25);
+
+	/* Statusfarben (Pills, Gruppenränder) – eigene Palette */
+	--ui-gruen: #1f9d63;
+	--ui-gruen-hell: #e3f6ec;
+	--ui-orange: #e8912d;
+	--ui-orange-hell: #fff1df;
+	--ui-rot: #d92d43;
+	--ui-rot-hell: #fdeef0;
+	--ui-lila: #8a4fd1;
+	--ui-lila-hell: #f2eafc;
+	--ui-blau: #3b7ff5;
+	--ui-blau-hell: #e8f0fe;
+	--ui-grau: #8d94a5;
+	--ui-grau-hell: #eef0f4;
+
+	/* Typo-Skala */
+	--ui-schrift-xs: 0.75rem;
+	--ui-schrift-s: 0.8125rem;
+	--ui-schrift-m: 0.875rem;
+	--ui-schrift-l: 1rem;
+	--ui-schrift-xl: 1.25rem;
+	--ui-schrift-xxl: 1.5rem;
+	--ui-feld-hoehe: 2.5rem; /* Eingabefelder 40 px (mobil 44 px) */
 
 	--m365-primaer: var(--ui-akzent);
 	--m365-primaer-hover: var(--ui-akzent-hover);
@@ -50,7 +83,7 @@
 	--m365-rand: var(--ui-rand);
 	--m365-rand-stark: var(--ui-rand-stark);
 	--m365-flaeche: var(--ui-flaeche);
-	--m365-flaeche-hover: #eef1f5;
+	--m365-flaeche-hover: #f1f3f8;
 	--m365-hintergrund: var(--ui-hintergrund);
 	--m365-nav: #ffffff;
 	--m365-fokus: var(--ui-akzent);
@@ -65,7 +98,7 @@
 	--m365-schatten-pop: 0 3.2px 7.2px rgba(0,0,0,0.132), 0 0.6px 1.2px rgba(0,0,0,0.108);
 
 	/* Typografie */
-	--m365-schrift: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+	--m365-schrift: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
 	/* Bestehende Aliase (Rückwärtskompatibilität) */
 	--primaer: var(--m365-primaer);
@@ -84,6 +117,13 @@
 	color-scheme: light;
 }
 
+/* Mobil: Tippziel 44 px für Felder und Knöpfe */
+@media (max-width: 899px), (pointer: coarse) {
+	:root {
+		--ui-feld-hoehe: 2.75rem;
+	}
+}
+
 *,
 *::before,
 *::after {
@@ -98,8 +138,9 @@ html {
 body {
 	margin: 0;
 	font-family: var(--m365-schrift);
-	font-size: 1rem;
-	line-height: 1.45;
+	font-size: 0.9375rem;
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
 	color: var(--m365-text);
 	background: var(--m365-hintergrund);
 	overflow-wrap: anywhere;

@@ -30,7 +30,10 @@
 				</a>
 			</li>
 		{:else}
-			<li class="kd-leer">Noch keine Vorlagen vorhanden.</li>
+			<li class="kd-leer">
+				<span>Noch keine Vorlagen. Eine Vorlage spart Tipparbeit: Ihre To-dos stehen beim nächsten Auftrag sofort bereit.</span>
+				{#if data.darfBearbeiten}<a href="/auftrag-vorlagen/neu" class="kd-knopf hell">+ Erste Vorlage anlegen</a>{/if}
+			</li>
 		{/each}
 	</ul>
 </main>

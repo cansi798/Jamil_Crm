@@ -44,7 +44,8 @@
 			</li>
 		{:else}
 			<li class="kd-leer">
-				{data.suche ? 'Keine Kunden gefunden.' : 'Noch keine Kunden angelegt.'}
+				<span>{data.suche ? 'Keine Kunden gefunden. Anders schreiben oder nur einen Teil des Namens suchen.' : 'Noch keine Kunden angelegt.'}</span>
+				{#if data.darfBearbeiten}<a href="/kunden/neu" class="kd-knopf hell">+ Kunde anlegen</a>{/if}
 			</li>
 		{/each}
 	</ul>

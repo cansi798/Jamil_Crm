@@ -1,10 +1,17 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { STUFEN, STUFE_NAMEN } from '$lib/stufen';
 	import { REGELN, REGEL_NAMEN } from '$lib/wiederholung';
+	import PersonWahl from './ui/PersonWahl.svelte';
+	import DatumWahl from './ui/DatumWahl.svelte';
+	import StufenWahl from './ui/StufenWahl.svelte';
+	import Schalter from './ui/Schalter.svelte';
 
-	/** Kleines Formular „+ To-do“ (Titel, Zuständig, Fällig, optional Beschreibung) für Benutzer mit `auftraege.bearbeiten`. */
+	/**
+	 * Formular „To-do anlegen“ im modernen Stil (Jamil msgs 2618/2619): großer Titel oben, darunter Chips für
+	 * Zuständig (Avatar), Fällig (Kalender), Lärm/Schmutz (farbige Stufen), Wiederkehrend (Schalter);
+	 * Beschreibung auf Klick; „Speichern“ und „Abbrechen“ unten rechts. Feldnamen wie bisher (Server unverändert).
+	 */
 	let {
 		aktion,
 		mitarbeiter,
@@ -20,13 +27,18 @@
 		werte?: Record<string, string>;
 		/** Auftrags-To-dos: Stufen „Lautstärke“ und „Schmutz“ (gering, mittel, hoch; optional). */
 		mitBelastung?: boolean;
-		/** Eingeklappt im Auftrag (msg 2579): nach erfolgreichem Speichern bzw. „Abbrechen“ wieder zuklappen. */
+		/** Eingeklappt (msg 2579): nach erfolgreichem Speichern bzw. „Abbrechen“ wieder zuklappen. */
 		onfertig?: () => void;
 		onabbrechen?: () => void;
 	} = $props();
 
 	// Wiederholen (Wunsch Jamil, msg 2501): täglich/wöchentlich/monatlich/jährlich, „alle N“, optional bis Datum
 	let wiederholen = $state(untrack(() => !!werte.wiederholung));
+	let mitBeschreibung = $state(untrack(() => !!werte.beschreibung));
+	let zustaendig = $state(untrack(() => werte.zustaendigId ?? ''));
+	let faellig = $state(untrack(() => werte.faellig ?? ''));
+	let lautstaerke = $state(untrack(() => werte.lautstaerke ?? ''));
+	let schmutz = $state(untrack(() => werte.schmutz ?? ''));
 </script>
 
 <form
@@ -34,79 +46,113 @@
 	action={aktion}
 	use:enhance={() => async ({ result, update }) => {
 		await update();
-		if (result.type === 'success') onfertig?.();
+		if (result.type === 'success') {
+			zustaendig = faellig = lautstaerke = schmutz = '';
+			wiederholen = mitBeschreibung = false;
+			onfertig?.();
+		}
 	}}
-	class="kd-formular td-neu"
+	class="kd-formular td-neu ui-neu"
 >
 	{#if fehler}<p role="alert" class="kd-fehler">{fehler}</p>{/if}
-	<label>
-		Neues To-do
-		<input type="text" name="titel" maxlength="200" required placeholder="z. B. Material bestellen" value={werte.titel ?? ''} />
-	</label>
-	<label class="td-neu-beschreibung">
-		Beschreibung (optional)
-		<textarea name="beschreibung" maxlength="500" rows="2" placeholder="z. B. Schlüssel beim Nachbarn abholen"
-			>{werte.beschreibung ?? ''}</textarea
+	<input
+		class="ui-neu-titel"
+		type="text"
+		name="titel"
+		maxlength="200"
+		required
+		placeholder="Was ist zu tun? z. B. Material bestellen"
+		aria-label="Neues To-do"
+		value={werte.titel ?? ''}
+	/>
+	{#if mitBeschreibung}
+		<textarea
+			name="beschreibung"
+			maxlength="500"
+			rows="2"
+			placeholder="Details, z. B. Schlüssel beim Nachbarn abholen"
+			aria-label="Beschreibung (optional)">{werte.beschreibung ?? ''}</textarea
 		>
-	</label>
-	<label>
-		Zuständig
-		<select name="zustaendigId">
-			<option value="">– niemand –</option>
-			{#each mitarbeiter as m (m.id)}
-				<option value={m.id} selected={m.id === werte.zustaendigId}>{m.name}</option>
-			{/each}
-		</select>
-	</label>
-	<label>
-		Fällig
-		<input type="date" name="faellig" value={werte.faellig ?? ''} />
-	</label>
-	{#if mitBelastung}
-		<div class="td-neu-stufen">
-			<label>
-				Lautstärke
-				<select name="lautstaerke">
-					<option value="">–</option>
-					{#each STUFEN as n (n)}<option value={String(n)} selected={werte.lautstaerke === String(n)}>{STUFE_NAMEN[n]}</option>{/each}
-				</select>
-			</label>
-			<label>
-				Schmutz
-				<select name="schmutz">
-					<option value="">–</option>
-					{#each STUFEN as n (n)}<option value={String(n)} selected={werte.schmutz === String(n)}>{STUFE_NAMEN[n]}</option>{/each}
-				</select>
-			</label>
-		</div>
 	{/if}
-	<div class="td-neu-wiederholung">
-		<label class="kd-haken">
-			<input type="checkbox" bind:checked={wiederholen} />
-			<span>Wiederkehrend (z. B. Wartung)</span>
-		</label>
-		{#if wiederholen}
-			<div class="td-neu-regel">
-				<label>
-					Rhythmus
-					<select name="wiederholung">
-						{#each REGELN as r (r)}<option value={r} selected={(werte.wiederholung || 'monatlich') === r}>{REGEL_NAMEN[r]}</option>{/each}
-					</select>
-				</label>
-				<label>
-					alle …
-					<input type="number" name="intervall" min="1" max="365" value={werte.intervall || '1'} />
-				</label>
-				<label>
-					bis (optional)
-					<input type="date" name="wiederholungEnde" value={werte.wiederholungEnde ?? ''} />
-				</label>
-			</div>
-			<p class="kd-info">Erster Termin ist „Fällig“ (sonst heute). Beim Abhaken entsteht automatisch das nächste To-do.</p>
+
+	<div class="ui-neu-meta" role="group" aria-label="Details zum To-do">
+		<PersonWahl name="zustaendigId" personen={mitarbeiter} bind:wert={zustaendig} />
+		<DatumWahl name="faellig" bind:wert={faellig} />
+		{#if mitBelastung}
+			<StufenWahl name="lautstaerke" label="Lautstärke" bind:wert={lautstaerke} />
+			<StufenWahl name="schmutz" label="Schmutz" bind:wert={schmutz} />
+		{/if}
+		<Schalter label="Wiederkehrend (z. B. Wartung)" klasse="kd-haken" bind:an={wiederholen} />
+		{#if !mitBeschreibung}
+			<button type="button" class="knopf-ghost ui-neu-plus" onclick={() => (mitBeschreibung = true)}>+ Beschreibung</button>
 		{/if}
 	</div>
-	<div class="td-neu-knoepfe">
-		<button type="submit" class="kd-knopf">{onabbrechen ? 'To-do speichern' : '+ To-do'}</button>
-		{#if onabbrechen}<button type="button" class="kd-knopf hell" onclick={() => onabbrechen?.()}>Abbrechen</button>{/if}
+
+	{#if wiederholen}
+		<div class="ui-neu-regel">
+			<label>
+				Rhythmus
+				<select name="wiederholung">
+					{#each REGELN as r (r)}<option value={r} selected={(werte.wiederholung || 'monatlich') === r}>{REGEL_NAMEN[r]}</option>{/each}
+				</select>
+			</label>
+			<label>
+				alle …
+				<input type="number" name="intervall" min="1" max="365" value={werte.intervall || '1'} />
+			</label>
+			<label>
+				bis (optional)
+				<input type="date" name="wiederholungEnde" value={werte.wiederholungEnde ?? ''} />
+			</label>
+			<p class="kd-info">Erster Termin ist „Fällig“ (sonst heute). Beim Abhaken entsteht automatisch das nächste To-do.</p>
+		</div>
+	{/if}
+
+	<div class="ui-neu-fuss">
+		{#if onabbrechen}<button type="button" class="knopf-ghost" onclick={() => onabbrechen?.()}>Abbrechen</button>{/if}
+		<button type="submit" class="kd-knopf" aria-label="To-do speichern">Speichern</button>
 	</div>
 </form>
+
+<style>
+	.ui-neu {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		align-items: stretch;
+		gap: 0.75rem;
+		padding: 0.25rem 0 0;
+	}
+	.ui-neu-titel {
+		min-height: 3rem !important;
+		padding: 0 0.9rem !important;
+		font-size: 1.0625rem !important;
+		font-weight: 500;
+	}
+	.ui-neu-meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.ui-neu-plus {
+		color: var(--ui-akzent) !important;
+	}
+	.ui-neu-regel {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+		gap: 0.5rem 0.75rem;
+		padding: 0.75rem;
+		border-radius: var(--ui-radius);
+		background: var(--ui-band);
+	}
+	.ui-neu-regel .kd-info {
+		grid-column: 1 / -1;
+		margin: 0;
+	}
+	.ui-neu-fuss {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.25rem;
+	}
+</style>

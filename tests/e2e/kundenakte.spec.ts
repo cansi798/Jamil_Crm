@@ -80,8 +80,8 @@ test('Auftrags-To-do mit Lautstärke und Schmutz', async ({ page }, info) => {
 		await page.getByRole('button', { name: '+ To-do hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
 		await f.getByLabel('Neues To-do').fill('Fliesen abschlagen');
-		await f.getByLabel('Lautstärke').selectOption('3');
-		await f.getByLabel('Schmutz').selectOption('2');
+		await f.getByRole('radiogroup', { name: 'Lautstärke' }).getByText('hoch').click();
+		await f.getByRole('radiogroup', { name: 'Schmutz' }).getByText('mittel').click();
 		await f.getByRole('button', { name: 'To-do speichern' }).click();
 		// Liste: Zeile aufklappen zeigt Details und Bearbeiten
 		const zeile = page.locator('.tl-zeile', { hasText: 'Fliesen abschlagen' });
