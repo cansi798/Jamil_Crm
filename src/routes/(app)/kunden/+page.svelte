@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import Avatar from '$lib/components/ui/Avatar.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -37,7 +38,8 @@
 	<ul class="kd-liste">
 		{#each data.kunden as kunde (kunde.id)}
 			<li>
-				<a href={`/kunden/${kunde.id}`}>
+				<a href={`/kunden/${kunde.id}`} class="zeile-mit-avatar">
+					<Avatar name={kunde.name} groesse={34} />
 					<strong>{kunde.name}</strong>
 					{#if zeile(kunde)}<span class="kd-info">{zeile(kunde)}</span>{/if}
 				</a>

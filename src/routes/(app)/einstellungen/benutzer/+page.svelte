@@ -3,6 +3,7 @@
 	import '$lib/stil/kunden.css';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
+	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -126,6 +127,7 @@
 			{#each data.benutzer as b (b.id)}
 				{@const rolleVergebbar = data.rollen.find((r) => r.id === b.rolleId)?.vergebbar ?? true}
 				<li class="bn-zeile" class:inaktiv={!b.aktiv}>
+					<Avatar name={b.name} groesse={34} />
 					<div class="bn-wer">
 						<strong>{b.name}{#if b.id === data.ichId} <span class="kd-info">(Sie)</span>{/if}</strong>
 						<span class="kd-info">{b.email}</span>
