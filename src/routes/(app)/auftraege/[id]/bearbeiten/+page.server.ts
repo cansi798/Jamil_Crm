@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
-import { aendereAuftrag, AUFTRAG_FELDER, holeAuftrag, ladeKundenAuswahl, sichtVon, zustaendigeAus } from '$lib/server/auftraege';
+import { aendereAuftrag, AUFTRAG_FORM_FELDER, holeAuftrag, ladeKundenAuswahl, sichtVon, zustaendigeAus } from '$lib/server/auftraege';
 import { listeVorlagen } from '$lib/server/auftrag-vorlagen';
 import { aktiveMitarbeiter, legeTodosAn, pruefeTodoListe, todosAusFormular } from '$lib/server/todos';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 export const actions: Actions = {
 	speichern: async ({ locals, params, request }) => {
 		const formData = await request.formData();
-		const werte = formWerte(formData, AUFTRAG_FELDER);
+		const werte = formWerte(formData, AUFTRAG_FORM_FELDER);
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 			// Neue To-dos (z. B. aus einer Vorlage) kommen zu den vorhandenen dazu; erst prüfen, dann speichern

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { STATUS_NAMEN } from '$lib/auftrag-status';
+	import { terminKurz } from '$lib/einsatz-art';
 	import { berlinTag, berlinUhrzeit, tagDeutsch } from '$lib/zeit';
 	import type { ActionData, PageData } from './$types';
 
@@ -97,7 +98,9 @@
 				<li>
 					<a href={`/auftraege/${auftrag.id}`}>
 						<strong>{auftrag.titel}</strong>
-						<span class="kd-info">{auftrag.nummer} · {STATUS_NAMEN[auftrag.status]}</span>
+						<span class="kd-info">
+							{auftrag.nummer} · {STATUS_NAMEN[auftrag.status]}{auftrag.kommenderTermin ? ` · Nächster Termin: ${terminKurz(auftrag.kommenderTermin)}` : ''}
+						</span>
 						<span class="kd-info">
 							{auftrag.objektBezeichnung ? `Objekt: ${auftrag.objektBezeichnung}` : 'Kundenadresse'}{auftrag.adresse ? ` · ${auftrag.adresse}` : ''}
 						</span>

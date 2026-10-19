@@ -53,7 +53,10 @@ export type Auftrag = {
 	meinBezug?: ('zustaendig' | 'todo' | 'termin')[];
 	status: AuftragStatus;
 	beschreibung: string | null;
+	/** Alt (vor den Terminen): nicht mehr im Formular; wird nur noch angezeigt, wenn es keine Termine gibt. */
 	geplantAb: string | null;
+	/** Nächster anstehender Termin (Einsatz, der noch nicht vorbei ist) – ersetzt „Geplant ab“ (Wunsch Jamil). */
+	kommenderTermin: { beginn: string; art: string } | null;
 	angelegt: string;
 	geaendert: string;
 };
@@ -81,6 +84,11 @@ export const MAX_ZUSTAENDIGE = 20;
 /** Felder, die beim Anlegen/Ändern angenommen werden (Formular und JSON). Status/Nummer gehören nicht dazu. */
 export const EINMAL_FELDER = ['einmalName', 'einmalTelefon', 'einmalEmail', 'einmalStrasse', 'einmalPlz', 'einmalOrt'] as const;
 export const AUFTRAG_FELDER = ['titel', 'kundeArt', 'kundeId', 'objektId', 'beschreibung', 'geplantAb', ...EINMAL_FELDER] as const;
+/**
+ * Felder der Auftrags-Formulare: ohne „Geplant ab“ (Wunsch Jamil, msgs 2525/2526 – dafür gibt es Termine). Die Spalte
+ * bleibt (keine Daten verlieren); das Formular schickt das Feld nicht mehr, damit es beim Speichern nicht geleert wird.
+ */
+export const AUFTRAG_FORM_FELDER = AUFTRAG_FELDER.filter((f) => f !== 'geplantAb');
 
 const nichtGefunden = () => new ApiFehler(404, 'Auftrag nicht gefunden.');
 
@@ -177,7 +185,10 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.stat
 	a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort,
 	(select coalesce(json_agg(json_build_object('id', b.id, 'name', b.name) order by public.unaccent(lower(b.name)), b.id), '[]')
 		from app.auftrag_zustaendige z join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
-		where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id) as zustaendige`;
+		where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id) as zustaendige,
+	(select json_build_object('beginn', e.beginn, 'art', e.art) from app.einsaetze e
+		where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id and e.ende >= now()
+		order by e.beginn, e.id limit 1) as kommender_termin`;
 
 export const VON = `app.auftraege a
 	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
@@ -228,6 +239,10 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 		status: z.status,
 		beschreibung: z.beschreibung,
 		geplantAb: z.geplant_ab,
+		kommenderTermin: (() => {
+			const t = typeof z.kommender_termin === 'string' ? JSON.parse(z.kommender_termin) : z.kommender_termin;
+			return t ? { beginn: iso(t.beginn), art: t.art } : null;
+		})(),
 		angelegt: iso(z.angelegt),
 		geaendert: iso(z.geaendert)
 	};
@@ -277,7 +292,13 @@ export async function listeAuftraege(k: Kontext, sicht: Sicht, filter: AuftragFi
 						or lower(coalesce(a.einmal_name, '')) like lower(s.m)
 					)
 				)
-			order by a.angelegt desc, a.nummer desc
+			order by ${
+				filter.meine || !sicht.alle
+					? // „Meine Aufträge“: zuerst nach dem nächsten Termin (ohne Termin zuletzt), dann die neuesten
+						tx`(select min(e.beginn) from app.einsaetze e
+							where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id and e.ende >= now()) asc nulls last,`
+					: tx``
+			} a.angelegt desc, a.nummer desc
 			limit ${MAX_AUFTRAEGE}`;
 		return z.map((r) => ({
 			...zuAuftrag(r),

@@ -7,6 +7,8 @@ import { holeVorlage } from '../../src/lib/server/auftrag-vorlagen';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import { actions as auftragAktionen } from '../../src/routes/(app)/auftraege/[id]/+page.server';
 import { actions as neuAktionen } from '../../src/routes/(app)/auftraege/neu/+page.server';
+import { actions as bearbeitenAktionen } from '../../src/routes/(app)/auftraege/[id]/bearbeiten/+page.server';
+import { legeEinsatzAn } from '../../src/lib/server/plantafel';
 import { actions as vorlageNeuAktionen } from '../../src/routes/(app)/auftrag-vorlagen/neu/+page.server';
 import { load as todosLoad } from '../../src/routes/(app)/todos/+page.server';
 import { baueUmgebung, nutzerVon, type Umgebung } from './hilfe-1c';
@@ -66,21 +68,22 @@ describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
 			params: { id: a.id },
 			request: form([['objektId', u.objektA]])
 		} as never);
+		// „Geplant ab“ gibt es nicht mehr (Termine statt dessen) – ein gesendetes Feld wird ignoriert
 		await auftragAktionen.aendern({
 			locals: { nutzer: u.chefA },
 			params: { id: a.id },
-			request: form([['geplantAb', '2026-11-03']])
+			request: form([['geplantAb', '2026-11-03'], ['beschreibung', 'neu']])
 		} as never);
 		n = await holeAuftrag(kA(), sichtVon(u.chefA), a.id);
-		expect(n).toMatchObject({ objektId: u.objektA, geplantAb: '2026-11-03', beschreibung: 'bleibt', titel: 'Inline' });
+		expect(n).toMatchObject({ objektId: u.objektA, geplantAb: null, beschreibung: 'neu', titel: 'Inline' });
 		expect(n.zustaendige).toHaveLength(2);
 		const falsch = (await auftragAktionen.aendern({
 			locals: { nutzer: u.chefA },
 			params: { id: a.id },
-			request: form([['geplantAb', 'morgen']])
+			request: form([['objektId', 'kaputt']])
 		} as never)) as any;
 		expect(falsch.status).toBe(400);
-		expect(falsch.data.aendernFehler).toMatch(/Datum/);
+		expect(falsch.data.aendernFehler).toMatch(/Objekt/);
 		const verboten = (await auftragAktionen.aendern({
 			locals: { nutzer: u.monteurA },
 			params: { id: a.id },
@@ -200,5 +203,35 @@ describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
 		const aid = n.ort!.split('/').pop()!;
 		const [t] = await root`select lautstaerke, schmutz, beschreibung from app.todos where auftrag_id = ${aid}`;
 		expect(t).toEqual({ lautstaerke: 3, schmutz: 3, beschreibung: 'Staubschutz aufbauen' });
+	});
+
+	it('„Geplant ab“ entfällt: Bearbeiten-Formular löscht einen alten Wert nicht; „Nächster Termin“ kommt aus den Terminen; Meine sortiert danach', async () => {
+		const alt = await legeAuftragAn(kA(), { titel: 'Alt mit Datum', kundeId: u.kundeA, geplantAb: '2026-12-01', zustaendige: [u.ids.monteurA] });
+		await umleitung(() =>
+			bearbeitenAktionen.speichern({
+				locals: { nutzer: u.chefA },
+				params: { id: alt.id },
+				request: form([
+					['kundeId', u.kundeA],
+					['titel', 'Alt mit Datum (geändert)']
+				])
+			} as never)
+		);
+		expect((await holeAuftrag(kA(), sichtVon(u.chefA), alt.id)).geplantAb).toBe('2026-12-01');
+		const mitTermin = await legeAuftragAn(kA(), { titel: 'Mit Termin', kundeId: u.kundeA, zustaendige: [u.ids.monteurA] });
+		const beginn = new Date(Date.now() + 3 * 86_400_000);
+		await legeEinsatzAn(kA(), {
+			auftragId: mitTermin.id,
+			benutzerId: u.ids.monteurA,
+			beginn: beginn.toISOString(),
+			ende: new Date(beginn.getTime() + 3_600_000).toISOString(),
+			art: 'wartung'
+		});
+		const t = await holeAuftrag(kA(), sichtVon(u.chefA), mitTermin.id);
+		expect(t.kommenderTermin).toEqual({ beginn: beginn.toISOString(), art: 'wartung' });
+		expect((await holeAuftrag(kA(), sichtVon(u.chefA), alt.id)).kommenderTermin).toBeNull();
+		// Meine Aufträge: Auftrag mit nächstem Termin vor dem ohne Termin
+		const meine = (await listeAuftraege(kA(), sichtVon(u.monteurA), {})).map((a) => a.titel);
+		expect(meine.indexOf('Mit Termin')).toBeLessThan(meine.indexOf('Alt mit Datum (geändert)'));
 	});
 });

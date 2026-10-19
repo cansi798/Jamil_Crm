@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
-import { AUFTRAG_FELDER, ladeKundenAuswahl, legeAuftragAn, zustaendigeAus } from '$lib/server/auftraege';
+import { AUFTRAG_FORM_FELDER, ladeKundenAuswahl, legeAuftragAn, zustaendigeAus } from '$lib/server/auftraege';
 import { listeVorlagen } from '$lib/server/auftrag-vorlagen';
 import { aktiveMitarbeiter, legeTodosAn, pruefeTodoListe, todosAusFormular } from '$lib/server/todos';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
@@ -25,7 +25,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 export const actions: Actions = {
 	anlegen: async ({ locals, request }) => {
 		const formData = await request.formData();
-		const werte = formWerte(formData, AUFTRAG_FELDER);
+		const werte = formWerte(formData, AUFTRAG_FORM_FELDER);
 
 		let id: string;
 		try {

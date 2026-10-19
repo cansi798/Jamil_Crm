@@ -101,13 +101,13 @@ const text = (f: FormData, feld: string) => {
 
 export const actions: Actions = {
 	/**
-	 * Einzelne Felder direkt im Auftrag ändern (Wunsch Jamil): Objekt, Geplant ab, Beschreibung, Titel, Zuständige –
+	 * Einzelne Felder direkt im Auftrag ändern (Wunsch Jamil): Objekt, Beschreibung, Titel, Zuständige –
 	 * nur die gesendeten Felder; Rechte wie „Auftrag bearbeiten“.
 	 */
 	aendern: async ({ locals, params, request }) => {
 		const f = await request.formData();
 		const e: Record<string, unknown> = { ...zustaendigeAus(f) };
-		for (const feld of ['objektId', 'geplantAb', 'beschreibung', 'titel']) if (f.has(feld)) e[feld] = text(f, feld);
+		for (const feld of ['objektId', 'beschreibung', 'titel']) if (f.has(feld)) e[feld] = text(f, feld);
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 			await aendereAuftrag(betriebKontext(locals), params.id, e, sichtVon(locals.nutzer!));

@@ -277,10 +277,6 @@
 		<input type="text" name="titel" maxlength="200" required value={werte.titel ?? ''} placeholder="z. B. Badsanierung" />
 	</label>
 
-	<label>
-		Geplant ab
-		<input type="date" name="geplantAb" value={werte.geplantAb ?? ''} />
-	</label>
 
 	<label>
 		Beschreibung

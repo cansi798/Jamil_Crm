@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { terminKurz } from '$lib/einsatz-art';
 	import AuftragBoard from '$lib/components/AuftragBoard.svelte';
 	import { STATUS, STATUS_NAMEN } from '$lib/auftrag-status';
 	import type { PageData } from './$types';
@@ -95,6 +96,9 @@
 							<span class={`af-status s-${a.status}`}>{STATUS_NAMEN[a.status]}</span>
 						</span>
 						<span class="kd-info">{a.nummer} · {a.kundeName}</span>
+						{#if a.kommenderTermin}
+							<span class="kd-info">Nächster Termin: {terminKurz(a.kommenderTermin)}</span>
+						{/if}
 						{#if a.zustaendige.length > 0}
 							<span class="kd-info">Zuständig: {a.zustaendige.map((z) => z.name).join(', ')}</span>
 						{/if}

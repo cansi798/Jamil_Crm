@@ -9,7 +9,7 @@
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
-	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN } from '$lib/einsatz-art';
+	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN, terminKurz } from '$lib/einsatz-art';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -120,13 +120,15 @@
 					</span>
 				{/if}
 			</dd>
-			<dt>Geplant ab</dt>
+			<dt>Nächster Termin</dt>
 			<dd>
-				{#if data.darfBearbeiten}
-					<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
-						<input type="date" name="geplantAb" aria-label="Geplant ab" value={a.geplantAb ?? ''} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
-					</form>
-				{:else}{a.geplantAb ? tagDeutsch(a.geplantAb) : '–'}{/if}
+				{#if a.kommenderTermin}
+					{terminKurz(a.kommenderTermin)}
+				{:else if a.geplantAb}
+					geplant ab {tagDeutsch(a.geplantAb)} <span class="kd-info">(noch kein Termin – unten „+ Termin“)</span>
+				{:else}
+					<span class="kd-info">Noch kein Termin – unten bei „Termine“ anlegen.</span>
+				{/if}
 			</dd>
 			<dt>Beschreibung</dt>
 			<dd>
@@ -380,7 +382,6 @@
 
 <style>
 	.af-inline select,
-	.af-inline input,
 	.af-inline textarea {
 		width: 100%;
 		max-width: 32rem;
