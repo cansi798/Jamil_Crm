@@ -4,7 +4,8 @@ import { sichtbar, type Sicht } from './auftraege';
 import { hatRecht } from './rechte';
 import { darfEines } from './tarif';
 import { textFeld, UUID } from './kunden';
-import { istTag } from '../zeit';
+import { berlinTag, istTag } from '../zeit';
+import { istRegel, naechsterTermin, pruefeRegel, regelText, type Regel } from '../wiederholung';
 
 /**
  * To-dos (Modul `auftraege`): zu einem Auftrag oder allgemein, mit Zuständigem und Fälligkeit.
@@ -33,6 +34,8 @@ export type Todo = {
 	erledigtAm: string | null;
 	/** Nur in Listen: dem Nutzer direkt zugewiesen (sonst über einen Auftrag, für den er zuständig ist). */
 	mirDirekt?: boolean;
+	/** Wiederkehrendes To-do: Serie mit Regel als Text („alle 2 Wochen“), sonst null. */
+	serie: { id: string; text: string; aktiv: boolean } | null;
 };
 
 /** Filter (Wunsch Jamil, msg 2500): `zustaendigId` (zugewiesen an), `status` offen/erledigt – kombinierbar mit `nur`. */
@@ -42,7 +45,18 @@ export const TODO_AUSWAHL = ['meine', 'offen', 'alle'] as const;
 export type TodoAuswahl = (typeof TODO_AUSWAHL)[number];
 
 /** Felder beim Anlegen (Formular/JSON); `auftragId` nur beim Anlegen, danach fest. */
-export const TODO_FELDER = ['titel', 'beschreibung', 'auftragId', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz'] as const;
+export const TODO_FELDER = [
+	'titel',
+	'beschreibung',
+	'auftragId',
+	'zustaendigId',
+	'faellig',
+	'lautstaerke',
+	'schmutz',
+	'wiederholung',
+	'intervall',
+	'wiederholungEnde'
+] as const;
 const AENDERBAR = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz'] as const;
 
 export const MAX_TODOS = 200;
@@ -108,11 +122,14 @@ function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
 }
 
 const AUSWAHL = `t.id, t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
-	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am`;
+	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am,
+	t.serie_id, s.regel as serie_regel, s.intervall as serie_intervall, to_char(s.ende, 'YYYY-MM-DD') as serie_ende,
+	s.aktiv as serie_aktiv`;
 
 const VON = `app.todos t
 	left join app.auftraege a on a.id = t.auftrag_id and a.betrieb_id = t.betrieb_id
-	left join app.benutzer b on b.id = t.zustaendig_id and b.betrieb_id = t.betrieb_id`;
+	left join app.benutzer b on b.id = t.zustaendig_id and b.betrieb_id = t.betrieb_id
+	left join app.todo_serien s on s.id = t.serie_id and s.betrieb_id = t.betrieb_id`;
 
 function zuTodo(z: Record<string, any>): Todo {
 	return {
@@ -128,7 +145,10 @@ function zuTodo(z: Record<string, any>): Todo {
 		zustaendigName: z.zustaendig_name ?? null,
 		faellig: z.faellig,
 		erledigt: z.erledigt_am !== null,
-		erledigtAm: z.erledigt_am === null ? null : new Date(z.erledigt_am).toISOString()
+		erledigtAm: z.erledigt_am === null ? null : new Date(z.erledigt_am).toISOString(),
+		serie: z.serie_id
+			? { id: z.serie_id, text: regelText(z.serie_regel, Number(z.serie_intervall), z.serie_ende ?? null), aktiv: z.serie_aktiv }
+			: null
 	};
 }
 
@@ -223,6 +243,10 @@ const ALLE = (k: Kontext): TodoSicht => ({ alle: true, benutzerId: k.benutzerId,
 
 export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: Sicht = ALLE(k)): Promise<Todo> {
 	const w = pruefeTodoEingabe(e);
+	const wiederholung =
+		e.wiederholung === undefined || e.wiederholung === null || e.wiederholung === ''
+			? null
+			: { regel: e.wiederholung, intervall: e.intervall, ende: e.wiederholungEnde };
 	return mitBetrieb(k, async (tx) => {
 		if (w.auftragId !== null) {
 			const [a] = await tx`
@@ -231,10 +255,21 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 			if (!a) throw new ApiFehler(400, 'Der Auftrag wurde nicht gefunden.');
 		}
 		await pruefeZustaendig(tx, k, w.zustaendigId);
+		// Wiederholung (optional): Serie anlegen; erster Termin = Fälligkeit, ohne Fälligkeit heute
+		let serieId: string | null = null;
+		let faellig = w.faellig;
+		if (wiederholung) {
+			faellig = faellig ?? berlinTag(new Date());
+			const r = regelOder400(wiederholung, faellig);
+			const [s] = await tx`
+				insert into app.todo_serien (betrieb_id, regel, intervall, start_tag, ende)
+				values (${k.betriebId}, ${r.regel}, ${r.intervall}, ${faellig}, ${r.ende}) returning id`;
+			serieId = s.id;
+		}
 		const [z] = await tx`
-			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz)
-			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${w.faellig},
-				${w.lautstaerke}, ${w.schmutz})
+			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz, serie_id)
+			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${faellig},
+				${w.lautstaerke}, ${w.schmutz}, ${serieId})
 			returning id`;
 		return ladeEines(tx, k, ALLE(k), z.id);
 	});
@@ -340,7 +375,8 @@ export async function aendereTodo(
 	const erledigt = mitErledigt ? erledigtWert(e.erledigt) : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am
+			select t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am,
+				t.serie_id
 			from ${tx.unsafe(VON)}
 			where t.id = ${id} and t.betrieb_id = ${k.betriebId} and ${todoSichtbar(tx, sicht)} for update of t`;
 		if (!alt) throw nichtGefunden();
@@ -361,6 +397,7 @@ export async function aendereTodo(
 				lautstaerke = ${w.lautstaerke}, schmutz = ${w.schmutz}, zustaendig_id = ${w.zustaendigId}, faellig = ${w.faellig}
 				${erledigt === null ? tx`` : erledigt ? tx`, erledigt_am = coalesce(erledigt_am, now())` : tx`, erledigt_am = null`}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
+		if (erledigt === true && alt.erledigt_am === null) await naechsteInstanz(tx, k, id);
 		return ladeEines(tx, k, sicht, id);
 	});
 }
@@ -377,7 +414,58 @@ export async function setzeErledigt(k: Kontext, sicht: Sicht, id: string, erledi
 		await tx`
 			update app.todos set erledigt_am = ${erledigt ? tx`coalesce(erledigt_am, now())` : null}
 			where id = ${id} and betrieb_id = ${k.betriebId} and zustaendig_id = ${k.benutzerId}`;
+		if (erledigt && !t.erledigt) await naechsteInstanz(tx, k, id);
 		return ladeEines(tx, k, sicht, id);
+	});
+}
+
+function regelOder400(e: { regel: unknown; intervall: unknown; ende: unknown }, startTag: string) {
+	try {
+		return pruefeRegel(e, startTag);
+	} catch (f) {
+		throw new ApiFehler(400, (f as Error).message);
+	}
+}
+
+/**
+ * Nach dem Abhaken eines Serien-To-dos (in derselben Transaktion): nächste Instanz anlegen – gleicher Auftrag,
+ * Zuständiger, Titel, Beschreibung, Stufen; Fälligkeit nach der Regel (nach heute). Nicht, wenn die Serie beendet ist,
+ * das Ende überschritten wäre oder schon eine offene Instanz existiert (z. B. erneut geöffnet und wieder abgehakt).
+ * Hinweis: Rechte für das neue To-do sind die des abgehakten (das Anlegen erfolgt im Namen des Betriebs).
+ */
+async function naechsteInstanz(tx: TransactionSql, k: Kontext, todoId: string): Promise<void> {
+	const [t] = await tx`
+		select t.titel, t.beschreibung, t.auftrag_id, t.zustaendig_id, t.lautstaerke, t.schmutz, t.serie_id,
+			to_char(t.faellig, 'YYYY-MM-DD') as faellig, s.regel, s.intervall, to_char(s.start_tag, 'YYYY-MM-DD') as start_tag,
+			to_char(s.ende, 'YYYY-MM-DD') as ende, s.aktiv
+		from app.todos t join app.todo_serien s on s.id = t.serie_id and s.betrieb_id = t.betrieb_id
+		where t.id = ${todoId} and t.betrieb_id = ${k.betriebId}
+		for update of s`;
+	if (!t || !t.aktiv || !istRegel(t.regel)) return;
+	const [offen] = await tx`
+		select 1 from app.todos where serie_id = ${t.serie_id} and betrieb_id = ${k.betriebId} and erledigt_am is null limit 1`;
+	if (offen) return;
+	const heute = berlinTag(new Date());
+	const naechster = naechsterTermin(t.faellig ?? heute, { regel: t.regel as Regel, intervall: Number(t.intervall), startTag: t.start_tag }, heute);
+	if (t.ende && naechster > t.ende) return;
+	// Zuständiger inzwischen deaktiviert → neue Instanz ohne Zuständigen
+	const [aktiv] = t.zustaendig_id
+		? await tx`select 1 from app.benutzer where id = ${t.zustaendig_id} and betrieb_id = ${k.betriebId} and aktiv`
+		: [];
+	await tx`
+		insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz, serie_id)
+		values (${k.betriebId}, ${t.auftrag_id}, ${t.titel}, ${t.beschreibung}, ${aktiv ? t.zustaendig_id : null}, ${naechster},
+			${t.lautstaerke}, ${t.schmutz}, ${t.serie_id})`;
+}
+
+/** Serie eines To-dos beenden (keine neuen Instanzen mehr; bestehende bleiben). Nicht sichtbar → 404. */
+export async function beendeSerie(k: Kontext, todoId: string, sicht: Sicht = ALLE(k)): Promise<Todo> {
+	pruefeId(todoId);
+	return mitBetrieb(k, async (tx) => {
+		const t = await ladeEines(tx, k, sicht, todoId);
+		if (!t.serie) throw new ApiFehler(400, 'Dieses To-do wiederholt sich nicht.');
+		await tx`update app.todo_serien set aktiv = false where id = ${t.serie.id} and betrieb_id = ${k.betriebId}`;
+		return ladeEines(tx, k, sicht, todoId);
 	});
 }
 

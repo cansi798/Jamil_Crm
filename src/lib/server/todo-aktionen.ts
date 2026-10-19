@@ -4,7 +4,7 @@ import { todoSicht, todoSichtVon } from './todos';
 import { betriebKontext, hatRecht } from './rechte';
 import { formWerte } from './seite';
 import { darf } from './tarif';
-import { aendereTodo, aendereTodoAls, erledigtWert, legeTodoAn, loescheTodo, TODO_FELDER } from './todos';
+import { aendereTodo, aendereTodoAls, beendeSerie, erledigtWert, legeTodoAn, loescheTodo, TODO_FELDER } from './todos';
 
 /**
  * Formular-Aktionen für To-dos – gemeinsam für die Seite „To-dos“ und den To-do-Bereich eines Auftrags.
@@ -62,6 +62,16 @@ export function todoAktionen(auftragAusPfad: boolean) {
 				// fehlende Felder dürfen Titel oder Beschreibung nicht leeren.
 				const gesendet = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz', 'erledigt'].filter((f) => form.has(f));
 				await aendereTodo(betriebKontext(locals), id, formWerte(form, gesendet), todoSichtVon(locals.nutzer!));
+			} catch (e) {
+				return alsFormFehler(e, { todoFehler: true });
+			}
+		},
+		/** Wiederholung beenden (keine neuen Instanzen); bestehende To-dos bleiben. */
+		serieBeenden: async ({ locals, request }: Ereignis) => {
+			const form = await request.formData();
+			try {
+				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+				await beendeSerie(betriebKontext(locals), text(form, 'id'), todoSichtVon(locals.nutzer!));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true });
 			}

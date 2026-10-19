@@ -173,6 +173,7 @@ export const actions: Actions = {
 	todoUmschalten: todo.umschalten,
 	todoAendern: todo.aendern,
 	todoLoeschen: todo.loeschen,
+	todoSerieBeenden: todo.serieBeenden,
 	/** Ein Schritt vor oder zurück in der Statuskette (Formularfeld `status` = Zielstatus). */
 	status: async ({ locals, params, request }) => {
 		const form = await request.formData();

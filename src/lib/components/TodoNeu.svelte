@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { STUFEN, STUFE_NAMEN } from '$lib/stufen';
+	import { REGELN, REGEL_NAMEN } from '$lib/wiederholung';
 
 	/** Kleines Formular „+ To-do“ (Titel, Zuständig, Fällig, optional Beschreibung) für Benutzer mit `auftraege.bearbeiten`. */
 	let {
@@ -17,7 +20,8 @@
 		mitBelastung?: boolean;
 	} = $props();
 
-	import { STUFEN, STUFE_NAMEN } from '$lib/stufen';
+	// Wiederholen (Wunsch Jamil, msg 2501): täglich/wöchentlich/monatlich/jährlich, „alle N“, optional bis Datum
+	let wiederholen = $state(untrack(() => !!werte.wiederholung));
 </script>
 
 <form method="POST" action={aktion} use:enhance class="kd-formular td-neu">
@@ -63,5 +67,30 @@
 			</label>
 		</div>
 	{/if}
+	<div class="td-neu-wiederholung">
+		<label class="td-haken">
+			<input type="checkbox" bind:checked={wiederholen} />
+			Wiederholen (z. B. Wartung)
+		</label>
+		{#if wiederholen}
+			<div class="td-neu-regel">
+				<label>
+					Rhythmus
+					<select name="wiederholung">
+						{#each REGELN as r (r)}<option value={r} selected={(werte.wiederholung || 'monatlich') === r}>{REGEL_NAMEN[r]}</option>{/each}
+					</select>
+				</label>
+				<label>
+					alle …
+					<input type="number" name="intervall" min="1" max="365" value={werte.intervall || '1'} />
+				</label>
+				<label>
+					bis (optional)
+					<input type="date" name="wiederholungEnde" value={werte.wiederholungEnde ?? ''} />
+				</label>
+			</div>
+			<p class="kd-info">Erster Termin ist „Fällig“ (sonst heute). Beim Abhaken entsteht automatisch das nächste To-do.</p>
+		{/if}
+	</div>
 	<button type="submit" class="kd-knopf">+ To-do</button>
 </form>

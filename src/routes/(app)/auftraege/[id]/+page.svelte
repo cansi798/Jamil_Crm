@@ -329,7 +329,7 @@
 			darfBearbeiten={data.darfBearbeiten}
 			mitarbeiter={data.mitarbeiter}
 			zeigeAuftrag={false}
-			aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen' }}
+			aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen', serieBeenden: '?/todoSerieBeenden' }}
 			leer="Noch keine To-dos zu diesem Auftrag."
 		/>
 		{#if data.darfBearbeiten}

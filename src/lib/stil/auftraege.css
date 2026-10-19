@@ -265,7 +265,8 @@
 	}
 	/* breit: Beschreibung als eigene Zeile unter Titel/Zuständig/Fällig */
 	.td-neu-beschreibung,
-	.td-neu-stufen {
+	.td-neu-stufen,
+	.td-neu-wiederholung {
 		order: 1;
 	}
 	.td-neu-stufen {
@@ -274,6 +275,22 @@
 }
 .td-neu-beschreibung {
 	grid-column: 1 / -1;
+}
+.td-neu-wiederholung {
+	grid-column: 1 / -1;
+	display: grid;
+	gap: 0.4rem;
+}
+.td-haken {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-height: var(--tippziel, 44px);
+}
+.td-neu-regel {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+	gap: 0.5rem;
 }
 /* Lautstärke/Schmutz (1–5) nebeneinander, auch am Handy */
 .td-neu-stufen {

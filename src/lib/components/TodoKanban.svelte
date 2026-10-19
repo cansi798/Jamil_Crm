@@ -10,6 +10,7 @@
 		lautstaerke?: number | null;
 		schmutz?: number | null;
 		mirDirekt?: boolean;
+		serie?: { id: string; text: string; aktiv: boolean } | null;
 		auftragId: string | null;
 		auftragNummer: string | null;
 		auftragTitel: string | null;
@@ -48,7 +49,7 @@
 		zeigeAuftrag?: boolean;
 		/** „Meine To-dos“: kennzeichnen, was nur über einen Auftrag (Zuständig) hier steht. */
 		zeigeQuelle?: boolean;
-		aktionen: { umschalten: string; aendern: string; loeschen: string };
+		aktionen: { umschalten: string; aendern: string; loeschen: string; serieBeenden?: string };
 		leer?: string;
 	} = $props();
 
@@ -202,6 +203,11 @@
 							{#if todo.beschreibung}
 								<p class="karte-beschreibung">{todo.beschreibung}</p>
 							{/if}
+							{#if todo.serie}
+								<p class="karte-serie" class:beendet={!todo.serie.aktiv}>
+									{todo.serie.aktiv ? `Wiederholt sich: ${todo.serie.text}` : 'Wiederholung beendet'}
+								</p>
+							{/if}
 							{#if todo.lautstaerke || todo.schmutz}
 								<p class="karte-stufen">
 									{#if todo.lautstaerke}<span class={`stufe-${todo.lautstaerke}`}>Lautstärke: {stufeName(todo.lautstaerke)}</span>{/if}
@@ -241,6 +247,12 @@
 										</div>
 										<button type="submit" class="kd-knopf">Speichern</button>
 									</form>
+									{#if todo.serie?.aktiv && aktionen.serieBeenden}
+										<form method="POST" action={aktionen.serieBeenden} use:enhance>
+											<input type="hidden" name="id" value={todo.id} />
+											<button type="submit" class="kd-knopf hell">Wiederholung beenden</button>
+										</form>
+									{/if}
 								</details>
 							{/if}
 							<div class="karte-meta">
@@ -447,6 +459,16 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 0.4rem;
+	}
+
+	.karte-serie {
+		margin: 0 0 0.25rem;
+		font-family: var(--m365-schrift);
+		font-size: 0.75rem;
+		color: var(--m365-primaer-dunkel);
+	}
+	.karte-serie.beendet {
+		color: var(--m365-text-leise);
 	}
 
 	.karte-stufen {

@@ -76,7 +76,7 @@
 		benutzerId={data.benutzerId}
 		darfBearbeiten={data.darfBearbeiten}
 		mitarbeiter={data.mitarbeiter}
-		aktionen={{ umschalten: '?/umschalten', aendern: '?/aendern', loeschen: '?/loeschen' }}
+		aktionen={{ umschalten: '?/umschalten', aendern: '?/aendern', loeschen: '?/loeschen', serieBeenden: '?/serieBeenden' }}
 		leer={LEER[data.nur]}
 	/>
 </main>
