@@ -36,6 +36,8 @@ export type Todo = {
 	mirDirekt?: boolean;
 	/** Wiederkehrendes To-do: Serie mit Regel als Text („alle 2 Wochen“), sonst null. */
 	serie: { id: string; text: string; aktiv: boolean } | null;
+	/** Anlage (Wartung, Garantie-Erinnerung), sonst null. */
+	anlage: { id: string; bezeichnung: string } | null;
 };
 
 /** Filter (Wunsch Jamil, msg 2500): `zustaendigId` (zugewiesen an), `status` offen/erledigt – kombinierbar mit `nur`. */
@@ -124,12 +126,13 @@ function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
 const AUSWAHL = `t.id, t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
 	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am,
 	t.serie_id, s.regel as serie_regel, s.intervall as serie_intervall, to_char(s.ende, 'YYYY-MM-DD') as serie_ende,
-	s.aktiv as serie_aktiv`;
+	s.aktiv as serie_aktiv, t.anlage_id, an.bezeichnung as anlage_bezeichnung`;
 
 const VON = `app.todos t
 	left join app.auftraege a on a.id = t.auftrag_id and a.betrieb_id = t.betrieb_id
 	left join app.benutzer b on b.id = t.zustaendig_id and b.betrieb_id = t.betrieb_id
-	left join app.todo_serien s on s.id = t.serie_id and s.betrieb_id = t.betrieb_id`;
+	left join app.todo_serien s on s.id = t.serie_id and s.betrieb_id = t.betrieb_id
+	left join app.anlagen an on an.id = t.anlage_id and an.betrieb_id = t.betrieb_id`;
 
 function zuTodo(z: Record<string, any>): Todo {
 	return {
@@ -148,7 +151,8 @@ function zuTodo(z: Record<string, any>): Todo {
 		erledigtAm: z.erledigt_am === null ? null : new Date(z.erledigt_am).toISOString(),
 		serie: z.serie_id
 			? { id: z.serie_id, text: regelText(z.serie_regel, Number(z.serie_intervall), z.serie_ende ?? null), aktiv: z.serie_aktiv }
-			: null
+			: null,
+		anlage: z.anlage_id ? { id: z.anlage_id, bezeichnung: z.anlage_bezeichnung } : null
 	};
 }
 
@@ -247,7 +251,15 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 		e.wiederholung === undefined || e.wiederholung === null || e.wiederholung === ''
 			? null
 			: { regel: e.wiederholung, intervall: e.intervall, ende: e.wiederholungEnde };
+	const anlageId = e.anlageId === undefined || e.anlageId === null || e.anlageId === '' ? null : String(e.anlageId).trim().toLowerCase();
+	if (anlageId !== null && !UUID.test(anlageId)) {
+		throw new ApiFehler(400, 'Die Anlage wurde nicht gefunden.');
+	}
 	return mitBetrieb(k, async (tx) => {
+		if (anlageId !== null) {
+			const [an] = await tx`select 1 from app.anlagen where id = ${anlageId} and betrieb_id = ${k.betriebId} for key share`;
+			if (!an) throw new ApiFehler(400, 'Die Anlage wurde nicht gefunden.');
+		}
 		if (w.auftragId !== null) {
 			const [a] = await tx`
 				select 1 from app.auftraege a
@@ -267,9 +279,9 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 			serieId = s.id;
 		}
 		const [z] = await tx`
-			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz, serie_id)
+			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz, serie_id, anlage_id)
 			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${faellig},
-				${w.lautstaerke}, ${w.schmutz}, ${serieId})
+				${w.lautstaerke}, ${w.schmutz}, ${serieId}, ${anlageId})
 			returning id`;
 		return ladeEines(tx, k, ALLE(k), z.id);
 	});
@@ -435,7 +447,7 @@ function regelOder400(e: { regel: unknown; intervall: unknown; ende: unknown }, 
  */
 async function naechsteInstanz(tx: TransactionSql, k: Kontext, todoId: string): Promise<void> {
 	const [t] = await tx`
-		select t.titel, t.beschreibung, t.auftrag_id, t.zustaendig_id, t.lautstaerke, t.schmutz, t.serie_id,
+		select t.titel, t.beschreibung, t.auftrag_id, t.zustaendig_id, t.lautstaerke, t.schmutz, t.serie_id, t.anlage_id,
 			to_char(t.faellig, 'YYYY-MM-DD') as faellig, s.regel, s.intervall, to_char(s.start_tag, 'YYYY-MM-DD') as start_tag,
 			to_char(s.ende, 'YYYY-MM-DD') as ende, s.aktiv
 		from app.todos t join app.todo_serien s on s.id = t.serie_id and s.betrieb_id = t.betrieb_id
@@ -453,9 +465,9 @@ async function naechsteInstanz(tx: TransactionSql, k: Kontext, todoId: string): 
 		? await tx`select 1 from app.benutzer where id = ${t.zustaendig_id} and betrieb_id = ${k.betriebId} and aktiv`
 		: [];
 	await tx`
-		insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz, serie_id)
+		insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz, serie_id, anlage_id)
 		values (${k.betriebId}, ${t.auftrag_id}, ${t.titel}, ${t.beschreibung}, ${aktiv ? t.zustaendig_id : null}, ${naechster},
-			${t.lautstaerke}, ${t.schmutz}, ${t.serie_id})`;
+			${t.lautstaerke}, ${t.schmutz}, ${t.serie_id}, ${t.anlage_id})`;
 }
 
 /** Serie eines To-dos beenden (keine neuen Instanzen mehr; bestehende bleiben). Nicht sichtbar → 404. */

@@ -43,6 +43,14 @@ const TYPEN: Record<string, (b: Uint8Array) => boolean> = {
 
 export const KUNDEN_DATEI_TYPEN = Object.keys(TYPEN);
 
+/** Leer, unerlaubter Typ oder Inhalt passt nicht zum Typ → 400 (auch für Anlagen-Dateien). */
+export function pruefeDateiInhalt(typ: string, inhalt: Uint8Array): void {
+	if (inhalt.byteLength === 0) throw new ApiFehler(400, 'Die Datei ist leer.');
+	const pruefe = TYPEN[typ];
+	if (!pruefe) throw new ApiFehler(400, 'Dieser Dateityp ist nicht erlaubt (PDF, Bilder, Word, Excel).');
+	if (!pruefe(inhalt)) throw new ApiFehler(400, 'Der Inhalt der Datei passt nicht zum Dateityp.');
+}
+
 const nichtGefunden = (was = 'Kunde') => new ApiFehler(404, `${was} nicht gefunden.`);
 
 function idFeld(id: unknown, was: string): string {
@@ -134,10 +142,7 @@ export async function speichereKundenDatei(
 ): Promise<KundenDatei> {
 	const kid = idFeld(kundeId, 'Kunde');
 	if (e.inhalt.byteLength > KUNDEN_DATEI_MAX) throw new ApiFehler(413, 'Die Datei ist zu groß (höchstens 5 MB).');
-	if (e.inhalt.byteLength === 0) throw new ApiFehler(400, 'Die Datei ist leer.');
-	const pruefe = TYPEN[e.typ];
-	if (!pruefe) throw new ApiFehler(400, 'Dieser Dateityp ist nicht erlaubt (PDF, Bilder, Word, Excel).');
-	if (!pruefe(e.inhalt)) throw new ApiFehler(400, 'Der Inhalt der Datei passt nicht zum Dateityp.');
+	pruefeDateiInhalt(e.typ, e.inhalt);
 	const name = bereinigeDateiname(e.name);
 	const beschreibung = textFeld(e.beschreibung, 'Beschreibung', 500);
 	return mitBetrieb(k, async (tx) => {

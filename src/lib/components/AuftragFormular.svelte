@@ -22,6 +22,7 @@
 		todosZusaetzlich = false,
 		mitarbeiter = [],
 		zustaendige = [],
+		anlage = null,
 		fehler = null,
 		knopf,
 		abbrechen
@@ -37,6 +38,8 @@
 		/** Aktive Mitarbeiter zur Auswahl „Zuständig“ und die schon gewählten IDs. */
 		mitarbeiter?: { id: string; name: string }[];
 		zustaendige?: string[];
+		/** Neuer Auftrag von einer Anlage aus („+ Auftrag zu dieser Anlage“) – gilt, solange ihr Objekt gewählt ist. */
+		anlage?: { id: string; bezeichnung: string; typName: string; objektId: string } | null;
 		fehler?: string | null;
 		knopf: string;
 		abbrechen: string;
@@ -255,6 +258,10 @@
 				{/each}
 			</select>
 		</label>
+		{#if anlage && objektWert === anlage.objektId}
+			<input type="hidden" name="anlageId" value={anlage.id} />
+			<p class="kd-info">Anlage: <strong>{anlage.bezeichnung}</strong> ({anlage.typName})</p>
+		{/if}
 	{/if}
 
 	{#if mitarbeiter.length > 0}

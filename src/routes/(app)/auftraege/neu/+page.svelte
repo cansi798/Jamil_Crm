@@ -17,12 +17,13 @@
 	<h1>Neuer Auftrag</h1>
 	<AuftragFormular
 		aktion="?/anlegen"
-		werte={form?.werte ?? { ...data.vorbelegt, objektId: data.objekte.length === 1 ? data.objekte[0].id : '' }}
+		werte={form?.werte ?? { ...data.vorbelegt, objektId: data.vorbelegt.objektId ?? (data.objekte.length === 1 ? data.objekte[0].id : '') }}
 		kunde={auswahl.kunde}
 		objekte={auswahl.objekte}
 		kundenSuche={data.kundenSuche}
 		mitarbeiter={data.mitarbeiter}
 		zustaendige={form?.zustaendige ?? []}
+		anlage={data.anlage}
 		vorlagen={data.vorlagen}
 		fehler={form?.fehler ?? null}
 		knopf="Auftrag anlegen"

@@ -46,6 +46,9 @@ export type Auftrag = {
 	telefon: string | null;
 	objektId: string | null;
 	objektBezeichnung: string | null;
+	/** Anlage am Objekt (z. B. Wärmepumpe), für die der Auftrag ist – optional. */
+	anlageId: string | null;
+	anlageBezeichnung: string | null;
 	/** Einsatzort: Adresse des Objekts, sonst die Adresse des Kunden (Standard), sonst null. */
 	adresse: string | null;
 	adresseVonObjekt: boolean;
@@ -72,6 +75,7 @@ export type AuftragWerte = {
 	kundeId: string | null;
 	einmal: EinmalKunde | null;
 	objektId: string | null;
+	anlageId: string | null;
 	beschreibung: string | null;
 	geplantAb: string | null;
 };
@@ -85,12 +89,12 @@ export const MAX_ZUSTAENDIGE = 20;
 
 /** Felder, die beim Anlegen/Ändern angenommen werden (Formular und JSON). Status/Nummer gehören nicht dazu. */
 export const EINMAL_FELDER = ['einmalName', 'einmalTelefon', 'einmalEmail', 'einmalStrasse', 'einmalPlz', 'einmalOrt'] as const;
-export const AUFTRAG_FELDER = ['titel', 'kundeArt', 'kundeId', 'objektId', 'beschreibung', 'geplantAb', ...EINMAL_FELDER] as const;
+export const AUFTRAG_FELDER = ['titel', 'kundeArt', 'kundeId', 'objektId', 'anlageId', 'beschreibung', 'geplantAb', ...EINMAL_FELDER] as const;
 /**
  * Felder der Auftrags-Formulare: ohne „Geplant ab“ (Wunsch Jamil, msgs 2525/2526 – dafür gibt es Termine). Die Spalte
  * bleibt (keine Daten verlieren); das Formular schickt das Feld nicht mehr, damit es beim Speichern nicht geleert wird.
  */
-export const AUFTRAG_FORM_FELDER = AUFTRAG_FELDER.filter((f) => f !== 'geplantAb');
+export const AUFTRAG_FORM_FELDER = AUFTRAG_FELDER.filter((f) => f !== 'geplantAb' && f !== 'anlageId');
 
 const nichtGefunden = () => new ApiFehler(404, 'Auftrag nicht gefunden.');
 
@@ -142,13 +146,15 @@ export function pruefeAuftragEingabe(e: Record<string, unknown>): AuftragWerte {
 	}
 	const objektId = idFeld(e.objektId, 'Das Objekt ist ungültig.');
 	if (objektId !== null && kundeId === null) throw new ApiFehler(400, 'Ein Objekt gibt es nur mit einem Kunden aus der Kundendatenbank.');
+	const anlageId = idFeld(e.anlageId, 'Die Anlage ist ungültig.');
+	if (anlageId !== null && objektId === null) throw new ApiFehler(400, 'Eine Anlage gibt es nur mit einem Objekt.');
 	const beschreibung = textFeld(e.beschreibung, 'Beschreibung', 4000);
 	let geplantAb: string | null = null;
 	if (e.geplantAb !== undefined && e.geplantAb !== null && e.geplantAb !== '') {
 		if (!istTag(e.geplantAb)) throw new ApiFehler(400, 'Das Datum „Geplant ab“ ist ungültig.');
 		geplantAb = e.geplantAb;
 	}
-	return { titel, kundeArt: kundeArt as KundenArt, kundeId, einmal, objektId, beschreibung, geplantAb };
+	return { titel, kundeArt: kundeArt as KundenArt, kundeId, einmal, objektId, anlageId, beschreibung, geplantAb };
 }
 
 /** Prüft einen Statusfilter bzw. Zielstatus (400 bei unbekanntem Wert). */
@@ -179,7 +185,7 @@ export function sichtbar(tx: TransactionSql, sicht: Sicht) {
 	)`;
 }
 
-export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.status, a.beschreibung,
+export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anlage_id, an.bezeichnung as anlage_bezeichnung, a.status, a.beschreibung,
 	to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab, a.angelegt, a.geaendert,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
@@ -194,7 +200,8 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.stat
 
 export const VON = `app.auftraege a
 	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
-	left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id`;
+	left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id
+	left join app.anlagen an on an.id = a.anlage_id and an.betrieb_id = a.betrieb_id`;
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
 
@@ -236,6 +243,8 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 		telefon: z.kunde_telefon ?? z.einmal_telefon ?? null,
 		objektId: z.objekt_id,
 		objektBezeichnung: z.objekt_bezeichnung ?? null,
+		anlageId: z.anlage_id ?? null,
+		anlageBezeichnung: z.anlage_bezeichnung ?? null,
 		adresse: ortAus(z),
 		adresseVonObjekt: objektAdresse !== null,
 		zustaendige: typeof z.zustaendige === 'string' ? JSON.parse(z.zustaendige) : (z.zustaendige ?? []),
@@ -331,6 +340,12 @@ async function pruefeBezuege(tx: TransactionSql, k: Kontext, w: AuftragWerte): P
 			where id = ${w.objektId} and kunde_id = ${w.kundeId} and betrieb_id = ${k.betriebId} for key share`;
 		if (!objekt) throw new ApiFehler(400, 'Das Objekt gehört nicht zu diesem Kunden.');
 	}
+	if (w.anlageId !== null) {
+		const [anlage] = await tx`
+			select id from app.anlagen
+			where id = ${w.anlageId} and objekt_id = ${w.objektId} and betrieb_id = ${k.betriebId} for key share`;
+		if (!anlage) throw new ApiFehler(400, 'Die Anlage gehört nicht zu diesem Objekt.');
+	}
 }
 
 const ALLE: (benutzerId: string) => Sicht = (benutzerId) => ({ alle: true, benutzerId });
@@ -374,9 +389,9 @@ export async function legeAuftragAn(k: Kontext, e: Record<string, unknown>): Pro
 	return mitBetrieb(k, async (tx) => {
 		await pruefeBezuege(tx, k, w);
 		const [z] = await tx`
-			insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, beschreibung, geplant_ab,
+			insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, anlage_id, beschreibung, geplant_ab,
 				einmal_name, einmal_telefon, einmal_email, einmal_strasse, einmal_plz, einmal_ort)
-			values (${k.betriebId}, ${w.titel}, ${w.kundeId}, ${w.objektId}, ${w.beschreibung}, ${w.geplantAb},
+			values (${k.betriebId}, ${w.titel}, ${w.kundeId}, ${w.objektId}, ${w.anlageId}, ${w.beschreibung}, ${w.geplantAb},
 				${w.einmal?.name ?? null}, ${w.einmal?.telefon ?? null}, ${w.einmal?.email ?? null}, ${w.einmal?.strasse ?? null},
 				${w.einmal?.plz ?? null}, ${w.einmal?.ort ?? null})
 			returning id`;
@@ -403,7 +418,7 @@ export async function aendereAuftrag(
 	const zustaendige = mitZustaendigen ? pruefeZustaendigeEingabe(e.zustaendige) : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select a.titel, a.kunde_id, a.objekt_id, a.beschreibung, to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab,
+			select a.titel, a.kunde_id, a.objekt_id, a.anlage_id, a.beschreibung, to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab,
 				a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort
 			from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
@@ -419,6 +434,7 @@ export async function aendereAuftrag(
 			einmalOrt: alt.einmal_ort,
 			kundeId: alt.kunde_id,
 			objektId: alt.objekt_id,
+			anlageId: alt.anlage_id,
 			beschreibung: alt.beschreibung,
 			geplantAb: alt.geplant_ab
 		};
@@ -427,10 +443,13 @@ export async function aendereAuftrag(
 		const zielKunde = neu.kundeArt === 'kunde' || neu.kundeArt === undefined || neu.kundeArt === '' ? neu.kundeId : null;
 		const kundeNeu = (typeof zielKunde === 'string' ? zielKunde.trim().toLowerCase() : null) !== alt.kunde_id;
 		if (kundeNeu && !felder.includes('objektId')) neu.objektId = null;
+		// Anderes Objekt und keine Anlage angegeben → bisherige Anlage entfällt (sie gehört zum alten Objekt)
+		const zielObjekt = typeof neu.objektId === 'string' && neu.objektId !== '' ? neu.objektId.trim().toLowerCase() : null;
+		if (zielObjekt !== alt.objekt_id && !felder.includes('anlageId')) neu.anlageId = null;
 		const w = pruefeAuftragEingabe(neu);
 		await pruefeBezuege(tx, k, w);
 		await tx`
-			update app.auftraege set titel = ${w.titel}, kunde_id = ${w.kundeId}, objekt_id = ${w.objektId},
+			update app.auftraege set titel = ${w.titel}, kunde_id = ${w.kundeId}, objekt_id = ${w.objektId}, anlage_id = ${w.anlageId},
 				beschreibung = ${w.beschreibung}, geplant_ab = ${w.geplantAb},
 				einmal_name = ${w.einmal?.name ?? null}, einmal_telefon = ${w.einmal?.telefon ?? null},
 				einmal_email = ${w.einmal?.email ?? null}, einmal_strasse = ${w.einmal?.strasse ?? null},

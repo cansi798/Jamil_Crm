@@ -121,6 +121,26 @@
 					</span>
 				{/if}
 			</dd>
+			{#if a.anlageId || (data.darfBearbeiten && data.anlagen.length > 0)}
+				<dt>Anlage</dt>
+				<dd class="af-objekt">
+					{#if data.darfBearbeiten && data.anlagen.length > 0}
+						<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
+							<select name="anlageId" aria-label="Anlage" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+								<option value="" selected={!a.anlageId}>– keine Anlage –</option>
+								{#each data.anlagen as an (an.id)}
+									<option value={an.id} selected={an.id === a.anlageId}>{an.bezeichnung} ({an.typName})</option>
+								{/each}
+							</select>
+						</form>
+					{:else}
+						<strong>{a.anlageBezeichnung}</strong>
+					{/if}
+					{#if a.anlageId && data.kundeLesbar}
+						<a href={`/anlagen/${a.anlageId}`}>Anlage öffnen (Verlauf, QR)</a>
+					{/if}
+				</dd>
+			{/if}
 			{#if navigationsLink(a.adresse) || telefonLink(a.telefon)}
 				<dt class="kd-unsichtbar">Vor Ort</dt>
 				<dd class="af-vorort">

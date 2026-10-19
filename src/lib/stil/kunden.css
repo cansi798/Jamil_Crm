@@ -298,3 +298,126 @@
 		min-width: 14rem;
 	}
 }
+
+/* Anlagen an Objekten (Wünsche Jamil, msgs 2503/2505) */
+.an-liste {
+	margin: 1rem 0 2rem;
+}
+.an-kopf {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem 1rem;
+}
+.an-kopf h2 {
+	margin: 0;
+}
+.kd-liste a.an-eintrag {
+	display: grid;
+	gap: 0.15rem;
+}
+.an-stoerung {
+	justify-self: start;
+	padding: 0.1rem 0.5rem;
+	border-radius: 999px;
+	background: var(--m365-fehler);
+	color: #fff;
+	font-size: 0.8125rem;
+	font-weight: 600;
+}
+.an-neu {
+	margin-top: 0.75rem;
+}
+.an-neu > summary {
+	display: inline-flex;
+	list-style: none;
+	cursor: pointer;
+}
+.an-neu > summary::-webkit-details-marker {
+	display: none;
+}
+.an-neu[open] > summary {
+	margin-bottom: 1rem;
+}
+.an-abschnitt {
+	margin: 1.5rem 0;
+}
+.an-abschnitt h2 {
+	font-size: 1.125rem;
+	margin: 0 0 0.5rem;
+}
+.an-qr {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	align-items: center;
+}
+.an-qr img {
+	width: 8rem;
+	height: 8rem;
+	image-rendering: pixelated;
+	border: 1px solid var(--m365-rand);
+	border-radius: var(--m365-radius);
+	background: #fff;
+}
+.an-qr .kd-aktionen {
+	display: flex;
+	flex-wrap: wrap;
+}
+.an-verlauf {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: 0.5rem;
+}
+.an-verlauf li {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 0.25rem 1rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--m365-rand);
+	border-radius: var(--m365-radius);
+	background: var(--m365-flaeche);
+}
+.an-verlauf .erledigt {
+	color: var(--m365-text-leise);
+	text-decoration: line-through;
+}
+.an-zeile-formular {
+	display: inline;
+}
+.an-schnell {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 0.5rem;
+	margin: 1rem 0;
+}
+.an-schnell > details {
+	flex: 1 1 100%;
+	margin: 0;
+}
+.an-schnell > details:not([open]) {
+	flex: 0 0 auto;
+}
+.kd-knopf.klein {
+	min-height: 2rem;
+	padding: 0.1rem 0.6rem;
+	font-size: 0.8125rem;
+	margin-left: 0.5rem;
+}
+.an-notiz {
+	white-space: pre-wrap;
+}
+.an-abschnitt h3 {
+	font-size: 1rem;
+	margin: 1rem 0 0.5rem;
+}
+@media (min-width: 40rem) {
+	.an-zwei-spalten {
+		grid-template-columns: 1fr 1fr;
+	}
+}
