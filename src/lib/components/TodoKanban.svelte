@@ -75,6 +75,8 @@
 	function pointerDown(e: PointerEvent, todoId: string, spalteId: string) {
 		if (!darfBearbeiten) return;
 		if (e.button !== 0) return; // nur linke Maustaste / Touch
+		// In Formularfeldern und Knöpfen der Karte (z. B. „Bearbeiten“) nie ziehen
+		if ((e.target as Element).closest('input, select, textarea, button, summary, a, label, form')) return;
 		dragTodoId = todoId;
 		dragStartX = e.clientX;
 		dragStartY = e.clientY;
@@ -203,6 +205,36 @@
 							{/if}
 							{#if zeigeAuftrag && todo.auftragNummer}
 								<p class="karte-auftrag">{todo.auftragNummer}</p>
+							{/if}
+							{#if darfBearbeiten}
+								<details class="karte-bearbeiten">
+									<summary>Bearbeiten</summary>
+									<form method="POST" action={aktionen.aendern} use:enhance class="karte-formular">
+										<input type="hidden" name="id" value={todo.id} />
+										<label>Titel <input type="text" name="titel" maxlength="200" required value={todo.titel} /></label>
+										<label>
+											Beschreibung
+											<textarea name="beschreibung" maxlength="500" rows="2">{todo.beschreibung ?? ''}</textarea>
+										</label>
+										<div class="karte-zwei">
+											<label>
+												Lautstärke
+												<select name="lautstaerke">
+													<option value="" selected={!todo.lautstaerke}>–</option>
+													{#each [1, 2, 3, 4, 5] as n (n)}<option value={String(n)} selected={todo.lautstaerke === n}>{n}</option>{/each}
+												</select>
+											</label>
+											<label>
+												Schmutz
+												<select name="schmutz">
+													<option value="" selected={!todo.schmutz}>–</option>
+													{#each [1, 2, 3, 4, 5] as n (n)}<option value={String(n)} selected={todo.schmutz === n}>{n}</option>{/each}
+												</select>
+											</label>
+										</div>
+										<button type="submit" class="kd-knopf">Speichern</button>
+									</form>
+								</details>
 							{/if}
 							<div class="karte-meta">
 								{#if todo.zustaendigName}
@@ -377,6 +409,37 @@
 		color: var(--m365-text-leise);
 		white-space: pre-line;
 		overflow-wrap: anywhere;
+	}
+
+	.karte-bearbeiten summary {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--tippziel, 44px);
+		font-family: var(--m365-schrift);
+		font-size: 0.75rem;
+		color: var(--m365-primaer);
+		cursor: pointer;
+	}
+	.karte-formular {
+		display: grid;
+		gap: 0.4rem;
+		margin-bottom: 0.5rem;
+		font-size: 0.8125rem;
+	}
+	.karte-formular label {
+		display: grid;
+		gap: 0.15rem;
+	}
+	.karte-formular input,
+	.karte-formular select,
+	.karte-formular textarea {
+		min-height: 2.25rem;
+		font: inherit;
+	}
+	.karte-zwei {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.4rem;
 	}
 
 	.karte-stufen {

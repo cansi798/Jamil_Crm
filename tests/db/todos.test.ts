@@ -431,6 +431,17 @@ describe('To-dos', () => {
 		).toBeUndefined();
 		const [z] = await root`select lautstaerke, schmutz from app.todos where titel = 'Fliesen abschlagen'`;
 		expect(z).toEqual({ lautstaerke: 4, schmutz: 5 });
+		// Karte „Bearbeiten“: Stufen ändern/leeren über die Aktion „aendern“
+		const [{ id: tid }] = await root`select id from app.todos where titel = 'Fliesen abschlagen'`;
+		expect(
+			await auftragAktionen.todoAendern({
+				locals: { nutzer: chefA },
+				params: { id: auftragA },
+				request: formAnfrage({ id: tid, titel: 'Fliesen abschlagen', beschreibung: 'mit Staubschutz', lautstaerke: '2', schmutz: '' })
+			} as never)
+		).toBeUndefined();
+		const [z2] = await root`select lautstaerke, schmutz, beschreibung from app.todos where id = ${tid}`;
+		expect(z2).toEqual({ lautstaerke: 2, schmutz: null, beschreibung: 'mit Staubschutz' });
 	});
 
 	it('legeTodosAn: mehrere To-dos in Reihenfolge mit Beschreibung; ungültiges → keins angelegt; unsichtbarer Auftrag → 400', async () => {

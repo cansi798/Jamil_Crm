@@ -79,6 +79,14 @@ test('Auftrags-To-do mit Lautstärke und Schmutz', async ({ page }, info) => {
 		const karte = page.locator('.kanban-karte', { hasText: 'Fliesen abschlagen' });
 		await expect(karte.getByText('Lautstärke 5/5')).toBeVisible();
 		await expect(karte.getByText('Schmutz 4/5')).toBeVisible();
+		// nachträglich ändern über „Bearbeiten“ auf der Karte
+		await karte.getByText('Bearbeiten').click();
+		await karte.locator('select[name="lautstaerke"]').selectOption('2');
+		await karte.locator('select[name="schmutz"]').selectOption('');
+		await karte.getByRole('button', { name: 'Speichern' }).click();
+		const neu = page.locator('.kanban-karte', { hasText: 'Fliesen abschlagen' });
+		await expect(neu.getByText('Lautstärke 2/5')).toBeVisible();
+		await expect(neu.getByText(/Schmutz \d\/5/)).toHaveCount(0);
 	} finally {
 		await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`);
 	}
