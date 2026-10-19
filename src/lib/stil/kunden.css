@@ -116,11 +116,28 @@
 .kd-seite textarea {
 	min-height: 6rem;
 }
-.kd-seite input[type='radio'] {
+.kd-seite input[type='radio'],
+.kd-seite input[type='checkbox'] {
+	/* nie auf volle Breite/Tippzielhöhe strecken (sonst riesige leere Kästchen, Jamil msg 2557) */
+	flex: 0 0 auto;
 	width: 1.25rem;
+	min-width: 1.25rem;
 	min-height: 1.25rem;
 	height: 1.25rem;
+	padding: 0;
 	margin: 0;
+	accent-color: var(--m365-primaer);
+}
+/* Häkchen mit Beschriftung daneben (auch in .kd-formular, wo Labels sonst untereinander stehen) */
+.kd-seite label.kd-haken,
+.kd-formular label.kd-haken,
+.kd-formular label.ki-zustimmung {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	min-height: var(--tippziel, 44px);
+	font-weight: 600;
+	cursor: pointer;
 }
 .kd-liste {
 	list-style: none;

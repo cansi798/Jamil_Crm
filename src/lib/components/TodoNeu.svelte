@@ -68,9 +68,9 @@
 		</div>
 	{/if}
 	<div class="td-neu-wiederholung">
-		<label class="td-haken">
+		<label class="kd-haken">
 			<input type="checkbox" bind:checked={wiederholen} />
-			Wiederholen (z. B. Wartung)
+			<span>Wiederkehrend (z. B. Wartung)</span>
 		</label>
 		{#if wiederholen}
 			<div class="td-neu-regel">

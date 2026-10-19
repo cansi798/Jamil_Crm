@@ -281,12 +281,6 @@
 	display: grid;
 	gap: 0.4rem;
 }
-.td-haken {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.5rem;
-	min-height: var(--tippziel, 44px);
-}
 .td-neu-regel {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));

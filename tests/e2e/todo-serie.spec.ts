@@ -28,7 +28,16 @@ test('Wartung als wiederkehrendes To-do: anlegen, abhaken → nächstes, Wiederh
 		await page.goto(`/auftraege/${auftrag.id}`);
 		const f = page.locator('form.td-neu');
 		await f.getByLabel('Neues To-do').fill('Heizung warten');
-		await f.getByRole('checkbox', { name: /Wiederholen/ }).check();
+		const haken = f.getByRole('checkbox', { name: /Wiederkehrend/ });
+		// normale Größe, nicht als riesiges Kästchen gestreckt (Jamil msg 2557)
+		const box = (await haken.boundingBox())!;
+		expect(box.width).toBeLessThan(30);
+		expect(box.height).toBeLessThan(30);
+		// Beschriftung neben dem Häkchen in einer Zeile, nicht Buchstabe für Buchstabe umbrochen (msg 2559)
+		const zeile = (await f.locator('label.kd-haken').boundingBox())!;
+		expect(zeile.height).toBeLessThan(60);
+		expect(zeile.width).toBeGreaterThan(200);
+		await haken.check();
 		await f.locator('select[name="wiederholung"]').selectOption('woechentlich');
 		await f.locator('input[name="intervall"]').fill('2');
 		await f.getByRole('button', { name: '+ To-do' }).click();
