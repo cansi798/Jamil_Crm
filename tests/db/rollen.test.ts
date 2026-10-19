@@ -21,7 +21,7 @@ describe('Migrationen und DB-Rollen', () => {
 		expect(angewendet).toEqual([...angewendet].sort());
 		expect(await migrate(url)).toEqual([]);
 		expect(await migrate(url)).toEqual([]);
-	});
+	}, 20_000); // alle Migrationen auf leerer DB – wächst mit jeder Migration, unter Last über 5 s
 
 	it('migrate ist auf der frischen Test-DB bereits durch (keine weiteren Anwendungen)', async () => {
 		expect(await migrate(db.urlSuper)).toEqual([]);
