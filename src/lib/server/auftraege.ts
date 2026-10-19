@@ -42,6 +42,8 @@ export type Auftrag = {
 	/** Anzeigename: Kunde, Einmal-Kunde oder „Ohne Kunde“. */
 	kundeName: string;
 	einmalKunde: EinmalKunde | null;
+	/** Telefon für „Anrufen“: Kunde bzw. Einmal-Kunde (Objekte haben keine eigene Nummer). */
+	telefon: string | null;
 	objektId: string | null;
 	objektBezeichnung: string | null;
 	/** Einsatzort: Adresse des Objekts, sonst die Adresse des Kunden (Standard), sonst null. */
@@ -181,7 +183,7 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.stat
 	to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab, a.angelegt, a.geaendert,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
-	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
+	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, k.telefon as kunde_telefon,
 	a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort,
 	(select coalesce(json_agg(json_build_object('id', b.id, 'name', b.name) order by public.unaccent(lower(b.name)), b.id), '[]')
 		from app.auftrag_zustaendige z join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
@@ -231,6 +233,7 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 		einmalKunde: z.einmal_name
 			? { name: z.einmal_name, telefon: z.einmal_telefon, email: z.einmal_email, strasse: z.einmal_strasse, plz: z.einmal_plz, ort: z.einmal_ort }
 			: null,
+		telefon: z.kunde_telefon ?? z.einmal_telefon ?? null,
 		objektId: z.objekt_id,
 		objektBezeichnung: z.objekt_bezeichnung ?? null,
 		adresse: ortAus(z),

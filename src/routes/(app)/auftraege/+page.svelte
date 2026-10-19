@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { terminKurz } from '$lib/einsatz-art';
+	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
 	import AuftragBoard from '$lib/components/AuftragBoard.svelte';
 	import { STATUS, STATUS_NAMEN } from '$lib/auftrag-status';
 	import type { PageData } from './$types';
@@ -109,6 +110,12 @@
 							<span class="kd-info">{a.objektBezeichnung ? `Objekt: ${a.objektBezeichnung}` : 'Kundenadresse'}{a.adresse ? ` · ${a.adresse}` : ''}</span>
 						{/if}
 					</a>
+					{#if navigationsLink(a.adresse) || telefonLink(a.telefon)}
+						<span class="af-liste-vorort">
+							{#if navigationsLink(a.adresse)}<a href={navigationsLink(a.adresse)} target="_blank" rel="noopener">Navigieren</a>{/if}
+							{#if telefonLink(a.telefon)}<a href={telefonLink(a.telefon)}>Anrufen</a>{/if}
+						</span>
+					{/if}
 				</li>
 			{:else}
 				<li class="kd-leer">
@@ -143,6 +150,17 @@
 		background: var(--m365-primaer);
 		border-color: var(--m365-primaer);
 		color: #fff;
+	}
+	.af-liste-vorort {
+		display: flex;
+		gap: 1rem;
+		padding: 0 1rem 0.75rem;
+	}
+	.af-liste-vorort a {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--tippziel, 44px);
+		font-weight: 600;
 	}
 	.af-bezug {
 		display: flex;

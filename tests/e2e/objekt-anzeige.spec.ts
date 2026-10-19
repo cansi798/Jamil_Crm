@@ -59,6 +59,11 @@ test('Objekt mit Kundenadresse vorbelegt; Auftrag zeigt Objekt und Adresse über
 		const objekt = page.locator('dd.af-objekt');
 		await expect(objekt).toContainText('Ferienhaus');
 		await expect(objekt).toContainText('Dünenweg 1, 25980 Sylt');
+		// Monteur vor Ort: Route zur Objektadresse (Wunsch Jamil, msg 2549)
+		await expect(page.getByRole('link', { name: 'Navigieren' }).first()).toHaveAttribute(
+			'href',
+			'https://www.google.com/maps/dir/?api=1&destination=D%C3%BCnenweg%201%2C%2025980%20Sylt'
+		);
 
 		// 4. Kundenseite und Auftragsliste zeigen das Objekt
 		await page.goto(`/kunden/${kunde.id}`);

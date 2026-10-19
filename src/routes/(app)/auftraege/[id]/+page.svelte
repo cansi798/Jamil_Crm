@@ -10,6 +10,7 @@
 	import { euro } from '$lib/geld';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
 	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN, terminKurz } from '$lib/einsatz-art';
+	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -120,6 +121,23 @@
 					</span>
 				{/if}
 			</dd>
+			{#if navigationsLink(a.adresse) || telefonLink(a.telefon)}
+				<dt class="kd-unsichtbar">Vor Ort</dt>
+				<dd class="af-vorort">
+					{#if navigationsLink(a.adresse)}
+						<a class="af-vorort-knopf" href={navigationsLink(a.adresse)} target="_blank" rel="noopener">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z" /></svg>
+							Navigieren
+						</a>
+					{/if}
+					{#if telefonLink(a.telefon)}
+						<a class="af-vorort-knopf" href={telefonLink(a.telefon)}>
+							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1Z" /></svg>
+							Anrufen
+						</a>
+					{/if}
+				</dd>
+			{/if}
 			<dt>Nächster Termin</dt>
 			<dd>
 				{#if a.kommenderTermin}
@@ -446,6 +464,35 @@
 	.af-haken-zeile input {
 		width: 1.25rem;
 		height: 1.25rem;
+	}
+	.af-vorort {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+	.af-vorort-knopf {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		min-height: var(--tippziel, 44px);
+		padding: 0 1rem;
+		border-radius: var(--m365-radius);
+		background: var(--m365-primaer);
+		color: #fff;
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.af-vorort-knopf svg {
+		width: 1.2rem;
+		height: 1.2rem;
+		fill: currentColor;
+	}
+	:global(.kd-unsichtbar) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
 	}
 	.af-objekt {
 		display: grid;
