@@ -174,8 +174,8 @@ code { font-family: Consolas, monospace; font-size: 9pt; background: #f1f3f5; pa
   <li><b>Alle Mail-Vorlagen als HTML bearbeitbar</b> (ausgehende Mails, bestätigt msg 2588) mit Platzhaltern wie {{kunde.name}}, {{angebot.nummer}}, {{betrag}}, {{faellig_am}}, {{link}}, Vorschau mit Beispieldaten und Klartext-Fassung.</li>
   <li><b>Firmensignatur</b> einmal zentral (HTML), wird automatisch in alle Vorlagen eingefügt.</li>
   <li>Nur Chef/Admin. Jede versendete Erinnerung steht im Verlauf des Dokuments.</li>
-  <li><b>Mail-Konto je Betrieb</b> (msg 2588) unter Einstellungen → E-Mail, nur Chef/Admin: SMTP-Server, Port, Verschlüsselung, Benutzer, Passwort, Absendername/-adresse, Antwort-an. Voreinstellungen für IONOS, Strato, Microsoft 365, Gmail/Google Workspace, Telekom, all-inkl. Knopf „Testmail senden“. Passwort verschlüsselt gespeichert und nie an den Browser zurückgegeben. Anmeldung per OAuth (Microsoft 365/Google) später. Damit ist kein zentraler Anbieter nötig – Phase 5 ist nicht mehr blockiert.</li>
-  <li>Vorlagen und Einstellungen können vor der Postfach-Anbindung gebaut werden; Versand bleibt gesperrt, bis die SMTP-Daten vorliegen. Umsetzung nach der aktuellen Warteschlange (Wiederkehrende To-dos, Anlagen + QR, Plantafel, Kalkulation v2).</li>
+  <li><b>Anbindung offen (Jamil 2589):</b> Wie das Postfach angebunden wird, entscheidet sich später (je Betrieb; SMTP-Einstellungen mit Voreinstellungen wurden kurz erwogen – msg 2588 – und vorerst zurückgestellt). Bis dahin wird keine Einstellungsseite für das Mail-Konto gebaut; der Versand bleibt unverbunden.</li>
+  <li>Vorlagen, Signatur und Nachfass-Abstände können vor der Postfach-Anbindung gebaut werden; Versand bleibt unverbunden, bis die Anbindung geklärt ist. Umsetzung nach der aktuellen Warteschlange (Wiederkehrende To-dos, Anlagen + QR, Plantafel, Kalkulation v2).</li>
 </ul>
 
 <div class="go"><b>Freigabe:</b> Wenn du einverstanden bist, schreib im Raum „CRM System“ <b>„Go“</b> (gern mit deinen Entscheidungen zu 9.1 und 9.2, z. B. „Go, 9.1 a, 9.2 a“). Danach hole ich Jamils Erlaubnis ein und beginne mit Stufe 1 in der Sandbox. Über den Fortschritt berichte ich im Raum.</div>
