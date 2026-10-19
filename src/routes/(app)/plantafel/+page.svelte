@@ -76,10 +76,12 @@
 </svelte:head>
 
 <main class="kd-seite breit pt-seite">
-	<div class="pt-kopfzeile">
-		<h1>Plantafel</h1>
-		<p class="kd-info">KW {kalenderwoche(tage[0])} · {zeitraum}</p>
-	</div>
+	<header class="seiten-kopf pt-kopfzeile">
+		<div>
+			<h1>Plantafel</h1>
+			<p class="seiten-meta">KW {kalenderwoche(tage[0])} · {zeitraum}</p>
+		</div>
+	</header>
 
 	<nav class="pt-wochen" aria-label="Woche wählen">
 		<a href={`/plantafel?tag=${tagPlus(tage[0], -7)}`} class="kd-knopf hell">← Woche zurück</a>

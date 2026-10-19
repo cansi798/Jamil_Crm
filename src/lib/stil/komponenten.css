@@ -528,6 +528,10 @@ html .kd-seite h1 {
 html .kd-seite .seiten-kopf h1 {
 	margin: 0;
 }
+/* Titel im Kopfband: Seitenregeln für h2 (kunden.css) heben hier nicht ab */
+html .kd-seite :is(.karte-titel, .abschnitt-titel) {
+	margin: 0;
+}
 /* Wischbare Reiterleiste reicht bis an den Rand – passend zum Seitenabstand */
 html .kd-seite .af-reiter {
 	margin-inline: calc(-1 * var(--ui-a4));

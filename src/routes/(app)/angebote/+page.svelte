@@ -13,18 +13,19 @@
 </svelte:head>
 
 <main class="kd-seite breit">
-	<div class="af-kopfzeile">
-		<h1>Angebote</h1>
+	<header class="seiten-kopf">
+		<div>
+			<h1>Angebote</h1>
+			<p class="seiten-meta">
+				Meist im Auftrag erstellt („Angebot erstellen“). Ein Angebot ohne Auftrag lässt sich später zuordnen.
+			</p>
+		</div>
 		{#if data.darfOhneAuftrag}
 			<form method="POST" action="?/neu" use:enhance>
 				<button type="submit" class="kd-knopf">+ Angebot ohne Auftrag</button>
 			</form>
 		{/if}
-	</div>
-	<p class="kd-info">
-		Angebote entstehen meist im Auftrag („Angebot erstellen“). Ein Angebot ohne Auftrag lässt sich später einem Kunden oder
-		Auftrag zuordnen.
-	</p>
+	</header>
 	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 
 	<nav aria-label="Status">

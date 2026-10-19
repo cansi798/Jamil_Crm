@@ -9,14 +9,15 @@
 </svelte:head>
 
 <main class="kd-seite breit">
-	<div class="af-kopfzeile">
-		<h1>Angebots-Vorlagen</h1>
+	<header class="seiten-kopf">
+		<div>
+			<h1>Angebots-Vorlagen</h1>
+			<p class="seiten-meta">
+				Wiederkehrende Angebote als Vorlage: im Angebot über „+ Aus Vorlage“ einfügen oder schon beim „Angebot erstellen“ wählen.
+			</p>
+		</div>
 		<a href="/angebot-vorlagen/neu" class="kd-knopf">+ Neue Vorlage</a>
-	</div>
-	<p class="kd-info">
-		Wiederkehrende Angebote als Vorlage: Im Angebot über „+ Aus Vorlage“ einfügen oder schon beim „Angebot erstellen“ im Auftrag
-		wählen.
-	</p>
+	</header>
 	<ul class="kd-liste">
 		{#each data.vorlagen as v (v.id)}
 			<li>

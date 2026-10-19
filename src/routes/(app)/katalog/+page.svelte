@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { euro } from '$lib/geld';
 	import { GEWERKE, GEWERK_NAMEN } from '$lib/katalog-werte';
+	import AddPanel from '$lib/components/AddPanel.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -21,7 +22,17 @@
 </svelte:head>
 
 <main class="kd-seite breit">
-	<h1>Leistungskatalog</h1>
+	<header class="seiten-kopf">
+		<div>
+			<h1>Leistungskatalog</h1>
+			<p class="seiten-meta">{data.positionen.length} Positionen{data.gewerk ? ` · ${GEWERK_NAMEN[data.gewerk]}` : ''}</p>
+		</div>
+		{#if data.darfBearbeiten}
+			<div class="seiten-aktionen">
+				<a href={data.gewerk ? `/katalog/neu?gewerk=${data.gewerk}` : '/katalog/neu'} class="kd-knopf">+ Position</a>
+			</div>
+		{/if}
+	</header>
 	{#if data.stundensatz}
 		<p class="kt-hinweis" role="note">
 			Laut <a href="/kalkulation">Kalkulation</a>: empfohlener Stundensatz Ø {euro(data.stundensatz.empfohlenCent)}/h
@@ -42,12 +53,8 @@
 	<form method="GET" role="search" class="kd-suche">
 		{#if data.gewerk}<input type="hidden" name="gewerk" value={data.gewerk} />{/if}
 		<input type="search" name="suche" value={data.suche} placeholder="Nummer oder Bezeichnung" aria-label="Katalog durchsuchen" autocomplete="off" enterkeyhint="search" />
-		<button type="submit" class="kd-knopf">Suchen</button>
+		<button type="submit" class="kd-knopf hell">Suchen</button>
 	</form>
-
-	{#if data.darfBearbeiten}
-		<a href={data.gewerk ? `/katalog/neu?gewerk=${data.gewerk}` : '/katalog/neu'} class="kd-knopf gross">+ Position</a>
-	{/if}
 
 	{#if uebernommen}
 		<p role="status" class="kt-hinweis ok">
@@ -88,7 +95,8 @@
 	{/if}
 
 	{#if data.darfBearbeiten}
-		<h2>Startvorlage übernehmen</h2>
+		<AddPanel label="Startvorlage übernehmen" offen={data.positionen.length === 0 && !data.suche && !data.gewerk}>
+			{#snippet children()}
 		<p class="kd-info">Typische Positionen je Gewerk, ohne Preise. Bereits übernommene werden nicht doppelt angelegt.</p>
 		<div class="kt-vorlagen">
 			{#each data.vorlagen as v (v.gewerk)}
@@ -101,5 +109,7 @@
 				</form>
 			{/each}
 		</div>
+			{/snippet}
+		</AddPanel>
 	{/if}
 </main>
