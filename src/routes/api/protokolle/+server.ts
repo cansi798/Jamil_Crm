@@ -1,17 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { alsAntwort, leseJson } from '$lib/server/fehler';
-import { betriebKontext } from '$lib/server/rechte';
 import { legeProtokollAn, protokolleFuerAuftrag } from '$lib/server/baustellen-protokolle';
+import { zugriffAuftrag } from '$lib/server/dokumentation-zugriff';
 
 /**
- * Protokolle: `GET /api/protokolle?auftragId=...` (Liste), `POST { auftragId, typ, inhalt? }` (anlegen).
+ * Protokolle eines Auftrags: `GET /api/protokolle?auftragId=...` (`protokolle.lesen`), `POST { auftragId, typ,
+ * inhalt? }` (`protokolle.bearbeiten`). Auftrag muss sichtbar sein.
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
 	try {
-		const auftragId = url.searchParams.get('auftragId');
-		if (!auftragId) return json({ fehler: 'auftragId fehlt' }, { status: 400 });
-		return json(await protokolleFuerAuftrag(betriebKontext(locals), auftragId));
+		const { k, auftrag } = await zugriffAuftrag(locals, url.searchParams.get('auftragId'), 'protokolle', false);
+		return json(await protokolleFuerAuftrag(k, auftrag.id));
 	} catch (e) {
 		return alsAntwort(e);
 	}
@@ -19,9 +19,9 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
-		const body = await leseJson(request) as { auftragId: string; typ: string; inhalt?: Record<string, unknown> };
-		const erg = await legeProtokollAn(betriebKontext(locals), body.auftragId, body.typ as never, body.inhalt);
-		return json(erg, { status: 201 });
+		const body = (await leseJson(request)) as { auftragId?: unknown; typ?: unknown; inhalt?: Record<string, unknown> };
+		const { k, auftrag } = await zugriffAuftrag(locals, body.auftragId, 'protokolle', true);
+		return json(await legeProtokollAn(k, auftrag.id, body.typ as never, body.inhalt), { status: 201 });
 	} catch (e) {
 		return alsAntwort(e);
 	}

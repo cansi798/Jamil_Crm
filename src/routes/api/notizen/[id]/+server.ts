@@ -1,18 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { alsAntwort, leseJson } from '$lib/server/fehler';
-import { betriebKontext } from '$lib/server/rechte';
+import { alsAntwort, ApiFehler, leseJson } from '$lib/server/fehler';
 import { notizAktualisieren, notizLoeschen } from '$lib/server/notizen';
+import { zugriffEintrag } from '$lib/server/dokumentation-zugriff';
 
-/**
- * Einzelne Notiz: `PUT /api/notizen/[id] { text }` (aktualisieren), `DELETE /api/notizen/[id]` (löschen).
- */
+/** Einzelne Notiz: `PUT { text }`, `DELETE` – beide `auftraege.bearbeiten`, Auftrag sichtbar. */
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
 	try {
-		const body = await leseJson(request) as { text: string };
-		if (!body.text) return json({ fehler: 'text ist erforderlich' }, { status: 400 });
-		const erg = await notizAktualisieren(betriebKontext(locals), params.id, body.text);
-		if (!erg) return json({ fehler: 'Notiz nicht gefunden' }, { status: 404 });
+		const { k, id } = await zugriffEintrag(locals, params.id, 'notizen', true);
+		const body = (await leseJson(request)) as { text?: unknown };
+		if (typeof body.text !== 'string' || body.text.trim() === '') throw new ApiFehler(400, 'Bitte einen Text eingeben.');
+		const erg = await notizAktualisieren(k, id, body.text);
+		if (!erg) throw new ApiFehler(404, 'Notiz nicht gefunden.');
 		return json(erg);
 	} catch (e) {
 		return alsAntwort(e);
@@ -21,8 +20,8 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {
 	try {
-		const ok = await notizLoeschen(betriebKontext(locals), params.id);
-		if (!ok) return json({ fehler: 'Notiz nicht gefunden' }, { status: 404 });
+		const { k, id } = await zugriffEintrag(locals, params.id, 'notizen', true);
+		if (!(await notizLoeschen(k, id))) throw new ApiFehler(404, 'Notiz nicht gefunden.');
 		return json({ ok: true });
 	} catch (e) {
 		return alsAntwort(e);

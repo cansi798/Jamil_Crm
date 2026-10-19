@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { alsAntwort, leseJson } from '$lib/server/fehler';
-import { betriebKontext } from '$lib/server/rechte';
+import { zugriffEintrag } from '$lib/server/dokumentation-zugriff';
 import { liesProtokoll, aktualisiereProtokoll } from '$lib/server/baustellen-protokolle';
 
 /**
@@ -9,7 +9,8 @@ import { liesProtokoll, aktualisiereProtokoll } from '$lib/server/baustellen-pro
  */
 export const GET: RequestHandler = async ({ locals, params }) => {
 	try {
-		const prot = await liesProtokoll(betriebKontext(locals), params.id);
+		const { k, id } = await zugriffEintrag(locals, params.id, 'protokolle', false);
+		const prot = await liesProtokoll(k, id);
 		if (!prot) return json({ fehler: 'Nicht gefunden' }, { status: 404 });
 		return json(prot);
 	} catch (e) {
@@ -19,8 +20,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 export const PUT: RequestHandler = async ({ locals, params, request }) => {
 	try {
+		const { k, id } = await zugriffEintrag(locals, params.id, 'protokolle', true);
 		const body = await leseJson(request) as { inhalt: Record<string, unknown> };
-		const erg = await aktualisiereProtokoll(betriebKontext(locals), params.id, body.inhalt);
+		const erg = await aktualisiereProtokoll(k, id, body.inhalt);
 		return json(erg);
 	} catch (e) {
 		return alsAntwort(e);

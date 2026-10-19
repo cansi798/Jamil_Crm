@@ -1,17 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { alsAntwort, leseJson } from '$lib/server/fehler';
-import { betriebKontext } from '$lib/server/rechte';
+import { alsAntwort, ApiFehler, leseJson } from '$lib/server/fehler';
 import { notizenFuerAuftrag, notizAnlegen } from '$lib/server/notizen';
+import { zugriffAuftrag } from '$lib/server/dokumentation-zugriff';
 
 /**
- * Notizen: `GET /api/notizen?auftragId=...` (Liste), `POST { auftragId, text }` (anlegen).
+ * Notizen eines Auftrags: `GET /api/notizen?auftragId=...` (Aufträge lesen, Auftrag sichtbar),
+ * `POST { auftragId, text }` (`auftraege.bearbeiten`).
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
 	try {
-		const auftragId = url.searchParams.get('auftragId');
-		if (!auftragId) return json({ fehler: 'auftragId fehlt' }, { status: 400 });
-		return json(await notizenFuerAuftrag(betriebKontext(locals), auftragId));
+		const { k, auftrag } = await zugriffAuftrag(locals, url.searchParams.get('auftragId'), 'notizen', false);
+		return json(await notizenFuerAuftrag(k, auftrag.id));
 	} catch (e) {
 		return alsAntwort(e);
 	}
@@ -19,12 +19,10 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
-		const body = await leseJson(request) as { auftragId: string; text: string };
-		if (!body.auftragId || !body.text) {
-			return json({ fehler: 'auftragId und text sind erforderlich' }, { status: 400 });
-		}
-		const erg = await notizAnlegen(betriebKontext(locals), body.auftragId, body.text, locals.nutzer?.id);
-		return json(erg, { status: 201 });
+		const body = (await leseJson(request)) as { auftragId?: unknown; text?: unknown };
+		const { k, auftrag } = await zugriffAuftrag(locals, body.auftragId, 'notizen', true);
+		if (typeof body.text !== 'string' || body.text.trim() === '') throw new ApiFehler(400, 'Bitte einen Text eingeben.');
+		return json(await notizAnlegen(k, auftrag.id, body.text, locals.nutzer!.id), { status: 201 });
 	} catch (e) {
 		return alsAntwort(e);
 	}

@@ -158,17 +158,30 @@
 	<nav class="pills" aria-label="Bereiche">
 		<button class="pill" class:aktiv={tab === 'fotos'} onclick={() => (tab = 'fotos')}>Fotos</button>
 		<button class="pill" class:aktiv={tab === 'notizen'} onclick={() => (tab = 'notizen')}>Notizen</button>
-		<button class="pill" class:aktiv={tab === 'protokolle'} onclick={() => (tab = 'protokolle')}>Protokolle</button>
+		{#if data.protokolleLesbar}
+			<button class="pill" class:aktiv={tab === 'protokolle'} onclick={() => (tab = 'protokolle')}>Protokolle</button>
+		{/if}
 	</nav>
 
 	{#if tab === 'fotos'}
 		<Karte>
 			{#snippet titel()}Fotos und Dateien{/snippet}
-			<DateiUpload auftragId={data.auftrag.id} bind:dateien />
+			{#if data.darfBearbeiten}
+				<DateiUpload auftragId={data.auftrag.id} bind:dateien />
+			{:else}
+				<ul class="kd-liste">
+					{#each dateien as d (d.id)}
+						<li><a href={`/api/dateien/${d.id}`} target="_blank" rel="noopener">{d.name}</a></li>
+					{:else}
+						<li class="kd-leer">Keine Fotos oder Dateien vorhanden.</li>
+					{/each}
+				</ul>
+			{/if}
 		</Karte>
 	{:else if tab === 'notizen'}
 		<Karte>
 			{#snippet titel()}Notizen{/snippet}
+			{#if data.darfBearbeiten}
 			<form onsubmit={(e) => { e.preventDefault(); notizAnlegen(); }} class="notiz-form">
 				<textarea bind:value={neueNotiz} placeholder="Neue Notiz eingeben…" rows="3" maxlength="10000"></textarea>
 				{#if notizFehler}<p class="fehler">{notizFehler}</p>{/if}
@@ -176,6 +189,7 @@
 					{notizLaedt ? 'Wird gespeichert…' : 'Notiz speichern'}
 				</button>
 			</form>
+			{/if}
 
 			{#if notizen.length === 0}
 				<p class="kd-leer">Keine Notizen vorhanden.</p>
@@ -196,23 +210,27 @@
 									<p>{n.text}</p>
 									<span class="notiz-meta">{new Date(n.angelegt).toLocaleString('de-DE')}</span>
 								</div>
-								<div class="notiz-aktionen">
-									<button type="button" class="knopf-subtil" onclick={() => { editiertNotizId = n.id; editierterText = n.text; }}>Bearbeiten</button>
-									<button type="button" class="knopf-gefahr" onclick={() => notizLoeschen(n.id)}>Löschen</button>
-								</div>
+								{#if data.darfBearbeiten}
+									<div class="notiz-aktionen">
+										<button type="button" class="knopf-subtil" onclick={() => { editiertNotizId = n.id; editierterText = n.text; }}>Bearbeiten</button>
+										<button type="button" class="knopf-gefahr" onclick={() => notizLoeschen(n.id)}>Löschen</button>
+									</div>
+								{/if}
 							{/if}
 						</li>
 					{/each}
 				</ul>
 			{/if}
 		</Karte>
-	{:else if tab === 'protokolle'}
+	{:else if tab === 'protokolle' && data.protokolleLesbar}
 		<Karte>
 			{#snippet titel()}Baustellen-Protokolle{/snippet}
 			{#snippet aktionen()}
-				<button type="button" class="knopf-gefuellt" onclick={() => (neuesProtokoll = true)} data-testid="protokoll-neu">
-					Neues Protokoll
-				</button>
+				{#if data.darfProtokolle}
+					<button type="button" class="knopf-gefuellt" onclick={() => (neuesProtokoll = true)} data-testid="protokoll-neu">
+						Neues Protokoll
+					</button>
+				{/if}
 			{/snippet}
 
 			{#if neuesProtokoll}
@@ -253,13 +271,15 @@
 								{/if}
 							</div>
 							<div class="protokoll-aktionen">
-								{#if !prot.unterschriftVorhanden}
+								{#if !prot.unterschriftVorhanden && data.darfProtokolle}
 									<button type="button" class="knopf-subtil" onclick={() => { unterschriftProtokollId = prot.id; unterschriftOffen = true; }}>
 										Unterschrift
 									</button>
 								{/if}
 								<button type="button" class="knopf-subtil" onclick={() => pdfErzeugen(prot.id)}>PDF</button>
-								<button type="button" class="knopf-subtil" onclick={() => emailSenden(prot.id)}>E-Mail</button>
+								{#if data.darfProtokolle}
+									<button type="button" class="knopf-subtil" onclick={() => emailSenden(prot.id)}>E-Mail</button>
+								{/if}
 							</div>
 						</li>
 					{/each}

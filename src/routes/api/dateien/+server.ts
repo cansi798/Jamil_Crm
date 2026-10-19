@@ -1,17 +1,17 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { alsAntwort } from '$lib/server/fehler';
-import { betriebKontext } from '$lib/server/rechte';
+import { alsAntwort, ApiFehler } from '$lib/server/fehler';
 import { speichereDatei, dateienFuerAuftrag } from '$lib/server/dateien';
+import { zugriffAuftrag } from '$lib/server/dokumentation-zugriff';
 
 /**
- * Dateien: `GET /api/dateien?auftragId=...` (Liste ohne Inhalt), `POST` (multipart: auftragId + datei).
+ * Dateien eines Auftrags: `GET /api/dateien?auftragId=...` (Liste ohne Inhalt; Aufträge lesen, Auftrag sichtbar),
+ * `POST` (multipart: auftragId + datei; `auftraege.bearbeiten`). Unsichtbare/fremde Aufträge → 404.
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
 	try {
-		const auftragId = url.searchParams.get('auftragId');
-		if (!auftragId) return json({ fehler: 'auftragId fehlt' }, { status: 400 });
-		return json(await dateienFuerAuftrag(betriebKontext(locals), auftragId));
+		const { k, auftrag } = await zugriffAuftrag(locals, url.searchParams.get('auftragId'), 'dateien', false);
+		return json(await dateienFuerAuftrag(k, auftrag.id));
 	} catch (e) {
 		return alsAntwort(e);
 	}
@@ -20,18 +20,18 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
 		const form = await request.formData();
-		const auftragId = form.get('auftragId') as string;
-		const datei = form.get('datei') as File;
-		if (!auftragId || !datei) return json({ fehler: 'auftragId und datei sind Pflicht' }, { status: 400 });
-		const inhalt = Buffer.from(await datei.arrayBuffer());
+		const { k, auftrag } = await zugriffAuftrag(locals, form.get('auftragId'), 'dateien', true);
+		const datei = form.get('datei');
+		if (!(datei instanceof File) || datei.size === 0) throw new ApiFehler(400, 'Bitte eine Datei auswählen.');
+		const beschreibung = form.get('beschreibung');
 		const erg = await speichereDatei(
-			betriebKontext(locals),
-			auftragId,
+			k,
+			auftrag.id,
 			datei.name,
 			datei.type,
 			datei.size,
-			inhalt,
-			form.get('beschreibung') as string | undefined
+			Buffer.from(await datei.arrayBuffer()),
+			typeof beschreibung === 'string' && beschreibung !== '' ? beschreibung : undefined
 		);
 		return json(erg, { status: 201 });
 	} catch (e) {
