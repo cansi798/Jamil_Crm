@@ -42,6 +42,9 @@
 	} = $props();
 
 	let gewaehlt = $state<{ kunde: Kunde; objekte: Objekt[] } | null>(null);
+	// Kunde aus der Kundendatenbank, Einmal-Kunde (nur am Auftrag) oder ohne Kunde (Phase 3)
+	let kundeArtWahl = $state<string | null>(null);
+	const kundeArt = $derived(kundeArtWahl ?? (werte.kundeArt || 'kunde'));
 	let aendern = $state(false);
 	let suchtext = $state('');
 	let treffer = $state<(Kunde & { info: string })[]>([]);
@@ -154,8 +157,40 @@
 		<p role="alert" class="kd-fehler">{fehler}</p>
 	{/if}
 
-	<fieldset class="af-kunde">
+	<fieldset class="af-kundenart">
 		<legend>Kunde *</legend>
+		<div class="af-kundenart-wahl">
+			{#each [['kunde', 'Aus der Kundendatenbank'], ['einmal', 'Einmal-Kunde'], ['ohne', 'Ohne Kunde']] as [wert, text] (wert)}
+				<label class="af-haken">
+					<input type="radio" name="kundeArt" value={wert} checked={kundeArt === wert} onchange={() => (kundeArtWahl = wert)} />
+					{text}
+				</label>
+			{/each}
+		</div>
+	</fieldset>
+
+	{#if kundeArt === 'einmal'}
+		<fieldset class="af-kunde af-einmal">
+			<legend>Einmal-Kunde</legend>
+			<p class="kd-info">Wird nur an diesem Auftrag gespeichert, nicht in der Kundendatenbank. Später übernehmbar.</p>
+			<label>Name * <input type="text" name="einmalName" maxlength="200" required value={werte.einmalName ?? ''} /></label>
+			<div class="kd-zwei">
+				<label>Telefon <input type="tel" name="einmalTelefon" maxlength="50" value={werte.einmalTelefon ?? ''} /></label>
+				<label>E-Mail <input type="email" name="einmalEmail" maxlength="200" value={werte.einmalEmail ?? ''} /></label>
+			</div>
+			<label>Straße <input type="text" name="einmalStrasse" maxlength="200" value={werte.einmalStrasse ?? ''} /></label>
+			<div class="kd-zwei">
+				<label>PLZ <input type="text" name="einmalPlz" maxlength="20" value={werte.einmalPlz ?? ''} /></label>
+				<label>Ort <input type="text" name="einmalOrt" maxlength="200" value={werte.einmalOrt ?? ''} /></label>
+			</div>
+		</fieldset>
+	{:else if kundeArt === 'ohne'}
+		<p class="kd-info">Der Auftrag bekommt keinen Kunden – z. B. für interne Arbeiten. Ein Kunde lässt sich später eintragen.</p>
+	{/if}
+
+	{#if kundeArt === 'kunde'}
+	<fieldset class="af-kunde">
+		<legend>Kunde aus der Kundendatenbank</legend>
 		<input type="hidden" name="kundeId" value={aktKunde?.id ?? ''} />
 		{#if aktKunde}
 			<div class="af-gewaehlt">
@@ -197,8 +232,9 @@
 			{/if}
 		{/if}
 	</fieldset>
+	{/if}
 
-	{#if aktKunde}
+	{#if aktKunde && kundeArt === 'kunde'}
 		<label>
 			Objekt (Baustelle)
 			<select name="objektId" onchange={(e) => (objektWahl = e.currentTarget.value)}>
@@ -304,6 +340,25 @@
 </form>
 
 <style>
+	.af-kundenart {
+		border: none;
+		padding: 0;
+		margin: 0 0 0.5rem;
+	}
+	.af-kundenart legend {
+		font-weight: 600;
+		padding: 0;
+		margin-bottom: 0.25rem;
+	}
+	.af-kundenart-wahl {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0 1.25rem;
+	}
+	.af-einmal {
+		display: grid;
+		gap: 0.5rem;
+	}
 	.af-zustaendig {
 		border: 1px solid #d2d0ce;
 		border-radius: 4px;

@@ -8,7 +8,14 @@
 	const werte = $derived(
 		form?.werte ?? {
 			titel: a.titel,
-			kundeId: a.kundeId,
+			kundeArt: a.kundeArt,
+			einmalName: a.einmalKunde?.name ?? '',
+			einmalTelefon: a.einmalKunde?.telefon ?? '',
+			einmalEmail: a.einmalKunde?.email ?? '',
+			einmalStrasse: a.einmalKunde?.strasse ?? '',
+			einmalPlz: a.einmalKunde?.plz ?? '',
+			einmalOrt: a.einmalKunde?.ort ?? '',
+			kundeId: a.kundeId ?? '',
 			objektId: a.objektId ?? '',
 			beschreibung: a.beschreibung ?? '',
 			geplantAb: a.geplantAb ?? ''

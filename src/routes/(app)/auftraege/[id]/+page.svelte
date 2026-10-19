@@ -62,18 +62,33 @@
 		<dl class="kd-daten">
 			<dt>Kunde</dt>
 			<dd>
-				{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
+				{#if a.kundeArt === 'kunde'}
+					{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
+				{:else if a.kundeArt === 'einmal' && a.einmalKunde}
+					{a.einmalKunde.name} <span class="kd-info">(Einmal-Kunde)</span>
+					{#if a.einmalKunde.telefon}<br /><a href={`tel:${a.einmalKunde.telefon.replace(/[^0-9+]/g, '')}`}>{a.einmalKunde.telefon}</a>{/if}
+					{#if a.einmalKunde.email}<br /><a href={`mailto:${a.einmalKunde.email}`}>{a.einmalKunde.email}</a>{/if}
+					{#if data.darfKundeUebernehmen}
+						<form method="POST" action="?/kundeUebernehmen" use:enhance class="af-uebernehmen">
+							<button type="submit" class="knopf-subtil">In Kundendatenbank übernehmen</button>
+						</form>
+					{/if}
+				{:else}
+					<span class="kd-info">Ohne Kunde</span>
+				{/if}
 			</dd>
 			<dt>Einsatzort</dt>
 			<dd>
 				{a.adresse ?? 'Keine Adresse hinterlegt'}
-				<span class="kd-info">{a.adresseVonObjekt ? `(Objekt ${a.objektBezeichnung})` : '(Kundenadresse)'}</span>
+				{#if a.adresse}
+					<span class="kd-info">{a.adresseVonObjekt ? `(Objekt ${a.objektBezeichnung})` : a.kundeArt === 'einmal' ? '(Einmal-Kunde)' : '(Kundenadresse)'}</span>
+				{/if}
 			</dd>
 			{#if a.zustaendige.length > 0}
 				<dt>Zuständig</dt>
 				<dd>{a.zustaendige.map((z) => z.name).join(', ')}</dd>
 			{/if}
-			{#if a.objektId}
+			{#if a.objektId && a.kundeId}
 				<dt>Objekt</dt>
 				<dd>
 					{#if data.kundeLesbar}
