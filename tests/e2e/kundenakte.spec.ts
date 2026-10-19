@@ -80,7 +80,8 @@ test('Auftrags-To-do mit Lautstärke und Schmutz', async ({ page }, info) => {
 		// Liste: Zeile aufklappen zeigt Details und Bearbeiten
 		const zeile = page.locator('.tl-zeile', { hasText: 'Fliesen abschlagen' });
 		await zeile.locator('.tl-titel').click();
-		await expect(zeile.getByText('Lautstärke: hoch · Schmutz: mittel')).toBeVisible();
+		await expect(zeile.locator('.tl-details')).toContainText('Lautstärke: hoch');
+		await expect(zeile.locator('.tl-details')).toContainText('Schmutz: mittel');
 		await zeile.locator('select[name="lautstaerke"]').selectOption('1');
 		await zeile.locator('select[name="schmutz"]').selectOption('');
 		await zeile.getByRole('button', { name: 'Speichern' }).click();
