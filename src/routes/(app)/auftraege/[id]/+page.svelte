@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import Karte from '$lib/components/Karte.svelte';
 	import StatusKette from '$lib/components/StatusKette.svelte';
@@ -15,6 +16,9 @@
 
 	const a = $derived(data.auftrag);
 	let kiLaeuft = $state(false);
+
+	// „Mitarbeiter zuweisen“ bleibt offen, solange man Häkchen setzt (nicht an die Anzahl gebunden)
+	let zuweisenOffen = $state(untrack(() => data.auftrag.zustaendige.length === 0));
 
 	// Felder direkt im Auftrag ändern (Wunsch Jamil): speichern sofort, kurze Rückmeldung „Gespeichert“
 	let gespeichert = $state(false);
@@ -155,7 +159,7 @@
 			{/each}
 		</ul>
 		{#if data.darfBearbeiten}
-			<details class="af-zuweisen" open={a.zustaendige.length === 0}>
+			<details class="af-zuweisen" bind:open={zuweisenOffen}>
 				<summary class="kd-knopf hell">Mitarbeiter zuweisen</summary>
 				<form method="POST" action="?/aendern" use:enhance={sofort} class="af-zuweisen-liste">
 					<input type="hidden" name="zustaendigeGesendet" value="1" />
