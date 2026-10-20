@@ -416,7 +416,8 @@ Wichtige Einträge:
 
 - `CRM_DOMAIN`, `CRM_ORIGIN` – Adresse des CRM
 - `COMPOSE_PROFILES` – `https` (eigenes Zertifikat), `sprache` (Spracherkennung)
-- `CRM_KI_ANBIETER`, `CRM_MISTRAL_KEY` – KI-Funktionen (optional)
+- `CRM_KI_ANBIETER`, `CRM_MISTRAL_KEY` bzw. `CRM_KI_URL`, `CRM_KI_KEY`, `CRM_KI_MODELL` – KI-Funktionen (optional;
+  Mistral oder eine OpenAI-kompatible KI wie Xiaomi MiMo oder mittwald)
 - `CRM_SMTP_URL` – E-Mail-Versand (optional)
 - `KARTE_KACHEL_URL`, `KARTE_KONTAKT`, `KARTE_ATTRIBUTION` – Kartendienst der Auftragskarte. Standard ist
   OpenStreetMap (für kleine Betriebe gedacht); bei vielen Nutzern einen eigenen Kachel-Server oder einen Anbieter

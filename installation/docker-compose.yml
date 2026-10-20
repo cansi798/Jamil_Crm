@@ -81,8 +81,13 @@ services:
       CRM_STT_URL: http://sprache:8080
       CRM_KI_ANBIETER: ${CRM_KI_ANBIETER:-fake}
       CRM_MISTRAL_KEY: ${CRM_MISTRAL_KEY:-}
-      CRM_KI_MODELL: ${CRM_KI_MODELL:-mistral-small-latest}
-      CRM_KI_MODELL_FOTO: ${CRM_KI_MODELL_FOTO:-pixtral-12b-latest}
+      # KI: fake, mistral oder openai-kompatibel (z. B. MiMo, mittwald) – Erklärung in .env
+      CRM_KI_URL: ${CRM_KI_URL:-}
+      CRM_KI_KEY: ${CRM_KI_KEY:-}
+      CRM_KI_MODELL: ${CRM_KI_MODELL:-}
+      CRM_KI_MODELL_SCHNELL: ${CRM_KI_MODELL_SCHNELL:-}
+      CRM_KI_MODELL_FOTO: ${CRM_KI_MODELL_FOTO:-}
+      CRM_KI_OHNE_NACHDENKEN: ${CRM_KI_OHNE_NACHDENKEN:-}
       CRM_VORSCHLAG_GEHEIMNIS: ${CRM_VORSCHLAG_GEHEIMNIS:?CRM_VORSCHLAG_GEHEIMNIS fehlt in .env}
       CRM_SMTP_URL: ${CRM_SMTP_URL:-}
       CRM_VAPID_OEFFENTLICH: ${CRM_VAPID_OEFFENTLICH:-}
