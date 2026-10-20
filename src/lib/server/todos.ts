@@ -38,6 +38,8 @@ export type Todo = {
 	serie: { id: string; text: string; aktiv: boolean } | null;
 	/** Anlage (Wartung, Garantie-Erinnerung), sonst null. */
 	anlage: { id: string; bezeichnung: string } | null;
+	/** Automatisches Nachfassen: das Angebot mit dem fertigen Mailtext. */
+	nachfassAngebotId: string | null;
 };
 
 /** Filter (Wunsch Jamil, msg 2500): `zustaendigId` (zugewiesen an), `status` offen/erledigt – kombinierbar mit `nur`. */
@@ -126,13 +128,14 @@ function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
 const AUSWAHL = `t.id, t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
 	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am,
 	t.serie_id, s.regel as serie_regel, s.intervall as serie_intervall, to_char(s.ende, 'YYYY-MM-DD') as serie_ende,
-	s.aktiv as serie_aktiv, t.anlage_id, an.bezeichnung as anlage_bezeichnung`;
+	s.aktiv as serie_aktiv, t.anlage_id, an.bezeichnung as anlage_bezeichnung, nl.angebot_id as nachfass_angebot_id`;
 
 const VON = `app.todos t
 	left join app.auftraege a on a.id = t.auftrag_id and a.betrieb_id = t.betrieb_id
 	left join app.benutzer b on b.id = t.zustaendig_id and b.betrieb_id = t.betrieb_id
 	left join app.todo_serien s on s.id = t.serie_id and s.betrieb_id = t.betrieb_id
-	left join app.anlagen an on an.id = t.anlage_id and an.betrieb_id = t.betrieb_id`;
+	left join app.anlagen an on an.id = t.anlage_id and an.betrieb_id = t.betrieb_id
+	left join app.nachfass_laeufe nl on nl.id = t.nachfass_id and nl.betrieb_id = t.betrieb_id`;
 
 function zuTodo(z: Record<string, any>): Todo {
 	return {
@@ -152,7 +155,8 @@ function zuTodo(z: Record<string, any>): Todo {
 		serie: z.serie_id
 			? { id: z.serie_id, text: regelText(z.serie_regel, Number(z.serie_intervall), z.serie_ende ?? null), aktiv: z.serie_aktiv }
 			: null,
-		anlage: z.anlage_id ? { id: z.anlage_id, bezeichnung: z.anlage_bezeichnung } : null
+		anlage: z.anlage_id ? { id: z.anlage_id, bezeichnung: z.anlage_bezeichnung } : null,
+		nachfassAngebotId: z.nachfass_angebot_id ?? null
 	};
 }
 

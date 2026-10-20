@@ -87,6 +87,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 			mehr.push({ name: 'Rollen', href: '/einstellungen/rollen', symbol: 'rollen' });
 			// Briefkopf und Logo (für Angebote): Betriebsdaten, ohne Modulbindung
 			mehr.push({ name: 'Briefkopf', href: '/einstellungen/briefkopf', symbol: 'briefkopf' });
+			// Automatisches Nachfassen (Angebote/Rechnungen): Stufen, Mail-Vorlagen, Signatur – Chef/Admin
+			if (module.includes('angebote')) mehr.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
 		}
 	} else if (nutzer.istAdmin) {
 		mehr.push({ name: 'Plattform-Verwaltung', href: '/admin', symbol: 'admin' });

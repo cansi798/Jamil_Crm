@@ -10,6 +10,7 @@
 		lautstaerke?: number | null;
 		schmutz?: number | null;
 		serie?: { id: string; text: string; aktiv: boolean } | null;
+		nachfassAngebotId?: string | null;
 		zustaendigId: string | null;
 		zustaendigName: string | null;
 		faellig: string | null;
@@ -90,6 +91,7 @@
 					</p>
 				{/if}
 				{#if t.serie}<p class="kd-info">{t.serie.aktiv ? `Wiederholt sich: ${t.serie.text}` : 'Wiederholung beendet'}</p>{/if}
+				{#if t.nachfassAngebotId}<p><a href={`/angebote/${t.nachfassAngebotId}#nachfassen`}>Angebot und fertigen Mailtext öffnen</a></p>{/if}
 				{#if darfBearbeiten}
 					<form method="POST" action={aktionen.aendern} use:enhance={zuklappen} class="kd-formular tl-formular">
 						<input type="hidden" name="id" value={t.id} />

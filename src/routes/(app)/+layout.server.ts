@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { baueNavigation } from '$lib/navigation';
 import { moduleDesBetriebs } from '$lib/server/tarif';
+import { pruefeNachfassenGedrosselt } from '$lib/server/nachfassen';
 
 /** Einzige Seite der App, die ohne volle Sitzung erreichbar ist: Einrichtung der Zwei-Faktor-Anmeldung (Vor-Sitzung). */
 const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
@@ -21,6 +22,9 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const module = nutzer.betriebId
 		? await moduleDesBetriebs({ betriebId: nutzer.betriebId, benutzerId: nutzer.id })
 		: [];
+	// Automatisches Nachfassen: fällige Stufen anlegen, sobald jemand die App benutzt (höchstens alle 10 Min. je Betrieb;
+	// läuft im Hintergrund und bremst die Seite nicht)
+	if (nutzer.betriebId && module.includes('angebote')) void pruefeNachfassenGedrosselt({ betriebId: nutzer.betriebId, benutzerId: nutzer.id });
 	// Mikrofon-Knopf nur mit Modul „sprache“ (geprüft wird zusätzlich in jedem Sprach-Endpunkt)
 	return { navigation: baueNavigation(nutzer, module), benutzerId: nutzer.id, sprache: module.includes('sprache') };
 };

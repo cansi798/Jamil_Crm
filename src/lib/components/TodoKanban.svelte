@@ -11,6 +11,7 @@
 		schmutz?: number | null;
 		mirDirekt?: boolean;
 		serie?: { id: string; text: string; aktiv: boolean } | null;
+		nachfassAngebotId?: string | null;
 		auftragId: string | null;
 		auftragNummer: string | null;
 		auftragTitel: string | null;
@@ -207,6 +208,9 @@
 								<p class="karte-serie" class:beendet={!todo.serie.aktiv}>
 									{todo.serie.aktiv ? `Wiederholt sich: ${todo.serie.text}` : 'Wiederholung beendet'}
 								</p>
+							{/if}
+							{#if todo.nachfassAngebotId}
+								<p class="karte-auftrag"><a href={`/angebote/${todo.nachfassAngebotId}#nachfassen`}>Mailtext im Angebot öffnen</a></p>
 							{/if}
 							{#if todo.lautstaerke || todo.schmutz}
 								<p class="karte-stufen">

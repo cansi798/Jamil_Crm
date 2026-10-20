@@ -23,6 +23,8 @@ import {
  * Kunde mit Objekten, Aufträgen und Verlauf (Änderungsprotokoll, neueste zuerst). Fremde Kunden: 404.
  * Aufträge nur mit Modul `auftraege` und Leserecht (`null` = Bereich ausblenden); mit nur `auftraege.lesen` die eigenen.
  */
+import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachfassen';
+
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'kunden', 'kunden.lesen');
 	const nutzer = locals.nutzer!;
@@ -55,7 +57,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				(await hatModul(k.betriebId, 'angebote')),
 			verlauf: protokoll.eintraege.map(verlaufZeile),
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
-			darfBearbeiten: hatRecht(locals.nutzer!, 'kunden.bearbeiten')
+			darfBearbeiten: hatRecht(locals.nutzer!, 'kunden.bearbeiten'),
+			// Automatisches Nachfassen abschaltbar je Kunde (Jamil msg 2585)
+			nachfassen: (await hatModul(k.betriebId, 'angebote')) ? { aus: await kundeKeinNachfassen(k, kunde.id) } : null
 		};
 	});
 };
@@ -77,6 +81,16 @@ async function akte(locals: App.Locals, bereich: 'notizFehler' | 'dokumentFehler
 }
 
 export const actions: Actions = {
+	/** „Kein automatisches Nachfassen“ für diesen Kunden an/aus (`kunden.bearbeiten`). */
+	nachfassen: async ({ locals, params, request }) => {
+		const aus = (await request.formData()).get('aus') === 'ja';
+		try {
+			await darf(locals, 'kunden', 'kunden.bearbeiten');
+			await setzeKundeKeinNachfassen(betriebKontext(locals), params.id, aus);
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+	},
 	/** Neues Angebot ohne Auftrag für diesen Kunden → Editor. */
 	angebotErstellen: async ({ locals, params }) => {
 		let id: string;

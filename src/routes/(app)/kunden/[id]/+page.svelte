@@ -281,6 +281,16 @@
 
 	</details>
 
+	{#if data.darfBearbeiten && data.nachfassen}
+		<form method="POST" action="?/nachfassen" use:enhance class="kd-nachfassen">
+			<input type="hidden" name="aus" value={data.nachfassen.aus ? 'nein' : 'ja'} />
+			<label class="kd-haken">
+				<input type="checkbox" checked={data.nachfassen.aus} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
+				<span>Kein automatisches Nachfassen (Angebote, Rechnungen)</span>
+			</label>
+		</form>
+	{/if}
+
 	{#if data.darfBearbeiten}
 		<details class="kd-loeschen">
 			<summary>Kunde löschen …</summary>

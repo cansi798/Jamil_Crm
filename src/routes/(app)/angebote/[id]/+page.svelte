@@ -7,9 +7,21 @@
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { centAlsEingabe, euro, leseEuroInCent, leseMenge, mengeText, summen, type MwstSatz } from '$lib/geld';
 	import { bewerteAngebot } from '$lib/kalkulation';
+	import { enhance } from '$app/forms';
+	import { mailtoLink } from '$lib/nachfassen';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+	let kopiert = $state<string | null>(null);
+	async function kopiere(laufId: string, text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			kopiert = laufId;
+			setTimeout(() => (kopiert = null), 2500);
+		} catch {
+			kopiert = null;
+		}
+	}
 
 	type Angebot = PageData['angebot'];
 
@@ -429,6 +441,52 @@
 			</p>
 		</section>
 	{/if}
+
+	<section class="an-nachfassen" id="nachfassen" aria-labelledby="nachfassen-titel">
+		<h2 id="nachfassen-titel">Nachfassen</h2>
+		{#if data.nachfassen.kundeAus}
+			<p class="kd-info">Beim Kunden ist „kein automatisches Nachfassen“ eingestellt.</p>
+		{:else if angebot.status === 'versendet'}
+			<form method="POST" action="?/nachfassenPause" use:enhance class="an-nf-pause">
+				<input type="hidden" name="pausiert" value={data.nachfassen.pausiert ? 'nein' : 'ja'} />
+				<span class="kd-info">{data.nachfassen.pausiert ? 'Nachfassen ist pausiert.' : 'Nachfassen läuft automatisch nach den Stufen in den Einstellungen.'}</span>
+				<button type="submit" class="kd-knopf hell klein">{data.nachfassen.pausiert ? 'Fortsetzen' : 'Pausieren'}</button>
+			</form>
+		{:else}
+			<p class="kd-info">
+				{angebot.status === 'entwurf' ? 'Startet, sobald das Angebot versendet ist.' : 'Beendet – das Angebot ist angenommen bzw. abgelehnt.'}
+			</p>
+		{/if}
+		{#each data.nachfassen.laeufe as l (l.id)}
+			<article class="an-nf-lauf">
+				<header>
+					<strong>Stufe {l.stufeNr} · nach {l.tage} Tagen</strong>
+					<span class="kd-info">
+						{new Date(l.angelegt).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}{#if l.todoId} · To-do {l.todoErledigt ? 'erledigt' : 'offen'}{l.zustaendigName ? ` (${l.zustaendigName})` : ''}{/if}{#if l.gesendetAm} · Mail gesendet {new Date(l.gesendetAm).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}{/if}
+					</span>
+				</header>
+				{#if l.mailText && l.mailBetreff}
+					<p class="an-nf-betreff"><span class="kd-info">An:</span> {l.mailAn ?? 'keine E-Mail beim Kunden'} · <span class="kd-info">Betreff:</span> {l.mailBetreff}</p>
+					<details>
+						<summary class="kd-info">Mailtext ansehen</summary>
+						<pre class="an-nf-text">{l.mailText}</pre>
+					</details>
+					<div class="an-nf-knoepfe">
+						<button type="button" class="kd-knopf hell" onclick={() => kopiere(l.id, `${l.mailBetreff}\n\n${l.mailText}`)}>
+							{kopiert === l.id ? 'Kopiert ✓' : 'Text kopieren'}
+						</button>
+						<a class="kd-knopf hell" href={mailtoLink(l.mailAn, l.mailBetreff, l.mailText)}>In Mailprogramm öffnen</a>
+						{#if !l.gesendetAm}
+							<form method="POST" action="?/nachfassenGesendet" use:enhance>
+								<input type="hidden" name="id" value={l.id} />
+								<button type="submit" class="kd-knopf">Als gesendet markieren</button>
+							</form>
+						{/if}
+					</div>
+				{/if}
+			</article>
+		{/each}
+	</section>
 	{#if ohnePreis > 0}
 		<p class="kt-hinweis warnung">{ohnePreis === 1 ? '1 Position' : `${ohnePreis} Positionen`} ohne Preis.</p>
 	{/if}
@@ -463,6 +521,50 @@
 </main>
 
 <style>
+	.an-nachfassen {
+		margin: 1.5rem 0;
+		display: grid;
+		gap: 0.6rem;
+	}
+	.an-nachfassen h2 {
+		margin: 0;
+		font-size: 1.125rem;
+	}
+	.an-nf-pause {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.an-nf-lauf {
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--m365-rand);
+		border-radius: var(--m365-radius);
+		background: var(--m365-flaeche);
+		display: grid;
+		gap: 0.4rem;
+	}
+	.an-nf-lauf header {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 0.75rem;
+		align-items: baseline;
+	}
+	.an-nf-betreff {
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+	.an-nf-text {
+		white-space: pre-wrap;
+		font: inherit;
+		font-size: 0.875rem;
+		margin: 0.4rem 0 0;
+	}
+	.an-nf-knoepfe {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
 	.an-ampel {
 		margin: 1rem 0;
 		padding: 0.75rem 1rem;
