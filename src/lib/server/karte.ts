@@ -14,7 +14,7 @@ import { ausTagUndUhrzeit, berlinTag, berlinUhrzeit, istTag, tagPlus } from '../
  * (OpenStreetMap) – höchstens eine Anfrage pro Sekunde für den ganzen Server, eigener User-Agent (Nutzungsregeln).
  */
 
-export type KartenAuftrag = Auftrag & { lat: number | null; lng: number | null; geoStatus: 'offen' | 'gefunden' | 'nicht_gefunden' | 'fehler' | null };
+export type KartenAuftrag = Auftrag & { lat: number | null; lng: number | null; geoStatus: 'offen' | 'gefunden' | 'nicht_gefunden' | 'fehler' | null; ungefaehr: boolean };
 
 export type KartenFilter = {
 	status?: AuftragStatus[];
@@ -52,6 +52,12 @@ async function nominatim(adresse: string): Promise<{ lat: number; lng: number } 
 	return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
 }
 
+/** „Straße 1, 22846 Norderstedt“ → „22846 Norderstedt“ (Rückfall, wenn die genaue Adresse unbekannt ist). */
+export function plzOrt(adresse: string): string | null {
+	const m = /(?:^|,)\s*(\d{4,5}\s+[^,]+?)\s*$/.exec(adresse);
+	return m && m[1] !== adresse.trim() ? m[1] : null;
+}
+
 async function abarbeiten(): Promise<void> {
 	if (laeuft) return;
 	laeuft = true;
@@ -61,15 +67,22 @@ async function abarbeiten(): Promise<void> {
 			inWarteschlange.delete(`${k.betriebId}|${adresse}`);
 			let status: 'gefunden' | 'nicht_gefunden' | 'fehler' = 'fehler';
 			let punkt: { lat: number; lng: number } | null = null;
+			let ungefaehr = false;
 			try {
 				punkt = await geokodierer(adresse);
+				const grob = punkt ? null : plzOrt(adresse);
+				if (grob) {
+					if (geokodierer === nominatim) await new Promise((ok) => setTimeout(ok, ABSTAND_MS));
+					punkt = await geokodierer(grob);
+					ungefaehr = punkt !== null;
+				}
 				status = punkt ? 'gefunden' : 'nicht_gefunden';
 			} catch (e) {
 				console.error('Geokodierung fehlgeschlagen:', (e as Error).message);
 			}
 			try {
 				await mitBetrieb(k, (tx) => tx`
-					update app.geo_adressen set status = ${status}, lat = ${punkt?.lat ?? null}, lng = ${punkt?.lng ?? null},
+					update app.geo_adressen set status = ${status}, lat = ${punkt?.lat ?? null}, lng = ${punkt?.lng ?? null}, ungefaehr = ${ungefaehr},
 						versuche = versuche + 1, abgefragt = now()
 					where betrieb_id = ${k.betriebId} and adresse = ${adresse}`);
 			} catch (e) {
@@ -161,13 +174,13 @@ export async function ladeKarte(k: Kontext, sicht: Sicht, f: KartenFilter): Prom
 	const adressen = [...new Set(auftraege.map((a) => a.adresse).filter((x): x is string => !!x).map(normalAdresse))];
 	const geo = adressen.length
 		? await mitBetrieb(k, (tx) => tx`
-			select adresse, lat, lng, status from app.geo_adressen where betrieb_id = ${k.betriebId} and adresse = any(${adressen}::text[])`)
+			select adresse, lat, lng, status, ungefaehr from app.geo_adressen where betrieb_id = ${k.betriebId} and adresse = any(${adressen}::text[])`)
 		: [];
 	const karte = new Map(geo.map((g) => [g.adresse as string, g]));
 	await merkeAdressen(k, adressen.filter((a) => !karte.has(a) || karte.get(a)!.status === 'offen' || karte.get(a)!.status === 'fehler'));
 	const mitGeo: KartenAuftrag[] = auftraege.map((a) => {
 		const g = a.adresse ? karte.get(normalAdresse(a.adresse)) : undefined;
-		return { ...a, lat: g?.lat ?? null, lng: g?.lng ?? null, geoStatus: g ? g.status : a.adresse ? 'offen' : null };
+		return { ...a, lat: g?.lat ?? null, lng: g?.lng ?? null, geoStatus: g ? g.status : a.adresse ? 'offen' : null, ungefaehr: g?.ungefaehr === true };
 	});
 	return { auftraege: mitGeo, offen: mitGeo.filter((a) => a.geoStatus === 'offen' || a.geoStatus === 'fehler').length };
 }

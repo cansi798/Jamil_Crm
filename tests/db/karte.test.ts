@@ -1,7 +1,7 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schliesseDb } from '../../src/lib/server/db';
-import { ladeKarte, merkeAdressen, setzeGeokodierer, termineAlsStopps, warteAufGeokodierung } from '../../src/lib/server/karte';
+import { ladeKarte, merkeAdressen, plzOrt, setzeGeokodierer, termineAlsStopps, warteAufGeokodierung } from '../../src/lib/server/karte';
 import { legeEinsatzAn } from '../../src/lib/server/plantafel';
 import { aendereAuftrag, legeAuftragAn } from '../../src/lib/server/auftraege';
 import { ausTagUndUhrzeit, berlinTag } from '../../src/lib/zeit';
@@ -25,6 +25,7 @@ describe('Auftragskarte', () => {
 		setzeGeokodierer(async (a) => {
 			anfragen.push(a);
 			if (a.includes('Nirgendwo')) return null;
+			if (a.includes('Erfunden')) return null;
 			if (a.includes('Kaputt')) throw new Error('Netz weg');
 			return { lat: 53.7 + anfragen.length / 1000, lng: 10.0 };
 		});
@@ -52,6 +53,20 @@ describe('Auftragskarte', () => {
 		await merkeAdressen(kA(), ['Lindenweg 3, 22846 Norderstedt', 'Kaputt 2']);
 		await warteAufGeokodierung();
 		expect(anfragen).toEqual(['Lindenweg 3, 22846 Norderstedt', 'Nirgendwo 1', 'Kaputt 2', 'Kaputt 2']); // Fehler wird erneut versucht
+	});
+
+	it('Genaue Adresse unbekannt → Rückfall auf PLZ/Ort, als ungefähr markiert', async () => {
+		expect(plzOrt('Erfundenweg 9, 22846 Norderstedt')).toBe('22846 Norderstedt');
+		expect(plzOrt('Nirgendwo 1')).toBeNull();
+		expect(plzOrt('22846 Norderstedt')).toBeNull();
+		await merkeAdressen(kA(), ['Erfundenweg 9, 22846 Norderstedt', 'Lindenweg 3, 22846 Norderstedt']);
+		await warteAufGeokodierung();
+		expect(anfragen).toEqual(['Erfundenweg 9, 22846 Norderstedt', '22846 Norderstedt', 'Lindenweg 3, 22846 Norderstedt']);
+		const z = await root`select adresse, status, ungefaehr, lat is not null as hat from app.geo_adressen order by adresse`;
+		expect(z.map((r) => [r.adresse, r.status, r.ungefaehr, r.hat])).toEqual([
+			['Erfundenweg 9, 22846 Norderstedt', 'gefunden', true, true],
+			['Lindenweg 3, 22846 Norderstedt', 'gefunden', false, true]
+		]);
 	});
 
 	it('Karte: Aufträge mit Koordinaten (nach Hintergrundsuche); Monteur sieht nur eigene; Filter Status/Mitarbeiter/Zeitraum', async () => {

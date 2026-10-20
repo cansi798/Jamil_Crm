@@ -70,7 +70,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			kommenderTermin: a.kommenderTermin,
 			lat: a.lat,
 			lng: a.lng,
-			geoStatus: a.geoStatus
+			geoStatus: a.geoStatus,
+			ungefaehr: a.ungefaehr
 		})),
 		offen: karte.offen,
 		start,

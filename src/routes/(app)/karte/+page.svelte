@@ -62,6 +62,7 @@
 		zeile(`Status: ${STATUS_NAMEN[a.status as AuftragStatus]}`);
 		zeile(a.kommenderTermin ? `Nächster Termin: ${terminKurz(a.kommenderTermin)}` : 'Kein Termin geplant');
 		if (a.adresse) zeile(a.adresse, 'kt-leise');
+		if (a.ungefaehr) zeile('Lage ungefähr – Adresse nicht genau gefunden, Punkt zeigt PLZ/Ort.', 'kt-leise');
 		const knoepfe = document.createElement('div');
 		knoepfe.className = 'kt-popup-knoepfe';
 		const link = (href: string, text: string, neu = false) => {
@@ -283,7 +284,7 @@
 				<span class="kt-punkt" style:background={STATUS_FARBEN[a.status as AuftragStatus]} title={STATUS_NAMEN[a.status as AuftragStatus]}></span>
 				<span class="kt-was">
 					<a href={`/auftraege/${a.id}`}>{a.nummer} · {a.kundeName}</a>
-					<small>{a.titel}{a.adresse ? ` · ${a.adresse}` : ' · keine Adresse'}{a.lat === null && a.adresse ? (a.geoStatus === 'nicht_gefunden' ? ' (nicht gefunden)' : ' (wird gesucht)') : ''}</small>
+					<small>{a.titel}{a.adresse ? ` · ${a.adresse}` : ' · keine Adresse'}{a.lat === null && a.adresse ? (a.geoStatus === 'nicht_gefunden' ? ' (nicht gefunden)' : ' (wird gesucht)') : a.ungefaehr ? ' (Lage ungefähr)' : ''}</small>
 				</span>
 				<button type="button" class="kd-knopf hell klein" aria-pressed={inRoute(a.id)} onclick={() => umschalten(a)}>{inRoute(a.id) ? 'In Route ✓' : 'Zur Route'}</button>
 			</li>
