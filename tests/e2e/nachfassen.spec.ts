@@ -40,13 +40,13 @@ test('Nachfassen: Vorlage mit Vorschau und Rechnungs-Stufe anlegen und löschen'
 	} finally {
 		const st = page.getByRole('list', { name: 'Stufen Rechnung' }).locator('li', { hasText: name });
 		if (await st.count()) {
-			await st.locator('summary').click();
+			await st.locator('summary').first().click();
 			await st.getByRole('button', { name: 'Stufe löschen' }).click();
 			await expect(st).toHaveCount(0);
 		}
 		const v = page.getByRole('list', { name: 'Mail-Vorlagen', exact: true }).locator('li', { hasText: name });
 		if (await v.count()) {
-			await v.locator('summary').click();
+			await v.locator('summary').first().click();
 			await v.getByRole('button', { name: 'Vorlage löschen' }).click();
 			await expect(v).toHaveCount(0);
 		}
