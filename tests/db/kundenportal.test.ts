@@ -230,7 +230,12 @@ describe('Kundenportal', () => {
 		const [kd2] = await root`insert into app.kunden (betrieb_id, art, nachname) values (${u.betriebA}, 'privat', 'Zweitkunde') returning id`;
 		// „nur eigene Aufträge“ (Monteur mit Bearbeiten-Recht): fremder Auftrag/Kunde → 404, keine Links, kein Schalter
 		const nurEigene = { k: { betriebId: u.betriebA, benutzerId: u.ids.monteurA }, sicht: { alle: false, benutzerId: u.ids.monteurA }, preise: false };
-		await expect(erzeugeLink(nurEigene, kd2.id)).rejects.toMatchObject({ status: 404 });
+		await expect(erzeugeLink(nurEigene, kd2.id)).rejects.toMatchObject({ status: 403 });
+		// auch wenn er EINEN Auftrag des Kunden sieht (Monteur hat einen Einsatz bei Auftrag A, Kunde A hat weitere): 403
+		const weiteres = await versendetesAngebot(fremd);
+		await expect(erzeugeLink({ ...nurEigene, preise: true }, u.kundeA)).rejects.toMatchObject({ status: 403 });
+		const [{ geteilt }] = await root`select count(*)::int as geteilt from app.portal_dokumente where ref_id = ${weiteres.id}`;
+		expect(geteilt).toBe(0);
 		await expect(erzeugeLink({ ...zA(), k: { betriebId: u.betriebB, benutzerId: u.ids.chefB } }, u.kundeA)).rejects.toMatchObject({ status: 404 });
 		await expect(setzeAbAutomatisch(nurEigene, fremd, false)).rejects.toMatchObject({ status: 404 });
 		await expect(portalStand(nurEigene, fremd)).rejects.toMatchObject({ status: 404 });

@@ -43,7 +43,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			kundenVerlauf(k, nutzer, kunde.id)
 		]);
 		// Kundenportal (msg 2793): ein Link je Kunde – Modul kundenportal + Recht kundenportal.verwalten
-		const portalErlaubt = hatRecht(nutzer, 'kundenportal.verwalten') && (await hatModul(k.betriebId, 'kundenportal'));
+		const portalErlaubt = hatRecht(nutzer, 'kundenportal.verwalten') && hatRecht(nutzer, 'auftraege.alle_lesen') && (await hatModul(k.betriebId, 'kundenportal'));
 		const portal = portalErlaubt ? await kundenPortal(await portalZugriff(locals), kunde.id) : null;
 		return {
 			kunde,

@@ -698,12 +698,15 @@ export async function setzeAngebotStatus(
 		}
 		await tx`update app.angebote set status = ${nach} where id = ${aid} and betrieb_id = ${k.betriebId}`;
 		if (nach === 'angenommen' && alt.status !== 'angenommen') neuAngenommen = { auftragId: alt.auftrag_id };
-		// Kundenportal (msg 2793): versendetes Angebot erscheint im Portal des Kunden, wenn er einen gültigen Link hat
+		// Kundenportal (msg 2793): versendetes Angebot erscheint im Portal des Kunden, wenn er einen gültigen Link hat und
+		// der Auftrag im Portal steht (Regel/„Im Portal zeigen“); der Aufrufer sieht das Angebot (angebotSichtbar oben)
 		if (nach === 'versendet' && alt.auftrag_id) {
+			const { IM_PORTAL_SQL } = await import('./kundenportal');
 			await tx`
 				insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id)
 				select ${k.betriebId}, a.id, 'angebot', ${aid} from app.auftraege a
-				where a.id = ${alt.auftrag_id} and a.betrieb_id = ${k.betriebId} and exists (
+				left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
+				where a.id = ${alt.auftrag_id} and a.betrieb_id = ${k.betriebId} and ${tx.unsafe(IM_PORTAL_SQL)} and exists (
 					select 1 from app.portal_links l where l.kunde_id = a.kunde_id and l.betrieb_id = a.betrieb_id
 						and l.widerrufen_am is null and (l.laeuft_ab is null or l.laeuft_ab > now()))
 				on conflict do nothing`;

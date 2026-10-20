@@ -61,15 +61,16 @@ async function auftragPruefen(z: { k: Kontext; sicht: Sicht }, auftragId: unknow
 	return holeAuftrag(z.k, z.sicht, auftragId);
 }
 
-/** Kunde muss im Betrieb existieren; wer nur eigene Aufträge sieht, braucht mindestens einen sichtbaren Auftrag des Kunden. */
+/**
+ * Portal-Link eines Kunden verwalten: nur mit voller Auftrags-Sicht („Alle Aufträge ansehen“) – der Link zeigt alle
+ * freigegebenen Aufträge des Kunden, auch solche außerhalb einer eingeschränkten Sicht (sonst 403). Kunde muss im
+ * Betrieb existieren (sonst 404).
+ */
 async function kundePruefen(z: PortalZugriff, kundeId: unknown): Promise<string> {
+	if (!z.sicht.alle) throw new ApiFehler(403, 'Keine Berechtigung');
 	if (typeof kundeId !== 'string' || !UUID.test(kundeId)) throw new ApiFehler(404, 'Kunde nicht gefunden.');
 	const [kd] = await mitBetrieb(z.k, (tx) => tx`select id from app.kunden where id = ${kundeId} and betrieb_id = ${z.k.betriebId}`);
 	if (!kd) throw new ApiFehler(404, 'Kunde nicht gefunden.');
-	if (!z.sicht.alle) {
-		const eigene = await listeAuftraege(z.k, z.sicht, { kundeId });
-		if (eigene.length === 0) throw new ApiFehler(404, 'Kunde nicht gefunden.');
-	}
 	return kd.id;
 }
 
@@ -156,19 +157,24 @@ export async function erzeugeLink(z: PortalZugriff, kundeId: unknown, laeuftAb?:
 		const [l] = await tx`
 			insert into app.portal_links (betrieb_id, kunde_id, token_hash, laeuft_ab, angelegt_von)
 			values (${k.betriebId}, ${id}, ${tokenHash(token)}, ${ablauf}, ${k.benutzerId}) returning id`;
-		if (z.preise) await teileAngeboteDesKunden(tx, k, id);
+		if (z.preise && z.sicht.alle) await teileAngeboteDesKunden(tx, k, id);
 		return l.id as string;
 	});
 	return { token, id: linkId };
 }
 
-/** Versendete/angenommene Angebote aller Aufträge eines Kunden fürs Portal freigeben (nur Aufrufer mit Preisrechten). */
-export async function teileAngeboteDesKunden(tx: TransactionSql, k: Kontext, kundeId: string): Promise<void> {
+/**
+ * Versendete/angenommene Angebote der Aufträge eines Kunden fürs Portal freigeben – nur Aufträge, die im Portal stehen
+ * (Regel/„Im Portal zeigen“), und nur für Aufrufer mit voller Sicht und Preisrechten (geprüft in erzeugeLink).
+ */
+async function teileAngeboteDesKunden(tx: TransactionSql, k: Kontext, kundeId: string): Promise<void> {
 	await tx`
 		insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id)
 		select ${k.betriebId}, an.auftrag_id, 'angebot', an.id from app.angebote an
 		join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
+		left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
 		where a.kunde_id = ${kundeId} and an.betrieb_id = ${k.betriebId} and an.status in ('versendet', 'angenommen')
+			and ${tx.unsafe(IM_PORTAL_SQL)}
 		on conflict do nothing`;
 }
 
