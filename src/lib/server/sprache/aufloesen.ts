@@ -310,7 +310,11 @@ async function kolonnenAus(k: Kontext, namen: string[]) {
 	const personen: string[] = [];
 	for (const n of namen) {
 		const ohne = normal(n.replace(/^kolonne\s+/i, ''));
-		const ko = alle.find((x) => normal(x.name) === normal(n) || normal(x.name) === `kolonne ${ohne}` || (/^kolonne\b/i.test(n) && normal(x.name).endsWith(` ${ohne}`)));
+		// Zusatz in Klammern zählt nicht: „Kolonne A“ findet „Kolonne A (Demo)“
+		const name = (x: { name: string }) => normal(x.name.replace(/\s*\([^)]*\)\s*/g, ' ').trim());
+		const ko =
+			alle.find((x) => normal(x.name) === normal(n) || normal(x.name) === `kolonne ${ohne}` || (/^kolonne\b/i.test(n) && normal(x.name).endsWith(` ${ohne}`))) ??
+			alle.find((x) => name(x) === normal(n) || name(x) === `kolonne ${ohne}` || (/^kolonne\b/i.test(n) && name(x).endsWith(` ${ohne}`)));
 		if (ko) kolonnen.push(ko);
 		else if (/^kolonne\b/i.test(n)) personen.push(n); // unbekannte Kolonne → „nicht gefunden“
 		else personen.push(n);

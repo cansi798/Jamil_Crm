@@ -84,6 +84,8 @@ describe('Plantafel-Kalender', () => {
 		const ali = await frage('Kalender von Ali nächste Woche');
 		expect(ali.karte.antwort.oeffnen).toMatch(new RegExp(`^/plantafel\\?ansicht=woche&tag=.*&ma=${u.ids.monteurA}$`));
 		expect((await frage('Zeig mir den Kalender von Kolonne 99')).karte.fehler).toMatch(/nicht gefunden/);
+		const demo = await speichereKolonne(kA(), null, { name: 'Kolonne B (Demo)', mitglieder: [u.ids.monteurA] });
+		expect((await frage('Zeig mir den Kalender von Kolonne B im Dezember')).karte.antwort.oeffnen).toContain(`ko=${demo.id}`);
 		expect((await frage('Zeig mir den Kalender', u.monteurA)).karte.fehler).toMatch(/Berechtigung/);
 	});
 });
