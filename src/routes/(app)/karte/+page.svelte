@@ -40,6 +40,14 @@
 	let ebene: import('leaflet').LayerGroup | null = null;
 	let linie: import('leaflet').Polyline | null = null;
 
+	// Leaflet setzt Strings in Tooltips/Popups als innerHTML – Werte aus der Datenbank (Kundenname, Adresse …)
+	// daher nur als DOM-Knoten mit textContent übergeben, nie als HTML-String (Sicherheitsprüfung Karte).
+	function textKnoten(text: string): HTMLElement {
+		const s = document.createElement('span');
+		s.textContent = text;
+		return s;
+	}
+
 	function popup(a: A): HTMLElement {
 		const d = document.createElement('div');
 		d.className = 'kt-popup';
@@ -95,12 +103,12 @@
 				fillOpacity: 0.95
 			});
 			m.bindPopup(() => popup(a));
-			m.bindTooltip(`${a.nummer} · ${a.kundeName}`);
+			m.bindTooltip(textKnoten(`${a.nummer} · ${a.kundeName}`));
 			ebene!.addLayer(m);
 			punkte.push([a.lat, a.lng]);
 		}
 		if (start) {
-			ebene!.addLayer(L.circleMarker([start.lat, start.lng], { radius: 7, color: '#1c1f23', weight: 3, fillColor: '#fff', fillOpacity: 1 }).bindTooltip('Betrieb (Start)'));
+			ebene!.addLayer(L.circleMarker([start.lat, start.lng], { radius: 7, color: '#1c1f23', weight: 3, fillColor: '#fff', fillOpacity: 1 }).bindTooltip(textKnoten('Betrieb (Start)')));
 			punkte.push([start.lat, start.lng]);
 		}
 		if (punkte.length > 0) karte.fitBounds(L.latLngBounds(punkte), { padding: [30, 30], maxZoom: 14 });

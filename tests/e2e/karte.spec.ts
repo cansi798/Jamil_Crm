@@ -30,3 +30,59 @@ test('Karte: Kacheln laden, Aufträge in die Route, Reihenfolge, Google Maps', a
 	await expect(route).toHaveCount(2);
 	expect(csp, csp.join('\n')).toEqual([]);
 });
+
+/** Sicherheit: Leaflet setzt String-Inhalte als innerHTML – Kundennamen dürfen in Tooltip/Popup nie als HTML wirken. */
+test('Karte: bösartiger Kundenname wird als Text angezeigt (kein XSS in Tooltip/Popup)', async ({ page }, info) => {
+	test.setTimeout(120_000);
+	await anmelden(page, BUERO);
+	const marke = `${info.project.name}${Date.now()}`;
+	const name = `<img src=x onerror="window.__xss='${marke}'">E2E`;
+	let auftragId: string | null = null;
+	try {
+		await page.goto('/auftraege/neu');
+		await page.getByRole('radio', { name: 'Einmal-Kunde' }).check();
+		await page.locator('input[name="einmalName"]').fill(name);
+		await page.locator('input[name="einmalStrasse"]').fill('Rathausallee 50');
+		await page.locator('input[name="einmalPlz"]').fill('22846');
+		await page.locator('input[name="einmalOrt"]').fill('Norderstedt');
+		await page.locator('input[name="titel"]').fill('E2E XSS-Probe');
+		await page.locator('select[name="quelleId"]').selectOption({ label: 'Website' });
+		await page.getByRole('button', { name: 'Auftrag anlegen' }).click();
+		await page.waitForURL(/\/auftraege\/[0-9a-f-]{36}$/);
+		auftragId = page.url().split('/').pop()!;
+
+		// Die Adresse wird im Hintergrund gesucht (Nominatim, 1 Anfrage/s) – bis der Punkt auf der Karte ist, neu laden.
+		const tooltip = page.locator('.leaflet-tooltip', { hasText: 'E2E' });
+		await expect(async () => {
+			await page.goto('/karte');
+			await expect(page.locator('.leaflet-container')).toBeVisible();
+			await page.evaluate(() => {
+				for (const p of document.querySelectorAll('path.leaflet-interactive'))
+					p.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+			});
+			await expect(tooltip.first()).toBeAttached({ timeout: 1_000 });
+		}).toPass({ timeout: 90_000, intervals: [3_000] });
+
+		await expect(tooltip.first()).toContainText(`<img src=x onerror=`);
+		expect(await page.locator('.leaflet-tooltip img, .leaflet-popup img').count()).toBe(0);
+		// Popup des Punkts öffnen: Name als Text, kein Bild-Element
+		const gefunden = await page.evaluate(() => {
+			for (const p of document.querySelectorAll('path.leaflet-interactive')) {
+				p.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+				if (document.querySelector('.leaflet-popup .kt-kunde')?.textContent?.includes('E2E')) return true;
+			}
+			return false;
+		});
+		expect(gefunden).toBe(true);
+		await expect(page.locator('.leaflet-popup .kt-kunde')).toHaveText(name);
+		expect(await page.locator('.leaflet-tooltip img, .leaflet-popup img').count()).toBe(0);
+		const zeile = page.getByRole('list', { name: 'Aufträge auf der Karte' }).getByText(name);
+		await expect(zeile.first()).toBeVisible();
+		expect(await page.evaluate(() => (window as unknown as { __xss?: string }).__xss)).toBeUndefined();
+	} finally {
+		if (auftragId) {
+			const s = await page.evaluate(async (id) => (await fetch(`/api/auftraege/${id}`, { method: 'DELETE' })).status, auftragId);
+			expect(s).toBeLessThan(300);
+		}
+	}
+});
