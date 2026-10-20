@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 	import EinsatzDialog from '$lib/components/EinsatzDialog.svelte';
@@ -29,7 +30,8 @@
 
 	// Kalender (Wunsch Jamil msg 2676): Termine, gewählter Tag, Farben
 	const termine = $derived(termineAus(einsaetze));
-	let gewaehlt = $state('');
+	// Gewählter Tag: aus der Adresse (auch beim Server-Rendern), bei neuer Adresse neu gesetzt
+	let gewaehlt = $state(untrack(() => data.tag));
 	$effect.pre(() => {
 		gewaehlt = data.tag;
 	});
