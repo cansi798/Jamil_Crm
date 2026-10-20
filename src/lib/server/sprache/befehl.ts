@@ -30,7 +30,7 @@ export const UNBEKANNT_HINWEIS =
 	'den Auftragsstatus und die Auftragsquelle ändern, Aufgaben abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht, ' +
 	'wie die Auslastung ist, wie viel Gewinn diesen Monat verplant ist, wo Nachfassen fällig ist, wie ein Auftrag gelaufen ist und welche Aufträge Verlust machen.';
 
-/** Aufträge zum gesprochenen Namen – auch abgerechnete (für Nachkalkulation, Portal, Foto-Aufmaß). */
+/** Aufträge zum gesprochenen Namen – auch abgerechnete (für Nachkalkulation und Portal). */
 async function sucheAuftraege(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, text: string, alle: boolean) {
 	const suche = text
 		.replace(/\b(?:auftrag|auftrags|kunde|kundin|familie|firma|baustelle|bei|beim|für|fuer|von|der|die|das|den|dem)\b/gi, ' ')
@@ -94,10 +94,10 @@ async function beantworteVerlust(k: { betriebId: string; benutzerId: string }, n
 	});
 }
 
-/** „Kundenportal für Müller“ bzw. „Foto-Aufmaß für Müller“: Auftrag finden und die Stelle öffnen. */
-async function beantworteAuftragsLink(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, aktion: 'portallink_zeigen' | 'foto_aufmass', auftrag: string): Promise<Karte> {
-	const titel = aktion === 'portallink_zeigen' ? 'Kundenportal' : 'Foto-Aufmaß';
-	const ziel = (id: string) => (aktion === 'portallink_zeigen' ? `/auftraege/${id}#kundenportal` : `/auftraege/${id}/foto-aufmass`);
+/** „Kundenportal für Müller“: Auftrag finden und die Stelle öffnen. */
+async function beantworteAuftragsLink(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, aktion: 'portallink_zeigen', auftrag: string): Promise<Karte> {
+	const titel = 'Kundenportal';
+	const ziel = (id: string) => `/auftraege/${id}#kundenportal`;
 	const treffer = await sucheAuftraege(k, nutzer, auftrag, false);
 	if (treffer.length === 0) return karteVon(aktion, titel, `Keinen Auftrag zu „${auftrag}“ gefunden.`);
 	return karteVon(aktion, treffer.length === 1 ? `${titel} ${treffer[0].nummer}` : `${titel} – welcher Auftrag?`, null, {
@@ -452,7 +452,7 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	if (aktion.aktion === 'abfrage_verlust') {
 		return { text, vorschlag: null, karte: await beantworteVerlust(k, nutzer) };
 	}
-	if (aktion.aktion === 'portallink_zeigen' || aktion.aktion === 'foto_aufmass') {
+	if (aktion.aktion === 'portallink_zeigen') {
 		return { text, vorschlag: null, karte: await beantworteAuftragsLink(k, nutzer, aktion.aktion, aktion.daten.auftrag) };
 	}
 	if (aktion.aktion === 'kalender_zeigen') {

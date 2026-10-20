@@ -76,14 +76,14 @@ describe('FakeKi (regelbasiert)', () => {
 	});
 });
 
-describe('Test-KI: Nachkalkulation, Verlust, Kundenportal, Foto-Aufmaß (Jamil msgs 2770–2774)', () => {
+describe('Test-KI: Nachkalkulation, Verlust, Kundenportal (Jamil msgs 2770–2774; Foto-Aufmaß entfernt msg 2904)', () => {
 	const k = { heute: '2026-10-20', wochentag: 'Dienstag' };
 	it('erkennt die neuen Fragen', () => {
 		expect(deute('Wie lief der Auftrag Müller?', k)).toEqual({ aktion: 'abfrage_nachkalkulation', daten: { auftrag: 'Müller' } });
 		expect(deute('Nachkalkulation für Schmidt', k)).toEqual({ aktion: 'abfrage_nachkalkulation', daten: { auftrag: 'Schmidt' } });
 		expect(deute('Welche Aufträge machen Verlust?', k)).toEqual({ aktion: 'abfrage_verlust', daten: {} });
 		expect(deute('Kundenportal für Müller', k)).toEqual({ aktion: 'portallink_zeigen', daten: { auftrag: 'Müller' } });
-		expect(deute('Foto-Aufmaß für Bad Meier', k)).toEqual({ aktion: 'foto_aufmass', daten: { auftrag: 'Bad Meier' } });
+		expect(deute('Foto-Aufmaß für Bad Meier', k).aktion).not.toBe('foto_aufmass');
 		expect(deute('Angebot Müller ist angenommen', k)).toEqual({ aktion: 'angebot_entscheidung', daten: { angebot: 'Müller', status: 'angenommen' } });
 		expect(deute('Kunde Schmidt hat das Angebot abgelehnt', k)).toMatchObject({ aktion: 'angebot_entscheidung', daten: { status: 'abgelehnt' } });
 	});

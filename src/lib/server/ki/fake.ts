@@ -56,13 +56,6 @@ const BILD_BEISPIELE: Record<string, unknown> = {
 			{ bezeichnung: 'Fliesenkleber flex 25 kg', menge: 4, einheit: 'Sack', einzelpreis: 18.9, unsicher: false },
 			{ bezeichnung: 'Silikon sanitär weiß', menge: 3, einheit: 'Stk', unsicher: true }
 		]
-	},
-	foto_aufmass: {
-		mengen: { abdichtung_m2: 9.5, dichtband_lfm: 14, silikon_lfm: 16, sockel_lfm: 8.5, kantenschutz_lfm: 3, fliesenkleber_kg: 120, fugenmoertel_kg: 15 },
-		positionen: [{ schluessel: 'K1', menge: 6 }],
-		konfidenz: 0.55,
-		annahmen: ['Dusche bodengleich, zwei Wände im Spritzbereich', 'Raum etwa rechteckig'],
-		erkannt: 'Bad mit Dusche, WC und Waschtisch'
 	}
 };
 
@@ -356,7 +349,7 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 	}
 	if (/\b(kalendereintrag|eintrag\s+im\s+kalender|eigene[nrs]?\s+termin|privat\w*\s+termin)\b/.test(l)) return eigenerTermin(t, kontext);
 	// Online-Buchung (msgs 2684/2686): „Buchungslink für Besichtigung“, „Neuer Dienst Besichtigungstermin 60 Minuten für Murat“
-	// Nachkalkulation, Kundenportal, Foto-Aufmaß (Jamil msgs 2770–2774)
+	// Nachkalkulation, Kundenportal (Jamil msgs 2770–2774)
 	const auftragAus = (re: RegExp) => {
 		const m = re.exec(t);
 		return m ? sauber(m[1]).replace(/^(?:dem|den|der|die|das|auftrag|kunde|kunden|bei|für|fuer)\s+/gi, '').replace(/[?.!]+$/, '') : '';
@@ -369,10 +362,6 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 	if (/\b(?:kunden-?)?portal/.test(l)) {
 		const auftrag = auftragAus(/\b(?:für|fuer|von|zu[mr]?)\s+(.+)$/i);
 		if (auftrag) return { aktion: 'portallink_zeigen', daten: { auftrag } };
-	}
-	if (/\bfoto-?\s?aufma(?:ß|ss)/.test(l)) {
-		const auftrag = auftragAus(/\b(?:für|fuer|von|zu[mr]?|bei)\s+(.+)$/i);
-		if (auftrag) return { aktion: 'foto_aufmass', daten: { auftrag } };
 	}
 	if (/\bbuchungs-?links?\b|\blink\b.*\b(buchung|buchen)\b/.test(l)) {
 		const m = /\b(?:für|fuer|zu[mr]?|von)\s+(?:den\s+|die\s+|das\s+)?(?:dienst\s+)?(.+)$/i.exec(t);

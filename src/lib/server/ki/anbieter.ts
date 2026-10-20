@@ -20,7 +20,7 @@ export type FotoFuerKi = { bytes: Uint8Array; typ: 'image/jpeg' | 'image/png' };
 export type EntwurfEingabe = { text: string; katalog: KatalogFuerKi[]; foto?: FotoFuerKi };
 
 /**
- * Bild-Auswertung (Lieferschein auslesen, Foto-Aufmaß): System-Anweisung, kurzer Text, 1–4 Fotos und GENAU EIN
+ * Bild-Auswertung (Lieferschein auslesen): System-Anweisung, kurzer Text, 1–4 Fotos und GENAU EIN
  * Werkzeug. Die Antwort prüft `pruefe` streng (wirft bei Unsinn → ein zweiter Versuch, dann 502). Datensparsamkeit:
  * nur die Fotos und die Angaben des Nutzers (z. B. Referenzmaß) – nie Kundennamen, Adressen oder Preise aus der Datenbank.
  */

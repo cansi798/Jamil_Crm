@@ -38,7 +38,7 @@ export function systemAktion(k: KiKontext): string {
 		'- Fragen wie „Was steht heute für mich an?“, „Was hat Sabine morgen?“, „Was habe ich diese Woche?“, „Welche Aufgaben sind überfällig?“:',
 		'  abfrage_tagesplan (wer leer = ich; zeitraum heute|morgen|woche|datum; nur_ueberfaellig=true bei überfällig).',
 		'- „Wie lief der Auftrag Müller?“, „Nachkalkulation Müller“: abfrage_nachkalkulation; „Welche Aufträge machen Verlust?“: abfrage_verlust.',
-		'- „Kundenportal für Müller“, „Portal-Link Müller“: portallink_zeigen; „Foto-Aufmaß für Müller“: foto_aufmass.',
+		'- „Kundenportal für Müller“, „Portal-Link Müller“: portallink_zeigen.',
 		'- „Angebot Müller ist angenommen“, „Kunde Schmidt hat das Angebot abgelehnt“: angebot_entscheidung (status angenommen|abgelehnt).',
 		'- Zeiterfassung (Start/Pause/Fertig, Fahrt, Material) geht nur über die Knöpfe – dafür unbekannt aufrufen.',
 		'- „Aufgabe“ und „To-do“ bedeuten dasselbe (todo_anlegen, todo_abhaken).',

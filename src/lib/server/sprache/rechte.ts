@@ -23,7 +23,6 @@ import type { AktionsName } from './aktionen';
  * - Online-Buchung (Dienst anlegen, Buchungslink zeigen): Module `auftraege` + `plantafel`, Recht `buchung.verwalten`
  * - Nachkalkulation / Verlust abfragen: Modul `zeiterfassung`, „Preise sehen“ und „Alle Aufträge ansehen“
  * - Kundenportal: Modul `kundenportal` + `auftraege.bearbeiten`
- * - Foto-Aufmaß: wie der KI-Angebotsentwurf (Modul `ki_angebote` + Angebote mit Preisen)
  * - Tagesplan abfragen (nur lesend): Modul `auftraege` und irgendein Auftragsrecht; andere Personen nur mit
  *   „Alle Aufgaben ansehen“ (geprüft beim Beantworten)
  */
@@ -87,9 +86,6 @@ export async function pruefeAktionsRechte(
 		case 'portallink_zeigen':
 			await darf(locals, 'kundenportal', 'auftraege.bearbeiten');
 			return pruefeModul(locals, 'auftraege');
-		case 'foto_aufmass':
-			await angeboteZugriff(locals);
-			return pruefeModul(locals, 'ki_angebote');
 		case 'dienst_anlegen':
 		case 'buchungslink_zeigen':
 			await darf(locals, 'auftraege', 'buchung.verwalten');

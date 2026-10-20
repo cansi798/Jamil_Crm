@@ -234,11 +234,8 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     `app.angebot_entscheidungen` mit Zeit, Token-Hash und IP-HMAC (nie die IP). Kundenaktionen im Verlauf.
 18. Ereignis `angebotAngenommen` (`src/lib/server/ereignisse.ts`): jede Annahme (Portal, Büro, Sprache) erzeugt die
     Auftragsbestätigung (PDF, AB-JJJJ-NNNN; abschaltbar je Betrieb und Auftrag) – Versand über `MailVersand`, sonst
-    „bereit zum Versand“ mit To-do und Glocke. Weitere Anbindungen (z. B. Lexware) hängen sich mit `abonniere` an.
-19. Foto-Aufmaß (Modul `ki_angebote`, Migration 083): Der Nutzer gibt Wand-/Bodenfläche, Höhe und Objekte ein, die
-    KI (MiMo über `bildAuswertung`) schätzt nur abgeleitete Mengen und Katalogpositionen. An die KI gehen nur Fotos,
-    Zahlen, Katalog-Bezeichnungen (ohne Preise) und frühere Beispiele als Zahlen; gespeichert werden keine Fotos.
-    Lernen: `app.aufmass_schaetzungen` (KI-Werte, übernommene Werte, Ist-Verbrauch) → Kalibrierfaktoren und Beispiele.
+    „bereit zum Versand“ mit Aufgabe und Glocke. Weitere Anbindungen (z. B. Lexware) hängen sich mit `abonniere` an.
+19. Foto-Aufmaß: in Migration 083 eingeführt, mit Migration 086 samt Lerndaten wieder entfernt (Jamil msg 2904).
 
 ## Installation auf einem eigenen Server
 

@@ -28,7 +28,6 @@ describe('Aktions-Schema', () => {
 			'abfrage_nachkalkulation',
 			'abfrage_verlust',
 			'portallink_zeigen',
-			'foto_aufmass',
 			'angebot_entscheidung'
 		]);
 		expect(Object.keys(AKTIONS_SCHEMAS).sort()).toEqual([...AKTIONEN, 'unbekannt'].sort());

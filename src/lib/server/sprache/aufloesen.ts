@@ -873,7 +873,6 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_nachkalkulation: 'Nachkalkulation',
 	abfrage_verlust: 'Aufträge mit Verlust',
 	portallink_zeigen: 'Kundenportal',
-	foto_aufmass: 'Foto-Aufmaß',
 	angebot_entscheidung: 'Angebot entschieden'
 };
 
@@ -923,7 +922,7 @@ export async function loeseAuf(
 	nutzer: Nutzer,
 	aktion: Exclude<
 		KiAktion,
-		{ aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' | 'foto_aufmass' }
+		{ aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' }
 	>,
 	jetzt: Date
 ): Promise<Vorschau> {
