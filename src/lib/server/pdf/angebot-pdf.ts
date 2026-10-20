@@ -26,6 +26,11 @@ export type AngebotPdfDaten = {
 	angebot: Angebot;
 	kunde: PdfKunde;
 	objekt: PdfObjekt | null;
+	/**
+	 * Auftragsbestätigung (Jamil msg 2778): gleiches Layout aus den Angebotsdaten, aber Titel „Auftragsbestätigung“,
+	 * eigene Nummer, Datum der Annahme und eigener Einleitungs-/Schlusstext.
+	 */
+	als?: { titel: string; nummer: string; datum: string; angenommenAm: string; einleitung: string; schluss: string };
 };
 
 /**
@@ -100,7 +105,7 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 		bufferPages: true,
 		compress: opts.komprimieren ?? true,
 		info: {
-			Title: `Angebot ${a.nummer}`,
+			Title: daten.als ? `${daten.als.titel} ${daten.als.nummer}` : `Angebot ${a.nummer}`,
 			Author: profil.firmenname ?? '',
 			Subject: a.auftragTitel ?? '',
 			Creator: 'CRM System'
@@ -171,7 +176,14 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 	// Angaben rechts
 	const infoX = mm(125);
 	const infoBreite = RECHTS - infoX;
-	const angaben: [string, string][] = [
+	const als = daten.als;
+	const angaben: [string, string][] = als ? [
+		['AB-Nr.', als.nummer],
+		['Datum', deutschesDatum(als.datum)],
+		['Angebot', `${a.nummer} vom ${deutschesDatum(a.datum)}`],
+		['Angenommen', deutschesDatum(als.angenommenAm)],
+		...(a.auftragNummer ? [['Auftrag', a.auftragNummer] as [string, string]] : [])
+	] : [
 		['Angebot-Nr.', a.nummer],
 		['Datum', deutschesDatum(a.datum)],
 		['Gültig bis', deutschesDatum(a.gueltigBis)],
@@ -197,7 +209,7 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 	// Titel und Einleitung
 	y = mm(98);
 	schrift('fett', 15);
-	doc.text(`Angebot ${a.nummer}`, LINKS, y, { width: BREITE });
+	doc.text(als ? `${als.titel} ${als.nummer}` : `Angebot ${a.nummer}`, LINKS, y, { width: BREITE });
 	y = doc.y + mm(1);
 	if (a.auftragTitel) {
 		schrift('normal', 10, FARBE_LEISE);
@@ -205,9 +217,11 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 		y = doc.y;
 	}
 	y += mm(4);
-	if (a.einleitung) {
+	const einleitung = als ? als.einleitung : a.einleitung;
+	const schluss = als ? als.schluss : a.schluss;
+	if (einleitung) {
 		schrift('normal', 10);
-		doc.text(a.einleitung, LINKS, y, { width: BREITE });
+		doc.text(einleitung, LINKS, y, { width: BREITE });
 		y = doc.y + mm(4);
 	}
 
@@ -219,7 +233,7 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 		schrift('fett', 9);
 		zeile(profil.firmenname ?? '', LINKS, mm(15), BREITE / 2);
 		schrift('normal', 9, FARBE_LEISE);
-		zeile(`Angebot ${a.nummer} vom ${deutschesDatum(a.datum)}`, LINKS + BREITE / 2, mm(15), BREITE / 2, 'right');
+		zeile(als ? `${als.titel} ${als.nummer} vom ${deutschesDatum(als.datum)}` : `Angebot ${a.nummer} vom ${deutschesDatum(a.datum)}`, LINKS + BREITE / 2, mm(15), BREITE / 2, 'right');
 		linie(LINKS, mm(21), RECHTS);
 		y = INHALT_OBEN_FOLGESEITE;
 		kopfAufDieserSeite = false;
@@ -319,16 +333,16 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 	summenZeile('Gesamtbetrag', euro(a.bruttoCent), true);
 
 	// ---------- Schlusstext ----------
-	if (a.schluss) {
+	if (schluss) {
 		y += mm(5);
 		schrift('normal', 10);
-		const h = doc.heightOfString(a.schluss, { width: BREITE });
+		const h = doc.heightOfString(schluss, { width: BREITE });
 		if (y + h > INHALT_UNTEN) {
 			folgeseite();
 			kopfAufDieserSeite = true; // nach der Tabelle braucht der Schlusstext keinen Tabellenkopf
 		}
 		schrift('normal', 10);
-		doc.text(a.schluss, LINKS, y, { width: BREITE });
+		doc.text(schluss, LINKS, y, { width: BREITE });
 		y = doc.y;
 	}
 

@@ -109,6 +109,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 			mehr.push({ name: 'Briefkopf', href: '/einstellungen/briefkopf', symbol: 'briefkopf' });
 			// Automatisches Nachfassen (Angebote/Rechnungen): Stufen, Mail-Vorlagen, Signatur – Chef/Admin
 			if (module.includes('angebote')) mehr.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
+			// Kundenportal (AGB-Link) und Auftragsbestätigung automatisch (Jamil msg 2778)
+			if (module.includes('angebote')) mehr.push({ name: 'Kundenportal & Auftragsbestätigung', href: '/einstellungen/kundenportal', symbol: 'angebote' });
 			// Auftragsquellen und ihre Auswertung (Wunsch Jamil msg 2593)
 			if (module.includes('auftraege')) {
 				mehr.push({ name: 'Auftragsquellen', href: '/einstellungen/quellen', symbol: 'auftraege' });

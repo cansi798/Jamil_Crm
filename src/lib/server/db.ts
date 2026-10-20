@@ -175,8 +175,24 @@ export async function mitBetrieb<T>(k: Kontext, fn: (sql: TransactionSql) => Pro
  * vorher eine SECURITY-DEFINER-Funktion aus dem nicht erratbaren Token (`app.buchung_link_aufloesen`); nur dafür
  * verwenden.
  */
-export async function mitBetriebOeffentlich<T>(betriebId: string, fn: (sql: TransactionSql) => Promise<T>): Promise<T> {
-	return inTransaktion(hole().app, { 'app.betrieb_id': nichtLeer(betriebId, 'betriebId'), 'app.quelle': 'online-buchung' }, fn);
+export async function mitBetriebOeffentlich<T>(
+	betriebId: string,
+	fn: (sql: TransactionSql) => Promise<T>,
+	quelle: 'online-buchung' | 'kundenportal' = 'online-buchung'
+): Promise<T> {
+	return inTransaktion(hole().app, { 'app.betrieb_id': nichtLeer(betriebId, 'betriebId'), 'app.quelle': quelle }, fn);
+}
+
+/** Platzhalter-Benutzer im Kontext öffentlicher Abläufe (Kundenportal): nie in SQL als Benutzer verwenden. */
+export const OEFFENTLICH = 'oeffentlich';
+
+/**
+ * Öffentlicher Ablauf (z. B. Annahme im Kundenportal) in EINER Transaktion: Dienste, die `mitBetrieb` mit dem Kontext
+ * `{ betriebId, benutzerId: OEFFENTLICH }` aufrufen, laufen darin mit (RLS des Betriebs, kein Benutzer im Protokoll,
+ * Quelle wie angegeben).
+ */
+export async function alsOeffentlich<T>(betriebId: string, quelle: 'online-buchung' | 'kundenportal', fn: () => Promise<T>): Promise<T> {
+	return mitBetriebOeffentlich(betriebId, (tx) => laufend.run({ k: { betriebId, benutzerId: OEFFENTLICH }, tx }, fn), quelle);
 }
 
 /** Erlaubte Herkunftsangaben fürs Änderungsprotokoll (`app.aenderungen.quelle`): Oberfläche, Sprachsteuerung, KI-Entwurf. */

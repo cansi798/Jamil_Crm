@@ -38,6 +38,8 @@ import { laufend, zeitenZumAuftrag, zeitVerlauf, zeitZugriff, type ZeitZugriff }
 import { materialHinzufuegen, materialLoeschen, materialStand, materialWieGeplant, setzeMaterialMenge } from '$lib/server/material';
 import { lieferscheinAuslesen } from '$lib/server/ki/lieferschein';
 import { nachkalkulationAuftrag } from '$lib/server/nachkalkulation';
+import { erzeugeLink, portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe, widerrufeLink } from '$lib/server/kundenportal';
+import { abEinstellung, listeAuftragsbestaetigungen, markiereAbGesendet } from '$lib/server/auftragsbestaetigung';
 
 /** Zeiterfassung nur mit Modul und Recht – sonst `null` (Bereich ausgeblendet). */
 async function zeitOderNull(locals: { nutzer: Nutzer | null }): Promise<ZeitZugriff | null> {
@@ -90,10 +92,16 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const [zeitLaufend, zeitSumme, material, zeitEintraege] = zg
 			? await Promise.all([laufend(k, nutzer.id), zeitenZumAuftrag(zg, auftrag.id), materialStand(zg, auftrag.id), zeitVerlauf(zg, auftrag.id)])
 			: [null, null, null, []];
+		// Kundenportal (Jamil msgs 2770–2774, 2778): Links, Freigaben; Auftragsbestätigungen (mit Preisen)
+		const darfPortal = darfBearbeiten && (await hatModul(k.betriebId, 'kundenportal'));
+		const portal = darfPortal ? await portalStand(k, auftrag.id) : null;
+		const auftragsbestaetigungen = angeboteSichtbar && preise ? await listeAuftragsbestaetigungen(k, auftrag.id) : [];
+		const portalEintraege = darfPortal || auftragsbestaetigungen.length > 0 ? await portalVerlauf(k, auftrag.id) : [];
 		const verlauf = [
 			...protokoll.eintraege.map((e) => ({ iso: e.zeit, zeile: verlaufZeile(e) })),
 			...protokollEintraege,
-			...zeitEintraege
+			...zeitEintraege,
+			...portalEintraege
 		].sort((x, y) => (x.iso < y.iso ? 1 : x.iso > y.iso ? -1 : 0));
 		// Nachkalkulation (Plan/Ist, Ampel): Chef/Büro mit „Preise sehen“ und „Alle Aufträge ansehen“
 		const nachkalkulation =
@@ -103,6 +111,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		return {
 			auftrag,
 			nachkalkulation,
+			portal,
+			auftragsbestaetigungen,
+			abAutomatischBearbeiten: darfBearbeiten && angeboteSichtbar,
+			abEinstellung: darfBearbeiten && angeboteSichtbar ? await abEinstellung(k, auftrag.id) : null,
 			zeit: zg ? { laufend: zeitLaufend, summe: zeitSumme!, verwalten: zg.verwalten } : null,
 			material,
 			preiseSehen: preise,
@@ -324,6 +336,63 @@ export const actions: Actions = {
 			return { materialMeldung: `${n} Position${n === 1 ? '' : 'en'} vom Lieferschein übernommen.` };
 		} catch (e) {
 			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Kundenportal: neuen Link erzeugen (Token nur jetzt sichtbar), optional mit Ablaufdatum. */
+	portalLink: async ({ locals, params, request, url }) => {
+		const f = await request.formData();
+		try {
+			const r = await erzeugeLink(await portalZugriff(locals), params.id, f.get('laeuftAb'));
+			const basis = (process.env.ORIGIN ?? url.origin).replace(/\/$/, '');
+			return { portalUrl: `${basis}/portal/${r.token}` };
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	portalWiderrufen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await widerrufeLink(await portalZugriff(locals), params.id, f.get('linkId'));
+			return { portalMeldung: 'Link widerrufen – er funktioniert ab sofort nicht mehr.' };
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	portalFreigabe: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await setzeFreigabe(await portalZugriff(locals), params.id, { status: f.get('status'), termine: f.get('termine'), mitarbeiter: f.get('mitarbeiter'), annahme: f.get('annahme') });
+			return { portalMeldung: 'Freigabe gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	portalDokument: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await setzeDokument(await portalZugriff(locals), params.id, f.get('art'), f.get('refId'), f.get('geteilt') === 'ja');
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Auftragsbestätigung automatisch für diesen Auftrag: „wie im Betrieb“, an oder aus (wie beim Nachfassen). */
+	abAutomatisch: async ({ locals, params, request }) => {
+		const w = (await request.formData()).get('wert');
+		try {
+			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			await angeboteZugriff(locals);
+			await setzeAbAutomatisch(betriebKontext(locals), params.id, w === 'an' ? true : w === 'aus' ? false : null);
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+	},
+	abGesendet: async ({ locals, request }) => {
+		const id = (await request.formData()).get('id');
+		try {
+			await angeboteZugriff(locals);
+			await markiereAbGesendet(betriebKontext(locals), id);
+		} catch (e) {
+			return alsFormFehler(e);
 		}
 	},
 	todoAnlegen: todo.anlegen,

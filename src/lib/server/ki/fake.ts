@@ -411,6 +411,10 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 	if (/\bnachfass/.test(l) && /\b(wo|wer|welche[nrs]?|was|muss|müssen|fällig|faellig|steht|stehen|anstehend\w*)\b/.test(l) && !/\b(pausier\w*|stopp\w*|anhalten|fortsetz\w*|aufnehm\w*)\b/.test(l))
 		return { aktion: 'abfrage_nachfassen', daten: {} };
 	if (/\bnachfass/.test(l)) return nachfassen(t);
+	if (/\bangebot\b|\bhat\b.*\b(?:angenommen|abgelehnt|zugesagt|abgesagt)\b/.test(l) && /\b(?:angenommen|abgelehnt|zugesagt|abgesagt)\b/.test(l)) {
+		const n = nachfassen(t.replace(/\b(?:ist|wurde|hat|das|den|angenommen|abgelehnt|zugesagt|abgesagt)\b/gi, ' '));
+		return { aktion: 'angebot_entscheidung', daten: { angebot: n.daten.angebot, status: /\b(?:abgelehnt|abgesagt)\b/.test(l) ? 'abgelehnt' : 'angenommen' } };
+	}
 	if (/\b(?:hake|hak|abhaken|abgehakt)\b|\b(?:ist|sind|als)\s+(?:jetzt\s+)?(?:erledigt|abgehakt)\b|\berledigt\s*$/.test(l) && !/\b(?:soll|muss|bis)\b/.test(l)) {
 		return abhaken(t);
 	}

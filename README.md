@@ -225,6 +225,16 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     des Auftrags). Nach der Freigabe ändert nur noch Chef/Büro. Kilometer: OSRM über `CRM_ROUTEN_URL` (nur zwei
     Koordinaten), sonst Luftlinie × `CRM_ROUTEN_FAKTOR` (Standard 1,3) – kein GPS, kein Standort. Lieferschein-Fotos
     gehen nur als Bild an die KI (keine Kundendaten); Materialpreise nur mit „Preise sehen“ und nie im Protokoll.
+17. Kundenportal (Modul `kundenportal`, Migration 082): `/portal/<Token>` ohne Anmeldung. Token = 32 Zufallsbytes,
+    gespeichert nur als SHA-256; aufgelöst nur über `app.portal_link_aufloesen` (SECURITY DEFINER, `crm_auth`), danach
+    `crm_app` mit RLS im Betrieb (`alsOeffentlich`, Protokoll-Quelle `kundenportal`) und nur für den Auftrag des Links.
+    Widerrufbar, optional mit Ablauf. Nach außen nur Freigegebenes (Status, Termine, Vornamen, Angebote/Dateien,
+    Auftragsbestätigungen). Begrenzung je IP, Sperre bei vielen falschen Tokens, `noindex`, `no-referrer`, CSP der App;
+    Dokumente mit `sandbox`-CSP. Annahme ohne Unterschrift (Bestätigungsschritt + AGB-Häkchen); Nachweis in
+    `app.angebot_entscheidungen` mit Zeit, Token-Hash und IP-HMAC (nie die IP). Kundenaktionen im Verlauf.
+18. Ereignis `angebotAngenommen` (`src/lib/server/ereignisse.ts`): jede Annahme (Portal, Büro, Sprache) erzeugt die
+    Auftragsbestätigung (PDF, AB-JJJJ-NNNN; abschaltbar je Betrieb und Auftrag) – Versand über `MailVersand`, sonst
+    „bereit zum Versand“ mit To-do und Glocke. Weitere Anbindungen (z. B. Lexware) hängen sich mit `abonniere` an.
 
 ## Installation auf einem eigenen Server
 

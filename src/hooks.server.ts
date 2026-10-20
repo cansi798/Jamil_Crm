@@ -47,7 +47,9 @@ const LESEND = new Set(['GET', 'HEAD']);
 const IMMER_ERLAUBT = (pfad: string) =>
 	pfad === '/api/abmelden' || pfad === '/anmelden' || pfad.startsWith('/anmelden/') || pfad.startsWith('/einladung/') ||
 	// Online-Buchung: öffentlich, ohne Bezug zur Sitzung (wer bucht, handelt als Gast)
-	pfad.startsWith('/buchen/') || pfad.startsWith('/buchung/');
+	pfad.startsWith('/buchen/') || pfad.startsWith('/buchung/') ||
+	// Kundenportal: öffentlich über den Link, wer dort annimmt, handelt als Kunde
+	pfad.startsWith('/portal/');
 
 /**
  * Liest das Sitzungs-Cookie und setzt `locals.nutzer` (oder `null`). Hat die Datenbank die Sitzung verlängert

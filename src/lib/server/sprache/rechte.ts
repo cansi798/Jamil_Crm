@@ -16,6 +16,7 @@ import type { AktionsName } from './aktionen';
  * - Mitarbeiter zuweisen, Status ändern: Modul `auftraege` + `auftraege.bearbeiten`
  * - To-do abhaken: Modul `auftraege`; abhaken darf, wer bearbeiten darf, sonst nur eigene To-dos (beim Ausführen)
  * - Anlage anlegen: Modul `kunden` + `kunden.bearbeiten`
+ * - Angebot angenommen/abgelehnt eintragen: wie Angebote (`angebote.bearbeiten` + `preise.sehen`)
  * - Nachfassen pausieren: wie Angebote (`angebote.bearbeiten` + `preise.sehen`)
  * - Auslastung abfragen (nur lesend): wie die Seite Auslastung – Modul `plantafel` + `plantafel.bearbeiten` oder
  *   „Alle Aufträge ansehen“; Gewinn/Break-even zusätzlich „Preise sehen“
@@ -76,6 +77,7 @@ export async function pruefeAktionsRechte(
 			await darfEines(locals, 'plantafel', ['plantafel.bearbeiten', 'auftraege.alle_lesen']);
 			return darf(locals, 'plantafel', 'preise.sehen');
 		case 'nachfassen_pausieren':
+		case 'angebot_entscheidung':
 			await angeboteZugriff(locals);
 			return;
 		case 'abfrage_nachkalkulation':

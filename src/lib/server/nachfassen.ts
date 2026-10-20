@@ -34,7 +34,7 @@ import {
 /** Versand-Schnittstelle für später (Jamil 2589: Anbindung offen). Heute gibt es nur „nicht verbunden“. */
 export interface MailVersand {
 	readonly verbunden: boolean;
-	senden(mail: { an: string; betreff: string; html: string; text: string }): Promise<void>;
+	senden(mail: { an: string; betreff: string; html: string; text: string; anhaenge?: { name: string; typ: string; bytes: Uint8Array }[] }): Promise<void>;
 }
 export const KEIN_VERSAND: MailVersand = {
 	verbunden: false,

@@ -202,6 +202,7 @@ async function ausfuehrenJe(
 		case 'todo_abhaken':
 		case 'anlage_anlegen':
 		case 'nachfassen_pausieren':
+		case 'angebot_entscheidung':
 		case 'quelle_setzen':
 			return neueAktionen(k, nutzer, aktion, w);
 		case 'abfrage_tagesplan':
@@ -269,6 +270,12 @@ async function neueAktionen(k: { betriebId: string; benutzerId: string }, nutzer
 			const { aendereAuftrag } = await import('../auftraege');
 			const a = await aendereAuftrag(k, w.auftragId, { quelleId: w.quelleId }, sichtVon(nutzer));
 			return { status: 200, meldung: `Auftragsquelle von ${a.nummer}: ${a.quelleName}`, link: `/auftraege/${a.id}`, warnungen: [] };
+		}
+		case 'angebot_entscheidung': {
+			const { setzeAngebotStatus } = await import('../angebote');
+			const zg = { sicht: sichtVon(nutzer), auftragAendern: (await import('../rechte')).hatRecht(nutzer, 'auftraege.bearbeiten') };
+			const a = await setzeAngebotStatus(k, w.angebotId, w.status, zg, 'sprache');
+			return { status: 200, meldung: `Angebot ${a.nummer} ist ${w.status}`, link: `/angebote/${a.id}`, warnungen: a.hinweis ? [a.hinweis] : [] };
 		}
 		case 'nachfassen_pausieren': {
 			const { setzeNachfassenPausiert } = await import('../nachfassen');

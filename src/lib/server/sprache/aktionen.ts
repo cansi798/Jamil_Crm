@@ -37,7 +37,8 @@ export const AKTIONEN = [
 	'abfrage_nachkalkulation',
 	'abfrage_verlust',
 	'portallink_zeigen',
-	'foto_aufmass'
+	'foto_aufmass',
+	'angebot_entscheidung'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
@@ -151,6 +152,7 @@ export type KiAktion =
 	| { aktion: 'abfrage_verlust'; daten: Record<string, never> }
 	| { aktion: 'portallink_zeigen'; daten: { auftrag: string } }
 	| { aktion: 'foto_aufmass'; daten: { auftrag: string } }
+	| { aktion: 'angebot_entscheidung'; daten: { angebot: string; status: 'angenommen' | 'abgelehnt' } }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -458,6 +460,15 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		required: ['auftrag'],
 		additionalProperties: false
 	},
+	angebot_entscheidung: {
+		type: 'object',
+		properties: {
+			angebot: text(100, 'Angebot wie gesprochen: Kundenname oder Nummer (z. B. AN-2026-0003)'),
+			status: { type: 'string', enum: ['angenommen', 'abgelehnt'] }
+		},
+		required: ['angebot', 'status'],
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -484,6 +495,7 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	abfrage_nachkalkulation: 'Frage beantworten, wie ein Auftrag gelaufen ist – Plan gegen Ist, Gewinn, Ampel („Wie lief der Auftrag Müller?“).',
 	abfrage_verlust: 'Frage beantworten, welche Aufträge Verlust machen („Welche Aufträge machen Verlust?“).',
 	portallink_zeigen: 'Kundenportal eines Auftrags öffnen bzw. Link für den Kunden erzeugen („Kundenportal für Müller“).',
+	angebot_entscheidung: 'Ein versendetes Angebot als angenommen oder abgelehnt eintragen („Angebot Müller ist angenommen“, „Kunde Schmidt hat abgelehnt“).',
 	foto_aufmass: 'Foto-Aufmaß für einen Auftrag öffnen („Foto-Aufmaß für Müller“).',
 	buchungslink_zeigen: 'Buchungslink (Online-Buchung) eines Dienstes zeigen bzw. kopieren („Buchungslink für Besichtigung“).',
 	abfrage_nachfassen: 'Frage beantworten, bei welchen Aufträgen/Angeboten das Nachfassen heute fällig oder überfällig ist („Wo muss ich nachfassen?“).',

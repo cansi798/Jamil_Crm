@@ -120,6 +120,91 @@
 					</Karte>
 				</div>
 			{/if}
+			{#if data.auftragsbestaetigungen.length > 0 || data.abEinstellung}
+				<div class="af-k k-ab" id="auftragsbestaetigung">
+					<Karte>
+						{#snippet titel()}Auftragsbestätigung{/snippet}
+						{#each data.auftragsbestaetigungen as ab (ab.id)}
+							<div class="af-ab">
+								<p><strong>{ab.nummer}</strong> · {ab.versandStatus === 'gesendet' ? `gesendet${ab.versendetAm ? ` am ${tagDeutsch(berlinTag(new Date(ab.versendetAm)))}` : ''}` : 'bereit zum Versand'}</p>
+								<div class="af-ab-knoepfe">
+									<a class="kd-knopf hell" href={`/api/auftragsbestaetigungen/${ab.id}/pdf?download=1`} download>PDF herunterladen</a>
+									{#if ab.versandStatus === 'bereit'}
+										<a class="kd-knopf hell" href={`mailto:${ab.mailAn ?? ''}?subject=${encodeURIComponent(ab.mailBetreff ?? '')}&body=${encodeURIComponent(ab.mailText ?? '')}`}>In Mailprogramm öffnen</a>
+										<form method="POST" action="?/abGesendet" use:enhance><input type="hidden" name="id" value={ab.id} /><button type="submit" class="kd-knopf">Als gesendet markieren</button></form>
+									{/if}
+								</div>
+								{#if ab.versandStatus === 'bereit'}<p class="kd-info">Der Mailversand ist noch nicht angebunden: PDF herunterladen, im Mailprogramm anhängen und senden.{#if !ab.mailAn} Beim Kunden ist keine E-Mail hinterlegt.{/if}</p>{/if}
+							</div>
+						{:else}
+							<p class="kd-info">Sobald ein Angebot angenommen ist (Kundenportal, Büro oder Sprache), entsteht hier automatisch die Auftragsbestätigung.</p>
+						{/each}
+						{#if data.abEinstellung}
+							<form method="POST" action="?/abAutomatisch" use:enhance={sofort} class="af-inline af-ab-schalter">
+								<label>Automatisch erstellen
+									<select name="wert" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+										<option value="" selected={data.abEinstellung?.auftrag == null}>wie im Betrieb ({data.abEinstellung?.betrieb ? 'an' : 'aus'})</option>
+										<option value="an" selected={data.abEinstellung?.auftrag === true}>an</option>
+										<option value="aus" selected={data.abEinstellung?.auftrag === false}>aus</option>
+									</select>
+								</label>
+							</form>
+						{/if}
+					</Karte>
+				</div>
+			{/if}
+			{#if data.portal}
+				<div class="af-k k-portal" id="kundenportal">
+					<Karte>
+						{#snippet titel()}Kundenportal{/snippet}
+						{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
+						{#if form?.portalMeldung}<p role="status" class="kd-info">{form.portalMeldung}</p>{/if}
+						{#if form?.portalUrl}
+							<div class="af-portal-neu" data-testid="portal-url">
+								<p><strong>Neuer Link</strong> – nur jetzt sichtbar, bitte gleich kopieren und dem Kunden schicken:</p>
+								<input readonly value={form.portalUrl} aria-label="Portal-Link" onfocus={(ev) => ev.currentTarget.select()} />
+								<button type="button" class="kd-knopf" onclick={() => navigator.clipboard?.writeText(form?.portalUrl ?? '')}>Kopieren</button>
+							</div>
+						{/if}
+						<form method="POST" action="?/portalLink" use:enhance class="af-portal-link">
+							<label>Gültig bis (optional) <input type="date" name="laeuftAb" /></label>
+							<button type="submit" class="kd-knopf">Link für den Kunden erzeugen</button>
+						</form>
+						{#if data.portal.links.some((l) => l.gueltig)}
+							<ul class="af-portal-links">
+								{#each data.portal.links.filter((l) => l.gueltig) as l (l.id)}
+									<li>
+										<span>Link vom {tagDeutsch(berlinTag(new Date(l.angelegt)))}{l.laeuftAb ? ` · gültig bis ${tagDeutsch(berlinTag(new Date(new Date(l.laeuftAb).getTime() - 1)))}` : ''} · {l.zugriffe}× geöffnet</span>
+										<form method="POST" action="?/portalWiderrufen" use:enhance><input type="hidden" name="linkId" value={l.id} /><button type="submit" class="knopf-subtil">Widerrufen</button></form>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+						{#if data.portal.links.some((l) => !l.gueltig)}<p class="kd-info">{data.portal.links.filter((l) => !l.gueltig).length} ältere Link(s) widerrufen oder abgelaufen.</p>{/if}
+						<form method="POST" action="?/portalFreigabe" use:enhance={sofort} class="af-portal-freigabe">
+							<p class="af-portal-titel">Der Kunde sieht:</p>
+							<label><input type="checkbox" name="status" value="ja" checked={data.portal.freigabe.status} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Auftragsstatus</label>
+							<label><input type="checkbox" name="termine" value="ja" checked={data.portal.freigabe.termine} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Nächste Termine (Zeitfenster)</label>
+							<label><input type="checkbox" name="mitarbeiter" value="ja" checked={data.portal.freigabe.mitarbeiter} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Vornamen der Mitarbeiter</label>
+							<label><input type="checkbox" name="annahme" value="ja" checked={data.portal.freigabe.annahme} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Angebot online annehmen</label>
+						</form>
+						{#if data.portal.angebote.length + data.portal.dateien.length > 0}
+							<p class="af-portal-titel">Freigegebene Dokumente</p>
+							<ul class="af-portal-docs">
+								{#each [...data.portal.angebote.map((x) => ({ art: 'angebot', id: x.id, name: `Angebot ${x.nummer}`, geteilt: x.geteilt })), ...data.portal.dateien.map((x) => ({ art: 'datei', id: x.id, name: x.name, geteilt: x.geteilt }))] as d (d.id)}
+									<li>
+										<form method="POST" action="?/portalDokument" use:enhance={sofort}>
+											<input type="hidden" name="art" value={d.art} /><input type="hidden" name="refId" value={d.id} />
+											<label><input type="checkbox" name="geteilt" value="ja" checked={d.geteilt} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> {d.name}</label>
+										</form>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+						<p class="kd-info">Auftragsbestätigungen sieht der Kunde immer. Kein anderer Kunde, keine internen Notizen.</p>
+					</Karte>
+				</div>
+			{/if}
 			{#if data.nachkalkulation}
 				<div class="af-k k-nachkalk" id="nachkalkulation">
 					<Karte>
@@ -775,6 +860,8 @@
 	.k-zeit { order: 0; }
 	.k-material { order: 4; }
 	.k-nachkalk { order: 6; }
+	.k-ab { order: 6; }
+	.k-portal { order: 6; }
 	.k-stamm { order: 1; }
 	.k-buchung { order: 1; }
 	.k-ort { order: 2; }
@@ -1084,4 +1171,18 @@
 		width: 1.4rem;
 		height: 1.4rem;
 	}
+	.af-ab { display: grid; gap: var(--ui-a2); padding-bottom: var(--ui-a2); border-bottom: 1px solid var(--ui-rand); margin-bottom: var(--ui-a2); }
+	.af-ab p { margin: 0; }
+	.af-ab-knoepfe, .af-portal-link, .af-portal-neu { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: flex-end; }
+	.af-portal-link label { display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }
+	.af-portal-neu { padding: var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-gruen-hell); margin-bottom: var(--ui-a2); }
+	.af-portal-neu p { margin: 0; flex-basis: 100%; }
+	.af-portal-neu input { flex: 1 1 14rem; min-height: var(--ui-feld-hoehe); min-width: 0; }
+	.af-portal-links, .af-portal-docs { list-style: none; margin: var(--ui-a2) 0; padding: 0; display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }
+	.af-portal-links li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ui-a2); align-items: center; }
+	.af-portal-freigabe { display: grid; gap: var(--ui-a1); margin-top: var(--ui-a3); }
+	.af-portal-freigabe label, .af-portal-docs label { display: flex; gap: var(--ui-a2); align-items: center; min-height: 2.25rem; }
+	.af-portal-titel { margin: var(--ui-a2) 0 0; font-weight: 600; font-size: var(--ui-schrift-s); }
+	.af-ab-schalter { margin-top: var(--ui-a2); }
+	.af-ab-schalter label { display: flex; gap: var(--ui-a2); align-items: center; font-size: var(--ui-schrift-s); }
 </style>

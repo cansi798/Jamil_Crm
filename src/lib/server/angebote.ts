@@ -679,11 +679,13 @@ export async function setzeAngebotStatus(
 	k: Kontext,
 	id: string,
 	nach: unknown,
-	zg: AngebotZugriff = voll(k)
+	zg: AngebotZugriff = voll(k),
+	quelle: 'oberflaeche' | 'sprache' = 'oberflaeche'
 ): Promise<Angebot & { hinweis?: string }> {
 	const aid = pruefeAngebotId(id);
 	if (!istAngebotStatus(nach)) throw new ApiFehler(400, 'Unbekannter Status.');
-	return mitBetrieb(k, async (tx) => {
+	let neuAngenommen: { auftragId: string | null } | null = null;
+	const ergebnis: Angebot & { hinweis?: string } = await mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
 			select an.status, an.auftrag_id, a.status as auftrag_status,
 				(select count(*)::int from app.angebot_positionen p where p.angebot_id = an.id and p.betrieb_id = an.betrieb_id) as anzahl
@@ -695,6 +697,7 @@ export async function setzeAngebotStatus(
 			throw new ApiFehler(409, 'Ein Angebot ohne Positionen kann nicht versendet werden.');
 		}
 		await tx`update app.angebote set status = ${nach} where id = ${aid} and betrieb_id = ${k.betriebId}`;
+		if (nach === 'angenommen' && alt.status !== 'angenommen') neuAngenommen = { auftragId: alt.auftrag_id };
 		const schritt = KOPPLUNG[nach];
 		let hinweis: string | undefined;
 		if (schritt && alt.auftrag_id !== null && alt.auftrag_status === schritt[0]) {
@@ -709,6 +712,13 @@ export async function setzeAngebotStatus(
 		const angebot = await ladeEines(tx, k, aid, zg.sicht);
 		return hinweis ? { ...angebot, hinweis } : angebot;
 	});
+	// Das CRM ist die Quelle der Wahrheit (Jamil msg 2778): Annahme melden → Auftragsbestätigung, später Lexware
+	if (neuAngenommen) {
+		const { melde } = await import('./ereignisse');
+		const hinweise = await melde('angebotAngenommen', { betriebId: k.betriebId, benutzerId: k.benutzerId, angebotId: aid, auftragId: (neuAngenommen as { auftragId: string | null }).auftragId, quelle });
+		if (hinweise.length > 0) return { ...ergebnis, hinweis: [ergebnis.hinweis, ...hinweise].filter(Boolean).join(' ') };
+	}
+	return ergebnis;
 }
 
 /** „Als neue Version bearbeiten“: kopiert Kopf und Positionen in einen neuen Entwurf (Vorgänger = dieses Angebot). */

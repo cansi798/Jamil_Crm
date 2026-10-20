@@ -769,6 +769,17 @@ async function nachfassenPausieren(k: Kontext, nutzer: Nutzer, d: Extract<KiAkti
 	return bau;
 }
 
+/** „Angebot Müller ist angenommen“ (Jamil msg 2778): versendetes Angebot finden, Annahme/Ablehnung bestätigen. */
+async function angebotEntscheidung(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'angebot_entscheidung' }>['daten']): Promise<Bau> {
+	const bau = await nachfassenPausieren(k, nutzer, { angebot: d.angebot });
+	bau.zeilen = bau.zeilen.filter((z) => z.label !== 'Nachfassen');
+	delete bau.werte.pausiert;
+	bau.werte.status = d.status;
+	bau.zeilen.push({ label: 'Neuer Status', wert: d.status === 'angenommen' ? 'angenommen' : 'abgelehnt' });
+	if (d.status === 'angenommen') bau.warnungen.push('Danach entsteht automatisch die Auftragsbestätigung (falls eingeschaltet); das Nachfassen stoppt.');
+	return bau;
+}
+
 /** Gesprochene Quelle → aktive Quelle des Betriebs (genau, sonst Anfang des Namens); keine → Hinweis. */
 async function quelleAufloesen(bau: Bau, k: Kontext, gesprochen: string): Promise<void> {
 	const { listeQuellen } = await import('../quellen');
@@ -862,7 +873,8 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_nachkalkulation: 'Nachkalkulation',
 	abfrage_verlust: 'Aufträge mit Verlust',
 	portallink_zeigen: 'Kundenportal',
-	foto_aufmass: 'Foto-Aufmaß'
+	foto_aufmass: 'Foto-Aufmaß',
+	angebot_entscheidung: 'Angebot entschieden'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -896,6 +908,8 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 			return werte.kundeId && werte.objektId ? `/kunden/${werte.kundeId}/objekte/${werte.objektId}` : werte.kundeId ? `/kunden/${werte.kundeId}` : '/kunden';
 		case 'nachfassen_pausieren':
 			return werte.angebotId ? `/angebote/${werte.angebotId}#nachfassen` : '/angebote';
+		case 'angebot_entscheidung':
+			return werte.angebotId ? `/angebote/${werte.angebotId}` : '/angebote';
 		case 'dienst_anlegen':
 			return '/einstellungen/online-buchung';
 		default:
@@ -957,6 +971,9 @@ export async function loeseAuf(
 				break;
 			case 'dienst_anlegen':
 				bau = await dienstAnlegen(k, nutzer, aktion.daten);
+				break;
+			case 'angebot_entscheidung':
+				bau = await angebotEntscheidung(k, nutzer, aktion.daten);
 				break;
 		}
 	} catch (e) {

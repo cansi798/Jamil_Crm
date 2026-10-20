@@ -1,0 +1,72 @@
+import { expect, test, type Browser } from '@playwright/test';
+import { erwarteKeinQuerScrollen } from './hilfe';
+
+/**
+ * Kundenportal (Jamil msgs 2770–2774 Punkt 4, 2778): Chef erzeugt im Auftrag „Ladenumbau Trockenbau“ (Seed: versendetes
+ * Angebot) einen Link; der Kunde öffnet ihn ohne Anmeldung, sieht Status und Angebot und nimmt es an (Bestätigungsschritt
+ * + AGB-Häkchen, keine Unterschrift) → Auftragsbestätigung erscheint. Die Annahme läuft nur, solange das Angebot noch
+ * offen ist (erster Lauf); danach prüft der Test nur noch die Anzeige. Am Ende wird der Link widerrufen.
+ */
+
+async function chef(browser: Browser, viewport: { width: number; height: number }) {
+	const ctx = await browser.newContext({ viewport, locale: 'de-DE', timezoneId: 'Europe/Berlin' });
+	const page = await ctx.newPage();
+	await page.goto('/anmelden');
+	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
+	await page.getByLabel('Benutzername').fill('can.chef');
+	await page.getByRole('button', { name: 'Anmelden' }).click();
+	await expect(page).not.toHaveURL(/\/anmelden/);
+	return page;
+}
+
+test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; Link widerrufen', async ({ browser }, info) => {
+	const viewport = info.project.name === 'mobil' ? { width: 390, height: 844 } : { width: 1280, height: 800 };
+	const page = await chef(browser, viewport);
+	await page.goto('/auftraege?ansicht=liste&suche=Ladenumbau');
+	const href = await page.locator('a[href^="/auftraege/"]').evaluateAll((l) => l.map((a) => a.getAttribute('href')).find((h) => /^\/auftraege\/[0-9a-f-]{36}$/.test(h ?? '')));
+	test.skip(!href, 'Seed-Auftrag „Ladenumbau Trockenbau“ fehlt');
+	await page.goto(href!);
+	const karte = page.locator('#kundenportal');
+	await karte.getByRole('button', { name: 'Link für den Kunden erzeugen' }).click();
+	const url = await karte.getByLabel('Portal-Link').inputValue();
+	expect(url).toMatch(/\/portal\/[A-Za-z0-9_-]{43}$/);
+	await erwarteKeinQuerScrollen(page, viewport.width);
+
+	// Kunde, ohne Anmeldung
+	const gast = await browser.newContext({ viewport, locale: 'de-DE', timezoneId: 'Europe/Berlin' });
+	const kunde = await gast.newPage();
+	const antwort = await kunde.goto(new URL(url).pathname);
+	expect(antwort?.headers()['x-robots-tag']).toMatch(/noindex/);
+	expect(antwort?.headers()['referrer-policy']).toBe('no-referrer');
+	await expect(kunde.getByRole('heading', { name: 'Ladenumbau Trockenbau' })).toBeVisible();
+	await expect(kunde.getByTestId('portal-status')).toBeVisible();
+	await erwarteKeinQuerScrollen(kunde, viewport.width);
+	const annehmen = kunde.getByRole('button', { name: 'Angebot annehmen' });
+	if (info.project.name === 'desktop' && (await annehmen.isVisible())) {
+		await annehmen.click();
+		await kunde.getByLabel('Ihr Name').fill('Erika Krümel');
+		const verbindlich = kunde.getByRole('button', { name: 'Verbindlich annehmen' });
+		await verbindlich.click();
+		// ohne AGB-Häkchen lässt der Browser nicht absenden
+		await expect(kunde.getByRole('button', { name: 'Verbindlich annehmen' })).toBeVisible();
+		await kunde.locator('input[name="agb"]').check();
+		await verbindlich.click();
+		await expect(kunde.getByText(/Vielen Dank für Ihren Auftrag/)).toBeVisible();
+		await expect(kunde.getByRole('link', { name: /Auftragsbestätigung AB-/ })).toBeVisible();
+		await expect(kunde.getByText(/Angenommen von Erika Krümel/)).toBeVisible();
+		// Im CRM: Auftragsbestätigung bereit zum Versand
+		await page.reload();
+		await expect(page.locator('#auftragsbestaetigung')).toContainText('bereit zum Versand');
+		await expect(page.locator('#auftragsbestaetigung').getByRole('link', { name: 'In Mailprogramm öffnen' })).toBeVisible();
+	}
+	await gast.close();
+
+	// Link widerrufen → Portal sagt „nicht gültig“
+	await karte.getByRole('button', { name: 'Widerrufen' }).first().click();
+	await expect(page.getByText('Link widerrufen – er')).toBeVisible();
+	const gast2 = await browser.newContext();
+	const r = await (await gast2.newPage()).goto(new URL(url).pathname);
+	expect(r?.status()).toBe(404);
+	await gast2.close();
+	await page.context().close();
+});

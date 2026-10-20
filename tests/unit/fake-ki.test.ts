@@ -84,5 +84,7 @@ describe('Test-KI: Nachkalkulation, Verlust, Kundenportal, Foto-Aufmaß (Jamil m
 		expect(deute('Welche Aufträge machen Verlust?', k)).toEqual({ aktion: 'abfrage_verlust', daten: {} });
 		expect(deute('Kundenportal für Müller', k)).toEqual({ aktion: 'portallink_zeigen', daten: { auftrag: 'Müller' } });
 		expect(deute('Foto-Aufmaß für Bad Meier', k)).toEqual({ aktion: 'foto_aufmass', daten: { auftrag: 'Bad Meier' } });
+		expect(deute('Angebot Müller ist angenommen', k)).toEqual({ aktion: 'angebot_entscheidung', daten: { angebot: 'Müller', status: 'angenommen' } });
+		expect(deute('Kunde Schmidt hat das Angebot abgelehnt', k)).toMatchObject({ aktion: 'angebot_entscheidung', daten: { status: 'abgelehnt' } });
 	});
 });

@@ -141,6 +141,10 @@ export async function baueUmgebung(): Promise<Umgebung> {
 export async function leereAngebote(root: postgres.Sql): Promise<void> {
 	await root.begin(async (tx) => {
 		await tx`set local session_replication_role = replica`;
+		// abhängige Zeilen (Kaskaden laufen im replica-Modus nicht): Auftragsbestätigungen, Entscheidungen, Material-Bezug
+		await tx`delete from app.auftragsbestaetigungen`;
+		await tx`delete from app.angebot_entscheidungen`;
+		await tx`update app.auftrag_material set angebot_position_id = null where angebot_position_id is not null`;
 		await tx`delete from app.angebot_positionen`;
 		await tx`delete from app.angebote`;
 	});
