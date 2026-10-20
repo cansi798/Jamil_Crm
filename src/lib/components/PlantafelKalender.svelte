@@ -108,7 +108,7 @@
 				aria-pressed={tag === gewaehlt}
 				onclick={() => (gewaehlt = tag)}
 			>
-				<span class="kal-zahl">{hoch ? tagKurz(tag) : zahl(tag)}</span>
+				<span class="kal-zahl">{hoch ? `${tag.slice(8, 10)}.${tag.slice(5, 7)}.` : zahl(tag)}</span>
 				{#if versteckt > 0}<span class="kal-mehr">+{versteckt}</span>{/if}
 			</button>
 		{/each}
@@ -403,9 +403,8 @@
 			font-size: 0.8125rem;
 		}
 		.hoch .kal-zahl {
-			font-size: 0.6875rem;
-			white-space: normal;
-			text-align: center;
+			font-size: 0.75rem;
+			padding: 0 0.15rem;
 		}
 	}
 </style>
