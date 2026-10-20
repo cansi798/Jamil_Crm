@@ -84,7 +84,7 @@
 								<span class="nf-nr">{i + 1}</span>
 								<span class="nf-tag">nach {s.tage} Tag{s.tage === 1 ? '' : 'en'}</span>
 								<span class="nf-was">
-									{#if s.mail}Mail „{vorlageName(s.mailVorlageId)}“{/if}{#if s.mail && s.todo} + {/if}{#if s.todo}To-do{s.todoTitel ? ` „${s.todoTitel}“` : ''}{/if}
+									{#if s.mail}Mail „{vorlageName(s.mailVorlageId)}“{/if}{#if s.mail && s.todo}{' + '}{/if}{#if s.todo}To-do{s.todoTitel ? ` „${s.todoTitel}“` : ''}{/if}
 									<span class="kd-info"> · {wer(s)}{s.mahnstufe !== null ? ` · ${s.mahnstufe === 0 ? 'Zahlungserinnerung' : `Mahnstufe ${s.mahnstufe}`}` : ''}{s.aktiv ? '' : ' · aus'}</span>
 								</span>
 							</summary>
