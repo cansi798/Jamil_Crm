@@ -129,7 +129,7 @@
 				onpointerdown={(ev) => runter(ev, t, 'schieben', balkenTag(woche, b.start))}
 				onclick={klick}
 			>
-				<span class="kal-text">{#if hoch}<b>{t.zeit.slice(0, 5)}</b> {/if}{t.kundeName || t.titel}{#if hoch} · {personenText(t)}{/if}</span>
+				<span class="kal-text">{#if hoch}<b>{t.zeit.slice(0, 5)}</b> {/if}{t.kundeName || t.titel}{#if hoch}{` · ${personenText(t)}`}{/if}</span>
 				{#if darfPlanen && t.gruppeId && !b.weiterRechts}
 					<span
 						class="kal-griff"

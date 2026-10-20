@@ -114,7 +114,9 @@ test.describe('Plantafel: Filter, Kolonnen, mehrtägig (Jamil msgs 2508, 2510, 2
 			await expect(lane(montag)).not.toContainText(auftrag.nummer);
 		} finally {
 			await page.goto('/plantafel/kolonnen');
+			await page.waitForLoadState('networkidle');
 			const li = page.getByRole('list', { name: 'Kolonnen' }).locator('li', { hasText: name });
+			await li.first().waitFor({ timeout: 5000 }).catch(() => null);
 			if (await li.count()) {
 				await li.locator('summary').click();
 				await li.getByRole('button', { name: 'Kolonne löschen' }).click();
