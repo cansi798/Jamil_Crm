@@ -328,8 +328,9 @@ async function inhalt(tx: TransactionSql, k: Kontext, r: Record<string, any>): P
 	}
 	const darfAlle = wer.rechte.includes('plantafel.bearbeiten') || wer.rechte.includes('auftraege.alle_lesen');
 	const [e] = await tx`
-		select e.beginn, e.benutzer_id, a.id as auftrag_id, a.titel, coalesce(k.firma, nullif(concat_ws(' ', k.vorname, k.nachname), ''), a.einmal_name, '') as kunde
-		from app.einsaetze e join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
+		select e.beginn, e.benutzer_id, a.id as auftrag_id, coalesce(a.titel, e.titel) as titel,
+			coalesce(k.firma, nullif(concat_ws(' ', k.vorname, k.nachname), ''), a.einmal_name, '') as kunde
+		from app.einsaetze e left join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
 		left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 		where e.id = ${r.einsatz_id} and e.betrieb_id = ${k.betriebId}`;
 	if (!e || (!darfAlle && e.benutzer_id !== k.benutzerId)) return null;
@@ -337,7 +338,7 @@ async function inhalt(tx: TransactionSql, k: Kontext, r: Record<string, any>): P
 	return {
 		titel: `Termin: ${e.titel}${e.kunde ? ` – ${e.kunde}` : ''}`.slice(0, 300),
 		text: `${tagKurz(berlinTag(d))} um ${berlinUhrzeit(d)}`,
-		link: `/auftraege/${e.auftrag_id}`
+		link: e.auftrag_id ? `/auftraege/${e.auftrag_id}` : `/plantafel?ansicht=tag&tag=${berlinTag(d)}`
 	};
 }
 

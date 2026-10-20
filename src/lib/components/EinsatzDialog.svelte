@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { ausTagUndUhrzeit, berlinTag, berlinUhrzeit, tagPlus } from '$lib/zeit';
+	import { page } from '$app/state';
+	import ErinnerungWahl from './ErinnerungWahl.svelte';
 
 	type Einsatz = {
 		id: string;
-		auftragId: string;
+		auftragId: string | null;
 		auftragNummer: string;
 		auftragTitel: string;
 		kundeName: string;
@@ -78,6 +80,13 @@
 	let von = $state(start.von);
 	let bis = $state(start.bis);
 	let notiz = $state(start.notiz);
+	// Eigener Termin ohne Auftrag (Wunsch Jamil msg 2682), z. B. „Zahnarzt“
+	let eigen = $state(untrack(() => !!einsatz && !einsatz.auftragId));
+	let titel = $state(untrack(() => (einsatz && !einsatz.auftragId ? einsatz.auftragTitel : '')));
+	// Erinnerungen (msg 2679): beim Anlegen immer, beim Bearbeiten nur, wenn „neu setzen“ gewählt
+	const erinnern = $derived(page.data.erinnern === true);
+	let erinnerungNeu = $state(untrack(() => !einsatz));
+	let formEl: HTMLFormElement | undefined = $state();
 	// Mehrtägig / Kolonne (msgs 2510, 2513) – nur beim Anlegen
 	let wer = $state<'person' | 'kolonne'>(untrack(() => (vorbelegung?.kolonneId ? 'kolonne' : 'person')));
 	let kolonneId = $state(untrack(() => vorbelegung?.kolonneId ?? kolonnen[0]?.id ?? ''));
@@ -159,10 +168,20 @@
 			fehler = 'Bitte Tag und Uhrzeiten angeben.';
 			return;
 		}
-		if (!einsatz && !auftragId) {
+		if (eigen && !titel.trim()) {
+			fehler = 'Bitte einen Titel für den eigenen Termin eingeben.';
+			return;
+		}
+		if (!einsatz && !eigen && !auftragId) {
 			fehler = 'Bitte einen Auftrag wählen.';
 			return;
 		}
+		if (eigen && alsGruppe) {
+			fehler = 'Eigene Termine gehen nur an einem Tag und für eine Person.';
+			return;
+		}
+		const fd = formEl ? new FormData(formEl) : null;
+		const erinnerungen = erinnern && erinnerungNeu && !alsGruppe ? { erinnerung1: String(fd?.get('erinnerung1') ?? ''), erinnerung2: String(fd?.get('erinnerung2') ?? '') } : {};
 		sendet = true;
 		try {
 			if (alsGruppe) {
@@ -181,7 +200,7 @@
 				onfertig({ aktion: 'angelegt', einsatz: { ...alle[0], warnungen: alle.flatMap((x) => x.warnungen) } });
 				return;
 			}
-			const koerper = { auftragId, benutzerId, ...zeiten, notiz };
+			const koerper = { ...(eigen ? { auftragId: null, titel: titel.trim() } : { auftragId }), benutzerId, ...zeiten, notiz, ...erinnerungen };
 			const ergebnis = einsatz
 				? await senden('PATCH', `/api/einsaetze/${einsatz.id}`, koerper)
 				: await senden('POST', '/api/einsaetze', koerper);
@@ -228,16 +247,20 @@
 </script>
 
 <dialog bind:this={dialog} class="pt-dialog" aria-labelledby="pt-dialog-titel" onclose={onschliessen}>
-	<form class="kd-formular" onsubmit={speichern}>
+	<form class="kd-formular" onsubmit={speichern} bind:this={formEl}>
 		<h2 id="pt-dialog-titel">{einsatz ? 'Einsatz bearbeiten' : 'Einsatz anlegen'}</h2>
 		{#if fehler}<p role="alert" class="kd-fehler">{fehler}</p>{/if}
 
-		{#if einsatz}
+		{#if einsatz && einsatz.auftragId}
 			<p>
 				<a href={`/auftraege/${einsatz.auftragId}`}>{einsatz.auftragNummer} {einsatz.auftragTitel}</a>
 				<span class="kd-info"> · {einsatz.kundeName}</span>
 			</p>
+		{:else if einsatz || eigen}
+			{#if !einsatz}<label class="kd-haken"><input type="checkbox" bind:checked={eigen} /><span>📌 Eigener Termin (ohne Auftrag)</span></label>{/if}
+			<label>Titel * <input type="text" bind:value={titel} maxlength="200" required placeholder="z. B. Zahnarzt, Besprechung" /></label>
 		{:else}
+			<label class="kd-haken"><input type="checkbox" bind:checked={eigen} /><span>📌 Eigener Termin (ohne Auftrag)</span></label>
 			<label>
 				Auftrag suchen
 				<input
@@ -330,6 +353,18 @@
 			<textarea bind:value={notiz} maxlength="500" rows="2"></textarea>
 		</label>
 
+		{#if erinnern && !alsGruppe}
+			<fieldset class="pt-erinnern">
+				<legend>Erinnern (an dich)</legend>
+				{#if einsatz}<label class="kd-haken"><input type="checkbox" bind:checked={erinnerungNeu} /><span>Erinnerungen neu setzen</span></label>{/if}
+				{#if erinnerungNeu}
+					<ErinnerungWahl name="erinnerung1" label="🔔" wert="" />
+					<ErinnerungWahl name="erinnerung2" label="und" wert="" />
+					<p class="kd-info">„vorher“ bezieht sich auf den Beginn des Termins.</p>
+				{/if}
+			</fieldset>
+		{/if}
+
 		<div class="kd-aktionen">
 			<button type="submit" class="kd-knopf" disabled={sendet}>{einsatz ? 'Speichern' : 'Einsatz anlegen'}</button>
 			<button type="button" class="kd-knopf hell" onclick={() => dialog?.close()}>Abbrechen</button>
@@ -341,6 +376,19 @@
 </dialog>
 
 <style>
+	.pt-erinnern {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+		border: 1px solid var(--m365-rand, #e1dfdd);
+		border-radius: 0.4rem;
+		padding: 0.5rem 0.75rem;
+	}
+	.pt-erinnern p {
+		flex-basis: 100%;
+		margin: 0;
+	}
 	.pt-dialog {
 		box-sizing: border-box;
 		width: min(32rem, calc(100vw - 1rem));

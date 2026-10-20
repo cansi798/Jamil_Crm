@@ -318,7 +318,10 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	if (aktion.aktion === 'unbekannt') {
 		return { text, vorschlag: null, karte: hinweisKarte('unbekannt', UNBEKANNT_HINWEIS) };
 	}
-	const fehlt = await rechteHinweis(locals, aktion.aktion);
+	// Eigener Termin für mich (msg 2682): Vorab-Prüfung mit dem schwächeren Recht; endgültig prüft das Ausführen
+	const fuerMich = (m?: string[]) => !m || m.length === 0 || m.every((x) => /^(ich|mich|mir)$/i.test(x.trim()));
+	const eigenerTermin = aktion.aktion === 'einsatz_anlegen' && (!!aktion.daten.eigener_titel || !aktion.daten.auftrag) && fuerMich(aktion.daten.mitarbeiter);
+	const fehlt = await rechteHinweis(locals, aktion.aktion, { eigenerTermin });
 	if (fehlt) return { text, vorschlag: null, karte: hinweisKarte(aktion.aktion, fehlt) };
 	// „Route für heute“ (Wunsch Jamil msgs 2602/2645): Stopps + Links zur Karte und zu Google Maps
 	if (aktion.aktion === 'route_heute') {

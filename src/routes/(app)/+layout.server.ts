@@ -3,6 +3,8 @@ import type { LayoutServerLoad } from './$types';
 import { baueNavigation } from '$lib/navigation';
 import { moduleDesBetriebs } from '$lib/server/tarif';
 import { pruefeNachfassenGedrosselt } from '$lib/server/nachfassen';
+import { hatRecht } from '$lib/server/rechte';
+import { benachrichtigungen } from '$lib/server/erinnerungen';
 
 /** Einzige Seite der App, die ohne volle Sitzung erreichbar ist: Einrichtung der Zwei-Faktor-Anmeldung (Vor-Sitzung). */
 const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
@@ -16,7 +18,7 @@ const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
 export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const nutzer = locals.nutzer;
 	if (!nutzer) {
-		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false };
+		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, erinnern: false, ungelesen: 0 };
 		redirect(303, '/anmelden');
 	}
 	const module = nutzer.betriebId
@@ -26,5 +28,8 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	// läuft im Hintergrund und bremst die Seite nicht)
 	if (nutzer.betriebId && module.includes('angebote')) void pruefeNachfassenGedrosselt({ betriebId: nutzer.betriebId, benutzerId: nutzer.id });
 	// Mikrofon-Knopf nur mit Modul „sprache“ (geprüft wird zusätzlich in jedem Sprach-Endpunkt)
-	return { navigation: baueNavigation(nutzer, module), benutzerId: nutzer.id, sprache: module.includes('sprache') };
+	// Erinnerungen (Wunsch Jamil msg 2679): Glocke mit Zahl der ungelesenen Benachrichtigungen
+	const erinnern = !!nutzer.betriebId && hatRecht(nutzer, 'erinnerungen.nutzen');
+	const ungelesen = nutzer.betriebId ? (await benachrichtigungen({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }, 1)).ungelesen : 0;
+	return { navigation: baueNavigation(nutzer, module), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen };
 };

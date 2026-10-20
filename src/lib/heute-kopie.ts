@@ -21,7 +21,7 @@ export type HeuteEinsatz = {
 	id: string;
 	beginn: string;
 	ende: string;
-	auftragId: string;
+	auftragId: string | null;
 	auftragNummer: string;
 	auftragTitel: string;
 	kundeName: string;

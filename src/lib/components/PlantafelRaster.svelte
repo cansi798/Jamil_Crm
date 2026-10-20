@@ -2,7 +2,7 @@
 	type Warnung = { art: 'doppelt'; einsatzId: string } | { art: 'urlaub' | 'krank' | 'sonstiges'; abwesenheitId: string };
 	export type RasterEinsatz = {
 		id: string;
-		auftragId: string;
+		auftragId: string | null;
 		auftragNummer: string;
 		auftragTitel: string;
 		kundeName: string;
@@ -233,7 +233,7 @@
 		</div>
 	{:else}
 		<a
-			href={`/auftraege/${e.auftragId}`}
+			href={e.auftragId ? `/auftraege/${e.auftragId}` : undefined}
 			class="pt-karte"
 			class:warn={e.warnungen.length > 0}
 			data-einsatz={e.id}
@@ -241,7 +241,7 @@
 			title={warnText(e) || undefined}
 		>
 			<span class="pt-zeit">{zeit(e)}{#if e.warnungen.length > 0}<span class="pt-warnzeichen" aria-hidden="true"> ⚠</span>{/if}</span>
-			<span class="pt-nr">{e.auftragNummer}</span>
+			<span class="pt-nr">{e.auftragNummer || `📌 ${e.auftragTitel}`}</span>
 			<span class="pt-kunde">{e.kundeName}</span>
 		</a>
 	{/if}

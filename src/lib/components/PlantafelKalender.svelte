@@ -115,7 +115,7 @@
 		{#each balken.filter((b) => b.spur < MAX_SPUREN) as b (b.termin.id)}
 			{@const t = b.termin}
 			<a
-				href={`/auftraege/${t.auftragId}`}
+				href={t.auftragId ? `/auftraege/${t.auftragId}` : `/plantafel?ansicht=tag&tag=${t.vonTag}`}
 				class="kal-balken"
 				class:links={b.weiterLinks}
 				class:rechts={b.weiterRechts}
@@ -129,7 +129,7 @@
 				onpointerdown={(ev) => runter(ev, t, 'schieben', balkenTag(woche, b.start))}
 				onclick={klick}
 			>
-				<span class="kal-text">{#if hoch}<b>{t.zeit.slice(0, 5)}</b> {/if}{t.kundeName || t.titel}{#if hoch}{` · ${personenText(t)}`}{/if}</span>
+				<span class="kal-text">{#if hoch}<b>{t.zeit.slice(0, 5)}</b> {/if}{t.kundeName || t.titel}{#if !t.auftragId}{' 📌'}{/if}{#if hoch}{` · ${personenText(t)}`}{/if}</span>
 				{#if darfPlanen && t.gruppeId && !b.weiterRechts}
 					<span
 						class="kal-griff"
@@ -158,7 +158,7 @@
 			<ul>
 				{#each eintraege as t (t.id)}
 					<li style:--farbe={farbe(t)} class:warnung={t.warnung}>
-						<a href={`/auftraege/${t.auftragId}`} class="kal-eintrag">
+						<a href={t.auftragId ? `/auftraege/${t.auftragId}` : `/plantafel?ansicht=tag&tag=${tag}`} class="kal-eintrag">
 							<span class="kal-zeit">{t.zeit}{t.vonTag !== t.bisTag ? ` · ${tagKurz(t.vonTag)}–${tagKurz(t.bisTag)}` : ''}</span>
 							<strong>{t.titel}</strong>
 							<span>{t.kundeName}{t.ort ? ` · ${t.ort}` : ''}</span>

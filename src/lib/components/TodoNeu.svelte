@@ -6,6 +6,8 @@
 	import DatumWahl from './ui/DatumWahl.svelte';
 	import StufenWahl from './ui/StufenWahl.svelte';
 	import Schalter from './ui/Schalter.svelte';
+	import ErinnerungWahl from './ErinnerungWahl.svelte';
+	import { page } from '$app/state';
 
 	/**
 	 * Formular „To-do anlegen“ im modernen Stil (Jamil msgs 2618/2619): großer Titel oben, darunter Chips für
@@ -39,6 +41,11 @@
 	let faellig = $state(untrack(() => werte.faellig ?? ''));
 	let lautstaerke = $state(untrack(() => werte.lautstaerke ?? ''));
 	let schmutz = $state(untrack(() => werte.schmutz ?? ''));
+	let faelligZeit = $state(untrack(() => werte.faelligZeit ?? ''));
+	// Erinnerungen (Wunsch Jamil msg 2679) – nur mit Recht „erinnerungen.nutzen“
+	const erinnern = $derived(page.data.erinnern === true);
+	let mitErinnerung = $state(untrack(() => !!(werte.erinnerung1 || werte.erinnerung2)));
+	let formNr = $state(0);
 </script>
 
 <form
@@ -47,8 +54,9 @@
 	use:enhance={() => async ({ result, update }) => {
 		await update();
 		if (result.type === 'success') {
-			zustaendig = faellig = lautstaerke = schmutz = '';
-			wiederholen = mitBeschreibung = false;
+			zustaendig = faellig = lautstaerke = schmutz = faelligZeit = '';
+			wiederholen = mitBeschreibung = mitErinnerung = false;
+			formNr++;
 			onfertig?.();
 		}
 	}}
@@ -78,6 +86,12 @@
 	<div class="ui-neu-meta" role="group" aria-label="Details zum To-do">
 		<PersonWahl name="zustaendigId" personen={mitarbeiter} bind:wert={zustaendig} />
 		<DatumWahl name="faellig" bind:wert={faellig} />
+		{#if faellig}
+			<label class="td-zeit">
+				<span class="kd-unsichtbar-text">Uhrzeit</span>
+				<input type="time" name="faelligZeit" bind:value={faelligZeit} aria-label="Uhrzeit (optional)" step="300" />
+			</label>
+		{/if}
 		{#if mitBelastung}
 			<StufenWahl name="lautstaerke" label="Lautstärke" bind:wert={lautstaerke} />
 			<StufenWahl name="schmutz" label="Schmutz" bind:wert={schmutz} />
@@ -86,7 +100,20 @@
 		{#if !mitBeschreibung}
 			<button type="button" class="knopf-ghost ui-neu-plus" onclick={() => (mitBeschreibung = true)}>+ Beschreibung</button>
 		{/if}
+		{#if erinnern && !mitErinnerung}
+			<button type="button" class="knopf-ghost ui-neu-plus" onclick={() => (mitErinnerung = true)}>🔔 Erinnern</button>
+		{/if}
 	</div>
+
+	{#if erinnern && mitErinnerung}
+		{#key formNr}
+			<div class="td-erinnern" role="group" aria-label="Erinnerungen">
+				<ErinnerungWahl name="erinnerung1" label="🔔 Erinnern" wert={werte.erinnerung1 ?? '1440'} />
+				<ErinnerungWahl name="erinnerung2" label="und" wert={werte.erinnerung2 ?? ''} />
+				<span class="kd-info">„vorher“ bezieht sich auf „Fällig“ (ohne Uhrzeit 8:00).</span>
+			</div>
+		{/key}
+	{/if}
 
 	{#if wiederholen}
 		<div class="ui-neu-regel">
@@ -115,6 +142,24 @@
 </form>
 
 <style>
+	.td-zeit input {
+		min-height: 2.5rem;
+		width: auto !important;
+	}
+	.kd-unsichtbar-text {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+	}
+	.td-erinnern {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+		margin-top: 0.5rem;
+	}
 	.ui-neu {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);

@@ -13,7 +13,11 @@ import {
 	type PushNachricht
 } from '../../src/lib/server/erinnerungen';
 import { ausTagUndUhrzeit, berlinTag, tagPlus } from '../../src/lib/zeit';
-import { baueUmgebung, type Umgebung } from './hilfe-1c';
+import { antwort, baueUmgebung, jsonAnfrage, type Umgebung } from './hilfe-1c';
+import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
+import { POST as ausfuehrenPost } from '../../src/routes/api/sprache/ausfuehren/+server';
+import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
+import { FakeKi } from '../../src/lib/server/ki/fake';
 
 /** Erinnerungen (Jamil msg 2679): anlegen, nachziehen, Rechte, Zustellung (Glocke + Push), SSRF-Schutz. */
 describe('Erinnerungen', () => {
@@ -108,5 +112,45 @@ describe('Erinnerungen', () => {
 		expect(await stelleFaelligeZu()).toEqual({ gesendet: 2, uebersprungen: 0 });
 		const b = await benachrichtigungen(kA());
 		expect(b.liste[0]).toMatchObject({ titel: expect.stringMatching(/^Termin: Badsanierung/), link: `/auftraege/${u.auftragA}` });
+	});
+
+	it('Sprache: To-do und Termin mit zwei Erinnerungen; eigener Termin (auch Monteur für sich); Rechte', async () => {
+		setzeKiAnbieter(new FakeKi());
+		const sag = async (nutzer: unknown, text: string) => {
+			const k = await antwort(await textPost({ locals: { nutzer }, request: jsonAnfrage('POST', { text }) } as never));
+			return k.koerper as { vorschlag: string | null; karte: { fehler: string | null; zeilen: { label: string; wert: string }[] } };
+		};
+		const ausfuehren = async (nutzer: unknown, vorschlag: string) =>
+			antwort(await ausfuehrenPost({ locals: { nutzer }, request: jsonAnfrage('POST', { vorschlag }) } as never));
+
+		const t = await sag(u.chefA, 'Erstelle To-do Material bestellen für übermorgen 10 Uhr, erinnere mich einen Tag vorher und eine Stunde vorher');
+		expect(t.karte.fehler).toBeNull();
+		expect(t.karte.zeilen.find((z) => z.label === '🔔 Erinnerung')?.wert).toMatch(/^1 Tag vorher .* und 1 Stunde vorher /);
+		expect((await ausfuehren(u.chefA, t.vorschlag!)).status).toBe(201);
+		const [todo] = await root`select id, to_char(faellig_zeit, 'HH24:MI') as zeit from app.todos where titel = 'Material bestellen'`;
+		expect(todo.zeit).toBe('10:00');
+		expect((await zeiten(todo.id)).map((z) => z[0])).toEqual([1440, 60]);
+
+		const e = await sag(u.chefA, 'Termin bei Müller übermorgen 14 Uhr, erinnere mich einen Tag und eine Stunde vorher');
+		expect(e.karte.fehler).toBeNull();
+		expect((await ausfuehren(u.chefA, e.vorschlag!)).status).toBe(201);
+		const [ein] = await root`select id, benutzer_id from app.einsaetze where auftrag_id = ${u.auftragA}`;
+		expect(ein.benutzer_id).toBe(u.ids.chefA);
+		expect(await root`select minuten_vorher from app.erinnerungen where einsatz_id = ${ein.id} order by zeitpunkt`).toEqual([{ minuten_vorher: 1440 }, { minuten_vorher: 60 }]);
+
+		// Monteur: eigener Termin für sich – ja; Termin beim Kunden (Plantafel planen) – nein
+		const z = await sag(u.monteurA, 'Kalendereintrag Zahnarzt übermorgen 9 Uhr, erinnere mich eine Stunde vorher');
+		expect(z.karte.fehler).toBeNull();
+		expect(z.karte.zeilen).toContainEqual({ label: 'Eigener Termin', wert: '📌 Zahnarzt' });
+		expect((await ausfuehren(u.monteurA, z.vorschlag!)).status).toBe(201);
+		const [zahn] = await root`select id, auftrag_id, titel, benutzer_id, to_char(beginn at time zone 'Europe/Berlin', 'HH24:MI') as b, to_char(ende at time zone 'Europe/Berlin', 'HH24:MI') as e from app.einsaetze where titel = 'Zahnarzt'`;
+		expect(zahn).toMatchObject({ auftrag_id: null, benutzer_id: u.ids.monteurA, b: '09:00', e: '10:00' });
+		expect(await root`select count(*)::int as n from app.erinnerungen where einsatz_id = ${zahn.id} and benutzer_id = ${u.ids.monteurA}`).toEqual([{ n: 1 }]);
+		expect((await sag(u.monteurA, 'Termin bei Müller übermorgen 14 Uhr')).karte.fehler).toMatch(/Berechtigung/);
+		// Erinnerung zum eigenen Termin wird zugestellt (Link auf den Tag im Kalender)
+		await root`update app.erinnerungen set zeitpunkt = now() - interval '1 minute' where einsatz_id = ${zahn.id}`;
+		await stelleFaelligeZu();
+		const b = await benachrichtigungen({ betriebId: u.betriebA, benutzerId: u.ids.monteurA });
+		expect(b.liste[0]).toMatchObject({ titel: 'Termin: Zahnarzt', link: expect.stringMatching(/^\/plantafel\?ansicht=tag&tag=\d{4}-\d{2}-\d{2}$/) });
 	});
 });

@@ -18,7 +18,7 @@ export const istAnsicht = (w: unknown): w is Ansicht => typeof w === 'string' &&
 
 export type KalEinsatz = {
 	id: string;
-	auftragId: string;
+	auftragId: string | null;
 	auftragNummer: string;
 	auftragTitel: string;
 	kundeName: string;
@@ -38,7 +38,7 @@ export type KalTermin<E extends KalEinsatz = KalEinsatz> = {
 	/** Gruppen-ID bzw. Einsatz-ID */
 	id: string;
 	gruppeId: string | null;
-	auftragId: string;
+	auftragId: string | null;
 	auftragNummer: string;
 	titel: string;
 	kundeName: string;

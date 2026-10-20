@@ -5,10 +5,13 @@ import { anzeigeName, listeKunden, pruefeKundeEingabe, type Kunde } from '../kun
 import { kundeNameAus } from '../auftraege';
 import { MAX_STUNDEN } from '../plantafel';
 import { aktiveMitarbeiter } from '../todos';
+import { hatRecht } from '../rechte';
+import { vorlaufText } from '../../erinnerungen';
 import { berlinTag, berlinUhrzeit, ausTagUndUhrzeit, istTag, tagDeutsch, tagPlus, wochentag, verschiebeAufTag } from '../../zeit';
 import {
 	WOCHENTAGE,
 	type AktionsName,
+	type ErinnerungDaten,
 	type KiAktion,
 	type Zeitangabe
 } from './aktionen';
@@ -263,6 +266,43 @@ async function auftragAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, {
 	return bau;
 }
 
+/**
+ * Erinnerungen an mich (Wunsch Jamil msgs 2679/2682) – ohne Recht nur ein Hinweis. `bezug` = Fälligkeit bzw. Beginn
+ * (für „vorher“); fehlt er, kann „vorher“ nicht gespeichert werden.
+ */
+function erinnerungenAufloesen(bau: Bau, nutzer: Nutzer, liste: ErinnerungDaten[] | undefined, bezug: Date | null, jetzt: Date): void {
+	if (!liste || liste.length === 0) return;
+	if (!hatRecht(nutzer, 'erinnerungen.nutzen')) {
+		bau.warnungen.push('Erinnerungen: Dafür fehlt Ihnen die Berechtigung – gespeichert wird ohne Erinnerung.');
+		return;
+	}
+	const werte: ({ minuten: number } | { zeitpunkt: string })[] = [];
+	const texte: string[] = [];
+	for (const e of liste.slice(0, 2)) {
+		if (typeof e.vorher_minuten === 'number') {
+			if (!bezug) {
+				bau.fehlt.push('Für „… vorher“ braucht es eine Fälligkeit (Tag, am besten mit Uhrzeit).');
+				continue;
+			}
+			werte.push({ minuten: e.vorher_minuten });
+			const um = new Date(bezug.getTime() - e.vorher_minuten * 60_000);
+			texte.push(`${vorlaufText(e.vorher_minuten)} (${tagDeutsch(berlinTag(um)).slice(0, 6)} ${berlinUhrzeit(um)})`);
+		} else if (e.zeitpunkt) {
+			const tag = loeseTag(e.zeitpunkt, jetzt);
+			const um = ausTagUndUhrzeit(tag, e.zeitpunkt.uhrzeit ?? '08:00');
+			werte.push({ zeitpunkt: um.toISOString() });
+			texte.push(`${tagLang(tag)}, ${berlinUhrzeit(um)} Uhr`);
+		}
+	}
+	for (const w of werte) {
+		if ('zeitpunkt' in w && Date.parse(w.zeitpunkt) < jetzt.getTime()) bau.fehlt.push('Die Erinnerung läge in der Vergangenheit.');
+		if ('minuten' in w && bezug && bezug.getTime() - w.minuten * 60_000 < jetzt.getTime() - 60_000) bau.fehlt.push('Die Erinnerung läge in der Vergangenheit.');
+	}
+	if (werte.length === 0) return;
+	bau.werte.erinnerungen = werte;
+	bau.zeilen.push({ label: '🔔 Erinnerung', wert: texte.join(' und ') });
+}
+
 async function todoAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'todo_anlegen' }>['daten'], jetzt: Date): Promise<Bau> {
 	const bau = neuerBau();
 	bau.werte.titel = d.titel;
@@ -278,7 +318,9 @@ async function todoAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { ak
 	}
 	const faellig = d.faellig ? loeseTag(d.faellig, jetzt) : null;
 	bau.werte.faellig = faellig;
-	if (faellig) bau.zeilen.push({ label: 'Fällig', wert: tagLang(faellig) });
+	bau.werte.faelligZeit = faellig && d.faellig?.uhrzeit ? d.faellig.uhrzeit : null;
+	if (faellig) bau.zeilen.push({ label: 'Fällig', wert: `${tagLang(faellig)}${bau.werte.faelligZeit ? `, ${bau.werte.faelligZeit} Uhr` : ''}` });
+	erinnerungenAufloesen(bau, nutzer, d.erinnerungen, faellig ? ausTagUndUhrzeit(faellig, bau.werte.faelligZeit ?? '08:00') : null, jetzt);
 	if (d.wiederholung) {
 		const { regelText } = await import('../../wiederholung');
 		bau.werte.wiederholung = d.wiederholung;
@@ -323,7 +365,9 @@ async function kolonnenAus(k: Kontext, namen: string[]) {
 }
 
 async function einsatzAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'einsatz_anlegen' }>['daten'], jetzt: Date): Promise<Bau> {
-	const { kolonnen, personen } = await kolonnenAus(k, d.mitarbeiter);
+	// Eigener Termin ohne Auftrag (msg 2682): „Kalendereintrag Zahnarzt Freitag 9 Uhr“ – für mich (oder genannte Person)
+	if (d.eigener_titel || !d.auftrag) return eigenerTermin(k, nutzer, d, jetzt);
+	const { kolonnen, personen } = await kolonnenAus(k, d.mitarbeiter ?? []);
 	if (kolonnen.length > 0 || d.bis) return mehrtaegigAnlegen(k, nutzer, d, jetzt, kolonnen, personen);
 	const bau = neuerBau();
 	const t = await findeAuftraege(k, nutzer, d.auftrag, true);
@@ -339,17 +383,49 @@ async function einsatzAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, {
 		bau.zeilen.push({ label: 'Auftrag', wert: `${ohneAnrede(d.auftrag)} (nicht gefunden)` });
 	}
 	const alle = await aktiveMitarbeiter(k);
-	const ids = mitarbeiterAufloesen(bau, alle, d.mitarbeiter, nutzer.id);
+	const genannt = d.mitarbeiter && d.mitarbeiter.length > 0 ? d.mitarbeiter : ['ich'];
+	const ids = mitarbeiterAufloesen(bau, alle, genannt, nutzer.id);
 	const tag = loeseTag(d.start, jetzt);
 	const z = einsatzZeitraum(tag, d.start.uhrzeit, d.ende_uhrzeit);
 	if (tag < berlinTag(jetzt)) bau.warnungen.push('Der Tag liegt in der Vergangenheit.');
 	bau.werte.einsaetze = ids.map((benutzerId) => ({ benutzerId, beginn: z.beginn.toISOString(), ende: z.ende.toISOString() }));
 	bau.werte.notiz = d.notiz ?? null;
-	bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, ids, d.mitarbeiter) });
+	bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, ids, genannt) });
 	bau.zeilen.push({ label: 'Termin', wert: zeitraumText(z.beginn, z.ende) });
 	if (!d.start.uhrzeit) bau.warnungen.push(`Keine Uhrzeit genannt – eingeplant ab ${STANDARD_BEGINN} Uhr für ${STANDARD_DAUER_H} Stunden.`);
+	erinnerungenAufloesen(bau, nutzer, d.erinnerungen, z.beginn, jetzt);
 	return bau;
 }
+
+/** Eigener Termin (ohne Auftrag): Titel, Person (Standard: ich), Zeit, Erinnerungen. */
+async function eigenerTermin(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'einsatz_anlegen' }>['daten'], jetzt: Date): Promise<Bau> {
+	const bau = neuerBau();
+	const titel = (d.eigener_titel ?? d.notiz ?? 'Termin').trim().slice(0, 200) || 'Termin';
+	bau.werte.eigen = true;
+	bau.werte.auftragId = null;
+	bau.werte.titel = titel;
+	bau.zeilen.push({ label: 'Eigener Termin', wert: `📌 ${titel}` });
+	if (d.bis) bau.warnungen.push('Eigene Termine gelten für einen Tag – „bis …“ wird nicht übernommen.');
+	const alle = await aktiveMitarbeiter(k);
+	const genannt = d.mitarbeiter && d.mitarbeiter.length > 0 ? d.mitarbeiter : ['ich'];
+	const ids = mitarbeiterAufloesen(bau, alle, genannt, nutzer.id);
+	const tag = loeseTag(d.start, jetzt);
+	const z = einsatzZeitraum(tag, d.start.uhrzeit, d.ende_uhrzeit ?? (d.start.uhrzeit ? plusStunde(d.start.uhrzeit) : undefined));
+	if (tag < berlinTag(jetzt)) bau.warnungen.push('Der Tag liegt in der Vergangenheit.');
+	bau.werte.einsaetze = ids.map((benutzerId) => ({ benutzerId, beginn: z.beginn.toISOString(), ende: z.ende.toISOString() }));
+	bau.werte.notiz = d.eigener_titel && d.notiz ? d.notiz : null;
+	if (!(ids.length === 1 && ids[0] === nutzer.id)) bau.zeilen.push({ label: 'Für', wert: mitarbeiterText(alle, ids, genannt) });
+	bau.zeilen.push({ label: 'Wann', wert: zeitraumText(z.beginn, z.ende) });
+	if (!d.start.uhrzeit) bau.warnungen.push(`Keine Uhrzeit genannt – eingetragen ab ${STANDARD_BEGINN} Uhr.`);
+	erinnerungenAufloesen(bau, nutzer, d.erinnerungen, z.beginn, jetzt);
+	return bau;
+}
+
+/** „09:00“ → „10:00“ (eigene Termine: eine Stunde, wenn kein Ende genannt; höchstens bis 23:59). */
+const plusStunde = (u: string) => {
+	const [h, m] = u.split(':').map(Number);
+	return h >= 23 ? '23:59' : `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
 
 /** Mehrtägiger Termin und/oder Kolonne → eine Gruppe (je Arbeitstag und Person ein Einsatz). */
 async function mehrtaegigAnlegen(
@@ -361,7 +437,7 @@ async function mehrtaegigAnlegen(
 	personen: string[]
 ): Promise<Bau> {
 	const bau = neuerBau();
-	await auftragAufloesen(bau, k, nutzer, d.auftrag, true);
+	await auftragAufloesen(bau, k, nutzer, d.auftrag ?? '', true);
 	const alle = await aktiveMitarbeiter(k);
 	const ids = personen.length > 0 ? mitarbeiterAufloesen(bau, alle, personen, nutzer.id) : [];
 	bau.werte.mitarbeiterIds = ids;

@@ -1,3 +1,4 @@
+import { erinnerungenAusEingabe, setzeErinnerungen } from './erinnerungen';
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { textFeld, UUID } from './kunden';
@@ -29,7 +30,8 @@ export const ABWESENHEIT_NAMEN: Record<AbwesenheitArt, string> = {
 
 export type Einsatz = {
 	id: string;
-	auftragId: string;
+	/** null = eigener Termin ohne Auftrag (Titel in `auftragTitel`, Wunsch Jamil msg 2682) */
+	auftragId: string | null;
 	auftragNummer: string;
 	auftragTitel: string;
 	kundeName: string;
@@ -124,13 +126,17 @@ function zeitpunkt(wert: unknown, name: string): Date {
 	return d;
 }
 
-type EinsatzWerte = { auftragId: string; benutzerId: string; beginn: Date; ende: Date; notiz: string | null; art: EinsatzArt };
+type EinsatzWerte = { auftragId: string | null; titel: string | null; benutzerId: string; beginn: Date; ende: Date; notiz: string | null; art: EinsatzArt };
 
-export const EINSATZ_FELDER = ['auftragId', 'benutzerId', 'beginn', 'ende', 'notiz', 'art'] as const;
+export const EINSATZ_FELDER = ['auftragId', 'titel', 'benutzerId', 'beginn', 'ende', 'notiz', 'art'] as const;
 
 /** Prüft einen vollständigen Einsatz (400 mit klarer Meldung). */
 export function pruefeEinsatzEingabe(e: Record<string, unknown>): EinsatzWerte {
-	const auftragId = idFeld(e.auftragId, 'Bitte einen Auftrag wählen.');
+	// Eigener Termin: ohne Auftrag, dann mit Titel (z. B. „Zahnarzt“)
+	const titel = textFeld(e.titel, 'Titel', 200);
+	const ohneAuftrag = e.auftragId === undefined || e.auftragId === null || e.auftragId === '';
+	if (ohneAuftrag && !titel) throw new ApiFehler(400, 'Bitte einen Auftrag wählen (oder bei einem eigenen Termin einen Titel angeben).');
+	const auftragId = ohneAuftrag ? null : idFeld(e.auftragId, 'Bitte einen Auftrag wählen.');
 	const benutzerId = idFeld(e.benutzerId, 'Bitte einen Mitarbeiter wählen.');
 	const beginn = zeitpunkt(e.beginn, 'Beginn');
 	const ende = zeitpunkt(e.ende, 'Ende');
@@ -141,14 +147,14 @@ export function pruefeEinsatzEingabe(e: Record<string, unknown>): EinsatzWerte {
 	// Art: ohne Angabe „Montage“ (wie bisherige Einsätze)
 	const art = e.art === undefined || e.art === null || e.art === '' ? 'montage' : e.art;
 	if (!istEinsatzArt(art)) throw new ApiFehler(400, 'Bitte eine Art wählen: Besichtigung, Montage oder Wartung.');
-	return { auftragId, benutzerId, beginn, ende, notiz: textFeld(e.notiz, 'Notiz', 500), art };
+	return { auftragId, titel: auftragId ? null : titel, benutzerId, beginn, ende, notiz: textFeld(e.notiz, 'Notiz', 500), art };
 }
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
 const adresse = (strasse: string | null, plz: string | null, ort: string | null) =>
 	[strasse, [plz, ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null;
 
-export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.benutzer_id, e.beginn, e.ende, e.notiz, e.art,
+export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.titel as eigener_titel, e.benutzer_id, e.beginn, e.ende, e.notiz, e.art,
 	a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.status as auftrag_status, b.name as benutzer_name,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
@@ -162,7 +168,7 @@ export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.benutzer_id, e.beginn, e.e
 
 export const EINSATZ_VON = `app.einsaetze e
 	left join app.kolonnen ko on ko.id = e.kolonne_id and ko.betrieb_id = e.betrieb_id
-	join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
+	left join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
 	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 	left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id
 	join app.benutzer b on b.id = e.benutzer_id and b.betrieb_id = e.betrieb_id`;
@@ -171,10 +177,10 @@ export function zuEinsatz(z: Record<string, any>, warnungen: Warnung[] = []): Ei
 	const objektOrt = z.objekt_id ? adresse(z.objekt_strasse, z.objekt_plz, z.objekt_ort) : null;
 	return {
 		id: z.id,
-		auftragId: z.auftrag_id,
-		auftragNummer: z.auftrag_nummer,
-		auftragTitel: z.auftrag_titel,
-		kundeName: kundeNameAus(z),
+		auftragId: z.auftrag_id ?? null,
+		auftragNummer: z.auftrag_nummer ?? '',
+		auftragTitel: z.auftrag_id ? z.auftrag_titel : (z.eigener_titel ?? 'Termin'),
+		kundeName: z.auftrag_id ? kundeNameAus(z) : '',
 		ort: objektOrt ?? ortAus(z),
 		benutzerId: z.benutzer_id,
 		benutzerName: z.benutzer_name,
@@ -185,7 +191,7 @@ export function zuEinsatz(z: Record<string, any>, warnungen: Warnung[] = []): Ei
 		warnungen,
 		gruppe: z.gruppe_id ? { id: z.gruppe_id, vonTag: z.gruppe_von, bisTag: z.gruppe_bis } : null,
 		kolonne: z.kolonne_id ? { id: z.kolonne_id, name: z.kolonne_name } : null,
-		auftragStatus: z.auftrag_status ?? 'anfrage'
+		auftragStatus: z.auftrag_status ?? 'eigen'
 	};
 }
 
@@ -257,12 +263,15 @@ export async function holeEinsatz(k: Kontext, id: string): Promise<Einsatz> {
 export async function legeEinsatzAn(k: Kontext, e: Record<string, unknown>): Promise<Einsatz> {
 	const w = pruefeEinsatzEingabe(e);
 	return mitBetrieb(k, async (tx) => {
-		await pruefeAuftrag(tx, k, w.auftragId);
+		if (w.auftragId) await pruefeAuftrag(tx, k, w.auftragId);
 		await pruefeMitarbeiter(tx, k, w.benutzerId);
 		const [z] = await tx`
-			insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art)
-			values (${k.betriebId}, ${w.auftragId}, ${w.benutzerId}, ${w.beginn}, ${w.ende}, ${w.notiz}, ${w.art})
+			insert into app.einsaetze (betrieb_id, auftrag_id, titel, benutzer_id, beginn, ende, notiz, art)
+			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.benutzerId}, ${w.beginn}, ${w.ende}, ${w.notiz}, ${w.art})
 			returning id`;
+		// Erinnerungen (msg 2679) für den, der den Termin anlegt
+		const erinnerungen = erinnerungenAusEingabe(e);
+		if (erinnerungen && erinnerungen.length > 0) await setzeErinnerungen(tx, k, { einsatzId: z.id }, erinnerungen, w.beginn);
 		return ladeEinsatz(tx, k, z.id);
 	});
 }
@@ -274,14 +283,16 @@ export async function legeEinsatzAn(k: Kontext, e: Record<string, unknown>): Pro
 export async function aendereEinsatz(k: Kontext, id: string, e: Record<string, unknown>): Promise<Einsatz> {
 	pruefeId(id, einsatzNichtGefunden);
 	const felder = EINSATZ_FELDER.filter((f) => Object.hasOwn(e, f));
-	if (felder.length === 0) throw new ApiFehler(400, 'Nichts zu ändern.');
+	const erinnerungen = erinnerungenAusEingabe(e);
+	if (felder.length === 0 && !erinnerungen) throw new ApiFehler(400, 'Nichts zu ändern.');
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select auftrag_id, benutzer_id, beginn, ende, notiz, art from app.einsaetze
+			select auftrag_id, titel, benutzer_id, beginn, ende, notiz, art from app.einsaetze
 			where id = ${id} and betrieb_id = ${k.betriebId} for update`;
 		if (!alt) throw einsatzNichtGefunden();
 		const w = pruefeEinsatzEingabe({
 			auftragId: alt.auftrag_id,
+			titel: alt.titel,
 			benutzerId: alt.benutzer_id,
 			beginn: iso(alt.beginn),
 			ende: iso(alt.ende),
@@ -289,12 +300,13 @@ export async function aendereEinsatz(k: Kontext, id: string, e: Record<string, u
 			art: alt.art,
 			...Object.fromEntries(felder.map((f) => [f, e[f]]))
 		});
-		if (w.auftragId !== alt.auftrag_id) await pruefeAuftrag(tx, k, w.auftragId);
+		if (w.auftragId && w.auftragId !== alt.auftrag_id) await pruefeAuftrag(tx, k, w.auftragId);
 		if (w.benutzerId !== alt.benutzer_id) await pruefeMitarbeiter(tx, k, w.benutzerId);
 		await tx`
-			update app.einsaetze set auftrag_id = ${w.auftragId}, benutzer_id = ${w.benutzerId}, beginn = ${w.beginn},
+			update app.einsaetze set auftrag_id = ${w.auftragId}, titel = ${w.titel}, benutzer_id = ${w.benutzerId}, beginn = ${w.beginn},
 				ende = ${w.ende}, notiz = ${w.notiz}, art = ${w.art}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
+		if (erinnerungen) await setzeErinnerungen(tx, k, { einsatzId: id }, erinnerungen, w.beginn);
 		return ladeEinsatz(tx, k, id);
 	});
 }

@@ -79,7 +79,11 @@ export async function fuehreAus(locals: { nutzer: Nutzer | null }, token: unknow
 	const geprueft = pruefeVorschlag(token, nutzer.id, k.betriebId);
 	const inhalt = pruefeInhalt(geprueft.vorschau);
 	const mitEinsaetze = inhalt.aktion === 'auftrag_anlegen' && Array.isArray(inhalt.werte.einsaetze) && inhalt.werte.einsaetze.length > 0;
-	await pruefeAktionsRechte(locals, inhalt.aktion, { mitEinsaetzen: mitEinsaetze, formular: inhalt.aktion === 'protokoll_ausfuellen' ? !!inhalt.werte.formular : undefined });
+	// Eigener Termin nur für sich selbst: reicht das Recht „Erinnerungen nutzen“ (msg 2682)
+	const eigenerTermin =
+		inhalt.aktion === 'einsatz_anlegen' && inhalt.werte.eigen === true && Array.isArray(inhalt.werte.einsaetze) &&
+		inhalt.werte.einsaetze.length > 0 && inhalt.werte.einsaetze.every((e: { benutzerId: string | null }) => e.benutzerId === nutzer.id);
+	await pruefeAktionsRechte(locals, inhalt.aktion, { mitEinsaetzen: mitEinsaetze, eigenerTermin, formular: inhalt.aktion === 'protokoll_ausfuellen' ? !!inhalt.werte.formular : undefined });
 	const w = wendeAuswahlAn(inhalt.werte, inhalt.auswahl, auswahl);
 	markiereBenutzt(geprueft);
 	try {
@@ -128,7 +132,9 @@ async function ausfuehrenJe(
 					titel: w.titel,
 					zustaendigId: w.zustaendigId ?? null,
 					faellig: w.faellig ?? null,
+					faelligZeit: w.faelligZeit ?? null,
 					auftragId: w.auftragId ?? null,
+					...(Array.isArray(w.erinnerungen) && w.erinnerungen.length > 0 ? { erinnerungen: w.erinnerungen } : {}),
 					...(w.wiederholung ? { wiederholung: w.wiederholung, intervall: w.intervall ?? '1' } : {})
 				},
 				todoSichtVon(nutzer)
@@ -158,13 +164,26 @@ async function ausfuehrenJe(
 				};
 			}
 			const einsaetze: Einsatz[] = [];
-			for (const e of (w.einsaetze ?? []) as { benutzerId: string; beginn: string; ende: string }[]) {
-				einsaetze.push(await legeEinsatzAn(k, { auftragId: w.auftragId, benutzerId: e.benutzerId, beginn: e.beginn, ende: e.ende, notiz: w.notiz ?? null }));
+			const liste = (w.einsaetze ?? []) as { benutzerId: string; beginn: string; ende: string }[];
+			// Erinnerungen (msgs 2679/2682) an den Termin des Sprechenden, sonst an den ersten
+			const mitErinnerung = Math.max(0, liste.findIndex((e) => e.benutzerId === nutzer.id));
+			for (const [i, e] of liste.entries()) {
+				einsaetze.push(
+					await legeEinsatzAn(k, {
+						auftragId: w.eigen ? null : w.auftragId,
+						...(w.eigen ? { titel: w.titel } : {}),
+						benutzerId: e.benutzerId,
+						beginn: e.beginn,
+						ende: e.ende,
+						notiz: w.notiz ?? null,
+						...(i === mitErinnerung && Array.isArray(w.erinnerungen) && w.erinnerungen.length > 0 ? { erinnerungen: w.erinnerungen } : {})
+					})
+				);
 			}
 			const tag = einsaetze[0] ? new Date(einsaetze[0].beginn) : null;
 			return {
 				status: 201,
-				meldung: einsaetze.length === 1 ? 'Termin eingeplant' : `${einsaetze.length} Termine eingeplant`,
+				meldung: w.eigen ? `Eigener Termin „${w.titel}“ eingetragen` : einsaetze.length === 1 ? 'Termin eingeplant' : `${einsaetze.length} Termine eingeplant`,
 				link: tag ? `/plantafel?tag=${encodeURIComponent(tagVon(tag))}` : '/plantafel',
 				warnungen: warnTexte(einsaetze)
 			};

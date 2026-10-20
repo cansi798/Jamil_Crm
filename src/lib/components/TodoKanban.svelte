@@ -18,6 +18,7 @@
 		zustaendigId: string | null;
 		zustaendigName: string | null;
 		faellig: string | null;
+		faelligZeit?: string | null;
 		erledigt: boolean;
 	};
 
@@ -268,7 +269,7 @@
 								{/if}
 								{#if todo.faellig}
 									<span class="karte-faellig" class:ueberfaellig={ueberfaellig(todo)}>
-										{tagDeutsch(todo.faellig)}
+										{tagDeutsch(todo.faellig)}{todo.faelligZeit ? ` ${todo.faelligZeit}` : ''}
 									</span>
 								{/if}
 							</div>

@@ -65,13 +65,13 @@ export async function tagesplan(
 		const termine = opts.nurUeberfaellig
 			? []
 			: await tx`
-				select e.id, e.beginn, e.ende, e.art, a.id as auftrag_id, a.nummer, a.titel, a.objekt_id,
+				select e.id, e.beginn, e.ende, e.art, a.id as auftrag_id, a.nummer, coalesce(a.titel, e.titel) as titel, a.objekt_id,
 					o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
 					k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 					k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
 					a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort
 				from app.einsaetze e
-				join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
+				left join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
 				left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 				left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id
 				where e.betrieb_id = ${k.betriebId} and e.benutzer_id = ${personId}
@@ -94,9 +94,9 @@ export async function tagesplan(
 			const tag = berlinTag(b);
 			return {
 				zeit: `${z.von !== z.bis ? `${tagDeutsch(tag).slice(0, 6)} ` : ''}${berlinUhrzeit(b)}–${berlinUhrzeit(e)}`,
-				titel: `${t.titel} – ${kundeNameAus(t)}`,
-				ort: ortAus(t),
-				link: `/auftraege/${t.auftrag_id}`,
+				titel: t.auftrag_id ? `${t.titel} – ${kundeNameAus(t)}` : `📌 ${t.titel}`,
+				ort: t.auftrag_id ? ortAus(t) : null,
+				link: t.auftrag_id ? `/auftraege/${t.auftrag_id}` : `/plantafel?ansicht=tag&tag=${tag}`,
 				ueberfaellig: false
 			};
 		});

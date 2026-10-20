@@ -8,6 +8,7 @@ import {
 	type Zeitangabe
 } from '../sprache/aktionen';
 import type { EntwurfEingabe, KiAnbieter, KiKontext } from './anbieter';
+import { erinnerungsTeile, vorlaufAusText } from '../../erinnerungen';
 
 /**
  * Regelbasierte Ersatz-KI für Tests und für den Betrieb ohne Mistral-Schlüssel. Sie versteht die typischen
@@ -245,9 +246,61 @@ function bereinige(text: string): string {
 		.replace(/[.!?]+$/, '');
 }
 
+/**
+ * „…, erinnere mich einen Tag und eine Stunde vorher“ / „…, erinnere mich morgen um 8“ am Ende eines To-dos oder
+ * Termins (msgs 2679/2682) → Erinnerungen + Rest. „Erinnere mich an …“ (To-do für mich) bleibt unberührt.
+ */
+function erinnerungsKlausel(t: string, kontext: KiKontext): { rest: string; liste: Record<string, unknown>[] } | null {
+	const m = /[,;]?\s*\b(?:und\s+)?erinner\w*\s+mich\s+(.+)$/i.exec(t);
+	if (!m) return null;
+	const vorher = t.slice(0, m.index);
+	if (!/\b(todo|aufgabe|termin|einsatz|kalendereintrag|eintrag)\b/i.test(vorher)) return null;
+	const klausel = m[1];
+	if (/\ban\s+(?:den|die|das|dem)?\b/i.test(klausel) && !/\b(vorher|davor|zuvor)\b/i.test(klausel)) return null;
+	const liste: Record<string, unknown>[] = [];
+	for (const teil of erinnerungsTeile(klausel)) {
+		const v = vorlaufAusText(teil);
+		if (v !== null) {
+			liste.push({ vorher_minuten: v });
+			continue;
+		}
+		const z = findeTag(teil, kontext) as Zeitangabe | undefined;
+		// „um 8“ ohne „Uhr“
+		const um = /\bum\s+([01]?\d|2[0-3])(?::([0-5]\d))?\b/i.exec(teil);
+		if (z && !z.uhrzeit && um) z.uhrzeit = `${um[1].padStart(2, '0')}:${um[2] ?? '00'}`;
+		if (z) liste.push({ zeitpunkt: z });
+	}
+	return liste.length > 0 ? { rest: vorher.trim(), liste } : null;
+}
+
+/** „Kalendereintrag Zahnarzt Freitag 9 Uhr“ → eigener Termin ohne Auftrag (msg 2682). */
+function eigenerTermin(t: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
+	const tag = findeTag(t, kontext);
+	const uhrzeiten = findeUhrzeiten(t);
+	const rest = ohneZeit(t)
+		.replace(/\b(?:neue[nrs]?\s+)?(?:kalendereintrag|eintrag\s+im\s+kalender|eigene[nrs]?\s+termin|privat\w*\s+termin)\b\s*[:,]?/i, ' ')
+		.replace(/\b(?:erstelle|lege?|mach|trag|trage|eintragen|an|ein|für mich)\b/gi, ' ');
+	const titel = grossAnfang(sauber(rest)) || 'Termin';
+	return {
+		aktion: 'einsatz_anlegen',
+		daten: {
+			eigener_titel: titel,
+			start: { ...(tag ?? { tag: 'heute' }), ...(uhrzeiten[0] ? { uhrzeit: uhrzeiten[0].uhrzeit } : {}) },
+			...(uhrzeiten.length > 1 ? { ende_uhrzeit: uhrzeiten[1].uhrzeit } : {})
+		}
+	};
+}
+
 export function deute(text: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
 	const t = bereinige(text);
 	const l = t.toLowerCase();
+	const er = erinnerungsKlausel(t, kontext);
+	if (er) {
+		const r = deute(er.rest, kontext);
+		if (r.aktion === 'todo_anlegen' || r.aktion === 'einsatz_anlegen') r.daten.erinnerungen = er.liste;
+		return r;
+	}
+	if (/\b(kalendereintrag|eintrag\s+im\s+kalender|eigene[nrs]?\s+termin|privat\w*\s+termin)\b/.test(l)) return eigenerTermin(t, kontext);
 	if (/\broute\b/.test(l)) {
 		const kolonne = /\bkolonne\s+([A-ZÄÖÜ0-9][\wäöüß-]*)/i.exec(t);
 		const person = /\b(?:von|für|fuer)\s+(?!heute|mich|morgen)([A-ZÄÖÜ][\wäöüß-]+)/.exec(t);
@@ -566,7 +619,7 @@ function todo(t: string, kontext: KiKontext): { aktion: string; daten: Record<st
 	// Fälligkeit: „bis Freitag“, „bis morgen“, „am 23.10.“, sonst eine Tagesangabe irgendwo
 	const bis = new RegExp(`\\b(?:bis|bis zum|am|zum|für)\\s+((?:nächsten\\s+|kommenden\\s+)?(?:${WOCHENTAGE.join('|')}|übermorgen|morgen|heute|\\d{1,2}\\.\\s?\\d{1,2}\\.?(?:\\d{2,4})?|\\d{1,2}\\.\\s+\\w+)(?:\\s+(?:um\\s+)?\\d{1,2}(?::\\d{2})?\\s*uhr)?)`, 'i').exec(rest);
 	const f = zeitangabe(bis ? bis[1] : rest, kontext);
-	if (f) daten.faellig = { tag: f.tag, ...(f.wochentag ? { wochentag: f.wochentag } : {}), ...(f.datum ? { datum: f.datum } : {}) };
+	if (f) daten.faellig = { tag: f.tag, ...(f.wochentag ? { wochentag: f.wochentag } : {}), ...(f.datum ? { datum: f.datum } : {}), ...(f.uhrzeit ? { uhrzeit: f.uhrzeit } : {}) };
 	if (bis) rest = rest.replace(bis[0], ' ');
 	rest = ohneZeit(rest);
 	const erinnereName = /\berinner\w*\s+([A-ZÄÖÜ][\wäöüß-]+)\s+an\b/i.exec(rest);
@@ -639,7 +692,9 @@ function einsatz(t: string, kontext: KiKontext): { aktion: string; daten: Record
 			rest = ma.rest;
 		}
 	}
-	daten.mitarbeiter = [...(kolonne ? [`Kolonne ${kolonne[1]}`] : []), ...(namen ?? [])];
+	const mitarbeiter = [...(kolonne ? [`Kolonne ${kolonne[1]}`] : []), ...(namen ?? [])];
+	// ohne Namen: für mich (msg 2682)
+	if (mitarbeiter.length > 0) daten.mitarbeiter = mitarbeiter;
 	const k = findeKunde(rest.replace(/\bvon\s*$/i, ' '), true);
 	daten.auftrag = k ? k.name : '?';
 	return { aktion: 'einsatz_anlegen', daten };

@@ -29,7 +29,7 @@ export const MELDUNG_TARIF = 'Im aktuellen Tarif nicht enthalten';
 export async function pruefeAktionsRechte(
 	locals: { nutzer: Nutzer | null },
 	aktion: AktionsName,
-	opts: { mitEinsaetzen?: boolean; formular?: boolean } = {}
+	opts: { mitEinsaetzen?: boolean; formular?: boolean; eigenerTermin?: boolean } = {}
 ): Promise<void> {
 	switch (aktion) {
 		case 'kunde_anlegen':
@@ -42,6 +42,9 @@ export async function pruefeAktionsRechte(
 		case 'todo_anlegen':
 			return darf(locals, 'auftraege', 'auftraege.bearbeiten');
 		case 'einsatz_anlegen':
+			// eigener Termin nur für sich selbst (msg 2682): auch mit „Erinnerungen nutzen“
+			if (opts.eigenerTermin) return darfEines(locals, 'plantafel', ['plantafel.bearbeiten', 'erinnerungen.nutzen']);
+			return darf(locals, 'plantafel', 'plantafel.bearbeiten');
 		case 'einsatz_verschieben':
 			return darf(locals, 'plantafel', 'plantafel.bearbeiten');
 		case 'angebot_entwurf':
@@ -78,7 +81,7 @@ export async function pruefeAktionsRechte(
 export async function rechteHinweis(
 	locals: { nutzer: Nutzer | null },
 	aktion: AktionsName,
-	opts: { mitEinsaetzen?: boolean; formular?: boolean } = {}
+	opts: { mitEinsaetzen?: boolean; formular?: boolean; eigenerTermin?: boolean } = {}
 ): Promise<string | null> {
 	try {
 		await pruefeAktionsRechte(locals, aktion, opts);

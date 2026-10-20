@@ -20,9 +20,9 @@
 				<a class="heute-ort" href={karte(e.ort)} target="_blank" rel="noopener noreferrer">{e.ort}</a>
 			{/if}
 			{#if offline}
-				<span class="heute-auftrag">{e.auftragNummer} · {e.auftragTitel}</span>
+				<span class="heute-auftrag">{e.auftragNummer ? `${e.auftragNummer} · ` : ''}{e.auftragTitel}</span>
 			{:else}
-				<a class="heute-auftrag" href={`/auftraege/${e.auftragId}`}>{e.auftragNummer} · {e.auftragTitel}</a>
+				{#if e.auftragId}<a class="heute-auftrag" href={`/auftraege/${e.auftragId}`}>{e.auftragNummer} · {e.auftragTitel}</a>{:else}<span class="heute-auftrag">📌 {e.auftragTitel} (eigener Termin)</span>{/if}
 			{/if}
 			{#if e.notiz}<span class="heute-notiz">{e.notiz}</span>{/if}
 		</li>

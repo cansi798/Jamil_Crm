@@ -14,6 +14,7 @@
 		zustaendigId: string | null;
 		zustaendigName: string | null;
 		faellig: string | null;
+		faelligZeit?: string | null;
 		erledigt: boolean;
 	};
 
@@ -79,7 +80,7 @@
 				{#if t.zustaendigName}
 					<span class="tl-chip" title={t.zustaendigName}><span class="tl-avatar">{t.zustaendigName.charAt(0)}</span><span class="tl-name">{t.zustaendigName}</span></span>
 				{/if}
-				{#if t.faellig}<span class="tl-faellig">{tagDeutsch(t.faellig)}</span>{/if}
+				{#if t.faellig}<span class="tl-faellig">{tagDeutsch(t.faellig)}{t.faelligZeit ? ` ${t.faelligZeit}` : ''}</span>{/if}
 			</span>
 		</div>
 		{#if aufgeklappt === t.id}

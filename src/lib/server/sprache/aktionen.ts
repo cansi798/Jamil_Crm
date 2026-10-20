@@ -74,7 +74,9 @@ export type AuftragDaten = {
 };
 export type QuelleDaten = { auftrag: string; quelle: string };
 export type Regel = 'taeglich' | 'woechentlich' | 'monatlich' | 'jaehrlich';
-export type TodoDaten = { titel: string; zustaendig?: string; faellig?: Zeitangabe; auftrag?: string; wiederholung?: Regel; intervall?: number };
+/** Erinnerung an mich (Wunsch Jamil msgs 2679/2682): Minuten vorher oder fester Zeitpunkt. */
+export type ErinnerungDaten = { vorher_minuten?: number; zeitpunkt?: Zeitangabe };
+export type TodoDaten = { titel: string; zustaendig?: string; faellig?: Zeitangabe; auftrag?: string; wiederholung?: Regel; intervall?: number; erinnerungen?: ErinnerungDaten[] };
 export type ZuweisenDaten = { auftrag: string; mitarbeiter: string[] };
 export type StatusDaten = { auftrag: string; status: 'weiter' | 'anfrage' | 'angebot' | 'beauftragt' | 'in_arbeit' | 'abgenommen' | 'abgerechnet' };
 export type AbhakenDaten = { titel: string; auftrag?: string };
@@ -91,7 +93,17 @@ export type AnlageDaten = {
 };
 export type NachfassenDaten = { angebot: string; fortsetzen?: boolean };
 export type TagesplanDaten = { wer?: string; zeitraum: 'heute' | 'morgen' | 'woche' | 'datum'; datum?: string; nur_ueberfaellig?: boolean };
-export type EinsatzDaten = { auftrag: string; mitarbeiter: string[]; start: Zeitangabe; ende_uhrzeit?: string; notiz?: string; bis?: Zeitangabe };
+export type EinsatzDaten = {
+	auftrag?: string;
+	mitarbeiter?: string[];
+	start: Zeitangabe;
+	ende_uhrzeit?: string;
+	notiz?: string;
+	bis?: Zeitangabe;
+	/** Eigener Termin ohne Auftrag („Kalendereintrag Zahnarzt Freitag 9 Uhr“, msg 2682) */
+	eigener_titel?: string;
+	erinnerungen?: ErinnerungDaten[];
+};
 export type VerschiebenDaten = { mitarbeiter?: string; auftrag?: string; von?: Zeitangabe; nach: Zeitangabe };
 export type AngebotDaten = { auftrag: string; stichworte: string };
 export type ProtokollDaten = {
@@ -165,6 +177,19 @@ const ZEIT: Schema = {
 	additionalProperties: false
 };
 
+/** Erinnerungen an mich (höchstens zwei). */
+const ERINNERUNGEN: Schema = {
+	type: 'array',
+	maxItems: 2,
+	description:
+		'Nur wenn „erinnere mich …“ gesagt wurde: „einen Tag vorher“ → vorher_minuten 1440, „eine Stunde vorher“ → 60, „5 Stunden vorher“ → 300; „morgen um 8“ → zeitpunkt.',
+	items: {
+		type: 'object',
+		properties: { vorher_minuten: { type: 'integer', minimum: 0, maximum: 43200 }, zeitpunkt: ZEIT },
+		additionalProperties: false
+	}
+};
+
 /** Wie ZEIT, aber `tag` ist optional (nur für `einsatz_verschieben.nach`: „Verschiebe auf 10 Uhr“ ohne Tag). */
 const ZEIT_NACH: Schema = { ...ZEIT, required: undefined };
 
@@ -214,7 +239,8 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 			faellig: ZEIT,
 			auftrag: text(200, 'Auftrag bzw. Kunde, zu dem das To-do gehört'),
 			wiederholung: { type: 'string', enum: ['taeglich', 'woechentlich', 'monatlich', 'jaehrlich'], description: 'Nur bei wiederkehrenden To-dos („jede Woche“, „jährlich“)' },
-			intervall: { type: 'integer', minimum: 1, maximum: 365, description: '„alle 2 Wochen“ = 2 (nur mit wiederholung)' }
+			intervall: { type: 'integer', minimum: 1, maximum: 365, description: '„alle 2 Wochen“ = 2 (nur mit wiederholung)' },
+			erinnerungen: ERINNERUNGEN
 		},
 		required: ['titel'],
 		additionalProperties: false
@@ -227,9 +253,11 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 			start: ZEIT,
 			ende_uhrzeit: UHRZEIT,
 			notiz: text(500, 'Notiz zum Termin'),
-			bis: { ...ZEIT, description: 'Letzter Tag bei mehrtägigen Terminen („von Montag bis Mittwoch“, „bis Freitag“) – sonst weglassen' }
+			bis: { ...ZEIT, description: 'Letzter Tag bei mehrtägigen Terminen („von Montag bis Mittwoch“, „bis Freitag“) – sonst weglassen' },
+			eigener_titel: text(200, 'Nur bei eigenem Termin ohne Kunde/Auftrag („Kalendereintrag Zahnarzt“, „Termin Besprechung“) – dann auftrag weglassen'),
+			erinnerungen: ERINNERUNGEN
 		},
-		required: ['auftrag', 'mitarbeiter', 'start'],
+		required: ['start'],
 		additionalProperties: false
 	},
 	einsatz_verschieben: {
