@@ -147,7 +147,7 @@ const von = (tx: TransactionSql) => tx.unsafe(VON);
  * Sichtbarkeit eines Angebots (Aliasse an, a): wie sein Auftrag. Angebote ohne Auftrag sieht nur, wer alle Aufträge
  * sieht (`auftraege.alle_lesen`) – sie gehören zu keinem „eigenen“ Auftrag.
  */
-function angebotSichtbar(tx: TransactionSql, sicht: Sicht) {
+export function angebotSichtbar(tx: TransactionSql, sicht: Sicht) {
 	if (sicht.alle) return tx`true`;
 	return tx`(a.id is not null and ${sichtbar(tx, sicht)})`;
 }

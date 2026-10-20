@@ -128,6 +128,15 @@ async function rechne(k: Kontext, ids: string[], jetzt: Date) {
 	});
 }
 
+/** Geplante (angenommene Angebote) und erfasste Arbeitsminuten je Auftrag – für Kennzahlen (Produktivität). */
+export async function planIstMinuten(k: Kontext, ids: string[], jetzt = new Date()): Promise<Map<string, { planMin: number; istMin: number }>> {
+	if (ids.length === 0) return new Map();
+	return mitBetrieb(k, async (tx) => {
+		const [plan, ist] = [await planPositionen(tx, k, ids), await istZeiten(tx, k, ids, jetzt)];
+		return new Map(ids.map((id) => [id, { planMin: planWerte(plan.get(id) ?? []).minuten, istMin: ist.get(id)?.arbeitMin ?? 0 }]));
+	});
+}
+
 /** Nachkalkulation eines Auftrags (Plan/Ist/Ampel). */
 export async function nachkalkulationAuftrag(k: Kontext, auftragId: string, sicht: Sicht, jetzt = new Date()): Promise<Nachkalkulation & { kmSatzCent: number | null; satz: Firmensatz | null }> {
 	if (!UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
