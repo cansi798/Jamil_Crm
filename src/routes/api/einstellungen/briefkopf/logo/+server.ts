@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { sichereDateiKopfzeilen } from '$lib/server/datei-kopf';
 import type { RequestHandler } from './$types';
 import { ApiFehler, alsAntwort } from '$lib/server/fehler';
 import { betriebKontext, hatRecht, pruefeRecht } from '$lib/server/rechte';
@@ -17,10 +18,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 		if (!logo) throw new ApiFehler(404, 'Kein Logo hinterlegt.');
 		return new Response(logo.bytes as BodyInit, {
 			headers: {
-				'content-type': logo.typ,
-				'cache-control': 'private, no-store',
-				'x-content-type-options': 'nosniff',
-				'content-disposition': 'inline'
+				...sichereDateiKopfzeilen(logo.typ),
+				'cache-control': 'private, no-store'
 			}
 		});
 	} catch (e) {

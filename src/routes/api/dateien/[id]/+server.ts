@@ -1,7 +1,8 @@
 import type { RequestHandler } from './$types';
+import { sichereDateiKopfzeilen } from '$lib/server/datei-kopf';
 import { alsAntwort, ApiFehler } from '$lib/server/fehler';
 import { liesDatei, loescheDatei } from '$lib/server/dateien';
-import { dateiKopf, zugriffEintrag } from '$lib/server/dokumentation-zugriff';
+import { zugriffEintrag } from '$lib/server/dokumentation-zugriff';
 
 /**
  * Einzelne Datei: `GET` (Anzeige/Download; Aufträge lesen, Auftrag sichtbar), `DELETE` (`auftraege.bearbeiten`).
@@ -14,10 +15,8 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		if (!datei) throw new ApiFehler(404, 'Datei nicht gefunden.');
 		return new Response(Buffer.from(datei.inhalt), {
 			headers: {
-				'content-type': datei.typ,
-				'content-disposition': dateiKopf('inline', datei.name),
+				...sichereDateiKopfzeilen(datei.typ, { name: datei.name }),
 				'content-length': String(datei.inhalt.length),
-				'x-content-type-options': 'nosniff',
 				'cache-control': 'private, no-store'
 			}
 		});

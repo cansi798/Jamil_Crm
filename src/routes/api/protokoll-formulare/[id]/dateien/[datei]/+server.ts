@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { sichereDateiKopfzeilen } from '$lib/server/datei-kopf';
 import type { RequestHandler } from './$types';
 import { alsAntwort } from '$lib/server/fehler';
 import { holeProtokollDatei, loescheProtokollDatei } from '$lib/server/protokoll-formulare';
@@ -11,10 +12,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		const d = await holeProtokollDatei(k, sicht, params.id, params.datei);
 		return new Response(Buffer.from(d.inhalt), {
 			headers: {
-				'content-type': d.typ,
+				...sichereDateiKopfzeilen(d.typ),
 				'content-length': String(d.inhalt.byteLength),
-				'cache-control': 'private, max-age=3600',
-				'content-disposition': 'inline'
+				'cache-control': 'private, max-age=3600'
 			}
 		});
 	} catch (e) {

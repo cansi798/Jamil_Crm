@@ -1,4 +1,5 @@
 import type { RequestHandler } from './$types';
+import { DATEI_CSP } from '$lib/server/datei-kopf';
 import { alsAntwort } from '$lib/server/fehler';
 import { holeAnlagenDatei } from '$lib/server/anlagen';
 import { betriebKontext } from '$lib/server/rechte';
@@ -16,6 +17,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 				'content-length': String(d.inhalt.byteLength),
 				'content-disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(d.name)}`,
 				'x-content-type-options': 'nosniff',
+				'content-security-policy': DATEI_CSP,
 				'cache-control': 'private, no-store'
 			}
 		});
