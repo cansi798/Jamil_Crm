@@ -85,13 +85,17 @@ async function istZeiten(tx: TransactionSql, k: Kontext, ids: string[], jetzt: D
 	for (const id of ids) {
 		const eigene = z.filter((r) => r.auftrag_id === id);
 		const alsEintrag = (r: (typeof z)[number]) => ({ art: r.art, beginn: new Date(r.beginn).toISOString(), ende: r.ende ? new Date(r.ende).toISOString() : null, pauseMin: Number(r.pause_min), km: r.km === null ? null : Number(r.km) });
-		const s = summiere(eigene.map(alsEintrag), jetzt);
+		// Je Person vereinigen (Überschneidungen einer Person zählen einmal), dann über die Personen ADDIEREN:
+		// zwei Monteure, die gleichzeitig 8 h arbeiten, sind 16 Arbeitsstunden.
 		const jePerson = new Map<string, { arbeitMin: number; fahrtMin: number }>();
+		let km = 0;
 		for (const b of new Set(eigene.map((r) => r.benutzer_id as string))) {
 			const sp = summiere(eigene.filter((r) => r.benutzer_id === b).map(alsEintrag), jetzt);
 			jePerson.set(b, { arbeitMin: sp.arbeitMin, fahrtMin: sp.fahrtMin });
+			km += sp.km;
 		}
-		m.set(id, { arbeitMin: s.arbeitMin, fahrtMin: s.fahrtMin, km: s.km, jePerson });
+		const summe = (f: 'arbeitMin' | 'fahrtMin') => [...jePerson.values()].reduce((s, p) => s + p[f], 0);
+		m.set(id, { arbeitMin: summe('arbeitMin'), fahrtMin: summe('fahrtMin'), km: Math.round(km * 10) / 10, jePerson });
 	}
 	return m;
 }

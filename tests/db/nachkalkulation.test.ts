@@ -145,4 +145,13 @@ describe('Nachkalkulation', () => {
 		expect(JSON.stringify(r)).not.toContain(fremd);
 		expect(JSON.stringify(r.karte)).not.toMatch(/Geheimprojekt Zentrale –/);
 	});
+	it('Zwei Personen gleichzeitig: Stunden werden addiert, nicht vereinigt (16 h statt 8 h)', async () => {
+		const id = await u.neuerAuftrag('in_arbeit', 'Zwei Monteure gleichzeitig');
+		for (const b of [u.ids.monteurA, u.ids.chefA]) {
+			await root`insert into app.zeit_eintraege (betrieb_id, benutzer_id, auftrag_id, art, beginn, ende, manuell, korrektur_grund)
+				values (${u.betriebA}, ${b}, ${id}, 'arbeit', '2026-10-22T07:00:00+02:00', '2026-10-22T15:00:00+02:00', true, 'Test')`;
+		}
+		const nk = await nachkalkulationAuftrag(kA(), id, { alle: true, benutzerId: u.ids.chefA });
+		expect(nk.ist.stunden).toBe(16);
+	});
 });
