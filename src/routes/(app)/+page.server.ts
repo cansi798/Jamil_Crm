@@ -5,6 +5,8 @@ import { hatRecht } from '$lib/server/rechte';
 import { moduleDesBetriebs } from '$lib/server/tarif';
 import { berlinTag } from '$lib/zeit';
 import { planPersonen, tagesplan, zeitraumTage } from '$lib/server/tagesplan';
+import { dieserMonat, ladeAuslastung } from '$lib/server/auslastung';
+import { gewinnSatz } from '$lib/auslastung';
 
 /**
  * Startseite. Plattform-Admins haben keinen Betrieb und damit keine fachliche Startseite – sie landen in der
@@ -20,10 +22,22 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 	let heute = null;
 	let plan = null;
 	let personen: { id: string; name: string }[] = [];
+	let monat: { satz: string; erreicht: boolean; kalkulationFehlt: boolean; link: string } | null = null;
 	if (nutzer?.betriebId && (hatRecht(nutzer, 'auftraege.lesen') || hatRecht(nutzer, 'auftraege.alle_lesen') || hatRecht(nutzer, 'auftraege.bearbeiten'))) {
 		const k = { betriebId: nutzer.betriebId, benutzerId: nutzer.id };
 		const module = await moduleDesBetriebs(k);
 		if (module.includes('plantafel')) heute = await meineEinsaetzeHeute(k, nutzer.id, jetzt);
+		// Kachel „Diesen Monat: X € Gewinn verplant, Y Stunden frei“ (Wunsch Jamil msg 2476, Punkt 5) – nur „Preise sehen“
+		if (module.includes('plantafel') && hatRecht(nutzer, 'preise.sehen')) {
+			const m = dieserMonat(jetzt);
+			const a = await ladeAuslastung(k, m, { mitGeld: true });
+			monat = {
+				satz: gewinnSatz(a.geld!.ergebnisCent, a.kalkulationFehlt ? null : a.summe.frei),
+				erreicht: a.geld!.erreicht,
+				kalkulationFehlt: a.kalkulationFehlt,
+				link: '/plantafel/auslastung'
+			};
+		}
 		// Kachel „Heute“ (Wunsch Jamil msg 2647): Termine, To-dos, Nachfassen – Chef/Büro mit Personenwahl
 		if (module.includes('auftraege')) {
 			personen = await planPersonen(k, nutzer);
@@ -37,6 +51,7 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 		darfKundeAnlegen: kunden && !!nutzer && hatRecht(nutzer, 'kunden.bearbeiten'),
 		heute,
 		plan,
+		monat,
 		personen: personen.length > 1 ? personen : [],
 		heuteTag: berlinTag(jetzt),
 		benutzerId: nutzer?.id ?? null

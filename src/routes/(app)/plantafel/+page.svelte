@@ -178,7 +178,7 @@
 	{/if}
 
 	{#if !data.darfPlanen}
-		<p class="kd-info">Nur Ansicht – Einsätze planen kann, wer die Plantafel bearbeiten darf.</p>
+		<p class="kd-info">Nur Ansicht – Einsätze planen kann, wer die Plantafel bearbeiten darf. <a href="/plantafel/auslastung">Auslastung ansehen</a></p>
 	{/if}
 
 	<PlantafelRaster
@@ -206,6 +206,7 @@
 		<div class="pt-links">
 			<a href="/plantafel/abwesenheiten" class="kd-knopf hell">Abwesenheiten (Urlaub, Krank)</a>
 			<a href="/plantafel/kolonnen" class="kd-knopf hell">Kolonnen</a>
+			<a href="/plantafel/auslastung" class="kd-knopf hell">Auslastung</a>
 		</div>
 	{/if}
 

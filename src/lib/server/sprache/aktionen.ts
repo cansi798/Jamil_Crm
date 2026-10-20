@@ -1,5 +1,9 @@
 import { istTag } from '../../zeit';
 
+/** Monat relativ zu heute (Auslastung, Gewinn). */
+export const MONATE_RELATIV = ['dieser', 'letzter', 'naechster'] as const;
+export type MonatRelativ = (typeof MONATE_RELATIV)[number];
+
 /**
  * Feste Aktionsliste der Sprachsteuerung (Stufe 1d) als JSON-Schemas – dieselben Schemas gehen als Werkzeuge
  * (Function Calling) an die KI und prüfen deren Antwort. Die KI liefert nur, was gesprochen wurde: Namen als Text,
@@ -23,11 +27,13 @@ export const AKTIONEN = [
 	'nachfassen_pausieren',
 	'abfrage_tagesplan',
 	'quelle_setzen',
-	'route_heute'
+	'route_heute',
+	'abfrage_auslastung',
+	'abfrage_monatsgewinn'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
-export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute'] as const;
+export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt';
@@ -111,6 +117,8 @@ export type KiAktion =
 	| { aktion: 'abfrage_tagesplan'; daten: TagesplanDaten }
 	| { aktion: 'quelle_setzen'; daten: QuelleDaten }
 	| { aktion: 'route_heute'; daten: { wer?: string } }
+	| { aktion: 'abfrage_auslastung'; daten: { wer?: string; monat?: MonatRelativ } }
+	| { aktion: 'abfrage_monatsgewinn'; daten: { monat?: MonatRelativ } }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -345,6 +353,19 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		properties: { wer: text(100, 'Person (Vorname) oder Kolonne – leer = ich') },
 		additionalProperties: false
 	},
+	abfrage_auslastung: {
+		type: 'object',
+		properties: {
+			wer: text(100, 'Person (Vorname) oder Kolonne – leer = alle'),
+			monat: { type: 'string', enum: [...MONATE_RELATIV] }
+		},
+		additionalProperties: false
+	},
+	abfrage_monatsgewinn: {
+		type: 'object',
+		properties: { monat: { type: 'string', enum: [...MONATE_RELATIV] } },
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -360,6 +381,10 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	todo_abhaken: 'Ein offenes To-do als erledigt abhaken.',
 	anlage_anlegen: 'Eine Anlage (Wärmepumpe, Solar, Heizung, Klima, Lüftung, Wallbox, Gasspeicher …) beim Objekt eines Kunden anlegen.',
 	nachfassen_pausieren: 'Automatisches Nachfassen für ein Angebot pausieren oder fortsetzen.',
+	abfrage_auslastung:
+		'Frage nach der Auslastung beantworten: verplante und freie Stunden je Mitarbeiter (oder alle) in diesem, letzten oder nächsten Monat („Wie ist die Auslastung?“, „Wie ausgelastet ist Murat im November?“ → monat dieser/naechster nach Bezug).',
+	abfrage_monatsgewinn:
+		'Frage nach Gewinn/Break-even des Monats beantworten („Wie viel Gewinn haben wir diesen Monat verplant?“, „Haben wir den Break-even erreicht?“).',
 	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',
 	quelle_setzen: 'Quelle eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',
 	abfrage_tagesplan:

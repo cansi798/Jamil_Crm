@@ -187,6 +187,8 @@ async function ausfuehrenJe(
 			return neueAktionen(k, nutzer, aktion, w);
 		case 'abfrage_tagesplan':
 		case 'route_heute':
+		case 'abfrage_auslastung':
+		case 'abfrage_monatsgewinn':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
 		case 'protokoll_ausfuellen': {
 			if (w.formular) {

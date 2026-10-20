@@ -42,6 +42,14 @@
 		</form>
 	{/if}
 
+	{#if data.monat}
+		<a href={data.monat.link} class="heute-karte monat-kachel" class:erreicht={data.monat.erreicht} aria-label={`Diesen Monat: ${data.monat.satz} – Auslastung öffnen`}>
+			<span class="monat-titel">Diesen Monat</span>
+			<span class="monat-satz">{data.monat.satz}</span>
+			{#if data.monat.kalkulationFehlt}<small>Kalkulation unvollständig – Kosten und freie Stunden fehlen.</small>{/if}
+		</a>
+	{/if}
+
 	{#if data.plan}
 		<section aria-labelledby="heute-titel" class="heute-karte plan">
 			<div class="plan-kopf">
@@ -141,6 +149,35 @@
 		border-color: var(--m365-primaer);
 		box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
 		outline: none;
+	}
+
+	/* Kachel „Diesen Monat“ (Gewinn verplant, Stunden frei) */
+	.monat-kachel {
+		display: grid;
+		gap: 0.2rem;
+		color: inherit;
+		text-decoration: none;
+		border-left: 6px solid var(--m365-fehler);
+	}
+	.monat-kachel.erreicht {
+		border-left-color: #107c10;
+	}
+	.monat-kachel:hover .monat-satz,
+	.monat-kachel:focus-visible .monat-satz {
+		text-decoration: underline;
+	}
+	.monat-titel {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--m365-text-leise);
+	}
+	.monat-satz {
+		font-size: 1.15rem;
+		font-weight: 700;
+		line-height: 1.5;
+	}
+	.monat-kachel small {
+		color: var(--m365-text-leise);
 	}
 
 	/* Kachel „Heute“ (Tagesplan) */
