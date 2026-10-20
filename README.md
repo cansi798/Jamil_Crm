@@ -205,6 +205,13 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     `Permissions-Policy`, die Kamera, Mikrofon, Standort, Bezahlen und USB abschaltet. Statische Dateien
     (`/_app/…`, Symbole) liefert `adapter-node` ohne diese Kopfzeilen aus. HSTS gehört in den Reverse-Proxy (nicht gesetzt).
 
+## Installation auf einem eigenen Server
+
+Der Ordner `installation/` enthält alles, um das CRM auf einem frischen Ubuntu/Debian-Server zu betreiben
+(Docker Compose: PostgreSQL, App, Migration, optional Spracherkennung und Caddy mit automatischem HTTPS).
+Einstieg: `installation/CRM-Installation.sh` (Menü), Anleitung: `installation/ANLEITUNG.md`, Probelauf:
+`installation/TESTPROTOKOLL.md`. Regeln für neue Funktionen (Variablen, Dienste, Migrationen): `CLAUDE.md`.
+
 ## Betriebshinweise / Deploy
 
 - **Variablen setzen, `.env` wird von `node build` nicht gelesen.** Jede Umgebung braucht `CRM_APP_PASSWORT`,
