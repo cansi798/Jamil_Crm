@@ -105,6 +105,8 @@ describe('Zeiterfassung', () => {
 
 	it('Monteur stempelt nur auf sichtbare Aufträge (fremder Auftrag 404, anderer Betrieb 404)', async () => {
 		const fremd = await u.neuerAuftrag('beauftragt', 'Nicht meiner');
+		await expect(zeitenZumAuftrag(monteur, fremd)).rejects.toMatchObject({ status: 404 });
+		await expect(zeitVerlauf(monteur, fremd)).rejects.toMatchObject({ status: 404 });
 		await expect(stempeln(monteur, 'start', { auftragId: fremd })).rejects.toMatchObject({ status: 404 });
 		await expect(stempeln(monteur, 'start', { auftragId: u.auftragB })).rejects.toMatchObject({ status: 404 });
 		await expect(stempeln(monteur, 'start', {})).rejects.toMatchObject({ status: 400 });

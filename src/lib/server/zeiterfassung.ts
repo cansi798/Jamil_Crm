@@ -210,6 +210,8 @@ export async function zeitenZumAuftrag(
 	auftragId: string,
 	jetzt = new Date()
 ): Promise<{ personen: ({ benutzerId: string; name: string } & Summe)[]; gesamt: Summe; heuteIch: Summe }> {
+	if (!UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
+	await holeAuftrag(z.k, sichtVon(z.nutzer), auftragId);
 	const liste = await listeZeiten(z, { auftragId });
 	const ids = [...new Set(liste.map((e) => e.benutzerId))];
 	const personen = ids.map((id) => {
@@ -573,6 +575,8 @@ const uhr = (d: unknown) => (d ? new Intl.DateTimeFormat('de-DE', { timeZone: 'E
  * zu viel). Wer nicht alle Zeiten verwaltet, sieht nur die eigenen.
  */
 export async function zeitVerlauf(z: ZeitZugriff, auftragId: string): Promise<{ iso: string; zeile: { id: string; zeit: string; wer: string; titel: string; aenderungen: { feld: string; alt: string; neu: string }[] } }[]> {
+	if (!UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
+	await holeAuftrag(z.k, sichtVon(z.nutzer), auftragId);
 	const zeilen = await mitBetrieb(z.k, (tx) => tx`
 		select a.id::text as id, a.zeit, a.aktion, a.vorher, a.nachher, a.quelle, b.name as benutzer_name, p.name as person
 		from app.aenderungen a
