@@ -404,23 +404,63 @@ const PROTOKOLL_TYP_TITEL: Record<string, string> = {
 	maengelliste: 'Mängelliste'
 };
 
+/** Gesprochener Vorlagenname → passende Protokoll-Vorlagen („Abdichtung“ findet „Abdichtungsprotokoll Bad“). */
+export function passendeVorlagen<T extends { name: string }>(vorlagen: T[], gesprochen: string): T[] {
+	const kern = (x: string) => normal(x).replace(/protokoll[a-z]*/g, ' ').replace(/\s+/g, ' ').trim();
+	const q = kern(gesprochen);
+	if (q === '') return vorlagen;
+	const genau = vorlagen.filter((v) => kern(v.name) === q);
+	if (genau.length > 0) return genau;
+	const worte = q.split(' ').filter((w) => w.length >= 3);
+	// Jedes gesprochene Wort (mind. 4 Buchstaben verglichen) steckt im Namen
+	return vorlagen.filter((v) => {
+		const n = normal(v.name);
+		return worte.length > 0 && worte.every((w) => n.includes(w.slice(0, Math.max(4, w.length - 2))));
+	});
+}
+
 async function protokollAusfuellen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'protokoll_ausfuellen' }>['daten']): Promise<Bau> {
 	const bau = neuerBau();
-	const t = await findeAuftraege(k, nutzer, d.auftrag.nummer, false);
+	const auftragText = d.auftrag?.nummer ?? d.auftrag?.name ?? '';
+	const t = auftragText ? await findeAuftraege(k, nutzer, auftragText, false) : [];
 	bau.werte.auftragId = null;
-	bau.werte.typ = d.typ;
-	bau.werte.inhalt = d.inhalt ?? {};
+	const formular = d.vorlage !== undefined || d.typ === undefined;
+	bau.werte.formular = formular;
+	if (!formular) {
+		bau.werte.typ = d.typ;
+		bau.werte.inhalt = d.inhalt ?? {};
+	}
 	if (t.length === 1) {
 		bau.werte.auftragId = t[0].id;
 		bau.zeilen.push({ label: 'Auftrag', wert: auftragLabel(t[0]) });
 	} else if (t.length > 1) {
 		bau.auswahl.push({ feld: 'auftrag', frage: 'Welcher Auftrag ist gemeint?', optionen: t.slice(0, 8).map((a) => ({ id: a.id, label: auftragLabel(a) })) });
-		bau.zeilen.push({ label: 'Auftrag', wert: `${d.auftrag.nummer} (bitte wählen)` });
+		bau.zeilen.push({ label: 'Auftrag', wert: `${auftragText} (bitte wählen)` });
+	} else if (auftragText) {
+		bau.fehlt.push(`Kein offener Auftrag zu „${ohneAnrede(auftragText)}“ gefunden.`);
+		bau.zeilen.push({ label: 'Auftrag', wert: `${ohneAnrede(auftragText)} (nicht gefunden)` });
 	} else {
-		bau.fehlt.push(`Kein offener Auftrag zu „${d.auftrag.nummer}" gefunden.`);
-		bau.zeilen.push({ label: 'Auftrag', wert: `${d.auftrag.nummer} (nicht gefunden)` });
+		bau.fehlt.push('Für welchen Auftrag? Bitte den Kunden oder die Auftragsnummer nennen.');
 	}
-	bau.zeilen.push({ label: 'Typ', wert: PROTOKOLL_TYP_TITEL[d.typ] ?? d.typ });
+	if (formular) {
+		// Frei gestaltete Protokoll-Vorlage (aktuelle, nicht archivierte Versionen)
+		const { listeVorlagen } = await import('../protokoll-formulare');
+		const vorlagen = await listeVorlagen(k);
+		const treffer = d.vorlage ? passendeVorlagen(vorlagen, d.vorlage) : vorlagen;
+		bau.werte.vorlageId = null;
+		if (treffer.length === 1) {
+			bau.werte.vorlageId = treffer[0].id;
+			bau.zeilen.push({ label: 'Vorlage', wert: treffer[0].name });
+		} else if (treffer.length > 1) {
+			bau.auswahl.push({ feld: 'vorlage', frage: 'Welche Protokoll-Vorlage?', optionen: treffer.slice(0, 8).map((v) => ({ id: v.id, label: v.name })) });
+			bau.zeilen.push({ label: 'Vorlage', wert: `${d.vorlage ?? ''} (bitte wählen)`.trim() });
+		} else {
+			bau.fehlt.push(d.vorlage ? `Keine Protokoll-Vorlage „${d.vorlage}“ gefunden.` : 'Es gibt noch keine Protokoll-Vorlage.');
+			bau.zeilen.push({ label: 'Vorlage', wert: `${d.vorlage ?? '–'} (nicht gefunden)` });
+		}
+		return bau;
+	}
+	bau.zeilen.push({ label: 'Typ', wert: PROTOKOLL_TYP_TITEL[d.typ!] ?? d.typ! });
 	if (d.inhalt?.bemerkung) bau.zeilen.push({ label: 'Bemerkung', wert: d.inhalt.bemerkung });
 	if (d.inhalt?.maengel) bau.zeilen.push({ label: 'Mängel', wert: d.inhalt.maengel });
 	return bau;
@@ -456,6 +496,7 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 		case 'einsatz_verschieben':
 			return `/plantafel${q({ tag: werte.nachTag })}`;
 		case 'angebot_entwurf':
+		case 'protokoll_ausfuellen':
 			return werte.auftragId ? `/auftraege/${werte.auftragId}` : '/auftraege';
 		default:
 			return '/';

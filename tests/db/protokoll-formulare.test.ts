@@ -24,7 +24,12 @@ import {
 } from '../../src/lib/server/protokoll-formulare';
 import { protokollRechte, zugriffAusfuellen, zugriffLesen, zugriffVorlagen } from '../../src/lib/server/protokoll-zugriff';
 import { STARTVORLAGEN } from '../../src/lib/protokoll-startvorlagen';
-import { baueUmgebung, testPng, UNBEKANNT, type Umgebung } from './hilfe-1c';
+import { antwort, baueUmgebung, jsonAnfrage, testPng, UNBEKANNT, type Umgebung } from './hilfe-1c';
+import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
+import { POST as ausfuehrenPost } from '../../src/routes/api/sprache/ausfuehren/+server';
+import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
+import { FakeKi } from '../../src/lib/server/ki/fake';
+import { passendeVorlagen } from '../../src/lib/server/sprache/aufloesen';
 
 /** Frei gestaltbare Protokolle (Migration 040): Versionen, RLS, Sperre nach Abschluss, Rechte, PDF im Auftrag. */
 describe('Protokoll-Formulare', () => {
@@ -216,6 +221,48 @@ describe('Protokoll-Formulare', () => {
 		await expect(holeProtokoll(kA(), alle(), UNBEKANNT)).rejects.toMatchObject({ status: 404 });
 		expect(await loescheEntwurf(kA(), alle(), protokollId)).toBe(u.auftragA);
 		expect(await root`select 1 from app.protokoll_dateien where protokoll_id = ${protokollId}`).toHaveLength(0);
+	});
+
+	it('Sprache: „Protokoll Abdichtung für Auftrag Müller starten“ → Karte, Bestätigen startet das Protokoll (Monteur)', async () => {
+		process.env.CRM_VORSCHLAG_GEHEIMNIS = 'test-geheimnis-protokolle-0123456789abcdef';
+		setzeKiAnbieter(new FakeKi());
+		try {
+			await uebernimmStartvorlagen(kA());
+			await root`insert into app.auftrag_zustaendige (betrieb_id, auftrag_id, benutzer_id) values (${u.betriebA}, ${u.auftragA}, ${u.ids.monteurA})`;
+			const text = async (n: Nutzer, t: string) => antwort(await textPost({ locals: { nutzer: n }, request: jsonAnfrage('POST', { text: t }) } as never));
+			const r = await text(u.monteurA, 'Protokoll Abdichtung für Auftrag Müller starten');
+			expect(r.status).toBe(200);
+			expect(r.koerper.karte.zeilen).toEqual([
+				{ label: 'Auftrag', wert: expect.stringContaining('Badsanierung') },
+				{ label: 'Vorlage', wert: 'Abdichtungsprotokoll Bad' }
+			]);
+			expect(r.koerper.vorschlag).toBeTruthy();
+			const a = await antwort(await ausfuehrenPost({ locals: { nutzer: u.monteurA }, request: jsonAnfrage('POST', { vorschlag: r.koerper.vorschlag }) } as never));
+			expect(a.status).toBe(201);
+			expect(a.koerper.meldung).toBe('Protokoll „Abdichtungsprotokoll Bad“ gestartet');
+			expect(a.koerper.link).toMatch(/^\/protokolle\/[0-9a-f-]{36}$/);
+			const [z] = await root`select quelle from app.aenderungen where tabelle = 'protokolle' and aktion = 'angelegt' order by id desc limit 1`;
+			expect(z.quelle).toBe('sprache');
+			// Unbekannte Vorlage → Hinweis, kein Vorschlag
+			const f = await text(u.monteurA, 'Protokoll Dachrinne für Auftrag Müller starten');
+			expect(f.koerper.vorschlag).toBeNull();
+			expect(f.koerper.karte.fehler).toMatch(/Keine Protokoll-Vorlage „Dachrinne“/);
+			// Baustellen-Protokoll (feste Typen) bleibt beim Recht „Protokolle bearbeiten“: Monteur ohne → kein Vorschlag
+			const alt = await text(u.monteurA, 'Erstelle ein Abnahmeprotokoll für Auftrag A-2026-0001');
+			expect(alt.koerper.vorschlag).toBeNull();
+			expect(alt.koerper.karte.fehler).toBe('Dafür fehlt Ihnen die Berechtigung');
+		} finally {
+			setzeKiAnbieter(null);
+		}
+	});
+
+	it('passendeVorlagen: Teilwörter und Zusammensetzungen', () => {
+		const v = [{ name: 'Abdichtungsprotokoll Bad' }, { name: 'Abnahmeprotokoll' }, { name: 'Wartung Heizung' }];
+		expect(passendeVorlagen(v, 'Abdichtung').map((x) => x.name)).toEqual(['Abdichtungsprotokoll Bad']);
+		expect(passendeVorlagen(v, 'Abdichtungs').map((x) => x.name)).toEqual(['Abdichtungsprotokoll Bad']);
+		expect(passendeVorlagen(v, 'abnahme').map((x) => x.name)).toEqual(['Abnahmeprotokoll']);
+		expect(passendeVorlagen(v, 'Heizungswartung').map((x) => x.name)).toEqual([]);
+		expect(passendeVorlagen(v, 'Wartung').map((x) => x.name)).toEqual(['Wartung Heizung']);
 	});
 
 	it('Monteur-Rolle hat protokolle.ausfuellen', async () => {

@@ -57,9 +57,12 @@ export type EinsatzDaten = { auftrag: string; mitarbeiter: string[]; start: Zeit
 export type VerschiebenDaten = { mitarbeiter?: string; auftrag?: string; von?: Zeitangabe; nach: Zeitangabe };
 export type AngebotDaten = { auftrag: string; stichworte: string };
 export type ProtokollDaten = {
-	auftrag: { nummer: string };
-	typ: 'abnahme' | 'regiebericht' | 'aufmass' | 'maengelliste';
-	inhalt: { bemerkung?: string; maengel?: string; positionen?: string[] };
+	auftrag?: { nummer?: string; name?: string };
+	/** Baustellen-Protokoll (feste Typen, Stufe 2a) … */
+	typ?: 'abnahme' | 'regiebericht' | 'aufmass' | 'maengelliste';
+	/** … oder eine frei gestaltete Protokoll-Vorlage starten (Name wie gesprochen, z. B. „Abdichtung“) */
+	vorlage?: string;
+	inhalt?: { bemerkung?: string; maengel?: string; positionen?: string[] };
 };
 
 export type KiAktion =
@@ -206,7 +209,8 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 				},
 				additionalProperties: false
 			},
-			typ: { type: 'string', enum: ['abnahme', 'regiebericht', 'aufmass', 'maengelliste'], description: 'Art des Protokolls' },
+			typ: { type: 'string', enum: ['abnahme', 'regiebericht', 'aufmass', 'maengelliste'], description: 'Art des Baustellen-Protokolls (nur ohne vorlage)' },
+			vorlage: text(200, 'Name der Protokoll-Vorlage wie gesprochen, z. B. Abdichtung oder Abnahme – bei „Protokoll … starten“'),
 			inhalt: {
 				type: 'object',
 				properties: {
@@ -217,7 +221,6 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 				additionalProperties: false
 			}
 		},
-		required: ['typ'],
 		additionalProperties: false
 	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
@@ -230,7 +233,8 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	einsatz_anlegen: 'Termin/Einsatz von Mitarbeitern bei einem Kunden bzw. Auftrag einplanen.',
 	einsatz_verschieben: 'Bestehenden Termin/Einsatz auf einen anderen Tag oder eine andere Uhrzeit verschieben.',
 	angebot_entwurf: 'Angebotsentwurf für einen Auftrag aus gesprochenen Leistungen erstellen.',
-	protokoll_ausfuellen: 'Baustellen-Protokoll (Abnahme, Regiebericht, Aufmaß, Mängelliste) für einen Auftrag ausfüllen.',
+	protokoll_ausfuellen:
+		'Protokoll zu einem Auftrag: eine Protokoll-Vorlage starten („Protokoll Abdichtung für Auftrag Müller starten“ → vorlage) oder ein Baustellen-Protokoll (Abnahme, Regiebericht, Aufmaß, Mängelliste) ausfüllen (typ).',
 	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. Fragen, Rechnungen, Löschen).'
 };
 

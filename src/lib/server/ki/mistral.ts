@@ -35,6 +35,8 @@ function systemAktion(k: KiKontext): string {
 		'- „Termin“ und „Einsatz“ bedeuten einsatz_anlegen; „verschieben/verlegen“ bedeutet einsatz_verschieben (nach = neue Zeit;',
 		'  wird nur eine neue Uhrzeit genannt, gilt der Tag des bisherigen Termins).',
 		'- Bei „erinnere mich“ ist zustaendig „mich“.',
+		'- „Protokoll X (für Auftrag Y) starten/öffnen/beginnen“ bedeutet protokoll_ausfuellen mit vorlage = X (z. B. Abdichtung) und',
+		'  auftrag.name = Y bzw. auftrag.nummer bei einer Nummer wie A-2026-0001.',
 		'- Wenn keine Aktion passt (Fragen, Rechnungen, Löschen, …), rufe unbekannt auf.'
 	].join('\n');
 }

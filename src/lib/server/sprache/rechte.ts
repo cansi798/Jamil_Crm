@@ -1,6 +1,6 @@
 import { ApiFehler } from '../fehler';
 import { angeboteZugriff } from '../angebote';
-import { darf, pruefeModul } from '../tarif';
+import { darf, darfEines, pruefeModul } from '../tarif';
 import type { AktionsName } from './aktionen';
 
 /**
@@ -11,7 +11,8 @@ import type { AktionsName } from './aktionen';
  * - To-do anlegen: Modul `auftraege` + `auftraege.bearbeiten`
  * - Termin einplanen/verschieben: Modul `plantafel` + `plantafel.bearbeiten`
  * - Angebotsentwurf: Modul `ki_angebote` und `angebote` + `angebote.bearbeiten` + `preise.sehen`
- * - Protokoll ausfüllen: Modul `protokolle` + `protokolle.bearbeiten`
+ * - Protokoll: Vorlage starten (Formular) Modul `protokolle` + `protokolle.ausfuellen` oder `protokolle.bearbeiten`;
+ *   Baustellen-Protokoll (feste Typen) `protokolle.bearbeiten`
  */
 
 export const MELDUNG_RECHTE = 'Dafür fehlt Ihnen die Berechtigung';
@@ -20,7 +21,7 @@ export const MELDUNG_TARIF = 'Im aktuellen Tarif nicht enthalten';
 export async function pruefeAktionsRechte(
 	locals: { nutzer: Nutzer | null },
 	aktion: AktionsName,
-	opts: { mitEinsaetzen?: boolean } = {}
+	opts: { mitEinsaetzen?: boolean; formular?: boolean } = {}
 ): Promise<void> {
 	switch (aktion) {
 		case 'kunde_anlegen':
@@ -40,7 +41,8 @@ export async function pruefeAktionsRechte(
 			await pruefeModul(locals, 'ki_angebote');
 			return;
 		case 'protokoll_ausfuellen':
-			return darf(locals, 'protokolle', 'protokolle.bearbeiten');
+			if (opts.formular === false) return darf(locals, 'protokolle', 'protokolle.bearbeiten');
+			return darfEines(locals, 'protokolle', ['protokolle.ausfuellen', 'protokolle.bearbeiten']);
 	}
 }
 
@@ -48,7 +50,7 @@ export async function pruefeAktionsRechte(
 export async function rechteHinweis(
 	locals: { nutzer: Nutzer | null },
 	aktion: AktionsName,
-	opts: { mitEinsaetzen?: boolean } = {}
+	opts: { mitEinsaetzen?: boolean; formular?: boolean } = {}
 ): Promise<string | null> {
 	try {
 		await pruefeAktionsRechte(locals, aktion, opts);

@@ -15,7 +15,7 @@ import { signiere } from './vorschlag';
 
 export const MAX_BEFEHL_ZEICHEN = 2000;
 export const UNBEKANNT_HINWEIS =
-	'Ich kann Kunden, Aufträge, To-dos und Termine anlegen, Termine verschieben und Angebotsentwürfe erstellen.';
+	'Ich kann Kunden, Aufträge, To-dos und Termine anlegen, Termine verschieben, Angebotsentwürfe erstellen und Protokolle starten.';
 
 export type Befehlsergebnis = { text: string; vorschlag: string | null; karte: Karte };
 
@@ -54,6 +54,11 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 				karte: { ...vorschau.karte, fehler: `${ohnePlanung} (Mitarbeiter einplanen).`, aendern: vorschau.karte.aendern }
 			};
 		}
+	}
+	// Baustellen-Protokoll (feste Typen) braucht „Protokolle bearbeiten“; eine Vorlage starten reicht „ausfüllen“
+	if (aktion.aktion === 'protokoll_ausfuellen' && !vorschau.werte.formular) {
+		const fehltRecht = await rechteHinweis(locals, aktion.aktion, { formular: false });
+		if (fehltRecht) return { text, vorschlag: null, karte: { ...vorschau.karte, fehler: fehltRecht } };
 	}
 	const vorschlag =
 		vorschau.fehlt.length > 0

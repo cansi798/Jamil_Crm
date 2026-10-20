@@ -470,6 +470,20 @@ function angebot(t: string): { aktion: string; daten: Record<string, unknown> } 
 function protokoll(t: string): { aktion: string; daten: Record<string, unknown> } {
 	const l = t.toLowerCase();
 	const daten: Record<string, unknown> = {};
+	// „Protokoll Abdichtung für Auftrag Müller starten“ / „Starte das Abdichtungsprotokoll bei Müller“: Vorlage starten
+	if (/\b(start|starte|starten|beginn|beginne|beginnen|öffne|öffnen|anfangen|fang)\b/.test(l)) {
+		const vorlage =
+			/protokoll\s+(?:für\s+(?:die\s+|das\s+|den\s+)?)?([\p{L}-]+(?:\s+[\p{L}-]+)?)\s+(?:für|bei|zu|zum|beim)\b/iu.exec(t)?.[1] ??
+			/(?:^|\s)([\p{L}-]+?)-?protokoll/iu.exec(t)?.[1];
+		if (vorlage && !/^(das|ein|eine|den|neues?)$/i.test(vorlage)) daten.vorlage = vorlage;
+		const nummer = /\bA-\d{4}-\d{3,4}\b/i.exec(t);
+		if (nummer) daten.auftrag = { nummer: nummer[0].toUpperCase() };
+		else {
+			const name = /\b(?:[Aa]uftrag|bei|für)\s+(?:(?:dem|den|der|die|das)\s+)?(?:[Aa]uftrag\s+)?(?:(?:herrn?|frau|familie|firma)\s+)?([\p{Lu}][\p{L}-]+(?:\s+[\p{Lu}][\p{L}-]+)?)/u.exec(t);
+			if (name) daten.auftrag = { name: name[1] };
+		}
+		return { aktion: 'protokoll_ausfuellen', daten };
+	}
 	// Typ erkennen (längere Wörter zuerst, um „Abnahmeprotokoll" korrekt zu erkennen)
 	if (/aufma[ßs](?!\p{L})/u.test(l)) daten.typ = 'aufmass';
 	else if (/\bregiebericht\b/.test(l)) daten.typ = 'regiebericht';

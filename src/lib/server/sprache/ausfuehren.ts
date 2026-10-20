@@ -1,7 +1,7 @@
 import { inEinerTransaktion } from '../db';
 import { ApiFehler } from '../fehler';
 import { betriebKontext } from '../rechte';
-import { legeAuftragAn } from '../auftraege';
+import { legeAuftragAn, sichtVon } from '../auftraege';
 import { legeKundeAn, UUID } from '../kunden';
 import { aendereEinsatz, holeEinsatz, legeEinsatzAn, ABWESENHEIT_NAMEN, type Einsatz } from '../plantafel';
 import { legeTodoAn, todoSichtVon } from '../todos';
@@ -40,6 +40,7 @@ export function wendeAuswahlAn(werte: Record<string, any>, offen: Auswahl[], aus
 		else if (a.feld === 'zustaendig') w.zustaendigId = id;
 		else if (a.feld === 'auftrag') w.auftragId = id;
 		else if (a.feld === 'einsatz') w.einsatzId = id;
+		else if (a.feld === 'vorlage') w.vorlageId = id;
 		else throw new ApiFehler(400, 'Ungültige Auswahl.');
 	}
 	return w;
@@ -73,7 +74,7 @@ export async function fuehreAus(locals: { nutzer: Nutzer | null }, token: unknow
 	const geprueft = pruefeVorschlag(token, nutzer.id, k.betriebId);
 	const inhalt = pruefeInhalt(geprueft.vorschau);
 	const mitEinsaetze = inhalt.aktion === 'auftrag_anlegen' && Array.isArray(inhalt.werte.einsaetze) && inhalt.werte.einsaetze.length > 0;
-	await pruefeAktionsRechte(locals, inhalt.aktion, { mitEinsaetzen: mitEinsaetze });
+	await pruefeAktionsRechte(locals, inhalt.aktion, { mitEinsaetzen: mitEinsaetze, formular: inhalt.aktion === 'protokoll_ausfuellen' ? !!inhalt.werte.formular : undefined });
 	const w = wendeAuswahlAn(inhalt.werte, inhalt.auswahl, auswahl);
 	markiereBenutzt(geprueft);
 	try {
@@ -145,6 +146,12 @@ async function ausfuehrenJe(
 		case 'angebot_entwurf':
 			throw new Error('angebot_entwurf läuft nicht über ausfuehrenJe');
 		case 'protokoll_ausfuellen': {
+			if (w.formular) {
+				// Frei gestaltete Vorlage: Protokoll starten und den Assistenten öffnen
+				const { starteProtokoll } = await import('../protokoll-formulare');
+				const p = await starteProtokoll(k, sichtVon(nutzer), { vorlageId: w.vorlageId, auftragId: w.auftragId });
+				return { status: 201, meldung: `Protokoll „${p.titel}“ gestartet`, link: `/protokolle/${p.id}`, warnungen: [] };
+			}
 			const { legeProtokollAn } = await import('../baustellen-protokolle');
 			const prot = await legeProtokollAn(k, w.auftragId, w.typ, w.inhalt, nutzer.id);
 			return { status: 201, meldung: `Protokoll ${PROTOKOLL_TYP_TITEL[prot.typ] ?? prot.typ} gespeichert`, link: `/auftraege/${prot.auftragId}/dokumentation`, warnungen: [] };
