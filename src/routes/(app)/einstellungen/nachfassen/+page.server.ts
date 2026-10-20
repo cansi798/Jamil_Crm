@@ -6,6 +6,7 @@ import { formWerte } from '$lib/server/seite';
 import { aktiveMitarbeiter } from '$lib/server/todos';
 import {
 	holeSignatur,
+	loeseDrossel,
 	listeMailVorlagen,
 	listeStufen,
 	loescheMailVorlage,
@@ -38,6 +39,7 @@ async function ausfuehren(locals: App.Locals, bereich: string, werte: Record<str
 	try {
 		pruefeRecht(locals, 'einstellungen');
 		await fn();
+		loeseDrossel(locals.nutzer!.betriebId!);
 	} catch (e) {
 		return alsFormFehler(e, { bereich, werte });
 	}

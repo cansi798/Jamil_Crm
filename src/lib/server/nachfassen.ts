@@ -443,6 +443,8 @@ export async function pruefeNachfassenGedrosselt(k: Kontext): Promise<void> {
 }
 /** Nur Tests: Drossel zurücksetzen. */
 export const setzeDrosselZurueck = () => zuletzt.clear();
+/** Nach geänderten Einstellungen: beim nächsten Seitenaufruf gleich wieder prüfen. */
+export const loeseDrossel = (betriebId: string) => zuletzt.delete(betriebId);
 
 // ——— Angebot: Läufe ansehen, pausieren, als gesendet markieren ———
 
