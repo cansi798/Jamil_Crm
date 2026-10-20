@@ -191,9 +191,26 @@
 
 	/* Desktop: linke Seitenleiste wie M365 App */
 	@media (min-width: 900px) {
+		/* Seitenleiste als eigene Spalte: Hintergrund bis ganz unten, Navigation bleibt beim Scrollen stehen */
+		.huelle {
+			display: grid;
+			grid-template-columns: var(--seitenleiste) minmax(0, 1fr);
+			min-height: 100vh;
+			background: linear-gradient(
+				90deg,
+				var(--m365-nav) 0 calc(var(--seitenleiste) - 1px),
+				var(--ui-rand) calc(var(--seitenleiste) - 1px) var(--seitenleiste),
+				transparent var(--seitenleiste)
+			);
+		}
 		.hauptnav {
+			position: sticky;
 			top: 0;
+			bottom: auto;
+			left: auto;
 			right: auto;
+			height: 100vh;
+			align-self: start;
 			width: var(--seitenleiste);
 			display: flex;
 			flex-direction: column;
@@ -385,7 +402,8 @@
 		}
 		.inhalt {
 			padding-bottom: 0;
-			margin-left: var(--seitenleiste);
+			margin-left: 0;
+			min-width: 0;
 		}
 		.inhalt.mit-mikro {
 			padding-bottom: 5.5rem;

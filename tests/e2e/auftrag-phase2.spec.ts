@@ -40,7 +40,7 @@ test('Auftrag: Zuständige, Einsatzort, Termin mit Art, Hinweise zum Kunden', as
 		await expect(page.getByRole('complementary', { name: 'Hinweise zum Kunden' })).toContainText('Zahlt nur bar');
 		await expect(page.getByText('Teichweg 5, 22846 Norderstedt')).toBeVisible();
 		// Büro darf bearbeiten → Objekt direkt im Auftrag wählbar, Standard ist die Kundenadresse
-		await expect(page.locator('dd.af-objekt select[name="objektId"] option:checked')).toHaveText('Kundenadresse (Standard)');
+		await expect(page.locator('.af-objekt select[name="objektId"] option:checked')).toHaveText('Kundenadresse (Standard)');
 
 		// Zuständige über „Auftrag bearbeiten“
 		await page.getByRole('link', { name: 'Auftrag bearbeiten' }).click();
@@ -53,7 +53,7 @@ test('Auftrag: Zuständige, Einsatzort, Termin mit Art, Hinweise zum Kunden', as
 		await expect(page.getByRole('list', { name: 'Zuständige Mitarbeiter' }).getByText('Murat Öztürk')).toBeVisible();
 
 		// Termin mit Art
-		await page.getByText('+ Termin').click();
+		await page.getByRole('button', { name: 'Termin hinzufügen' }).click();
 		const termin = page.locator('form[action="?/terminAnlegen"]');
 		await termin.locator('select[name="art"]').selectOption('besichtigung');
 		await termin.locator('select[name="benutzerId"]').selectOption({ label: 'Murat Öztürk' });

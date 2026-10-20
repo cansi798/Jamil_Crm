@@ -28,7 +28,7 @@ test('Wartung als wiederkehrendes To-do: anlegen, abhaken → nächstes, Wiederh
 		await page.goto(`/auftraege/${auftrag.id}`);
 		// eingeklappt, bis man „+ To-do hinzufügen“ drückt (msg 2579)
 		await expect(page.locator('form.td-neu')).toHaveCount(0);
-		await page.getByRole('button', { name: '+ To-do hinzufügen' }).click();
+		await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
 		await f.getByLabel('Neues To-do').fill('Heizung warten');
 		const haken = f.getByRole('checkbox', { name: /Wiederkehrend/ });

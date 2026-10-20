@@ -148,6 +148,7 @@ test.describe('Sprachsteuerung', () => {
 		let angebotId: string | null = null;
 		try {
 			await page.goto(`/auftraege/${auftrag.id}`);
+			await page.getByRole('button', { name: 'Angebot hinzufügen' }).click();
 			await page.getByText('KI-Entwurf', { exact: true }).click();
 			await page.getByLabel('Leistungen (Stichworte)').fill('12 m² Bodenfliesen und Abdichtung');
 			await page.getByRole('button', { name: 'Entwurf erstellen' }).click();

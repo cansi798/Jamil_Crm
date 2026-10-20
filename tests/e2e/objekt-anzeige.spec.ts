@@ -56,7 +56,7 @@ test('Objekt mit Kundenadresse vorbelegt; Auftrag zeigt Objekt und Adresse über
 		auftragId = page.url().split('/').pop()!;
 
 		// 3. Auftragsakte: Objekt und Objektadresse
-		const objekt = page.locator('dd.af-objekt');
+		const objekt = page.locator('.af-objekt');
 		await expect(objekt).toContainText('Ferienhaus');
 		await expect(objekt).toContainText('Dünenweg 1, 25980 Sylt');
 		// Monteur vor Ort: Route zur Objektadresse (Wunsch Jamil, msg 2549)

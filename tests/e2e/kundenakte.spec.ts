@@ -77,7 +77,7 @@ test('Auftrags-To-do mit Lautstärke und Schmutz', async ({ page }, info) => {
 	const auftrag = await api(page, 'POST', '/api/auftraege', { titel: `E2E Belastung ${info.project.name} ${Date.now()}`, kundeId: kunden[0].id });
 	try {
 		await page.goto(`/auftraege/${auftrag.id}`);
-		await page.getByRole('button', { name: '+ To-do hinzufügen' }).click();
+		await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
 		await f.getByLabel('Neues To-do').fill('Fliesen abschlagen');
 		await f.getByRole('radiogroup', { name: 'Lautstärke' }).getByText('hoch').click();

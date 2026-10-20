@@ -56,6 +56,8 @@ test('Angebots-Vorlage anlegen, beim Erstellen wählen und im Entwurf einfügen'
 
 		// 2. Im Auftrag „Angebot erstellen“ mit Beispiel-Vorlage
 		await page.goto(`/auftraege/${auftrag.id}`);
+		await page.getByRole('button', { name: 'Angebot hinzufügen' }).click();
+		await page.getByRole('button', { name: 'Aus Vorlage' }).click();
 		await page.getByLabel('Angebots-Vorlage').selectOption({ label: 'Vorlage: Badsanierung komplett (Beispiel)' });
 		await page.getByRole('button', { name: 'Angebot erstellen' }).click();
 		await page.waitForURL(/\/angebote\/[0-9a-f-]{36}$/);

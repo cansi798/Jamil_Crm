@@ -3,6 +3,7 @@
 	import { tagDeutsch } from '$lib/zeit';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -29,15 +30,10 @@
 		{#snippet children(schliessen)}
 	<form method="POST" action="?/anlegen" use:enhance class="kd-formular">
 		{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
-		<label>
-			Mitarbeiter *
-			<select name="benutzerId" required>
-				<option value="">– bitte wählen –</option>
-				{#each data.mitarbeiter as m (m.id)}
-					<option value={m.id} selected={m.id === werte.benutzerId}>{m.name}</option>
-				{/each}
-			</select>
-		</label>
+		<div class="ab-feld">
+			<span class="ab-label" aria-hidden="true">Mitarbeiter *</span>
+			<PersonWahl name="benutzerId" label="Mitarbeiter" leerText="Mitarbeiter wählen" personen={data.mitarbeiter} wert={werte.benutzerId ?? ''} required />
+		</div>
 		<label>
 			Art *
 			<select name="art" required>
@@ -93,6 +89,16 @@
 	}
 	.ab-eintrag:last-child {
 		border-bottom: 0;
+	}
+	.ab-feld {
+		display: grid;
+		gap: 0.3rem;
+		justify-items: start;
+	}
+	.ab-label {
+		color: var(--ui-text-leise);
+		font-size: var(--ui-schrift-s);
+		font-weight: 500;
 	}
 	.ab-eintrag.vorbei {
 		opacity: 0.7;

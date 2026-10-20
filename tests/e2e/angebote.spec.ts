@@ -41,6 +41,7 @@ test.describe('Angebote', () => {
 		try {
 			await page.goto(`/auftraege/${auftrag.id}`);
 			await expect(page.getByRole('heading', { name: 'Angebote' })).toBeVisible();
+			await page.getByRole('button', { name: 'Angebot hinzufügen' }).click();
 			await page.getByRole('button', { name: 'Angebot erstellen' }).click();
 			await page.waitForURL(/\/angebote\/[0-9a-f-]{36}$/);
 			angebotId = page.url().split('/').pop()!;

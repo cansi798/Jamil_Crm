@@ -54,6 +54,8 @@ test('Angebot ohne Auftrag → im Angebot einem Auftrag zuordnen; zweites im Auf
 		angebote.push(zweites);
 		const nummer = (await page.getByRole('heading', { level: 1 }).innerText()).replace('Angebot ', '');
 		await page.goto(`/auftraege/${auftrag.id}`);
+		await page.getByRole('button', { name: 'Angebot hinzufügen' }).click();
+		await page.getByRole('button', { name: 'Bestehendes zuordnen' }).click();
 		await page.getByLabel('Bestehendes Angebot zuordnen').selectOption({ value: zweites });
 		await page.getByRole('button', { name: 'Zuordnen', exact: true }).click();
 		await expect(page.getByRole('link', { name: new RegExp(nummer) })).toBeVisible();

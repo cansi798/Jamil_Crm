@@ -12,13 +12,16 @@
 		personen,
 		wert = $bindable(''),
 		label = 'Zuständig',
-		leerText = 'Nicht zugewiesen'
+		leerText = 'Nicht zugewiesen',
+		required = false
 	}: {
 		name: string;
 		personen: { id: string; name: string }[];
 		wert?: string;
 		label?: string;
 		leerText?: string;
+		/** Pflichtfeld: ohne Auswahl meldet der Browser beim Absenden „Bitte wählen“ (am Chip). */
+		required?: boolean;
 	} = $props();
 
 	const id = `pw-${Math.random().toString(36).slice(2, 9)}`;
@@ -26,7 +29,12 @@
 	let aktiv = $state(0);
 	let knopf = $state<HTMLButtonElement>();
 	let liste = $state<HTMLUListElement>();
-	const optionen = $derived([{ id: '', name: leerText }, ...personen]);
+	let pflicht = $state<HTMLInputElement>();
+	$effect(() => {
+		pflicht?.setCustomValidity(wert ? '' : `Bitte ${label} wählen.`);
+	});
+	// Pflichtfeld: „leer“ ist keine wählbare Option
+	const optionen = $derived(required ? personen : [{ id: '', name: leerText }, ...personen]);
 	const gewaehlt = $derived(personen.find((p) => p.id === wert) ?? null);
 
 	async function oeffnen() {
@@ -61,7 +69,21 @@
 </script>
 
 <div class="pw" onfocusout={draussen}>
-	<input type="hidden" {name} value={wert} />
+	{#if required}
+		<!-- Unsichtbares Pflichtfeld: trägt den Wert und lässt den Browser bei leerer Auswahl warnen -->
+		<input
+			class="pw-pflicht"
+			type="text"
+			{name}
+			value={wert}
+			required
+			tabindex="-1"
+			aria-hidden="true"
+			bind:this={pflicht}
+		/>
+	{:else}
+		<input type="hidden" {name} value={wert} />
+	{/if}
 	<button
 		bind:this={knopf}
 		type="button"
@@ -69,7 +91,7 @@
 		class:gesetzt={!!gewaehlt}
 		aria-haspopup="listbox"
 		aria-expanded={offen}
-		aria-label={`${label}: ${gewaehlt ? gewaehlt.name : leerText}`}
+		aria-label={`${label}${required ? ' (Pflichtfeld)' : ''}: ${gewaehlt ? gewaehlt.name : leerText}`}
 		onclick={() => (offen ? (offen = false) : oeffnen())}
 	>
 		<Avatar name={gewaehlt?.name ?? ''} groesse={22} />
@@ -110,6 +132,18 @@
 		position: relative;
 		display: inline-block;
 		max-width: 100%;
+	}
+	.pw-pflicht {
+		position: absolute;
+		left: 1rem;
+		bottom: 0;
+		width: 1px !important;
+		height: 1px !important;
+		min-height: 0 !important;
+		padding: 0 !important;
+		border: 0 !important;
+		opacity: 0;
+		pointer-events: none;
 	}
 	.pw-text {
 		overflow: hidden;

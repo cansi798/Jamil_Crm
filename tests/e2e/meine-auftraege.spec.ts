@@ -49,7 +49,7 @@ test('Büro weist „Jamil (Test) – Monteur“ im Auftrag zu → er sieht Auft
 		await expect(page.getByRole('list', { name: 'Zuständige Mitarbeiter' }).getByText('Jamil (Test) – Monteur')).toBeVisible();
 		await expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible();
 		// To-do ohne direkte Zuweisung im Auftrag
-		await page.getByRole('button', { name: '+ To-do hinzufügen' }).click();
+		await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
 		await f.getByLabel('Neues To-do').fill('Material holen (E2E)');
 		await f.getByRole('button', { name: 'To-do speichern' }).click();
