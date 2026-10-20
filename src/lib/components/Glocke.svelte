@@ -109,10 +109,14 @@
 	.gl {
 		position: relative;
 	}
+	/* Handy: eigene schmale Zeile oben rechts über dem Inhalt (verdeckt keine Knöpfe der Seite) */
 	.gl.schmal {
-		position: fixed;
-		z-index: 25;
-		top: calc(0.5rem + env(safe-area-inset-top));
+		display: flex;
+		justify-content: flex-end;
+		padding: calc(0.4rem + env(safe-area-inset-top)) 0.75rem 0;
+		margin-bottom: -0.75rem;
+	}
+	.schmal .gl-panel {
 		right: 0.75rem;
 	}
 	.gl-knopf {

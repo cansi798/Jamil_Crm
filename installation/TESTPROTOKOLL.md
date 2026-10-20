@@ -25,6 +25,13 @@ Vorschau (crm-dev, crm-db, crm-stt) wurde nicht angefasst und lief durchgehend w
 Nicht getestet (auf diesem Server nicht möglich): echtes Let's-Encrypt-Zertifikat auf Port 80/443 (belegt vom
 Nextcloud-Caddy), Docker-Installation über `get.docker.com` (Docker war schon da), Update per `git pull`.
 
+## Probelauf 20.10.2026 (Erinnerungen, Commit a0bc608)
+
+Neues Paket mit Migrationen 056/057 und neuer Abhängigkeit `web-push`, unbeaufsichtigt installiert (Projekt
+`crm-installtest`, App-Port 18300, ohne Profile). `2-installieren.sh` hat ein VAPID-Schlüsselpaar erzeugt
+(`CRM_VAPID_OEFFENTLICH`/`CRM_VAPID_PRIVAT`, von web-push akzeptiert), Migrationen liefen, `/api/gesundheit` ok,
+Sicherung + Wiederherstellung ok, `9-deinstallieren.sh --ja` hat alles entfernt. Vorschau-Container unberührt.
+
 ## So wiederholen (für Entwickler)
 
 ```sh
