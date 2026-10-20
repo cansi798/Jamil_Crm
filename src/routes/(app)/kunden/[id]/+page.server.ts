@@ -24,6 +24,7 @@ import {
  * Aufträge nur mit Modul `auftraege` und Leserecht (`null` = Bereich ausblenden); mit nur `auftraege.lesen` die eigenen.
  */
 import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachfassen';
+import { erzeugeLink, kundenPortal, portalZugriff, widerrufeLink } from '$lib/server/kundenportal';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'kunden', 'kunden.lesen');
@@ -41,8 +42,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			listeKundenDateien(k, kunde.id),
 			kundenVerlauf(k, nutzer, kunde.id)
 		]);
+		// Kundenportal (msg 2793): ein Link je Kunde – Modul kundenportal + Recht kundenportal.verwalten
+		const portalErlaubt = hatRecht(nutzer, 'kundenportal.verwalten') && (await hatModul(k.betriebId, 'kundenportal'));
+		const portal = portalErlaubt ? await kundenPortal(await portalZugriff(locals), kunde.id) : null;
 		return {
 			kunde,
+			portal,
 			objekte,
 			auftraege: auftraege as Auftrag[] | null,
 			darfAuftragAnlegen: auftraegeLesbar && hatRecht(nutzer, 'auftraege.bearbeiten'),
@@ -81,6 +86,26 @@ async function akte(locals: App.Locals, bereich: 'notizFehler' | 'dokumentFehler
 }
 
 export const actions: Actions = {
+	/** Kundenportal: neuen Link für den Kunden (ersetzt einen älteren); Token nur jetzt sichtbar. */
+	portalLink: async ({ locals, params, request, url }) => {
+		const f = await request.formData();
+		try {
+			const r = await erzeugeLink(await portalZugriff(locals), params.id, f.get('laeuftAb'));
+			const basis = (process.env.ORIGIN ?? url.origin).replace(/\/$/, '');
+			return { portalUrl: `${basis}/portal/${r.token}` };
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	portalWiderrufen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await widerrufeLink(await portalZugriff(locals), params.id, f.get('linkId'));
+			return { portalMeldung: 'Link widerrufen – er funktioniert ab sofort nicht mehr.' };
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
 	/** „Kein automatisches Nachfassen“ für diesen Kunden an/aus (`kunden.bearbeiten`). */
 	nachfassen: async ({ locals, params, request }) => {
 		const aus = (await request.formData()).get('aus') === 'ja';

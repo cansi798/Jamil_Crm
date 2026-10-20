@@ -55,6 +55,9 @@ describe('Kundenportal', () => {
 		await root`delete from app.portal_auftrag`;
 		await root`delete from app.portal_einstellungen`;
 		await root`update app.auftraege set ab_automatisch = null`;
+		// Regel „nur markierte“ + Auftrag A markiert: so steht in den meisten Tests genau ein Auftrag im Portal
+		await root`insert into app.portal_einstellungen (betrieb_id, standard) values (${u.betriebA}, 'nur_markierte')`;
+		await root`insert into app.portal_auftrag (auftrag_id, betrieb_id, sichtbar) values (${u.auftragA}, ${u.betriebA}, true)`;
 	});
 
 	it('Rechte: Link erzeugen nur mit Modul kundenportal + Aufträge bearbeiten', async () => {
@@ -64,7 +67,7 @@ describe('Kundenportal', () => {
 	});
 
 	it('Token: nur der SHA-256 liegt in der Datenbank, nie im Protokoll; Portal zeigt Status, Termine mit Vornamen, kein anderer Kunde', async () => {
-		const { token } = await erzeugeLink(zA(), u.auftragA);
+		const { token } = await erzeugeLink(zA(), u.kundeA);
 		expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
 		const [l] = await root`select token_hash from app.portal_links`;
 		expect(Buffer.from(l.token_hash).equals(tokenHash(token))).toBe(true);
@@ -77,26 +80,26 @@ describe('Kundenportal', () => {
 		expect(s.auftraege[0].termine![0].mitarbeiter).toEqual(['Ali']);
 		expect(JSON.stringify(s)).not.toMatch(/Fremd|Monteur|Lindenweg|monteur-a@/);
 		// Freigabe: ohne Termine/Vornamen/Status
-		await setzeFreigabe(zA(), u.auftragA, { status: false, termine: false, mitarbeiter: false, annahme: false });
+		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: false, termine: false, mitarbeiter: false, annahme: false });
 		const s2 = (await ladePortal(token, IP))!;
 		expect(s2.auftraege[0]).toMatchObject({ status: null, termine: null });
 	});
 
 	it('Ungültig: falsches Token, widerrufen, abgelaufen, Modul fehlt → kein Zugriff; Durchprobieren → 429', async () => {
-		const { token, id } = await erzeugeLink(zA(), u.auftragA);
+		const { token, id } = await erzeugeLink(zA(), u.kundeA);
 		expect(await ladePortal('x'.repeat(43), IP)).toBeNull();
 		expect(await ladePortal('kurz', IP)).toBeNull();
-		await widerrufeLink(zA(), u.auftragA, id);
+		await widerrufeLink(zA(), u.kundeA, id);
 		expect(await ladePortal(token, IP)).toBeNull();
-		const zwei = await erzeugeLink(zA(), u.auftragA);
+		const zwei = await erzeugeLink(zA(), u.kundeA);
 		await root`update app.portal_links set laeuft_ab = now() - interval '1 minute' where id = ${zwei.id}`;
 		expect(await ladePortal(zwei.token, IP)).toBeNull();
-		await expect(erzeugeLink(zA(), u.auftragA, '2000-01-01')).rejects.toMatchObject({ status: 400 });
+		await expect(erzeugeLink(zA(), u.kundeA, '2000-01-01')).rejects.toMatchObject({ status: 400 });
 		portalFehlversuch.leeren();
 		for (let i = 0; i < 20; i++) await ladePortal('y'.repeat(43), '198.51.100.1').catch(() => null);
 		await expect(ladePortal('y'.repeat(43), '198.51.100.1')).rejects.toMatchObject({ status: 429 });
 		// Betrieb ohne Modul: Link löst sich nicht auf
-		const drei = await erzeugeLink(zA(), u.auftragA);
+		const drei = await erzeugeLink(zA(), u.kundeA);
 		const [premium] = await root`select tarif_id from app.betriebe where id = ${u.betriebA}`;
 		const [ohne] = await root`select id from app.tarife where schluessel = 'ohne-angebote'`;
 		await root`update app.betriebe set tarif_id = ${ohne.id} where id = ${u.betriebA}`;
@@ -107,7 +110,7 @@ describe('Kundenportal', () => {
 	it('Dokumente nur freigegeben und nur im eigenen Auftrag; anderer Betrieb sieht keine Links (RLS)', async () => {
 		const an = await versendetesAngebot(u.auftragA);
 		const [d] = await root`insert into app.dateien (betrieb_id, auftrag_id, name, typ, groesse, inhalt) values (${u.betriebA}, ${u.auftragA}, 'foto.png', 'image/png', 100, ${Buffer.from(testPng())}) returning id`;
-		const { token } = await erzeugeLink(zA(), u.auftragA);
+		const { token } = await erzeugeLink(zA(), u.kundeA);
 		// versendetes Angebot wird beim ersten Link automatisch freigegeben, die Datei nicht
 		const pdf = await portalDokument(token, 'angebot', an.id, IP);
 		expect(new TextDecoder().decode(pdf.bytes.slice(0, 5))).toBe('%PDF-');
@@ -117,7 +120,6 @@ describe('Kundenportal', () => {
 		// Dokument eines anderen Auftrags über diesen Link: nie
 		const anderer = await u.neuerAuftrag('angebot', 'Anderer');
 		const an2 = await versendetesAngebot(anderer);
-		await erzeugeLink(zA(), anderer);
 		await expect(portalDokument(token, 'angebot', an2.id, IP)).rejects.toMatchObject({ status: 404 });
 		const sichtbar = await mitBetrieb({ betriebId: u.betriebB, benutzerId: u.ids.chefB }, (tx) => tx`select count(*)::int as n from app.portal_links`);
 		expect(sichtbar[0].n).toBe(0);
@@ -126,9 +128,9 @@ describe('Kundenportal', () => {
 	});
 
 	it('Annahme im Portal: AGB-Häkchen Pflicht, Nachweis (Token- und IP-Hash), Auftrag beauftragt, Auftragsbestätigung mit To-do und Glocke, Hook', async () => {
-		await speicherePortalEinstellungen(kA(), { agbUrl: 'https://a.test/agb', abAutomatisch: 'ja' });
+		await speicherePortalEinstellungen(kA(), { agbUrl: 'https://a.test/agb', abAutomatisch: 'ja', standard: 'nur_markierte' });
 		const an = await versendetesAngebot(u.auftragA);
-		const { token } = await erzeugeLink(zA(), u.auftragA);
+		const { token } = await erzeugeLink(zA(), u.kundeA);
 		const gemeldet: AngebotAngenommen[] = [];
 		const ab = abonniere('angebotAngenommen', async (e) => {
 			gemeldet.push(e);
@@ -172,10 +174,10 @@ describe('Kundenportal', () => {
 
 	it('Ablehnung mit Grund → To-do; Online-Annahme abgeschaltet → 403', async () => {
 		const an = await versendetesAngebot(u.auftragA);
-		const { token } = await erzeugeLink(zA(), u.auftragA);
-		await setzeFreigabe(zA(), u.auftragA, { status: true, termine: true, mitarbeiter: true, annahme: false });
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: true, termine: true, mitarbeiter: true, annahme: false });
 		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Hans', agb: true }, IP)).rejects.toMatchObject({ status: 403 });
-		await setzeFreigabe(zA(), u.auftragA, { status: true, termine: true, mitarbeiter: true, annahme: true });
+		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: true, termine: true, mitarbeiter: true, annahme: true });
 		const r = await entscheide(token, an.id, { entscheidung: 'abgelehnt', name: 'Hans Müller', agb: false, grund: 'zu teuer' }, IP);
 		expect(r.status).toBe('abgelehnt');
 		const [t] = await root`select titel, beschreibung from app.todos where titel like ${`%${an.nummer}%abgelehnt%`}`;
@@ -202,23 +204,44 @@ describe('Kundenportal', () => {
 		expect(await listeAuftragsbestaetigungen(kA(), drei)).toHaveLength(1);
 	});
 
+	it('Ein Portal je Kunde (msg 2793): Regel „alle aktiven“ zeigt alle offenen Aufträge, „nein“ am Auftrag blendet aus; neuer Link ersetzt den alten', async () => {
+		const zweiter = await u.neuerAuftrag('beauftragt', 'Zweiter Auftrag');
+		const fertig = await u.neuerAuftrag('abgerechnet', 'Längst abgerechnet');
+		const alt = await erzeugeLink(zA(), u.kundeA);
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		expect(await ladePortal(alt.token, IP)).toBeNull();
+		expect((await ladePortal(token, IP))!.auftraege.map((a) => a.id)).toEqual([u.auftragA]);
+		await speicherePortalEinstellungen(kA(), { standard: 'alle_aktiven', abAutomatisch: true });
+		const ids = (await ladePortal(token, IP))!.auftraege.map((a) => a.id);
+		expect(ids).toEqual(expect.arrayContaining([u.auftragA, zweiter]));
+		expect(ids).not.toContain(fertig);
+		await setzeFreigabe(zA(), zweiter, { sichtbar: 'aus', status: true, termine: true, mitarbeiter: true, annahme: true });
+		expect((await ladePortal(token, IP))!.auftraege.map((a) => a.id)).not.toContain(zweiter);
+		expect((await portalStand(zA(), zweiter)).imPortal).toBe(false);
+		expect((await portalStand(zA(), u.auftragA))).toMatchObject({ imPortal: true, kundeHatLink: true, kundeId: u.kundeA });
+		// Monteur ohne „Kundenportal verwalten“: kein Zugriff
+		await expect(portalZugriff({ nutzer: u.monteurA })).rejects.toMatchObject({ status: 403 });
+		await expect(portalZugriff({ nutzer: u.bueroA })).resolves.toBeTruthy();
+	});
+
 	it('Sicherheit: Sicht und Preisrechte gelten auch in der Portal-Verwaltung', async () => {
 		const an = await versendetesAngebot(u.auftragA);
 		const fremd = await u.neuerAuftrag('angebot', 'Fremder Auftrag');
-		// „nur eigene Aufträge“ (Monteur mit Bearbeiten-Recht): fremder Auftrag → 404, keine Links, kein Schalter
+		const [kd2] = await root`insert into app.kunden (betrieb_id, art, nachname) values (${u.betriebA}, 'privat', 'Zweitkunde') returning id`;
+		// „nur eigene Aufträge“ (Monteur mit Bearbeiten-Recht): fremder Auftrag/Kunde → 404, keine Links, kein Schalter
 		const nurEigene = { k: { betriebId: u.betriebA, benutzerId: u.ids.monteurA }, sicht: { alle: false, benutzerId: u.ids.monteurA }, preise: false };
-		await expect(erzeugeLink(nurEigene, fremd)).rejects.toMatchObject({ status: 404 });
+		await expect(erzeugeLink(nurEigene, kd2.id)).rejects.toMatchObject({ status: 404 });
+		await expect(erzeugeLink({ ...zA(), k: { betriebId: u.betriebB, benutzerId: u.ids.chefB } }, u.kundeA)).rejects.toMatchObject({ status: 404 });
 		await expect(setzeAbAutomatisch(nurEigene, fremd, false)).rejects.toMatchObject({ status: 404 });
 		await expect(portalStand(nurEigene, fremd)).rejects.toMatchObject({ status: 404 });
-		const [{ n }] = await root`select count(*)::int as n from app.portal_links where auftrag_id = ${fremd}`;
+		const [{ n }] = await root`select count(*)::int as n from app.portal_links where kunde_id = ${kd2.id}`;
 		expect(n).toBe(0);
 		// ohne Preisrechte: Link ja, aber kein Angebot wird (automatisch oder von Hand) freigegeben
 		const ohnePreise = { ...zA(), preise: false };
-		const { token } = await erzeugeLink(ohnePreise, u.auftragA);
+		const { token } = await erzeugeLink(ohnePreise, u.kundeA);
 		await expect(setzeDokument(ohnePreise, u.auftragA, 'angebot', an.id, true)).rejects.toMatchObject({ status: 403 });
 		expect((await ladePortal(token, IP))!.auftraege[0].angebote).toEqual([]);
 		expect((await portalStand(ohnePreise, u.auftragA)).angebote).toEqual([]);
-		// Seiten-Zugriff: Monteur-Vorlage hat kein „Aufträge bearbeiten“ → 403
 		await expect(portalZugriff({ nutzer: u.monteurA })).rejects.toMatchObject({ status: 403 });
 		expect((await portalZugriff({ nutzer: u.ohnePreiseA })).preise).toBe(false);
 	});
@@ -256,7 +279,7 @@ describe('Logos und Dateien: kein SVG/HTML vom App-Ursprung', () => {
 		}
 		await u2.root`insert into app.betrieb_profil (betrieb_id, logo, logo_typ) values (${u2.betriebA}, ${Buffer.from(testPng())}, 'image/png')
 			on conflict (betrieb_id) do update set logo = excluded.logo, logo_typ = excluded.logo_typ`;
-		const { token } = await erzeugeLink({ k: { betriebId: u2.betriebA, benutzerId: u2.ids.chefA }, sicht: { alle: true, benutzerId: u2.ids.chefA }, preise: true }, u2.auftragA);
+		const { token } = await erzeugeLink({ k: { betriebId: u2.betriebA, benutzerId: u2.ids.chefA }, sicht: { alle: true, benutzerId: u2.ids.chefA }, preise: true }, u2.kundeA);
 		const { GET } = await import('../../src/routes/portal/[token]/logo/+server');
 		const r = await GET({ params: { token }, getClientAddress: () => '192.0.2.1' } as never);
 		expect(r.headers.get('content-type')).toBe('image/png');

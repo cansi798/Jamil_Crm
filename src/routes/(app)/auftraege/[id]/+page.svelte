@@ -160,29 +160,23 @@
 						{#snippet titel()}Kundenportal{/snippet}
 						{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
 						{#if form?.portalMeldung}<p role="status" class="kd-info">{form.portalMeldung}</p>{/if}
-						{#if form?.portalUrl}
-							<div class="af-portal-neu" data-testid="portal-url">
-								<p><strong>Neuer Link</strong> – nur jetzt sichtbar, bitte gleich kopieren und dem Kunden schicken:</p>
-								<input readonly value={form.portalUrl} aria-label="Portal-Link" onfocus={(ev) => ev.currentTarget.select()} />
-								<button type="button" class="kd-knopf" onclick={() => navigator.clipboard?.writeText(form?.portalUrl ?? '')}>Kopieren</button>
-							</div>
-						{/if}
-						<form method="POST" action="?/portalLink" use:enhance class="af-portal-link">
-							<label>Gültig bis (optional) <input type="date" name="laeuftAb" /></label>
-							<button type="submit" class="kd-knopf">Link für den Kunden erzeugen</button>
-						</form>
-						{#if data.portal.links.some((l) => l.gueltig)}
-							<ul class="af-portal-links">
-								{#each data.portal.links.filter((l) => l.gueltig) as l (l.id)}
-									<li>
-										<span>Link vom {tagDeutsch(berlinTag(new Date(l.angelegt)))}{l.laeuftAb ? ` · gültig bis ${tagDeutsch(berlinTag(new Date(new Date(l.laeuftAb).getTime() - 1)))}` : ''} · {l.zugriffe}× geöffnet</span>
-										<form method="POST" action="?/portalWiderrufen" use:enhance><input type="hidden" name="linkId" value={l.id} /><button type="submit" class="knopf-subtil">Widerrufen</button></form>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-						{#if data.portal.links.some((l) => !l.gueltig)}<p class="kd-info">{data.portal.links.filter((l) => !l.gueltig).length} ältere Link(s) widerrufen oder abgelaufen.</p>{/if}
+						<p class="af-portal-status" data-testid="portal-status-auftrag">
+							{data.portal.imPortal ? 'Dieser Auftrag steht im Kundenportal.' : 'Dieser Auftrag steht nicht im Kundenportal.'}
+							{#if data.portal.kundeId}
+								{data.portal.kundeHatLink ? 'Der Kunde hat einen gültigen Link.' : 'Der Kunde hat noch keinen Link.'}
+								<a href={`/kunden/${data.portal.kundeId}#kundenportal`}>Link beim Kunden verwalten</a>
+							{:else}
+								Ohne Kunden in der Kundendatenbank gibt es kein Portal.
+							{/if}
+						</p>
 						<form method="POST" action="?/portalFreigabe" use:enhance={sofort} class="af-portal-freigabe">
+							<label class="af-portal-wahl">Im Portal zeigen
+								<select name="sichtbar" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+									<option value="" selected={data.portal.freigabe.sichtbar === null}>nach Regel ({data.portal.standard === 'alle_aktiven' ? 'alle aktiven Aufträge' : 'nur markierte'})</option>
+									<option value="an" selected={data.portal.freigabe.sichtbar === true}>ja</option>
+									<option value="aus" selected={data.portal.freigabe.sichtbar === false}>nein</option>
+								</select>
+							</label>
 							<p class="af-portal-titel">Der Kunde sieht:</p>
 							<label><input type="checkbox" name="status" value="ja" checked={data.portal.freigabe.status} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Auftragsstatus</label>
 							<label><input type="checkbox" name="termine" value="ja" checked={data.portal.freigabe.termine} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Nächste Termine (Zeitfenster)</label>
@@ -1174,16 +1168,13 @@
 	}
 	.af-ab { display: grid; gap: var(--ui-a2); padding-bottom: var(--ui-a2); border-bottom: 1px solid var(--ui-rand); margin-bottom: var(--ui-a2); }
 	.af-ab p { margin: 0; }
-	.af-ab-knoepfe, .af-portal-link, .af-portal-neu { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: flex-end; }
-	.af-portal-link label { display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }
-	.af-portal-neu { padding: var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-gruen-hell); margin-bottom: var(--ui-a2); }
-	.af-portal-neu p { margin: 0; flex-basis: 100%; }
-	.af-portal-neu input { flex: 1 1 14rem; min-height: var(--ui-feld-hoehe); min-width: 0; }
-	.af-portal-links, .af-portal-docs { list-style: none; margin: var(--ui-a2) 0; padding: 0; display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }
-	.af-portal-links li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ui-a2); align-items: center; }
+	.af-ab-knoepfe { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: flex-end; }
+	.af-portal-docs { list-style: none; margin: var(--ui-a2) 0; padding: 0; display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }
 	.af-portal-freigabe { display: grid; gap: var(--ui-a1); margin-top: var(--ui-a3); }
 	.af-portal-freigabe label, .af-portal-docs label { display: flex; gap: var(--ui-a2); align-items: center; min-height: 2.25rem; }
 	.af-portal-titel { margin: var(--ui-a2) 0 0; font-weight: 600; font-size: var(--ui-schrift-s); }
 	.af-ab-schalter { margin-top: var(--ui-a2); }
+	.af-portal-status { margin: 0 0 var(--ui-a2); font-size: var(--ui-schrift-s); }
+	.af-portal-wahl { display: flex; gap: var(--ui-a2); align-items: center; flex-wrap: wrap; }
 	.af-ab-schalter label { display: flex; gap: var(--ui-a2); align-items: center; font-size: var(--ui-schrift-s); }
 </style>

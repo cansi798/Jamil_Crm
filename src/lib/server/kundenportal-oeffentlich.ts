@@ -8,7 +8,7 @@ import { angebotPdf } from './pdf/angebot-pdf';
 import { sendePush } from './erinnerungen';
 import { zustaendig } from './auftragsbestaetigung';
 import { melde } from './ereignisse';
-import { TOKEN_MUSTER, tokenHash } from './kundenportal';
+import { IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
 import { UUID } from './kunden';
 import { nurVorname } from '../buchung';
 import { STATUS_NAMEN, type AuftragStatus } from '../auftrag-status';
@@ -87,9 +87,11 @@ export type PortalSeite = {
 
 async function auftraegeImBereich(tx: TransactionSql, p: PortalKontext): Promise<string[]> {
 	if (p.auftragId) return [p.auftragId];
+	// Alle Aufträge des Kunden, die im Portal stehen (Regel des Betriebs, je Auftrag überschreibbar – msg 2793)
 	const z = await tx`
-		select a.id from app.auftraege a join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
-		where a.betrieb_id = ${p.betriebId} and a.kunde_id = ${p.kundeId} order by a.angelegt desc limit 20`;
+		select a.id from app.auftraege a left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
+		where a.betrieb_id = ${p.betriebId} and a.kunde_id = ${p.kundeId} and ${tx.unsafe(IM_PORTAL_SQL)}
+		order by a.angelegt desc limit 20`;
 	return z.map((r) => r.id as string);
 }
 

@@ -2,8 +2,8 @@ import { expect, test, type Browser } from '@playwright/test';
 import { erwarteKeinQuerScrollen } from './hilfe';
 
 /**
- * Kundenportal (Jamil msgs 2770–2774 Punkt 4, 2778): Chef erzeugt im Auftrag „Ladenumbau Trockenbau“ (Seed: versendetes
- * Angebot) einen Link; der Kunde öffnet ihn ohne Anmeldung, sieht Status und Angebot und nimmt es an (Bestätigungsschritt
+ * Kundenportal (Jamil msgs 2770–2774 Punkt 4, 2778): Chef erzeugt beim Kunden des Auftrags „Ladenumbau Trockenbau“ (Seed: versendetes
+ * Angebot) einen Link (ein Portal je Kunde, msg 2793); der Kunde öffnet ihn ohne Anmeldung, sieht Status und Angebot und nimmt es an (Bestätigungsschritt
  * + AGB-Häkchen, keine Unterschrift) → Auftragsbestätigung erscheint. Die Annahme läuft nur, solange das Angebot noch
  * offen ist (erster Lauf); danach prüft der Test nur noch die Anzeige. Am Ende wird der Link widerrufen.
  */
@@ -26,8 +26,11 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	const href = await page.locator('a[href^="/auftraege/"]').evaluateAll((l) => l.map((a) => a.getAttribute('href')).find((h) => /^\/auftraege\/[0-9a-f-]{36}$/.test(h ?? '')));
 	test.skip(!href, 'Seed-Auftrag „Ladenumbau Trockenbau“ fehlt');
 	await page.goto(href!);
+	await expect(page.getByTestId('portal-status-auftrag')).toBeVisible();
+	await page.getByRole('link', { name: 'Link beim Kunden verwalten' }).click();
+	await expect(page).toHaveURL(/\/kunden\//);
 	const karte = page.locator('#kundenportal');
-	await karte.getByRole('button', { name: 'Link für den Kunden erzeugen' }).click();
+	await karte.getByRole('button', { name: /Link für den Kunden erzeugen|Neuen Link erzeugen/ }).click();
 	const url = await karte.getByLabel('Portal-Link').inputValue();
 	expect(url).toMatch(/\/portal\/[A-Za-z0-9_-]{43}$/);
 	await erwarteKeinQuerScrollen(page, viewport.width);
@@ -54,10 +57,12 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 		await expect(kunde.getByText(/Vielen Dank für Ihren Auftrag/)).toBeVisible();
 		await expect(kunde.getByRole('link', { name: /Auftragsbestätigung AB-/ })).toBeVisible();
 		await expect(kunde.getByText(/Angenommen von Erika Krümel/)).toBeVisible();
-		// Im CRM: Auftragsbestätigung bereit zum Versand
-		await page.reload();
+		// Im CRM: Auftragsbestätigung bereit zum Versand (im Auftrag)
+		const kundenSeite = page.url();
+		await page.goto(href!);
 		await expect(page.locator('#auftragsbestaetigung')).toContainText('bereit zum Versand');
 		await expect(page.locator('#auftragsbestaetigung').getByRole('link', { name: 'In Mailprogramm öffnen' })).toBeVisible();
+		await page.goto(kundenSeite);
 	}
 	await gast.close();
 
@@ -68,5 +73,5 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	const r = await (await gast2.newPage()).goto(new URL(url).pathname);
 	expect(r?.status()).toBe(404);
 	await gast2.close();
-	await page.context().close();
+	await page.context().close().catch(() => {});
 });

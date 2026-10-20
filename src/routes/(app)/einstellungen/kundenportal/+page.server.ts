@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { alsFormFehler, ApiFehler } from '$lib/server/fehler';
+import { alsFormFehler } from '$lib/server/fehler';
 import { alsSeitenFehler } from '$lib/server/seite';
 import { ladePortalEinstellungen, portalEinstellungsZugriff, speicherePortalEinstellungen } from '$lib/server/kundenportal';
 import { hatModul } from '$lib/server/tarif';
@@ -17,10 +17,10 @@ export const actions: Actions = {
 		const f = await request.formData();
 		try {
 			const k = await portalEinstellungsZugriff(locals);
-			await speicherePortalEinstellungen(k, { agbUrl: f.get('agbUrl'), widerrufUrl: f.get('widerrufUrl'), abAutomatisch: f.get('abAutomatisch') });
+			await speicherePortalEinstellungen(k, { agbUrl: f.get('agbUrl'), widerrufUrl: f.get('widerrufUrl'), abAutomatisch: f.get('abAutomatisch'), standard: f.get('standard') });
 			return { gespeichert: true };
 		} catch (e) {
-			return alsFormFehler(e, { einstellungFehler: true });
+			return alsFormFehler(e);
 		}
 	}
 };

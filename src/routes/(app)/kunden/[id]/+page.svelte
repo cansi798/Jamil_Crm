@@ -100,6 +100,36 @@
 		</ul>
 	</Abschnitt>
 
+	{#if data.portal}
+		<Abschnitt titel="Kundenportal" id="kundenportal">
+			{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
+			{#if form?.portalMeldung}<p role="status" class="kd-info">{form.portalMeldung}</p>{/if}
+			{#if form?.portalUrl}
+				<div class="kp-neu" data-testid="portal-url">
+					<p><strong>Neuer Link</strong> – nur jetzt sichtbar, bitte gleich kopieren und dem Kunden schicken:</p>
+					<input readonly value={form.portalUrl} aria-label="Portal-Link" onfocus={(ev) => ev.currentTarget.select()} />
+					<button type="button" class="kd-knopf" onclick={() => navigator.clipboard?.writeText(form?.portalUrl ?? '')}>Kopieren</button>
+				</div>
+			{/if}
+			{#each data.portal.links.filter((l) => l.gueltig) as l (l.id)}
+				<div class="kp-link">
+					<span>Gültiger Link vom {tagDeutsch(berlinTag(new Date(l.angelegt)))}{l.laeuftAb ? ` · bis ${tagDeutsch(berlinTag(new Date(new Date(l.laeuftAb).getTime() - 1)))}` : ''} · {l.zugriffe}× geöffnet</span>
+					<form method="POST" action="?/portalWiderrufen" use:enhance><input type="hidden" name="linkId" value={l.id} /><button type="submit" class="knopf-subtil">Widerrufen</button></form>
+				</div>
+			{/each}
+			<form method="POST" action="?/portalLink" use:enhance class="kp-form">
+				<label>Gültig bis (optional) <input type="date" name="laeuftAb" /></label>
+				<button type="submit" class="kd-knopf">{data.portal.links.some((l) => l.gueltig) ? 'Neuen Link erzeugen (alter wird ungültig)' : 'Link für den Kunden erzeugen'}</button>
+			</form>
+			<p class="kp-titel">Im Portal: {data.portal.auftraege.filter((a) => a.imPortal).length} von {data.portal.auftraege.length} Aufträgen</p>
+			<ul class="kd-liste kp-auftraege">
+				{#each data.portal.auftraege as a (a.id)}
+					<li><a href={`/auftraege/${a.id}#kundenportal`}><strong>{a.nummer} {a.titel}</strong><span class="kd-info">{a.imPortal ? 'im Portal' : 'nicht im Portal'}</span></a></li>
+				{/each}
+			</ul>
+		</Abschnitt>
+	{/if}
+
 	{#if data.auftraege}
 		<Abschnitt titel="Aufträge" anzahl={data.auftraege.length}>
 			<ul class="kd-liste">
@@ -424,4 +454,11 @@
 		opacity: 0.6;
 		cursor: default;
 	}
+	.kp-neu { display: flex; flex-wrap: wrap; gap: var(--ui-a2); padding: var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-gruen-hell); margin-bottom: var(--ui-a3); }
+	.kp-neu p { margin: 0; flex-basis: 100%; }
+	.kp-neu input { flex: 1 1 14rem; min-height: var(--ui-feld-hoehe); min-width: 0; }
+	.kp-link { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ui-a2); align-items: center; margin-bottom: var(--ui-a2); font-size: var(--ui-schrift-s); }
+	.kp-form { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: flex-end; }
+	.kp-form label { display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }
+	.kp-titel { margin: var(--ui-a3) 0 var(--ui-a1); font-weight: 600; font-size: var(--ui-schrift-s); }
 </style>

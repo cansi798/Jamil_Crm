@@ -698,6 +698,16 @@ export async function setzeAngebotStatus(
 		}
 		await tx`update app.angebote set status = ${nach} where id = ${aid} and betrieb_id = ${k.betriebId}`;
 		if (nach === 'angenommen' && alt.status !== 'angenommen') neuAngenommen = { auftragId: alt.auftrag_id };
+		// Kundenportal (msg 2793): versendetes Angebot erscheint im Portal des Kunden, wenn er einen gültigen Link hat
+		if (nach === 'versendet' && alt.auftrag_id) {
+			await tx`
+				insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id)
+				select ${k.betriebId}, a.id, 'angebot', ${aid} from app.auftraege a
+				where a.id = ${alt.auftrag_id} and a.betrieb_id = ${k.betriebId} and exists (
+					select 1 from app.portal_links l where l.kunde_id = a.kunde_id and l.betrieb_id = a.betrieb_id
+						and l.widerrufen_am is null and (l.laeuft_ab is null or l.laeuft_ab > now()))
+				on conflict do nothing`;
+		}
 		const schritt = KOPPLUNG[nach];
 		let hinweis: string | undefined;
 		if (schritt && alt.auftrag_id !== null && alt.auftrag_status === schritt[0]) {

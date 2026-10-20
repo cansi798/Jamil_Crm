@@ -38,7 +38,7 @@ import { laufend, zeitenZumAuftrag, zeitVerlauf, zeitZugriff, type ZeitZugriff }
 import { materialHinzufuegen, materialLoeschen, materialStand, materialWieGeplant, setzeMaterialMenge } from '$lib/server/material';
 import { lieferscheinAuslesen } from '$lib/server/ki/lieferschein';
 import { nachkalkulationAuftrag } from '$lib/server/nachkalkulation';
-import { erzeugeLink, portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe, widerrufeLink } from '$lib/server/kundenportal';
+import { portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe } from '$lib/server/kundenportal';
 import { abEinstellung, listeAuftragsbestaetigungen, markiereAbGesendet } from '$lib/server/auftragsbestaetigung';
 
 /** Zeiterfassung nur mit Modul und Recht – sonst `null` (Bereich ausgeblendet). */
@@ -93,7 +93,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			? await Promise.all([laufend(k, nutzer.id), zeitenZumAuftrag(zg, auftrag.id), materialStand(zg, auftrag.id), zeitVerlauf(zg, auftrag.id)])
 			: [null, null, null, []];
 		// Kundenportal (Jamil msgs 2770–2774, 2778): Links, Freigaben; Auftragsbestätigungen (mit Preisen)
-		const darfPortal = darfBearbeiten && (await hatModul(k.betriebId, 'kundenportal'));
+		const darfPortal = hatRecht(nutzer, 'kundenportal.verwalten') && (await hatModul(k.betriebId, 'kundenportal'));
 		const portal = darfPortal ? await portalStand({ k, sicht, preise: preise && hatRecht(nutzer, 'angebote.bearbeiten') }, auftrag.id) : null;
 		const auftragsbestaetigungen = angeboteSichtbar && preise ? await listeAuftragsbestaetigungen(k, auftrag.id) : [];
 		const portalEintraege = darfPortal || auftragsbestaetigungen.length > 0 ? await portalVerlauf(k, auftrag.id) : [];
@@ -338,30 +338,10 @@ export const actions: Actions = {
 			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
 	},
-	/** Kundenportal: neuen Link erzeugen (Token nur jetzt sichtbar), optional mit Ablaufdatum. */
-	portalLink: async ({ locals, params, request, url }) => {
-		const f = await request.formData();
-		try {
-			const r = await erzeugeLink(await portalZugriff(locals), params.id, f.get('laeuftAb'));
-			const basis = (process.env.ORIGIN ?? url.origin).replace(/\/$/, '');
-			return { portalUrl: `${basis}/portal/${r.token}` };
-		} catch (e) {
-			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
-		}
-	},
-	portalWiderrufen: async ({ locals, params, request }) => {
-		const f = await request.formData();
-		try {
-			await widerrufeLink(await portalZugriff(locals), params.id, f.get('linkId'));
-			return { portalMeldung: 'Link widerrufen – er funktioniert ab sofort nicht mehr.' };
-		} catch (e) {
-			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
-		}
-	},
 	portalFreigabe: async ({ locals, params, request }) => {
 		const f = await request.formData();
 		try {
-			await setzeFreigabe(await portalZugriff(locals), params.id, { status: f.get('status'), termine: f.get('termine'), mitarbeiter: f.get('mitarbeiter'), annahme: f.get('annahme') });
+			await setzeFreigabe(await portalZugriff(locals), params.id, { sichtbar: f.get('sichtbar'), status: f.get('status'), termine: f.get('termine'), mitarbeiter: f.get('mitarbeiter'), annahme: f.get('annahme') });
 			return { portalMeldung: 'Freigabe gespeichert.' };
 		} catch (e) {
 			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });

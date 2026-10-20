@@ -32,6 +32,7 @@ describe('Rechte und Vorlagen', () => {
 			'buchung.verwalten',
 			'zeiterfassung.nutzen',
 			'zeiterfassung.alle_sehen',
+			'kundenportal.verwalten',
 			'benutzer.verwalten',
 			'einstellungen'
 		]);
