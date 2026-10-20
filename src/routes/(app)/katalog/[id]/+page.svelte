@@ -16,6 +16,7 @@
 			beschreibung: p.beschreibung ?? '',
 			lohn: p.lohnCent === undefined ? '' : centAlsEingabe(p.lohnCent),
 			material: p.materialCent === undefined ? '' : centAlsEingabe(p.materialCent),
+			arbeitMinuten: p.arbeitMinuten === null ? '' : String(p.arbeitMinuten).replace('.', ','),
 			aktiv: p.aktiv ? 'true' : 'false'
 		}
 	);
@@ -41,6 +42,7 @@
 			fehler={form && 'fehler' in form && 'werte' in form ? (form.fehler as string) : null}
 			mitPreisen={data.mitPreisen}
 			mitAktiv
+			satz={data.satz}
 			knopf="Speichern"
 			abbrechen="/katalog"
 		/>

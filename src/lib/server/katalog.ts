@@ -22,6 +22,8 @@ export type KatalogPosition = {
 	einheit: string;
 	aktiv: boolean;
 	vorlageId: string | null;
+	/** Arbeitszeit je Einheit in Minuten (null: bei „h“ gelten 60, sonst unbekannt) – kein Preis. */
+	arbeitMinuten: number | null;
 	lohnCent?: number;
 	materialCent?: number;
 	einzelpreisCent?: number;
@@ -40,7 +42,7 @@ export type VorlagenGewerk = {
 };
 
 export const MAX_KATALOG = 500;
-export const KATALOG_FELDER = ['gewerk', 'nummer', 'bezeichnung', 'beschreibung', 'einheit', 'lohn', 'material', 'aktiv'] as const;
+export const KATALOG_FELDER = ['gewerk', 'nummer', 'bezeichnung', 'beschreibung', 'einheit', 'arbeitMinuten', 'lohn', 'material', 'aktiv'] as const;
 const PREIS_FELDER = ['lohn', 'material'] as const;
 
 /** Felder der Katalog-Formulare (ohne „aktiv“): ohne `preise.sehen` gibt es keine Preisfelder (sonst 403). */
@@ -72,7 +74,8 @@ function zuPosition(z: Record<string, any>, mitPreisen: boolean): KatalogPositio
 		beschreibung: z.beschreibung,
 		einheit: z.einheit,
 		aktiv: z.aktiv,
-		vorlageId: z.vorlage_id
+		vorlageId: z.vorlage_id,
+		arbeitMinuten: z.arbeit_minuten === null || z.arbeit_minuten === undefined ? null : Number(z.arbeit_minuten)
 	};
 	if (mitPreisen) {
 		p.lohnCent = Number(z.lohn_cent);
@@ -83,7 +86,7 @@ function zuPosition(z: Record<string, any>, mitPreisen: boolean): KatalogPositio
 }
 
 const SPALTEN = `p.id, p.gewerk, p.nummer, p.bezeichnung, p.beschreibung, p.einheit::text as einheit, p.aktiv, p.vorlage_id,
-	p.lohn_cent, p.material_cent`;
+	p.lohn_cent, p.material_cent, p.arbeit_minuten`;
 
 const pruefeId = (id: string) => {
 	if (typeof id !== 'string' || !UUID.test(id)) throw nichtGefunden();
@@ -144,6 +147,16 @@ function euroFeld(w: unknown, name: string): number {
 	}
 }
 
+/** Arbeitszeit in Minuten je Einheit: leer → null, sonst 0–100.000 mit höchstens 2 Nachkommastellen („7,5“). */
+function minutenFeld(w: unknown): number | null {
+	if (w === undefined || w === null || w === '') return null;
+	const t = typeof w === 'number' ? String(w) : typeof w === 'string' ? w.trim().replace(',', '.') : '';
+	if (!/^\d+(\.\d{1,2})?$/.test(t) || Number(t) > 100000) {
+		throw new ApiFehler(400, 'Arbeitszeit: Bitte Minuten je Einheit angeben (z. B. 30 oder 7,5).');
+	}
+	return Number(t);
+}
+
 function aktivFeld(w: unknown): boolean {
 	if (typeof w === 'boolean') return w;
 	if (w === 'on' || w === 'true' || w === '1') return true;
@@ -157,6 +170,7 @@ type Werte = {
 	bezeichnung: string;
 	beschreibung: string | null;
 	einheit: string;
+	arbeit_minuten: number | null;
 	lohn_cent: number;
 	material_cent: number;
 	aktiv: boolean;
@@ -181,6 +195,7 @@ function pruefeWerte(e: Record<string, unknown>, bisher?: Werte): Werte {
 		bezeichnung,
 		beschreibung: hat('beschreibung') ? textFeld(e.beschreibung, 'Beschreibung', 2000) : (bisher?.beschreibung ?? null),
 		einheit,
+		arbeit_minuten: hat('arbeitMinuten') ? minutenFeld(e.arbeitMinuten) : (bisher?.arbeit_minuten ?? null),
 		lohn_cent: hat('lohn') ? euroFeld(e.lohn, 'Lohn') : (bisher?.lohn_cent ?? 0),
 		material_cent: hat('material') ? euroFeld(e.material, 'Material') : (bisher?.material_cent ?? 0),
 		aktiv: hat('aktiv') ? aktivFeld(e.aktiv) : (bisher?.aktiv ?? true)
@@ -200,9 +215,9 @@ export async function legePositionAn(k: Kontext, e: Record<string, unknown>, mit
 	return mitBetrieb(k, async (tx) => {
 		const [z] = await tx`
 			insert into app.katalog_positionen
-				(betrieb_id, gewerk, nummer, bezeichnung, beschreibung, einheit, lohn_cent, material_cent, aktiv)
+				(betrieb_id, gewerk, nummer, bezeichnung, beschreibung, einheit, arbeit_minuten, lohn_cent, material_cent, aktiv)
 			values (${k.betriebId}, ${w.gewerk}, ${w.nummer}, ${w.bezeichnung}, ${w.beschreibung}, ${w.einheit},
-				${w.lohn_cent}, ${w.material_cent}, ${w.aktiv})
+				${w.arbeit_minuten}, ${w.lohn_cent}, ${w.material_cent}, ${w.aktiv})
 			returning id`;
 		return ladeEine(tx, k, z.id, mitPreisen);
 	});
@@ -220,17 +235,18 @@ export async function aenderePosition(
 	pruefePreisRecht(e, mitPreisen);
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select gewerk, nummer, bezeichnung, beschreibung, einheit::text as einheit, lohn_cent, material_cent, aktiv
+			select gewerk, nummer, bezeichnung, beschreibung, einheit::text as einheit, arbeit_minuten, lohn_cent, material_cent, aktiv
 			from app.katalog_positionen where id = ${pid} and betrieb_id = ${k.betriebId} for update`;
 		if (!alt) throw nichtGefunden();
 		const w = pruefeWerte(e, {
 			...(alt as unknown as Werte),
+			arbeit_minuten: alt.arbeit_minuten === null ? null : Number(alt.arbeit_minuten),
 			lohn_cent: Number(alt.lohn_cent),
 			material_cent: Number(alt.material_cent)
 		});
 		await tx`
 			update app.katalog_positionen set gewerk = ${w.gewerk}, nummer = ${w.nummer}, bezeichnung = ${w.bezeichnung},
-				beschreibung = ${w.beschreibung}, einheit = ${w.einheit}, lohn_cent = ${w.lohn_cent},
+				beschreibung = ${w.beschreibung}, einheit = ${w.einheit}, arbeit_minuten = ${w.arbeit_minuten}, lohn_cent = ${w.lohn_cent},
 				material_cent = ${w.material_cent}, aktiv = ${w.aktiv}
 			where id = ${pid} and betrieb_id = ${k.betriebId}`;
 		return ladeEine(tx, k, pid, mitPreisen);

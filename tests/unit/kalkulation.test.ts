@@ -1,151 +1,153 @@
 import { describe, expect, it } from 'vitest';
 import {
-	berechneMitarbeiter,
+	agAnteil,
+	BEISPIEL_KOSTEN,
+	BEISPIEL_MITARBEITER,
+	BEISPIEL_STUNDEN_TAG,
+	BEISPIEL_TAGE,
 	berechneUebersicht,
-	tageImJahr,
-	wochenendTage,
+	bewerteAngebot,
+	jahresbetrag,
+	lohnAusMinuten,
+	minutenJeEinheit,
+	unterKostendeckend,
 	type BetriebsWerte,
+	type KostenZeile,
 	type MitarbeiterWerte
 } from '../../src/lib/kalkulation';
 
-const BETRIEB: BetriebsWerte = {
-	jahr: 2026,
-	gemeinkostenCent: 6_000_000, // 60.000 €
-	anzahlProduktiv: 4,
-	feiertage: 10,
-	pufferArt: 'prozent',
-	pufferWert: 15,
-	gewinnProzent: 10,
-	risikoProzent: 5,
-	aktuellerSatzCent: null
-};
+const BETRIEB: BetriebsWerte = { standardTage: 210, standardStundenTag: 7, risikoProzent: 5, gewinnProzent: 15, aktuellerSatzCent: null };
+const zeile = (betragCent: number, intervall: KostenZeile['intervall'] = 'monatlich', extra: Partial<KostenZeile> = {}): KostenZeile => ({
+	id: `z${betragCent}`,
+	name: 'x',
+	kategorie: 'sonstiges',
+	betragCent,
+	intervall,
+	abschreibungMonate: intervall === 'einmalig' ? 36 : null,
+	aktiv: true,
+	...extra
+});
+const ma = (id: string, w: Partial<MitarbeiterWerte> = {}) => ({
+	id,
+	name: id,
+	werte: { bruttoCent: 0, agArt: 'euro' as const, agProzent: null, agEuroCent: 0, tageJahr: null, stundenTag: null, ...w }
+});
 
-const MA: MitarbeiterWerte = {
-	bruttoCent: 4_200_000, // 42.000 €
-	agArt: 'prozent',
-	agProzent: 21,
-	agEuroCent: null,
-	wochenstunden: 40,
-	urlaubstage: 30,
-	krankheitstage: 10
-};
+describe('Kalkulation v2: Kostenzeilen', () => {
+	it('Jahresbetrag: monatlich × 12, jährlich, einmalig anteilig abgeschrieben', () => {
+		expect(jahresbetrag(zeile(5450))).toBe(65400);
+		expect(jahresbetrag(zeile(120000, 'jaehrlich'))).toBe(120000);
+		expect(jahresbetrag(zeile(360000, 'einmalig', { abschreibungMonate: 36 }))).toBe(120000); // 3.600 € über 3 Jahre
+		expect(jahresbetrag(zeile(60000, 'einmalig', { abschreibungMonate: 6 }))).toBe(60000); // ganz in diesem Jahr
+	});
 
-describe('Kalender', () => {
-	it('Wochenenden des tatsächlichen Jahres und Tage im Jahr (Schaltjahre)', () => {
-		expect(wochenendTage(2026)).toBe(104);
-		expect(wochenendTage(2028)).toBe(106); // Schaltjahr, beginnt Samstag: 53 Samstage + 53 Sonntage
-		expect(wochenendTage(2033)).toBe(105); // beginnt Samstag
-		expect(tageImJahr(2026)).toBe(365);
-		expect(tageImJahr(2028)).toBe(366);
+	it('Arbeitgeber-Anteil in % oder €', () => {
+		expect(agAnteil({ bruttoCent: 4000000, agArt: 'prozent', agProzent: 21, agEuroCent: null })).toBe(840000);
+		expect(agAnteil({ bruttoCent: 4000000, agArt: 'euro', agProzent: null, agEuroCent: 500000 })).toBe(500000);
 	});
 });
 
-describe('berechneMitarbeiter – Beispiel aus der Anforderung', () => {
-	const e = berechneMitarbeiter(BETRIEB, MA);
-
-	it('Schritt 2: produktive Stunden', () => {
-		// 365 − 104 Wochenende − 10 Feiertage − 30 Urlaub − 10 Krankheit = 211 Tage
-		expect(e.arbeitstage).toBe(211);
-		expect(e.stundenProTag).toBe(8);
-		expect(e.anwesenheitsStunden).toBe(1688);
-		// 15 % Puffer: 253,2 h → 1.434,8 fakturierbare Stunden
-		expect(e.pufferStunden).toBe(253.2);
-		expect(e.fakturierbareStunden).toBe(1434.8);
+describe('Kalkulation v2: Stundensätze', () => {
+	it('Jamils Excel: 3 × 210 Tage × 7 h = 4.410 h; sichtbare Zeilen 3–15 = 7.544,12 €/Monat → 20,53 €/h', () => {
+		const zeilen = BEISPIEL_KOSTEN.map((b, i) => ({ ...zeile(b.betragCent), id: `b${i}`, name: b.name, kategorie: b.kategorie }));
+		const leute = Array.from({ length: BEISPIEL_MITARBEITER }, (_, i) => ma(`m${i}`));
+		const u = berechneUebersicht({ ...BETRIEB, standardTage: BEISPIEL_TAGE, standardStundenTag: BEISPIEL_STUNDEN_TAG }, zeilen, leute);
+		expect(u.produktiveStunden).toBe(4410);
+		expect(u.monatskostenCent).toBe(754412);
+		expect(u.gesamtkostenCent).toBe(9052944);
+		expect(u.kostendeckendCent).toBe(2053); // 90.529,44 € / 4.410 h
+		expect(u.empfohlenCent).toBe(2463); // + 20 % Wagnis und Gewinn
+		// Gegenprobe zur Excel: 48,01 €/h entsprächen 211.724 €/Jahr bei 4.410 h
+		expect(Math.round((4801 * 4410) / 100)).toBe(211724);
 	});
 
-	it('Schritt 1: Gesamtkosten = Brutto + AG-Anteil + Gemeinkosten/Anzahl', () => {
-		expect(e.agAnteilCent).toBe(882_000); // 21 % von 42.000 € = 8.820 €
-		expect(e.personalkostenCent).toBe(5_082_000);
-		expect(e.gemeinkostenAnteilCent).toBe(1_500_000); // 60.000 € / 4
-		expect(e.gesamtkostenCent).toBe(6_582_000); // 65.820 €
-	});
-
-	it('Schritt 3: kostendeckend und empfohlen (kaufmännisch auf Cent gerundet)', () => {
-		// 65.820 € / 1.434,8 h = 45,8740…  → 45,87 €
-		expect(e.kostendeckendCent).toBe(4587);
-		// × (1 + 10 % + 5 %) = 52,7551 € → 52,76 € (aus dem ungerundeten Wert)
-		expect(e.aufschlagProzent).toBe(15);
-		expect(e.empfohlenCent).toBe(5276);
-		expect(e.warnungen).toEqual([]);
-	});
-});
-
-describe('Varianten und Randfälle', () => {
-	it('AG-Anteil in Euro statt Prozent; Puffer in Stunden/Jahr', () => {
-		const e = berechneMitarbeiter(
-			{ ...BETRIEB, pufferArt: 'stunden', pufferWert: 200 },
-			{ ...MA, agArt: 'euro', agProzent: null, agEuroCent: 900_000 }
+	it('Personalkosten je Mitarbeiter, Tage/Stunden überschreibbar; inaktive Zeilen zählen nicht', () => {
+		const u = berechneUebersicht(
+			BETRIEB,
+			[zeile(100000), zeile(999999, 'monatlich', { aktiv: false, id: 'aus' })],
+			[ma('a', { bruttoCent: 3600000, agArt: 'prozent', agProzent: 20 }), ma('b', { tageJahr: 100, stundenTag: 4 })]
 		);
-		expect(e.agAnteilCent).toBe(900_000);
-		expect(e.pufferStunden).toBe(200);
-		expect(e.fakturierbareStunden).toBe(1488);
+		expect(u.mitarbeiter.map((m) => [m.id, m.stunden, m.personalkostenCent])).toEqual([
+			['a', 1470, 4320000],
+			['b', 400, 0]
+		]);
+		expect(u.produktiveStunden).toBe(1870);
+		expect(u.kostenzeilenCent).toBe(1200000);
+		expect(u.gesamtkostenCent).toBe(5520000);
+		expect(u.kostendeckendCent).toBe(Math.round(5520000 / 1870));
+		expect(u.kategorien).toEqual([{ kategorie: 'sonstiges', jahresCent: 1200000 }]);
 	});
 
-	it('Teilzeit (20 h/Woche) → 4 h pro Tag', () => {
-		const e = berechneMitarbeiter(BETRIEB, { ...MA, wochenstunden: 20 });
-		expect(e.stundenProTag).toBe(4);
-		expect(e.anwesenheitsStunden).toBe(844);
-	});
-
-	it('100 % Puffer → keine fakturierbaren Stunden, kein Satz, Warnung', () => {
-		const e = berechneMitarbeiter({ ...BETRIEB, pufferWert: 100 }, MA);
-		expect(e.fakturierbareStunden).toBe(0);
-		expect(e.kostendeckendCent).toBeNull();
-		expect(e.empfohlenCent).toBeNull();
-		expect(e.warnungen.join(' ')).toMatch(/keine fakturierbaren Stunden/);
-	});
-
-	it('Puffer in Stunden größer als die Arbeitszeit → 0 Stunden (nicht negativ)', () => {
-		const e = berechneMitarbeiter({ ...BETRIEB, pufferArt: 'stunden', pufferWert: 5000 }, MA);
-		expect(e.fakturierbareStunden).toBe(0);
-		expect(e.kostendeckendCent).toBeNull();
-	});
-
-	it('mehr Abwesenheit als Arbeitstage → 0 Arbeitstage, kein Satz', () => {
-		const e = berechneMitarbeiter(BETRIEB, { ...MA, urlaubstage: 200, krankheitstage: 100 });
-		expect(e.arbeitstage).toBe(0);
-		expect(e.kostendeckendCent).toBeNull();
-	});
-
-	it('0 produktive Mitarbeiter: mit Gemeinkosten kein Satz (Warnung), ohne Gemeinkosten rechnet er', () => {
-		const ohne = berechneMitarbeiter({ ...BETRIEB, anzahlProduktiv: 0 }, MA);
-		expect(ohne.gemeinkostenAnteilCent).toBeNull();
-		expect(ohne.kostendeckendCent).toBeNull();
-		expect(ohne.warnungen.join(' ')).toMatch(/produktiven Mitarbeiter/);
-		const keineGemeinkosten = berechneMitarbeiter({ ...BETRIEB, anzahlProduktiv: 0, gemeinkostenCent: 0 }, MA);
-		expect(keineGemeinkosten.gemeinkostenAnteilCent).toBe(0);
-		expect(keineGemeinkosten.kostendeckendCent).toBe(Math.round(5_082_000 / 1434.8));
-	});
-
-	it('aktueller Verrechnungssatz: unter Kosten / Kosten gedeckt / mit Gewinn', () => {
-		const mit = (cent: number) => berechneMitarbeiter({ ...BETRIEB, aktuellerSatzCent: cent }, MA).vergleich;
-		expect(mit(4000)).toBe('unter_kosten');
-		expect(mit(5000)).toBe('kosten_gedeckt');
-		expect(mit(5276)).toBe('mit_gewinn');
-		expect(berechneMitarbeiter(BETRIEB, MA).vergleich).toBeNull();
+	it('ohne Mitarbeiter oder ohne Stunden: kein Satz, Warnung; Vergleich mit dem aktuellen Satz', () => {
+		expect(berechneUebersicht(BETRIEB, [zeile(1000)], [])).toMatchObject({ kostendeckendCent: null, empfohlenCent: null });
+		expect(berechneUebersicht(BETRIEB, [zeile(1000)], [ma('a', { tageJahr: 0 })]).warnungen[0]).toMatch(/keine produktiven Stunden/);
+		const v = (satz: number) =>
+			berechneUebersicht({ ...BETRIEB, aktuellerSatzCent: satz }, [zeile(735000)], [ma('a', { tageJahr: 210, stundenTag: 7 })]).vergleich;
+		// 88.200 € / 1.470 h = 60 €/h kostendeckend, 72 € empfohlen
+		expect(v(5000)).toBe('unter_kosten');
+		expect(v(6500)).toBe('kosten_gedeckt');
+		expect(v(7200)).toBe('mit_gewinn');
 	});
 });
 
-describe('berechneUebersicht', () => {
-	it('Firmenschnitt gewichtet nach Stunden; über/unter Durchschnitt; Hinweis bei abweichender Anzahl', () => {
-		const a = { id: 'a', name: 'Ali', werte: MA };
-		const b = { id: 'b', name: 'Bea', werte: { ...MA, bruttoCent: 3_000_000 } };
-		const c = { id: 'c', name: 'Cem', werte: { ...MA, urlaubstage: 400 } }; // ohne Satz
-		const u = berechneUebersicht(BETRIEB, [a, b, c]);
-		expect(u.mitarbeiter.map((m) => m.name)).toEqual(['Ali', 'Bea', 'Cem']);
-		const ea = u.mitarbeiter[0].ergebnis;
-		const eb = u.mitarbeiter[1].ergebnis;
-		const summeKosten = ea.gesamtkostenCent! + eb.gesamtkostenCent!;
-		const summeStunden = ea.fakturierbareStunden + eb.fakturierbareStunden;
-		expect(u.fakturierbareStunden).toBe(summeStunden);
-		expect(u.kostendeckendCent).toBe(Math.round(summeKosten / summeStunden));
-		expect(u.empfohlenCent).toBe(Math.round((summeKosten / summeStunden) * 1.15));
-		expect(u.mitarbeiter.map((m) => m.lage)).toEqual(['ueber', 'unter', null]);
-		expect(u.hinweise.join(' ')).toMatch(/4 produktive Mitarbeiter.*erfasst sind 3/);
+describe('Katalog: Minuten × Stundensatz', () => {
+	it('Minuten je Einheit: angegeben, sonst 60 bei „h“, sonst unbekannt', () => {
+		expect(minutenJeEinheit('m²', 45)).toBe(45);
+		expect(minutenJeEinheit('h', null)).toBe(60);
+		expect(minutenJeEinheit('Stk', null)).toBeNull();
+		expect(minutenJeEinheit('h', 30)).toBe(30);
 	});
 
-	it('leer → keine Sätze, kein Fehler', () => {
-		const u = berechneUebersicht(BETRIEB, []);
-		expect(u).toMatchObject({ kostendeckendCent: null, empfohlenCent: null, fakturierbareStunden: 0, mitarbeiter: [] });
+	it('Lohn aus Minuten (kaufmännisch gerundet)', () => {
+		expect(lohnAusMinuten(45, 5276)).toBe(3957); // 0,75 h × 52,76 €
+		expect(lohnAusMinuten(0, 5276)).toBe(0);
+		expect(lohnAusMinuten(10, 4587)).toBe(765); // 764,5 → 765
+	});
+
+	it('unter kostendeckend: Lohn < Minuten × kostendeckender Satz; ohne Arbeitszeit unbekannt', () => {
+		expect(unterKostendeckend({ einheit: 'h', arbeitMinuten: null, lohnCent: 4500 }, 4587)).toBe(true);
+		expect(unterKostendeckend({ einheit: 'h', arbeitMinuten: null, lohnCent: 4587 }, 4587)).toBe(false);
+		expect(unterKostendeckend({ einheit: 'm²', arbeitMinuten: 30, lohnCent: 2000 }, 4587)).toBe(true); // 22,94 € nötig
+		expect(unterKostendeckend({ einheit: 'm²', arbeitMinuten: 30, lohnCent: 2500 }, 4587)).toBe(false);
+		expect(unterKostendeckend({ einheit: 'Stk', arbeitMinuten: null, lohnCent: 0 }, 4587)).toBeNull();
+	});
+});
+
+describe('Angebot bewerten: Ampel und erwarteter Gewinn', () => {
+	const SATZ = { kostendeckendCent: 4587, empfohlenCent: 5276 };
+	const pos = (menge: number, einzelpreisCent: number, einheit: string, arbeitMinuten: number | null, materialCent: number | null = null) => ({
+		menge,
+		einzelpreisCent,
+		einheit,
+		arbeitMinuten,
+		materialCent
+	});
+
+	it('Stunden, Material, Gewinn und Ampel grün (effektiver Satz ≥ empfohlen)', () => {
+		// 10 h à 60 € + 20 m² Fliesen (je 30 min, 40 € Preis davon 15 € Material)
+		const b = bewerteAngebot([pos(10, 6000, 'h', null), pos(20, 4000, 'm²', 30, 1500)], SATZ);
+		expect(b.arbeitsstunden).toBe(20);
+		expect(b.nettoCent).toBe(140000);
+		expect(b.materialCent).toBe(30000);
+		// Kosten = 20 h × 45,87 € + 300 € Material = 1.217,40 €; Gewinn = 1.400 − 1.217,40 = 182,60 €
+		expect(b.kostenCent).toBe(121740);
+		expect(b.gewinnCent).toBe(18260);
+		// (1.400 − 300) / 20 h = 55,00 €/h ≥ 52,76 → grün
+		expect(b.effektiverSatzCent).toBe(5500);
+		expect(b.ampel).toBe('gruen');
+		expect(b.ohneArbeitszeit).toBe(0);
+	});
+
+	it('gelb: deckt Kosten, aber unter dem empfohlenen Satz; rot: unter kostendeckend (Verlust)', () => {
+		expect(bewerteAngebot([pos(10, 5000, 'h', null)], SATZ).ampel).toBe('gelb');
+		const rot = bewerteAngebot([pos(10, 4000, 'h', null)], SATZ);
+		expect(rot.ampel).toBe('rot');
+		expect(rot.gewinnCent).toBe(-5870);
+	});
+
+	it('ohne Arbeitszeit: keine Ampel; Positionen ohne Zeit werden gezählt; ohne Firmensatz keine Bewertung', () => {
+		const b = bewerteAngebot([pos(3, 10000, 'Stk', null)], SATZ);
+		expect(b).toMatchObject({ arbeitsstunden: 0, ampel: null, ohneArbeitszeit: 1, effektiverSatzCent: null });
+		expect(bewerteAngebot([pos(10, 6000, 'h', null)], null)).toMatchObject({ ampel: null, gewinnCent: null, arbeitsstunden: 10 });
 	});
 });

@@ -6,6 +6,7 @@ import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { istGewerk } from '$lib/katalog-werte';
 import { ladeKalkulation } from '$lib/server/kalkulation';
+import { lohnAusMinuten, minutenJeEinheit, unterKostendeckend } from '$lib/kalkulation';
 
 /** Katalog: Suche (`?suche=`), Filter Gewerk (`?gewerk=`), Startvorlagen übernehmen (nur `katalog.bearbeiten`). */
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -28,7 +29,34 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		kalkulation && kalkulation.empfohlenCent !== null
 			? { empfohlenCent: kalkulation.empfohlenCent, kostendeckendCent: kalkulation.kostendeckendCent }
 			: null;
-	return { positionen, gewerk, suche, mitPreisen, darfBearbeiten, vorlagen, maxTreffer: MAX_KATALOG, stundensatz };
+	// Positionen, deren Lohn unter Arbeitszeit × Kosten-Stundensatz liegt (Wunsch Jamil, msg 2476) – über den ganzen Katalog
+	let unterKosten: { id: string; bezeichnung: string; einheit: string; lohnCent: number; mindestCent: number }[] = [];
+	let ohneArbeitszeit = 0;
+	if (stundensatz && stundensatz.kostendeckendCent !== null) {
+		const satz = stundensatz.kostendeckendCent;
+		const alle = await listeKatalog(k, {}, true);
+		for (const p of alle.filter((x) => x.aktiv)) {
+			const lohn = p.lohnCent ?? 0;
+			const unter = unterKostendeckend({ einheit: p.einheit, arbeitMinuten: p.arbeitMinuten, lohnCent: lohn }, satz);
+			if (unter === null) ohneArbeitszeit++;
+			else if (unter) {
+				const minuten = minutenJeEinheit(p.einheit, p.arbeitMinuten)!;
+				unterKosten.push({ id: p.id, bezeichnung: p.bezeichnung, einheit: p.einheit, lohnCent: lohn, mindestCent: lohnAusMinuten(minuten, satz) });
+			}
+		}
+	}
+	return {
+		positionen,
+		gewerk,
+		suche,
+		mitPreisen,
+		darfBearbeiten,
+		vorlagen,
+		maxTreffer: MAX_KATALOG,
+		stundensatz,
+		unterKosten,
+		ohneArbeitszeit
+	};
 };
 
 export const actions: Actions = {

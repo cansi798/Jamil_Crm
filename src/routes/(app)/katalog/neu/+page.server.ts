@@ -5,11 +5,17 @@ import { katalogAendern, katalogFormFelder, legePositionAn } from '$lib/server/k
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { formWerte, seitenZugriff } from '$lib/server/seite';
 import { istGewerk } from '$lib/katalog-werte';
+import { ladeFirmensatz } from '$lib/server/kalkulation';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	await seitenZugriff(locals, 'katalog', 'katalog.bearbeiten');
+	const k = await seitenZugriff(locals, 'katalog', 'katalog.bearbeiten');
 	const gewerk = url.searchParams.get('gewerk');
-	return { mitPreisen: hatRecht(locals.nutzer!, 'preise.sehen'), gewerk: istGewerk(gewerk) ? gewerk : '' };
+	const mitPreisen = hatRecht(locals.nutzer!, 'preise.sehen');
+	return {
+		mitPreisen,
+		gewerk: istGewerk(gewerk) ? gewerk : '',
+		satz: mitPreisen && hatRecht(locals.nutzer!, 'einstellungen') ? await ladeFirmensatz(k) : null
+	};
 };
 
 export const actions: Actions = {

@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test';
 import { erwarteKeinQuerScrollen } from './hilfe';
 
 /**
- * Kalkulation / Stundensatz (Wunsch Jamil, 19.10.2026): einen Mitarbeiter erfassen, Ergebnis und Rechenweg prüfen,
- * wieder entfernen. Die Seite braucht „Preise sehen“ + „Einstellungen“; der Seed-Chef hat Zwei-Faktor, deshalb meldet
- * sich der Test mit dem Testzugang „can.chef“ an (nur im Testmodus der Vorschau).
- * Die Firmenwerte des Betriebs „Bauwelt“ pflegen Can und Jamil selbst – der Test ändert sie NIE. Die genauen Zahlen
- * prüfen tests/unit/kalkulation.test.ts und tests/db/kalkulation.test.ts.
+ * Kalkulation v2 (Wünsche Jamil, msgs 2515/2516): eine Kostenzeile und einen Mitarbeiter erfassen, in Liste und
+ * Rechenweg sehen, wieder entfernen. Die Seite braucht „Preise sehen“ + „Einstellungen“; der Seed-Chef hat
+ * Zwei-Faktor, deshalb meldet sich der Test mit dem Testzugang „can.chef“ an (nur im Testmodus der Vorschau).
+ * Die Werte des Betriebs „Bauwelt“ pflegen Can und Jamil selbst – der Test ändert sie NIE (auch kein „Beispiel laden“).
+ * Die genauen Zahlen prüfen tests/unit/kalkulation.test.ts und tests/db/kalkulation.test.ts.
  */
-test('Kalkulation: Mitarbeiter erfassen, Ergebnis und Rechenweg, entfernen', async ({ page }, info) => {
+test('Kalkulation v2: Kostenzeile und Mitarbeiter erfassen, Rechenweg, wieder entfernen', async ({ page }, info) => {
 	await page.goto('/anmelden');
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus (Chef ohne Zwei-Faktor)');
 	await page.getByLabel('Benutzername').fill('can.chef');
@@ -16,36 +16,51 @@ test('Kalkulation: Mitarbeiter erfassen, Ergebnis und Rechenweg, entfernen', asy
 	await expect(page).not.toHaveURL(/\/anmelden/);
 	await page.goto('/kalkulation');
 	await expect(page.getByRole('heading', { name: 'Kalkulation / Stundensatz' })).toBeVisible();
+	await expect(page.getByLabel('Verrechnungssatz')).toBeVisible();
 	const name = `E2E ${info.project.name} ${Date.now()}`;
 
-	const neu = page.locator('details.kk-neu');
-	if ((await neu.getAttribute('open')) === null) await neu.locator('summary').click();
-	const f = neu.locator('form');
-	await f.locator('input[name="name"]').fill(name);
-	await f.locator('input[name="brutto"]').fill('42.000');
-	await f.locator('select[name="agArt"]').selectOption('prozent');
-	await f.locator('input[name="agProzent"]').fill('21');
-	await f.locator('input[name="wochenstunden"]').fill('40');
-	await f.locator('input[name="urlaubstage"]').fill('30');
-	await f.locator('input[name="krankheitstage"]').fill('10');
-	await f.getByRole('button', { name: 'Mitarbeiter hinzufügen' }).click();
-
-	const ergebnis = page.getByLabel(`Ergebnis ${name}`);
 	try {
-		await expect(ergebnis).toContainText('h/Jahr');
-		await expect(ergebnis).toContainText('Untergrenze (kostendeckend)');
-		await expect(ergebnis).toContainText(/Empfohlen/);
-		const karte = page.locator('.karte').filter({ has: ergebnis });
-		await karte.getByText('So wird gerechnet').click();
-		await expect(karte.getByRole('cell', { name: '= Fakturierbare Stunden' })).toBeVisible();
-		await expect(karte.getByRole('cell', { name: '42.000,00 €' })).toBeVisible();
+		// Kostenzeile (eingeklappt bis „Kostenzeile hinzufügen“)
+		await page.getByRole('button', { name: 'Kostenzeile hinzufügen' }).click();
+		const k = page.locator('form[action="?/kostenNeu"]');
+		await k.locator('input[name="name"]').fill(`${name} Transporter`);
+		await k.locator('select[name="kategorie"]').selectOption('fahrzeug');
+		await k.locator('input[name="betrag"]').fill('36.000');
+		await k.locator('select[name="intervall"]').selectOption('einmalig');
+		await k.locator('input[name="abschreibungMonate"]').fill('72');
+		await k.getByRole('button', { name: 'Kostenzeile hinzufügen' }).click();
+		const zeile = page.getByRole('list', { name: 'Kostenzeilen', exact: true }).locator('li', { hasText: `${name} Transporter` });
+		await expect(zeile).toContainText('Fahrzeug');
+		await expect(zeile).toContainText('6.000,00 €/Jahr');
+
+		// Mitarbeiter mit eigenen Tagen/Stunden
+		await page.getByRole('button', { name: 'Mitarbeiter hinzufügen' }).click();
+		const m = page.locator('form[action="?/mitarbeiterNeu"]');
+		await m.locator('input[name="name"]').fill(name);
+		await m.locator('input[name="brutto"]').fill('36.000');
+		await m.locator('input[name="agProzent"]').fill('20');
+		await m.locator('input[name="tageJahr"]').fill('200');
+		await m.locator('input[name="stundenTag"]').fill('7,5');
+		await m.getByRole('button', { name: 'Mitarbeiter hinzufügen' }).click();
+		const ergebnis = page.getByLabel(`Ergebnis ${name}`);
+		await expect(ergebnis).toContainText('200 Tage × 7,5 h');
+		await expect(ergebnis).toContainText('1.500 h/Jahr');
+		await expect(ergebnis).toContainText('43.200,00 €/Jahr');
+
+		await page.getByText('So wird gerechnet').click();
+		await expect(page.getByRole('cell', { name: '= Kosten-Stundensatz' })).toBeVisible();
 		await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 	} finally {
-		const karte = page.locator('.karte').filter({ has: page.getByLabel(`Ergebnis ${name}`) });
-		if (await karte.count()) {
-			await karte.getByText('Bearbeiten').click();
-			await karte.getByRole('button', { name: 'Mitarbeiter entfernen' }).click();
+		for (const [liste, text, knopf] of [
+			['Mitarbeiter', name, 'Mitarbeiter entfernen'],
+			['Kostenzeilen', `${name} Transporter`, 'Zeile löschen']
+		] as const) {
+			const li = page.getByRole('list', { name: liste, exact: true }).locator('li', { hasText: text });
+			if (await li.count()) {
+				await li.locator('summary').click();
+				await li.getByRole('button', { name: knopf }).click();
+				await expect(li).toHaveCount(0);
+			}
 		}
 	}
-	await expect(page.getByLabel(`Ergebnis ${name}`)).toHaveCount(0);
 });

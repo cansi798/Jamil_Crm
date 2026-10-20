@@ -4,6 +4,7 @@ import { alsFormFehler } from '$lib/server/fehler';
 import { aenderePosition, deaktivierePosition, holePosition, katalogAendern, katalogFormFelder } from '$lib/server/katalog';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, formWerte, seitenZugriff } from '$lib/server/seite';
+import { ladeFirmensatz } from '$lib/server/kalkulation';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'katalog', ['katalog.bearbeiten', 'angebote.bearbeiten']);
@@ -11,7 +12,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	return {
 		position: await alsSeitenFehler(() => holePosition(k, params.id, mitPreisen)),
 		mitPreisen,
-		darfBearbeiten: hatRecht(locals.nutzer!, 'katalog.bearbeiten')
+		darfBearbeiten: hatRecht(locals.nutzer!, 'katalog.bearbeiten'),
+		// Stundensätze nur, wer die Kalkulation sehen darf (Preise + Einstellungen)
+		satz: mitPreisen && hatRecht(locals.nutzer!, 'einstellungen') ? await ladeFirmensatz(k) : null
 	};
 };
 

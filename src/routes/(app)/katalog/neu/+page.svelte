@@ -13,5 +13,5 @@
 <main class="kd-seite">
 	<a href="/katalog" class="kd-zurueck">← Katalog</a>
 	<h1>Neue Position</h1>
-	<KatalogFormular aktion="" {werte} fehler={form?.fehler ?? null} mitPreisen={data.mitPreisen} knopf="Position anlegen" abbrechen="/katalog" />
+	<KatalogFormular aktion="" {werte} fehler={form?.fehler ?? null} mitPreisen={data.mitPreisen} satz={data.satz} knopf="Position anlegen" abbrechen="/katalog" />
 </main>

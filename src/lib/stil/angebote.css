@@ -81,3 +81,25 @@
 	border: 1px solid #c8c8c8;
 	border-radius: 0.5rem;
 }
+/* Katalog: Positionen unter kostendeckend (Kalkulation v2) */
+.kt-unter {
+	margin: 0.5rem 0 1rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--m365-fehler);
+	border-radius: var(--m365-radius);
+	background: var(--m365-fehler-hell);
+}
+.kt-unter > summary {
+	cursor: pointer;
+	font-weight: 600;
+	color: var(--m365-fehler);
+}
+.kt-unter ul {
+	margin: 0.5rem 0 0;
+	padding-left: 1.1rem;
+	display: grid;
+	gap: 0.3rem;
+}
+.kt-unter li span {
+	display: block;
+}

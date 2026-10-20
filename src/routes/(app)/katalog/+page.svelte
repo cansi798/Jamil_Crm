@@ -35,10 +35,26 @@
 	</header>
 	{#if data.stundensatz}
 		<p class="kt-hinweis" role="note">
-			Laut <a href="/kalkulation">Kalkulation</a>: empfohlener Stundensatz Ø {euro(data.stundensatz.empfohlenCent)}/h
-			(kostendeckend {data.stundensatz.kostendeckendCent === null ? '–' : `${euro(data.stundensatz.kostendeckendCent)}/h`}) – Richtwert
-			für Lohn-Positionen je Stunde.
+			Laut <a href="/kalkulation">Kalkulation</a>: Verrechnungssatz {euro(data.stundensatz.empfohlenCent)}/h
+			(Kosten-Stundensatz {data.stundensatz.kostendeckendCent === null ? '–' : `${euro(data.stundensatz.kostendeckendCent)}/h`}) – mit der
+			Arbeitszeit je Position wird daraus ein Lohn-Vorschlag.
 		</p>
+		{#if data.unterKosten.length > 0}
+			<details class="kt-unter">
+				<summary>{data.unterKosten.length} Position{data.unterKosten.length === 1 ? '' : 'en'} unter kostendeckend</summary>
+				<ul>
+					{#each data.unterKosten as p (p.id)}
+						<li>
+							<a href={`/katalog/${p.id}`}>{p.bezeichnung}</a>
+							<span class="kd-info">Lohn {euro(p.lohnCent)} je {p.einheit} · kostendeckend ab {euro(p.mindestCent)}</span>
+						</li>
+					{/each}
+				</ul>
+			</details>
+		{/if}
+		{#if data.ohneArbeitszeit > 0}
+			<p class="kd-info">{data.ohneArbeitszeit} aktive Positionen ohne Arbeitszeit – für sie gibt es noch keine Prüfung.</p>
+		{/if}
 	{/if}
 
 	<nav aria-label="Gewerk">
