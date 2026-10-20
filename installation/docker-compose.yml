@@ -1,0 +1,141 @@
+# CRM-System – Betrieb auf einem eigenen Server
+#
+# Nicht direkt aufrufen, sondern über die Skripte in diesem Ordner (CRM-Installation.sh oder 1–9-*.sh).
+# Die Skripte rufen Docker Compose immer mit der .env aus diesem Ordner und dem Projektnamen CRM_PROJEKT auf.
+#
+# Dienste:
+#   datenbank  PostgreSQL 16 (Daten im Volume „datenbank“; auch Fotos/PDFs liegen in der Datenbank)
+#   migration  läuft bei jedem Start einmal kurz: bringt die Datenbank auf den neuesten Stand, beendet sich dann
+#   app        das CRM selbst (Node), startet erst nach erfolgreicher Migration
+#   sprache    Spracherkennung (optional, Profil „sprache“; braucht ca. 2 GB Arbeitsspeicher)
+#   caddy      HTTPS mit automatischem Zertifikat (optional, Profil „https“; braucht Ports 80 und 443)
+#
+# Welche optionalen Dienste laufen, steht in .env unter COMPOSE_PROFILES (z. B. „https,sprache“).
+
+x-haertung: &haertung
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+x-app-umgebung: &app-umgebung
+  PGHOST: datenbank
+  PGPORT: "5432"
+  PGDATABASE: crm
+  CRM_APP_PASSWORT: ${CRM_APP_PASSWORT:?CRM_APP_PASSWORT fehlt in .env}
+  CRM_ADMIN_PASSWORT: ${CRM_ADMIN_PASSWORT:?CRM_ADMIN_PASSWORT fehlt in .env}
+  CRM_AUTH_PASSWORT: ${CRM_AUTH_PASSWORT:?CRM_AUTH_PASSWORT fehlt in .env}
+
+services:
+  datenbank:
+    <<: *haertung
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_DB: crm
+      POSTGRES_PASSWORD: ${CRM_DB_PASSWORT:?CRM_DB_PASSWORT fehlt in .env}
+      # UTF-8 ist Pflicht (Umlaute in der Kundensuche)
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - datenbank:/var/lib/postgresql/data
+    networks: [intern]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crm -d crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    deploy:
+      resources:
+        limits: { memory: 1g }
+
+  migration:
+    # gleiches Abbild wie die App (wird von den Skripten vorher mit „build“ gebaut)
+    image: ${CRM_PROJEKT:-crm}-app:aktuell
+    pull_policy: never
+    restart: "no"
+    security_opt: ["no-new-privileges:true"]
+    # Nur hier wird der Superuser „crm“ benutzt – die laufende App bekommt ihn nie.
+    environment:
+      <<: *app-umgebung
+      PGUSER: crm
+      PGPASSWORD: ${CRM_DB_PASSWORT}
+    command: ["npm", "run", "--silent", "migrate"]
+    networks: [intern]
+    depends_on:
+      datenbank:
+        condition: service_healthy
+
+  app:
+    <<: *haertung
+    image: ${CRM_PROJEKT:-crm}-app:aktuell
+    build:
+      context: ..
+      dockerfile: installation/Dockerfile
+    cap_drop: ["ALL"]
+    environment:
+      <<: *app-umgebung
+      NODE_ENV: production
+      ORIGIN: ${CRM_ORIGIN:?CRM_ORIGIN fehlt in .env}
+      BODY_SIZE_LIMIT: 6M
+      CRM_STT_URL: http://sprache:8080
+      CRM_KI_ANBIETER: ${CRM_KI_ANBIETER:-fake}
+      CRM_MISTRAL_KEY: ${CRM_MISTRAL_KEY:-}
+      CRM_KI_MODELL: ${CRM_KI_MODELL:-mistral-small-latest}
+      CRM_KI_MODELL_FOTO: ${CRM_KI_MODELL_FOTO:-pixtral-12b-latest}
+      CRM_VORSCHLAG_GEHEIMNIS: ${CRM_VORSCHLAG_GEHEIMNIS:?CRM_VORSCHLAG_GEHEIMNIS fehlt in .env}
+      CRM_SMTP_URL: ${CRM_SMTP_URL:-}
+    ports:
+      # Standard: nur lokal erreichbar (Caddy leitet weiter). Ohne Caddy: CRM_APP_BIND=0.0.0.0 setzen.
+      - "${CRM_APP_BIND:-127.0.0.1}:${CRM_APP_PORT:-3000}:3000"
+    networks: [intern, aussen]
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits: { memory: 1g }
+
+  sprache:
+    <<: *haertung
+    profiles: ["sprache"]
+    image: ${CRM_PROJEKT:-crm}-sprache:aktuell
+    build:
+      context: ../stt
+    cap_drop: ["ALL"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    environment:
+      STT_THREADS: ${CRM_STT_THREADS:-2}
+    networks: [intern]
+    deploy:
+      resources:
+        limits: { memory: 2g }
+
+  caddy:
+    <<: *haertung
+    profiles: ["https"]
+    image: caddy:2
+    environment:
+      CRM_DOMAIN: ${CRM_DOMAIN:?CRM_DOMAIN fehlt in .env}
+      CRM_ZERTIFIKAT_EMAIL: ${CRM_ZERTIFIKAT_EMAIL:?CRM_ZERTIFIKAT_EMAIL fehlt in .env}
+    ports:
+      - "${CRM_HTTP_PORT:-80}:80"
+      - "${CRM_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_daten:/data
+      - caddy_konfig:/config
+    networks: [aussen]
+    depends_on: [app]
+
+networks:
+  intern:
+    internal: true   # Datenbank und Spracherkennung: kein Internet, nur für die App erreichbar
+  aussen: {}         # App (Adresssuche für die Karte, optional KI) und Caddy
+
+volumes:
+  datenbank: {}
+  caddy_daten: {}
+  caddy_konfig: {}

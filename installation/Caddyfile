@@ -1,0 +1,17 @@
+# HTTPS für das CRM (nur aktiv mit Profil „https“ in COMPOSE_PROFILES).
+# Caddy holt das Zertifikat automatisch (Let's Encrypt), sobald die Domain auf diesen Server zeigt
+# und die Ports 80 und 443 von außen erreichbar sind. Domain und E-Mail kommen aus .env.
+{
+	email {$CRM_ZERTIFIKAT_EMAIL}
+}
+
+{$CRM_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+}

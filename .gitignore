@@ -14,3 +14,10 @@ playwright-report/
 .DS_Store
 vite.config.ts.timestamp-*
 .venv-tts/
+
+# Installationspaket (installation/): Einstellungen, Sicherungen, gebaute Pakete nie committen
+!installation/.env.beispiel
+installation/.env
+installation/sicherungen/
+installation/erstes-admin-passwort.txt
+dist-paket/

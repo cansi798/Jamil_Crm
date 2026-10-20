@@ -1,0 +1,22 @@
+# Dateien, die beim Bauen NICHT ins Programm-Abbild kommen (gilt nur für installation/Dockerfile).
+# Wichtig: keine Geheimnisse (.env, Zugangsdaten) und keine lokalen Bau-Reste.
+.git
+**/node_modules
+.svelte-kit
+build
+test-results
+playwright-report
+dist-paket
+.venv-tts
+.superpowers
+**/.env
+**/.env.*
+.zugangsdaten*
+vorschau.log
+.vorschau.pid
+.vorschau-neubau.log
+installation
+stt
+tests
+docs
+*.log
