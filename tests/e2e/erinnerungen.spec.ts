@@ -27,9 +27,10 @@ test('Glocke, Aufgabe mit „Erinnern“, Push-Seite', async ({ page }) => {
 	await page.mouse.click(5, 300);
 
 	await page.getByRole('button', { name: /Aufgabe hinzufügen|Neue Aufgabe|\+ Aufgabe/ }).first().click();
-	await page.getByRole('button', { name: '🔔 Erinnern' }).click();
+	// Erinnerung ist sofort sichtbar, aber freiwillig (msg 2809): Vorgabe „keine“
 	const gruppe = page.getByRole('group', { name: 'Erinnerungen' });
-	await expect(gruppe.getByLabel('🔔 Erinnern')).toHaveValue('1440');
+	await expect(gruppe.getByLabel('🔔 Erinnern')).toHaveValue('');
+	await gruppe.getByLabel('🔔 Erinnern').selectOption('1440');
 	await gruppe.getByLabel('und').selectOption('fest');
 	await expect(gruppe.getByLabel('und: Tag und Uhrzeit')).toBeVisible();
 

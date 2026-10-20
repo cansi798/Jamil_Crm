@@ -2,12 +2,17 @@
 	const FARBEN = ['#3b7ff5', '#1f9d63', '#e8912d', '#8a4fd1', '#d9488f', '#0e9aa7', '#6366f1', '#c2410c'];
 	/** Feste Farbe je Name (gleicher Name → gleiche Farbe). */
 	export function avatarFarbe(name: string): string {
+		const person = /^Ich \((.+)\)$/.exec(name.trim());
+		if (person) name = person[1];
 		let h = 0;
 		for (const z of name) h = (h * 31 + z.charCodeAt(0)) >>> 0;
 		return FARBEN[h % FARBEN.length];
 	}
 	/** Initialen: „Sabine Schäfer“ → „SS“, „Jamil (Test) – Chef“ → „JC“. */
 	export function initialen(name: string): string {
+		// „Ich (Jamil Iqbal)“ → Initialen der Person, nicht von „Ich“
+		const person = /^Ich \((.+)\)$/.exec(name.trim());
+		if (person) name = person[1];
 		const teile = name
 			.replace(/\(.*?\)/g, ' ')
 			.split(/[\s–-]+/)

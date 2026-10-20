@@ -71,7 +71,7 @@ test.describe('Bildschirmfotos', () => {
 		await page.getByRole('main').getByRole('link', { name: /Badsanierung/ }).first().click();
 		await expect(page).toHaveURL(/\/auftraege\/[0-9a-f-]{36}$/);
 		await page.screenshot({ path: `${ORDNER}/1b-auftrag-desktop.png`, fullPage: true });
-		await page.goto('/todos?nur=alle');
+		await page.goto('/todos?person=alle');
 		await page.screenshot({ path: `${ORDNER}/1b-todos-desktop.png`, fullPage: true });
 		await page.goto('/plantafel/abwesenheiten');
 		await page.screenshot({ path: `${ORDNER}/1b-abwesenheiten-desktop.png`, fullPage: true });

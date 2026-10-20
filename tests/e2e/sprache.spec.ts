@@ -110,7 +110,7 @@ test.describe('Sprachsteuerung', () => {
 		await expect(dialog.getByRole('status')).toContainText(`Aufgabe „${titel}“ angelegt`);
 		let id: string | null = null;
 		try {
-			await page.goto('/todos?nur=alle');
+			await page.goto('/todos?person=alle');
 			await expect(page.getByText(titel).first()).toBeVisible();
 			const todos = await api(page, 'GET', '/api/todos?nur=alle');
 			const t = todos.find((x: any) => x.titel === titel);

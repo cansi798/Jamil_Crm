@@ -21,6 +21,7 @@
 		fehler = null,
 		werte = {},
 		mitBelastung = false,
+		standardZustaendig = '',
 		onfertig,
 		onabbrechen
 	}: {
@@ -30,6 +31,8 @@
 		werte?: Record<string, string>;
 		/** Auftrags-Aufgaben: Stufen „Lautstärke“ und „Schmutz“ (gering, mittel, hoch; optional). */
 		mitBelastung?: boolean;
+		/** Vorgabe für „Zuständig“ (Jamil msg 2811: der angemeldete Benutzer) – änderbar */
+		standardZustaendig?: string;
 		/** Eingeklappt (msg 2579): nach erfolgreichem Speichern bzw. „Abbrechen“ wieder zuklappen. */
 		onfertig?: () => void;
 		onabbrechen?: () => void;
@@ -37,15 +40,14 @@
 
 	// Wiederholen (Wunsch Jamil, msg 2501): täglich/wöchentlich/monatlich/jährlich, „alle N“, optional bis Datum
 	let wiederholen = $state(untrack(() => !!werte.wiederholung));
-	let mitBeschreibung = $state(untrack(() => !!werte.beschreibung));
-	let zustaendig = $state(untrack(() => werte.zustaendigId ?? ''));
+	// Beschreibung und Erinnerung sind offen, aber freiwillig (Jamil msg 2809)
+	let zustaendig = $state(untrack(() => werte.zustaendigId ?? standardZustaendig));
 	let faellig = $state(untrack(() => werte.faellig ?? ''));
 	let lautstaerke = $state(untrack(() => werte.lautstaerke ?? ''));
 	let schmutz = $state(untrack(() => werte.schmutz ?? ''));
 	let faelligZeit = $state(untrack(() => werte.faelligZeit ?? ''));
 	// Erinnerungen (Wunsch Jamil msg 2679) – nur mit Recht „erinnerungen.nutzen“
 	const erinnern = $derived(page.data.erinnern === true);
-	let mitErinnerung = $state(untrack(() => !!(werte.erinnerung1 || werte.erinnerung2)));
 	let formNr = $state(0);
 </script>
 
@@ -55,8 +57,9 @@
 	use:enhance={() => async ({ result, update }) => {
 		await update();
 		if (result.type === 'success') {
-			zustaendig = faellig = lautstaerke = schmutz = faelligZeit = '';
-			wiederholen = mitBeschreibung = mitErinnerung = false;
+			faellig = lautstaerke = schmutz = faelligZeit = '';
+			zustaendig = standardZustaendig;
+			wiederholen = false;
 			formNr++;
 			onfertig?.();
 		}
@@ -74,15 +77,15 @@
 		aria-label="Neue Aufgabe"
 		value={werte.titel ?? ''}
 	/>
-	{#if mitBeschreibung}
+	{#key formNr}
 		<textarea
 			name="beschreibung"
 			maxlength="500"
 			rows="2"
-			placeholder="Details, z. B. Schlüssel beim Nachbarn abholen"
+			placeholder="Beschreibung (optional), z. B. Schlüssel beim Nachbarn abholen"
 			aria-label="Beschreibung (optional)">{werte.beschreibung ?? ''}</textarea
 		>
-	{/if}
+	{/key}
 
 	<div class="ui-neu-meta" role="group" aria-label="Details zur Aufgabe">
 		<PersonWahl name="zustaendigId" personen={mitarbeiter} bind:wert={zustaendig} />
@@ -98,18 +101,12 @@
 			<StufenWahl name="schmutz" label="Schmutz" bind:wert={schmutz} />
 		{/if}
 		<Schalter label="Wiederkehrend (z. B. Wartung)" klasse="kd-haken" bind:an={wiederholen} />
-		{#if !mitBeschreibung}
-			<button type="button" class="knopf-ghost ui-neu-plus" onclick={() => (mitBeschreibung = true)}>+ Beschreibung</button>
-		{/if}
-		{#if erinnern && !mitErinnerung}
-			<button type="button" class="knopf-ghost ui-neu-plus" onclick={() => (mitErinnerung = true)}>🔔 Erinnern</button>
-		{/if}
 	</div>
 
-	{#if erinnern && mitErinnerung}
+	{#if erinnern}
 		{#key formNr}
 			<div class="td-erinnern" role="group" aria-label="Erinnerungen">
-				<ErinnerungWahl name="erinnerung1" label="🔔 Erinnern" wert={werte.erinnerung1 ?? '1440'} />
+				<ErinnerungWahl name="erinnerung1" label="🔔 Erinnern (optional)" wert={werte.erinnerung1 ?? ''} />
 				<ErinnerungWahl name="erinnerung2" label="und" wert={werte.erinnerung2 ?? ''} />
 				<span class="kd-info">„vorher“ bezieht sich auf „Fällig“ (ohne Uhrzeit 8:00).</span>
 			</div>
@@ -137,7 +134,7 @@
 	{/if}
 
 	<div class="ui-neu-fuss">
-		{#if onabbrechen}<button type="button" class="knopf-ghost" onclick={() => onabbrechen?.()}>Abbrechen</button>{/if}
+		{#if onabbrechen}<button type="button" class="kd-knopf hell" onclick={() => onabbrechen?.()}>Abbrechen</button>{/if}
 		<button type="submit" class="kd-knopf" aria-label="Aufgabe speichern">Speichern</button>
 	</div>
 </form>

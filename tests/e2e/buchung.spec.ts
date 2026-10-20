@@ -148,7 +148,7 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 	await expect(karte).toContainText(MURAT);
 	await expect(karte).toContainText('Gibt es Parkplätze?');
 	await expect(karte).toContainText('Ja');
-	await expect(page.getByRole('combobox', { name: 'Auftragsquelle' }).locator('option:checked')).toHaveText('Online-Buchung');
+	await expect(page.getByRole('button', { name: /^Auftragsquelle: Online-Buchung/ })).toBeVisible();
 	await foto(page, `${projekt}-auftrag`);
 
 	// 5. Zweite Buchung über den Murat-Link (Sabine wäre frei) → wieder Murat

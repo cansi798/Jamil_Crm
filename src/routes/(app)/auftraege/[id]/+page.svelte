@@ -9,6 +9,7 @@
 	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
+	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
@@ -48,6 +49,9 @@
 	// Felder direkt im Auftrag ändern (Wunsch Jamil): speichern sofort, kurze Rückmeldung „Gespeichert“
 	let gespeichert = $state(false);
 	let gespeichertZeit: ReturnType<typeof setTimeout> | undefined;
+	// Beschreibung kompakt (msg 2846): zwei Zeilen, „Mehr anzeigen“, Klick auf „Bearbeiten“ öffnet das Feld
+	let beschreibungBearbeiten = $state(false);
+	let beschreibungGanz = $state(false);
 	const sofort = () => async ({ result, update }: { result: { type: string }; update: (o?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void> }) => {
 		await update({ reset: false });
 		if (result.type === 'success') {
@@ -68,7 +72,11 @@
 		<div>
 			<h1>{a.titel}</h1>
 			<p class="seiten-meta">{a.nummer}{a.kundeName ? ` · ${a.kundeName}` : ''}</p>
-			<AuftragHinweise quelleName={a.quelleName} quelleFarbe={a.quelleFarbe} angebotInfo={a.angebotInfo} nachfassenInfo={a.nachfassenInfo} />
+			<div class="af-kopf-chips">
+				<!-- Auftragsquelle als Chip, Klick ändert sie sofort (Jamil msg 2844) -->
+				<QuelleChip quellen={data.quellen} wert={a.quelleId} name={a.quelleName} farbe={a.quelleFarbe} darf={data.darfBearbeiten && data.quellen.length > 0} absenden={sofort} />
+				<AuftragHinweise angebotInfo={a.angebotInfo} nachfassenInfo={a.nachfassenInfo} />
+			</div>
 		</div>
 		<div class="seiten-aktionen">
 			{#if data.darfBearbeiten}
@@ -102,6 +110,44 @@
 	     Schmal eine Spalte; die Reihenfolge der Karten steuert dann `order` (Ort und Mitarbeiter früh). -->
 	<div class="af-raster">
 		<div class="af-haupt">
+			<!-- Beschreibung kompakt oben links (Jamil msg 2846): zwei Zeilen, Klick zum Bearbeiten -->
+			<div class="af-k k-beschreibung">
+				<div class="af-beschreibung" class:leer={!a.beschreibung}>
+					{#if data.darfBearbeiten && beschreibungBearbeiten}
+						<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
+							<!-- svelte-ignore a11y_autofocus -->
+							<textarea
+								name="beschreibung"
+								aria-label="Beschreibung"
+								maxlength="4000"
+								rows="4"
+								autofocus
+								placeholder="Infos zum Auftrag …"
+								onkeydown={(ev) => {
+									if (ev.key === 'Escape') beschreibungBearbeiten = false;
+								}}
+								onblur={(ev) => {
+									beschreibungBearbeiten = false;
+									if (ev.currentTarget.value !== (a.beschreibung ?? '')) ev.currentTarget.form?.requestSubmit();
+								}}>{a.beschreibung ?? ''}</textarea
+							>
+						</form>
+					{:else if a.beschreibung}
+						<p class="af-beschreibung-text" class:offen={beschreibungGanz}>{a.beschreibung}</p>
+						<div class="af-beschreibung-knoepfe">
+							{#if a.beschreibung.length > 140 || a.beschreibung.includes('\n')}
+								<button type="button" class="knopf-ghost klein" onclick={() => (beschreibungGanz = !beschreibungGanz)}>{beschreibungGanz ? 'Weniger' : 'Mehr anzeigen'}</button>
+							{/if}
+							{#if data.darfBearbeiten}<button type="button" class="knopf-ghost klein" aria-label="Beschreibung bearbeiten" onclick={() => (beschreibungBearbeiten = true)}>Bearbeiten</button>{/if}
+						</div>
+					{:else if data.darfBearbeiten}
+						<button type="button" class="knopf-ghost" onclick={() => (beschreibungBearbeiten = true)}>+ Beschreibung</button>
+					{:else}
+						<p class="kd-info af-beschreibung-text">Keine Beschreibung.</p>
+					{/if}
+					{#if form?.aendernFehler}<p role="alert" class="kd-fehler">{form.aendernFehler}</p>{/if}
+				</div>
+			</div>
 			{#if data.zeit}
 				<div class="af-k k-zeit" id="zeiterfassung">
 					<Karte>
@@ -296,82 +342,6 @@
 					</Karte>
 				</div>
 			{/if}
-			<div class="af-k k-stamm">
-				<Karte>
-					{#snippet titel()}Stammdaten{/snippet}
-					<dl class="kd-daten af-stamm">
-						<div>
-							<dt>Kunde</dt>
-							<dd>
-								{#if a.kundeArt === 'kunde'}
-									{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
-								{:else if a.kundeArt === 'einmal' && a.einmalKunde}
-									{a.einmalKunde.name} <span class="kd-info">(Einmal-Kunde)</span>
-									{#if a.einmalKunde.telefon}<br /><a href={`tel:${a.einmalKunde.telefon.replace(/[^0-9+]/g, '')}`}>{a.einmalKunde.telefon}</a>{/if}
-									{#if a.einmalKunde.email}<br /><a href={`mailto:${a.einmalKunde.email}`}>{a.einmalKunde.email}</a>{/if}
-									{#if data.darfKundeUebernehmen}
-										<form method="POST" action="?/kundeUebernehmen" use:enhance class="af-uebernehmen">
-											<button type="submit" class="knopf-subtil">In Kundendatenbank übernehmen</button>
-										</form>
-									{/if}
-								{:else}
-									<span class="kd-info">Ohne Kunde</span>
-								{/if}
-							</dd>
-						</div>
-						{#if a.quelleId || data.quellen.length > 0}
-							<div>
-								<dt>Auftragsquelle</dt>
-								<dd>
-									{#if data.darfBearbeiten && data.quellen.length > 0}
-										<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
-											<Auswahl name="quelleId" aria-label="Auftragsquelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-												<option value="" selected={!a.quelleId}>– keine –</option>
-												{#each data.quellen.filter((q) => q.aktiv || q.id === a.quelleId) as q (q.id)}
-													<option value={q.id} selected={q.id === a.quelleId}>{q.name}</option>
-												{/each}
-											</Auswahl>
-										</form>
-									{:else}{a.quelleName ?? '–'}{/if}
-								</dd>
-							</div>
-						{/if}
-						<div>
-							<dt>Nächster Termin</dt>
-							<dd>
-								{#if a.kommenderTermin}
-									{terminKurz(a.kommenderTermin)}
-								{:else if a.geplantAb}
-									geplant ab {tagDeutsch(a.geplantAb)} <span class="kd-info">(noch kein Termin)</span>
-								{:else}
-									<span class="kd-info">Noch kein Termin – bei „Termine“ anlegen.</span>
-								{/if}
-							</dd>
-						</div>
-						<div class="af-breit">
-							<dt>Beschreibung</dt>
-							<dd>
-								{#if data.darfBearbeiten}
-									<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
-										<textarea
-											name="beschreibung"
-											aria-label="Beschreibung"
-											maxlength="4000"
-											rows="3"
-											placeholder="Infos zum Auftrag …"
-											onblur={(ev) => {
-												if (ev.currentTarget.value !== (a.beschreibung ?? '')) ev.currentTarget.form?.requestSubmit();
-											}}>{a.beschreibung ?? ''}</textarea
-										>
-									</form>
-								{:else}{a.beschreibung ?? '–'}{/if}
-							</dd>
-						</div>
-					</dl>
-					{#if form?.aendernFehler}<p role="alert" class="kd-fehler">{form.aendernFehler}</p>{/if}
-				</Karte>
-			</div>
-
 			{#each data.buchungen as bu (bu.id)}
 				<div class="af-k k-buchung">
 					<Karte>
@@ -417,6 +387,7 @@
 									mitBelastung
 									aktion="?/todoAnlegen"
 									mitarbeiter={data.mitarbeiter}
+									standardZustaendig={data.benutzerId}
 									fehler={form?.todoWerte ? form.fehler : null}
 									werte={form?.todoWerte ?? {}}
 									onfertig={schliessen}
@@ -571,7 +542,26 @@
 		<aside class="af-seitenleiste" aria-label="Auftrag im Überblick">
 			<div class="af-k k-ort">
 				<Karte>
-					{#snippet titel()}Einsatzort{/snippet}
+					{#snippet titel()}Kunde &amp; Einsatzort{/snippet}
+					<dl class="af-kunde-kurz">
+						<dt class="kd-unsichtbar">Kunde</dt>
+						<dd>
+								{#if a.kundeArt === 'kunde'}
+									{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
+								{:else if a.kundeArt === 'einmal' && a.einmalKunde}
+									{a.einmalKunde.name} <span class="kd-info">(Einmal-Kunde)</span>
+									{#if a.einmalKunde.telefon}<br /><a href={`tel:${a.einmalKunde.telefon.replace(/[^0-9+]/g, '')}`}>{a.einmalKunde.telefon}</a>{/if}
+									{#if a.einmalKunde.email}<br /><a href={`mailto:${a.einmalKunde.email}`}>{a.einmalKunde.email}</a>{/if}
+									{#if data.darfKundeUebernehmen}
+										<form method="POST" action="?/kundeUebernehmen" use:enhance class="af-uebernehmen">
+											<button type="submit" class="knopf-subtil">In Kundendatenbank übernehmen</button>
+										</form>
+									{/if}
+								{:else}
+									<span class="kd-info">Ohne Kunde</span>
+								{/if}
+							</dd>
+					</dl>
 					<div class="af-objekt">
 						{#if data.darfBearbeiten && a.kundeArt === 'kunde'}
 							<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
@@ -682,6 +672,22 @@
 							{/if}
 						</details>
 					{/if}
+				</Karte>
+			</div>
+
+			<div class="af-k k-naechst">
+				<Karte>
+					{#snippet titel()}Nächster Termin{/snippet}
+					<p class="af-naechst">
+						{#if a.kommenderTermin}
+							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10v8.5H3ZM3 7h10M5.5 3v2.5M10.5 3v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+							<strong>{terminKurz(a.kommenderTermin)}</strong>
+						{:else if a.geplantAb}
+							geplant ab {tagDeutsch(a.geplantAb)} <span class="kd-info">(noch kein Termin)</span>
+						{:else}
+							<span class="kd-info">Noch kein Termin – bei „Termine“ anlegen.</span>
+						{/if}
+					</p>
 				</Karte>
 			</div>
 
@@ -851,7 +857,8 @@
 	.k-nachkalk { order: 6; }
 	.k-ab { order: 6; }
 	.k-portal { order: 6; }
-	.k-stamm { order: 1; }
+	.k-beschreibung { order: 1; }
+	.k-naechst { order: 3; }
 	.k-buchung { order: 1; }
 	.k-ort { order: 2; }
 	.k-mitarbeiter { order: 3; }
@@ -874,6 +881,62 @@
 			display: block;
 			min-width: 0;
 		}
+	}
+	.af-kopf-chips {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		margin-top: 0.35rem;
+	}
+	.af-beschreibung {
+		margin-bottom: 1rem;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--ui-rand);
+		border-left: 4px solid var(--ui-akzent);
+		border-radius: var(--ui-radius-karte);
+		background: var(--ui-flaeche);
+	}
+	.af-beschreibung.leer {
+		border-left-color: var(--ui-rand-stark);
+		padding: 0.4rem 0.6rem;
+	}
+	.af-beschreibung-text {
+		margin: 0;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		white-space: pre-line;
+		line-height: 1.5;
+	}
+	.af-beschreibung-text.offen {
+		display: block;
+	}
+	.af-beschreibung-knoepfe {
+		display: flex;
+		gap: 0.4rem;
+		margin-top: 0.4rem;
+	}
+	.af-kunde-kurz {
+		margin: 0 0 0.75rem;
+		font-weight: 600;
+	}
+	.af-kunde-kurz dd {
+		margin: 0;
+	}
+	.af-naechst {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+	}
+	.af-naechst svg {
+		width: 1.1rem;
+		height: 1.1rem;
+		color: var(--ui-akzent-text);
+		flex: none;
 	}
 	.af-stamm {
 		display: grid;

@@ -135,7 +135,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			objekte: darfBearbeiten && auftrag.kundeId ? (await ladeKundenAuswahl(k, auftrag.kundeId)).objekte : [],
 			// Anlagen des Objekts für die Auswahl „Anlage“ (Wunsch Jamil, msg 2505)
 			anlagen: darfBearbeiten ? await anlagenAuswahl(k, auftrag.objektId) : [],
-			quellen: darfBearbeiten ? (await listeQuellen(k)).map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv })) : [],
+			quellen: darfBearbeiten ? (await listeQuellen(k)).map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv, farbe: q.farbe })) : [],
 			// Kolonne zuweisen (Wunsch Jamil msg 2510): alle Mitglieder werden Zuständige
 			kolonnen: darfBearbeiten && (await hatModul(k.betriebId, 'plantafel')) ? (await listeKolonnen(k, true)).map((x) => ({ id: x.id, name: x.name, mitglieder: x.mitglieder })) : [],
 			// Einmal-Kunde → Kundendatenbank: Aufträge bearbeiten UND Kunden bearbeiten

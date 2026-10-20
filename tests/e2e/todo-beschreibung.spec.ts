@@ -7,12 +7,11 @@ const BUERO = 'buero@bauwelt.test';
 // Legt eine Aufgabe in der Entwicklungsdatenbank an und löscht es am Ende wieder.
 test('„+ Aufgabe“ mit Beschreibung → Beschreibung steht auf der Karte', async ({ page }) => {
 	await anmelden(page, BUERO);
-	await page.goto('/todos?nur=alle');
+	await page.goto('/todos?person=alle');
 	const titel = `E2E-Beschreibung-${Date.now()}`;
 	await page.getByRole('button', { name: 'Aufgabe hinzufügen' }).click();
 	const formular = page.locator('form.td-neu');
 	await formular.getByLabel('Neue Aufgabe').fill(titel);
-	await formular.getByRole('button', { name: '+ Beschreibung' }).click();
 	await formular.getByLabel('Beschreibung (optional)').fill('Schlüssel beim Nachbarn abholen');
 	await formular.getByRole('button', { name: 'Aufgabe speichern' }).click();
 
@@ -23,7 +22,7 @@ test('„+ Aufgabe“ mit Beschreibung → Beschreibung steht auf der Karte', as
 	await expect(formular).toHaveCount(0);
 	await page.getByRole('button', { name: 'Aufgabe hinzufügen' }).click();
 	await expect(formular.getByLabel('Neue Aufgabe')).toHaveValue('');
-	await expect(formular.getByLabel('Beschreibung (optional)')).toHaveCount(0);
+	await expect(formular.getByLabel('Beschreibung (optional)')).toHaveValue('');
 
 	const liste: { id: string; titel: string; beschreibung: string | null }[] = await (
 		await page.request.get('/api/todos?nur=alle')

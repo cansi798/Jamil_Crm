@@ -135,7 +135,7 @@ test('Aufgaben: Board mit Ziehen und Menü, Rücknahme bei Fehler, Liste', async
 	const id: string = (await r.json()).id;
 	const todo = async () => (await (await page.request.get(`/api/todos/${id}`)).json()) as { erledigt: boolean; faellig: string | null };
 	try {
-		await page.goto('/todos?nur=alle');
+		await page.goto('/todos?person=alle');
 		await expect(page.getByRole('link', { name: 'Board', exact: true })).toHaveAttribute('aria-current', 'page');
 		const karte = page.locator('.ab-karte', { hasText: titel });
 		if (info.project.name === 'desktop') {

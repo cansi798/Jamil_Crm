@@ -19,17 +19,25 @@
 	} as const;
 
 	/** Link mit Ansicht, Reiter und Filtern (leere Werte entfallen) – wie auf der Auftragsseite. */
-	const link = (o: { ansicht?: 'board' | 'liste'; nur?: string } = {}) => {
+	const link = (o: { ansicht?: 'board' | 'liste'; nur?: string; status?: string } = {}) => {
 		const ansicht = o.ansicht ?? data.ansicht;
 		const nur = o.nur ?? data.nur;
+		const status = o.status ?? data.filter.status;
 		const p = new URLSearchParams();
 		if (ansicht === 'liste') p.set('ansicht', 'liste');
-		if (nur !== 'meine') p.set('nur', nur);
-		if (data.filter.person) p.set('person', data.filter.person);
-		if (data.filter.status) p.set('status', data.filter.status);
+		if (!data.personFilter && nur !== 'meine') p.set('nur', nur);
+		if (data.personFilter) p.set('person', data.filter.person);
+		if (status !== 'alle') p.set('status', status);
 		const q = p.toString();
 		return q ? `/todos?${q}` : '/todos';
 	};
+	// Status-Chips wie die Spalten des Boards (Jamil msg 2805)
+	const STATUS_CHIPS = [
+		['offen', 'Offen'],
+		['in-arbeit', 'In Arbeit'],
+		['erledigt', 'Erledigt'],
+		['alle', 'Alle']
+	] as const;
 	let neuOffen = $state(untrack(() => !!form?.todoWerte || Object.values(data.vorbelegt ?? {}).some(Boolean)));
 	const aktionen = { umschalten: '?/umschalten', aendern: '?/aendern', loeschen: '?/loeschen', serieBeenden: '?/serieBeenden' };
 </script>
@@ -40,7 +48,7 @@
 
 <main class="kd-seite breit">
 	<header class="seiten-kopf">
-		<h1>{data.nur === 'meine' ? 'Meine Aufgaben' : 'Aufgaben'}</h1>
+		<h1>{data.filter.person === data.benutzerId || (!data.personFilter && data.nur === 'meine') ? 'Meine Aufgaben' : 'Aufgaben'}</h1>
 		<div class="seiten-aktionen">
 			<nav class="af-ansicht" aria-label="Ansicht">
 				<a href={link({ ansicht: 'board' })} aria-current={data.ansicht === 'board' ? 'page' : undefined}>Board</a>
@@ -58,26 +66,26 @@
 	<FilterLeiste label="Aufgaben filtern">
 		{#snippet suche()}
 			{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
-			{#if data.nur !== 'meine'}<input type="hidden" name="nur" value={data.nur} />{/if}
+			{#if !data.personFilter && data.nur !== 'meine'}<input type="hidden" name="nur" value={data.nur} />{/if}
+			{#if data.filter.status !== 'alle'}<input type="hidden" name="status" value={data.filter.status} />{/if}
 		{/snippet}
 		{#snippet filter()}
-			{#if data.reiter.length > 1}
-				<nav aria-label="Meine oder alle Aufgaben" class="pills">
-					{#each data.reiter as r (r)}
-						<a href={link({ nur: r })} class="pill" class:aktiv={data.nur === r} aria-current={data.nur === r ? 'page' : undefined}>{NAMEN[r]}</a>
-					{/each}
-				</nav>
+			<nav aria-label="Status" class="pills">
+				{#each STATUS_CHIPS as [wert, text] (wert)}
+					<a href={link({ status: wert })} class="pill" class:aktiv={data.filter.status === wert} aria-current={data.filter.status === wert ? 'page' : undefined}>{text}</a>
+				{/each}
+			</nav>
+			{#if data.personFilter && data.mitarbeiter.length > 0}
+				<PersonWahl
+					name="person"
+					label="Zugewiesen an"
+					leerText="Alle Personen"
+					klein
+					personen={data.mitarbeiter.map((m) => ({ id: m.id, name: m.id === data.benutzerId ? `Ich (${m.name})` : m.name }))}
+					wert={data.filter.person === 'alle' ? '' : data.filter.person}
+					absenden
+				/>
 			{/if}
-			{#if data.mitarbeiter.length > 0}
-				<PersonWahl name="person" label="Zugewiesen an" leerText="Alle Personen" klein personen={data.mitarbeiter} wert={data.filter.person ?? ''} absenden />
-			{/if}
-			<div class="td-status">
-				<Auswahl name="status" klein aria-label="Status" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-					<option value="" selected={data.filter.status === ''}>Alle Status</option>
-					<option value="offen" selected={data.filter.status === 'offen'}>offen</option>
-					<option value="erledigt" selected={data.filter.status === 'erledigt'}>erledigt</option>
-				</Auswahl>
-			</div>
 			<noscript><button type="submit" class="kd-knopf hell">Filtern</button></noscript>
 		{/snippet}
 	</FilterLeiste>
@@ -92,6 +100,7 @@
 				<TodoNeu
 					aktion="?/anlegen"
 					mitarbeiter={data.mitarbeiter}
+					standardZustaendig={data.benutzerId}
 					fehler={form?.todoWerte ? form.fehler : null}
 					werte={form?.todoWerte ?? data.vorbelegt}
 					onfertig={schliessen}
