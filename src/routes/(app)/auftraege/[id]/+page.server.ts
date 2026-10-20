@@ -17,6 +17,7 @@ import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
 import { anlagenAuswahl } from '$lib/server/anlagen';
+import { holeKolonne, listeKolonnen } from '$lib/server/kolonnen';
 import { verlaufZeile } from '$lib/verlauf';
 import { ausTagUndUhrzeit, berlinTag, istTag } from '$lib/zeit';
 import { holeKunde } from '$lib/server/kunden';
@@ -88,6 +89,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			objekte: darfBearbeiten && auftrag.kundeId ? (await ladeKundenAuswahl(k, auftrag.kundeId)).objekte : [],
 			// Anlagen des Objekts für die Auswahl „Anlage“ (Wunsch Jamil, msg 2505)
 			anlagen: darfBearbeiten ? await anlagenAuswahl(k, auftrag.objektId) : [],
+			// Kolonne zuweisen (Wunsch Jamil msg 2510): alle Mitglieder werden Zuständige
+			kolonnen: darfBearbeiten && (await hatModul(k.betriebId, 'plantafel')) ? (await listeKolonnen(k, true)).map((x) => ({ id: x.id, name: x.name, mitglieder: x.mitglieder })) : [],
 			// Einmal-Kunde → Kundendatenbank: Aufträge bearbeiten UND Kunden bearbeiten
 			darfKundeUebernehmen:
 				auftrag.kundeArt === 'einmal' && darfBearbeiten && hatRecht(nutzer, 'kunden.bearbeiten') && (await hatModul(k.betriebId, 'kunden')),
@@ -123,6 +126,21 @@ export const actions: Actions = {
 	 * Einzelne Felder direkt im Auftrag ändern (Wunsch Jamil): Objekt, Beschreibung, Titel, Zuständige –
 	 * nur die gesendeten Felder; Rechte wie „Auftrag bearbeiten“.
 	 */
+	/** Kolonne zuweisen: ihre aktiven Mitglieder kommen zu den Zuständigen dazu. */
+	kolonneZuweisen: async ({ locals, params, request }) => {
+		const kolonneId = (await request.formData()).get('kolonneId');
+		try {
+			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			const k = betriebKontext(locals);
+			const ko = await holeKolonne(k, kolonneId);
+			const a = await holeAuftrag(k, sichtVon(locals.nutzer!), params.id);
+			const ids = [...new Set([...a.zustaendige.map((z) => z.id), ...ko.mitglieder.map((m) => m.id)])];
+			await aendereAuftrag(k, params.id, { zustaendige: ids }, sichtVon(locals.nutzer!));
+		} catch (e) {
+			return alsFormFehler(e, { aendernFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+		return { gespeichert: true };
+	},
 	aendern: async ({ locals, params, request }) => {
 		const f = await request.formData();
 		const e: Record<string, unknown> = { ...zustaendigeAus(f) };

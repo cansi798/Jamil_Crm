@@ -301,7 +301,25 @@ async function todoAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { ak
 	return bau;
 }
 
+/** Gesprochene Namen in Kolonnen und Personen trennen („Kolonne A“ bzw. genau ein Kolonnenname). */
+async function kolonnenAus(k: Kontext, namen: string[]) {
+	const { listeKolonnen } = await import('../kolonnen');
+	const alle = await listeKolonnen(k, true);
+	const kolonnen: (typeof alle)[number][] = [];
+	const personen: string[] = [];
+	for (const n of namen) {
+		const ohne = normal(n.replace(/^kolonne\s+/i, ''));
+		const ko = alle.find((x) => normal(x.name) === normal(n) || normal(x.name) === `kolonne ${ohne}` || (/^kolonne\b/i.test(n) && normal(x.name).endsWith(` ${ohne}`)));
+		if (ko) kolonnen.push(ko);
+		else if (/^kolonne\b/i.test(n)) personen.push(n); // unbekannte Kolonne → „nicht gefunden“
+		else personen.push(n);
+	}
+	return { kolonnen, personen };
+}
+
 async function einsatzAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'einsatz_anlegen' }>['daten'], jetzt: Date): Promise<Bau> {
+	const { kolonnen, personen } = await kolonnenAus(k, d.mitarbeiter);
+	if (kolonnen.length > 0 || d.bis) return mehrtaegigAnlegen(k, nutzer, d, jetzt, kolonnen, personen);
 	const bau = neuerBau();
 	const t = await findeAuftraege(k, nutzer, d.auftrag, true);
 	bau.werte.auftragId = null;
@@ -325,6 +343,41 @@ async function einsatzAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, {
 	bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, ids, d.mitarbeiter) });
 	bau.zeilen.push({ label: 'Termin', wert: zeitraumText(z.beginn, z.ende) });
 	if (!d.start.uhrzeit) bau.warnungen.push(`Keine Uhrzeit genannt – eingeplant ab ${STANDARD_BEGINN} Uhr für ${STANDARD_DAUER_H} Stunden.`);
+	return bau;
+}
+
+/** Mehrtägiger Termin und/oder Kolonne → eine Gruppe (je Arbeitstag und Person ein Einsatz). */
+async function mehrtaegigAnlegen(
+	k: Kontext,
+	nutzer: Nutzer,
+	d: Extract<KiAktion, { aktion: 'einsatz_anlegen' }>['daten'],
+	jetzt: Date,
+	kolonnen: { id: string; name: string; mitglieder: { id: string; name: string }[] }[],
+	personen: string[]
+): Promise<Bau> {
+	const bau = neuerBau();
+	await auftragAufloesen(bau, k, nutzer, d.auftrag, true);
+	const alle = await aktiveMitarbeiter(k);
+	const ids = personen.length > 0 ? mitarbeiterAufloesen(bau, alle, personen, nutzer.id) : [];
+	bau.werte.mitarbeiterIds = ids;
+	if (kolonnen.length > 1) bau.warnungen.push(`Nur eine Kolonne je Termin – eingeplant wird ${kolonnen[0].name}.`);
+	const ko = kolonnen[0] ?? null;
+	if (ko) bau.zeilen.push({ label: 'Kolonne', wert: `${ko.name} (${ko.mitglieder.map((m) => m.name).join(', ') || 'keine Mitglieder'})` });
+	if (personen.length > 0) bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, ids, personen) });
+	const vonTag = loeseTag(d.start, jetzt);
+	// „bis Mittwoch“: der nächste Mittwoch ab dem ersten Tag (nicht ab heute)
+	let bisTag = d.bis ? loeseTag(d.bis, jetzt) : vonTag;
+	if (d.bis?.tag === 'wochentag') {
+		const ziel = WOCHENTAGE.indexOf(d.bis.wochentag!);
+		bisTag = tagPlus(vonTag, (ziel - wochentag(vonTag) + 7) % 7);
+	}
+	if (bisTag < vonTag) bau.fehlt.push('Der letzte Tag liegt vor dem ersten.');
+	const vonZeit = d.start.uhrzeit ?? STANDARD_BEGINN;
+	const bisZeit = d.ende_uhrzeit ?? '16:00';
+	bau.werte.gruppe = { kolonneId: ko?.id ?? null, vonTag, bisTag, vonZeit, bisZeit, notiz: d.notiz ?? null, ohneWochenende: true };
+	bau.zeilen.push({ label: 'Zeitraum', wert: `${tagLang(vonTag)}${bisTag !== vonTag ? ` bis ${tagLang(bisTag)}` : ''}, täglich ${vonZeit}–${bisZeit}${bisTag !== vonTag ? ' (ohne Wochenende)' : ''}` });
+	if (vonTag < berlinTag(jetzt)) bau.warnungen.push('Der Tag liegt in der Vergangenheit.');
+	if (!d.start.uhrzeit) bau.warnungen.push(`Keine Uhrzeit genannt – täglich ${vonZeit}–${bisZeit}.`);
 	return bau;
 }
 
@@ -498,9 +551,11 @@ async function mitarbeiterZuweisen(k: Kontext, nutzer: Nutzer, d: Extract<KiAkti
 	const bau = neuerBau();
 	await auftragAufloesen(bau, k, nutzer, d.auftrag, false);
 	const alle = await aktiveMitarbeiter(k);
-	const ids = mitarbeiterAufloesen(bau, alle, d.mitarbeiter, nutzer.id);
-	bau.werte.mitarbeiterIds = ids;
-	bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, ids, d.mitarbeiter) });
+	const { kolonnen, personen } = await kolonnenAus(k, d.mitarbeiter);
+	const ids = mitarbeiterAufloesen(bau, alle, personen, nutzer.id);
+	bau.werte.mitarbeiterIds = [...ids, ...kolonnen.flatMap((ko) => ko.mitglieder.map((m) => m.id))];
+	if (personen.length > 0) bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, ids, personen) });
+	for (const ko of kolonnen) bau.zeilen.push({ label: 'Kolonne', wert: `${ko.name} (${ko.mitglieder.map((m) => m.name).join(', ')})` });
 	bau.warnungen.push('Bisherige Zuständige bleiben – die Genannten kommen dazu.');
 	return bau;
 }
@@ -634,8 +689,15 @@ async function nachfassenPausieren(k: Kontext, nutzer: Nutzer, d: Extract<KiAkti
 }
 
 /** Für die Frage „Was hat Sabine morgen?“: Person (ich/Name) auflösen. */
-export async function personAufloesen(k: Kontext, nutzer: Nutzer, wer: string | undefined): Promise<{ id: string | null; frage: string | null }> {
+export async function personAufloesen(
+	k: Kontext,
+	nutzer: Nutzer,
+	wer: string | undefined
+): Promise<{ id: string | null; frage: string | null; kolonne?: { id: string; name: string; mitglieder: { id: string; name: string }[] } }> {
 	if (!wer) return { id: nutzer.id, frage: null };
+	const { kolonnen } = await kolonnenAus(k, [wer]);
+	if (kolonnen.length === 1) return { id: null, frage: null, kolonne: kolonnen[0] };
+	if (/^kolonne\b/i.test(wer)) return { id: null, frage: `Kolonne „${wer.replace(/^kolonne\s+/i, '')}“ nicht gefunden.` };
 	const alle = await aktiveMitarbeiter(k);
 	const t = findeMitarbeiter(alle, wer, nutzer.id);
 	if (t.length === 1) return { id: t[0].id, frage: null };

@@ -4,7 +4,7 @@ import { pruefeModul } from '../tarif';
 import { kiAnbieter, kiKontext } from '../ki/anbieter';
 import { verbrauche } from '../ki/kontingent';
 import { hinweisKarte, loeseAuf, personAufloesen, type Karte } from './aufloesen';
-import { tagesplan, zeitraumTage } from '../tagesplan';
+import { kolonnenplan, tagesplan, zeitraumTage } from '../tagesplan';
 import { berlinTag } from '../../zeit';
 import type { TagesplanDaten } from './aktionen';
 import { rechteHinweis } from './rechte';
@@ -34,8 +34,17 @@ async function beantworteTagesplan(k: { betriebId: string; benutzerId: string },
 		...(antwort ? { antwort } : {})
 	});
 	const p = await personAufloesen(k, nutzer, d.wer);
-	if (!p.id) return karte('Tagesplan', p.frage);
 	const z = zeitraumTage(d.zeitraum, berlinTag(jetzt), d.datum);
+	if (p.kolonne) {
+		try {
+			const plan = await kolonnenplan(k, nutzer, p.kolonne, z);
+			return karte(`Tagesplan ${z.text} – ${p.kolonne.name}`, null, { abschnitte: [{ titel: 'Termine', eintraege: plan.termine }], vorlesen: plan.text });
+		} catch (e) {
+			if (e instanceof ApiFehler && e.status === 403) return karte('Tagesplan', e.message);
+			throw e;
+		}
+	}
+	if (!p.id) return karte('Tagesplan', p.frage);
 	try {
 		const plan = await tagesplan(k, nutzer, p.id, z, { nurUeberfaellig: d.nur_ueberfaellig, jetzt });
 		const abschnitte = d.nur_ueberfaellig

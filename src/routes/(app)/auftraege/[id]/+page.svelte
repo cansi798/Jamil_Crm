@@ -425,6 +425,17 @@
 								{/each}
 								<button type="button" class="kd-knopf hell af-fertig" onclick={() => (zuweisenOffen = false)}>Fertig</button>
 							</form>
+							{#if data.kolonnen.length > 0}
+								<form method="POST" action="?/kolonneZuweisen" use:enhance={sofort} class="af-kolonne">
+									<label>
+										Kolonne zuweisen
+										<select name="kolonneId" required>
+											{#each data.kolonnen as ko (ko.id)}<option value={ko.id}>{ko.name} ({ko.mitglieder.map((m) => m.name.split(' ')[0]).join(', ')})</option>{/each}
+										</select>
+									</label>
+									<button type="submit" class="kd-knopf hell">Zuweisen</button>
+								</form>
+							{/if}
 						</details>
 					{/if}
 				</Karte>
@@ -688,6 +699,19 @@
 	}
 	.af-zuweisen > summary::-webkit-details-marker {
 		display: none;
+	}
+	.af-kolonne {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
+	.af-kolonne label {
+		display: grid;
+		gap: 0.25rem;
+		font-size: 0.875rem;
+		font-weight: 600;
 	}
 	.af-zuweisen-liste {
 		display: grid;

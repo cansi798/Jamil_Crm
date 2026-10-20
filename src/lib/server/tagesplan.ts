@@ -130,3 +130,59 @@ export async function tagesplan(
 		};
 	});
 }
+
+/**
+ * „Was hat Kolonne A diese Woche?“ – Termine der Kolonne (je Gruppe und Tag einer). Sehen darf, wer Mitglied ist oder
+ * „Alle To-dos ansehen“ hat.
+ */
+export async function kolonnenplan(
+	k: Kontext,
+	nutzer: Nutzer,
+	kolonne: { id: string; name: string; mitglieder: { id: string; name: string }[] },
+	z: { von: string; bis: string; text: string }
+): Promise<Tagesplan> {
+	if (!hatRecht(nutzer, 'todos.alle_lesen') && !kolonne.mitglieder.some((m) => m.id === nutzer.id)) {
+		throw new ApiFehler(403, 'Sie dürfen nur Ihren eigenen Tagesplan und den Ihrer Kolonne abfragen.');
+	}
+	return mitBetrieb(k, async (tx) => {
+		const zeilen = await tx`
+			select distinct on (coalesce(e.gruppe_id, e.id), (e.beginn at time zone 'Europe/Berlin')::date)
+				e.id, e.beginn, e.ende, a.id as auftrag_id, a.titel, a.objekt_id,
+				o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
+				k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
+				k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
+				a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort
+			from app.einsaetze e
+			join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
+			left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
+			left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id
+			where e.betrieb_id = ${k.betriebId} and e.kolonne_id = ${kolonne.id}
+				and (e.beginn at time zone 'Europe/Berlin')::date between ${z.von}::date and ${z.bis}::date
+			order by coalesce(e.gruppe_id, e.id), (e.beginn at time zone 'Europe/Berlin')::date, e.beginn
+			limit 100`;
+		const termine: PlanEintrag[] = zeilen
+			.map((t) => {
+				const b = new Date(t.beginn);
+				return {
+					sort: b.getTime(),
+					zeit: `${z.von !== z.bis ? `${tagDeutsch(berlinTag(b)).slice(0, 6)} ` : ''}${berlinUhrzeit(b)}–${berlinUhrzeit(new Date(t.ende))}`,
+					titel: `${t.titel} – ${kundeNameAus(t)}`,
+					ort: ortAus(t),
+					link: `/auftraege/${t.auftrag_id}`,
+					ueberfaellig: false
+				};
+			})
+			.sort((x, y) => x.sort - y.sort)
+			.map(({ sort: _s, ...e }) => e);
+		return {
+			person: { id: kolonne.id, name: kolonne.name },
+			von: z.von,
+			bis: z.bis,
+			zeitraumText: z.text,
+			termine,
+			todos: [],
+			nachfassen: [],
+			text: `${kolonne.name} hat ${z.text} ${anzahl(termine.length, 'Termin', 'Termine')}${termine.length > 0 ? ': ' + termine.slice(0, 6).map((t) => `${t.zeit.replace('–', ' bis ')} ${t.titel}${t.ort ? `, ${t.ort}` : ''}`).join('; ') : ''}.`
+		};
+	});
+}

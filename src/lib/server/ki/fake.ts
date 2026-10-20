@@ -266,7 +266,7 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 		return kunde(t);
 	}
 	if (/\bauftrag/.test(l)) return auftrag(t, kontext);
-	if (/\b(termin|einsatz|einplanen|einteilen)\b|\bplane?\b.*\bein\b|\bteile?\b.*\bein\b/.test(l)) return einsatz(t, kontext);
+	if (/\b(termin|einsatz|einplanen|einteilen)\b|\bplane?\b.*\bein\b|\bteile?\b.*\bein\b|\bkolonne\b.*\b(?:bei|für)\b/.test(l)) return einsatz(t, kontext);
 	return { aktion: 'unbekannt', daten: {} };
 }
 
@@ -377,7 +377,10 @@ function zuweisen(t: string): { aktion: string; daten: Record<string, unknown> }
 	const auftrag = a ? sauber(a[1].replace(/\s+zu$/i, '')) : '?';
 	const vor = a ? t.slice(0, a.index) : t;
 	const namenText = vor.replace(/^\s*(?:bitte\s+)?(?:weise|teile|ordne)\s+/i, '').replace(/\b(?:dem|den|zum)\s*$/i, '').trim();
-	const namen = namensListe(namenText) ?? namenText.split(/\s*,\s*|\s+und\s+/).map(sauber).filter((n) => istNamensWort(n));
+	const kolonne = /\bkolonne\s+([A-ZÄÖÜ0-9][\wäöüß-]*)/i.exec(namenText);
+	const ohneKolonne = kolonne ? namenText.replace(kolonne[0], ' ').replace(/^\s*(?:und|,)\s*|\s*(?:und|,)\s*$/g, '').trim() : namenText;
+	const personen = ohneKolonne ? (namensListe(ohneKolonne) ?? ohneKolonne.split(/\s*,\s*|\s+und\s+/).map(sauber).filter((n) => istNamensWort(n))) : [];
+	const namen = [...(kolonne ? [`Kolonne ${kolonne[1]}`] : []), ...personen];
 	return { aktion: 'mitarbeiter_zuweisen', daten: { auftrag, mitarbeiter: namen.length ? namen : ['?'] } };
 }
 
@@ -550,6 +553,18 @@ function todo(t: string, kontext: KiKontext): { aktion: string; daten: Record<st
 
 function einsatz(t: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
 	const daten: Record<string, unknown> = {};
+	// Mehrtägig: „von Montag bis Mittwoch“, „bis Freitag“, „bis zum 30.10.“ (nicht: „bis 16 Uhr“)
+	const bisTag = new RegExp(
+		`\\bbis\\s+(?:zum\\s+|einschließlich\\s+)?((?:nächsten\\s+|kommenden\\s+)?(?:${WOCHENTAGE.join('|')}|übermorgen|morgen|\\d{1,2}\\.\\s?\\d{1,2}\\.?(?:\\d{2,4})?))`,
+		'i'
+	).exec(t);
+	if (bisTag) {
+		const b = findeTag(bisTag[1], kontext);
+		if (b) daten.bis = b;
+		t = t.replace(bisTag[0], ' ');
+	}
+	const kolonne = /\bkolonne\s+([A-ZÄÖÜ0-9][\wäöüß-]*)/i.exec(t);
+	if (kolonne) t = t.replace(kolonne[0], ' ');
 	const tag = findeTag(t, kontext);
 	const uhrzeiten = findeUhrzeiten(t);
 	daten.start = { ...(tag ?? { tag: 'heute' }), ...(uhrzeiten[0] ? { uhrzeit: uhrzeiten[0].uhrzeit } : {}) };
@@ -572,8 +587,8 @@ function einsatz(t: string, kontext: KiKontext): { aktion: string; daten: Record
 			rest = ma.rest;
 		}
 	}
-	daten.mitarbeiter = namen ?? [];
-	const k = findeKunde(rest, true);
+	daten.mitarbeiter = [...(kolonne ? [`Kolonne ${kolonne[1]}`] : []), ...(namen ?? [])];
+	const k = findeKunde(rest.replace(/\bvon\s*$/i, ' '), true);
 	daten.auftrag = k ? k.name : '?';
 	return { aktion: 'einsatz_anlegen', daten };
 }

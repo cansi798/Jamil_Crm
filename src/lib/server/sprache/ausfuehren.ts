@@ -139,6 +139,22 @@ async function ausfuehrenJe(
 			};
 		}
 		case 'einsatz_anlegen': {
+			if (w.gruppe) {
+				// Mehrtägig und/oder Kolonne (msgs 2510, 2513)
+				const { legeGruppeAn } = await import('../plantafel');
+				const g = await legeGruppeAn(k, {
+					...w.gruppe,
+					auftragId: w.auftragId,
+					benutzerIds: ((w.mitarbeiterIds ?? []) as (string | null)[]).filter(Boolean)
+				});
+				const tage = new Set(g.einsaetze.map((e) => tagVon(new Date(e.beginn)))).size;
+				return {
+					status: 201,
+					meldung: `Termin an ${tage} Tag${tage === 1 ? '' : 'en'} eingeplant (${g.einsaetze.length} Einsätze)`,
+					link: `/plantafel?tag=${encodeURIComponent(w.gruppe.vonTag)}`,
+					warnungen: warnTexte(g.einsaetze)
+				};
+			}
 			const einsaetze: Einsatz[] = [];
 			for (const e of (w.einsaetze ?? []) as { benutzerId: string; beginn: string; ende: string }[]) {
 				einsaetze.push(await legeEinsatzAn(k, { auftragId: w.auftragId, benutzerId: e.benutzerId, beginn: e.beginn, ende: e.ende, notiz: w.notiz ?? null }));

@@ -67,6 +67,63 @@ async function ziehe(page: Page, von: ReturnType<Page['locator']>, nach: ReturnT
 	await page.mouse.up();
 }
 
+test.describe('Plantafel: Filter, Kolonnen, mehrtägig (Jamil msgs 2508, 2510, 2513)', () => {
+	test('Kolonne anlegen, filtern (URL), mehrtägig einplanen, Balken verlängern, alles wieder löschen', async ({ page }, info) => {
+		test.skip(info.project.name !== 'desktop', 'Raster mit Ziehen ab 700 px');
+		await anmelden(page, BUERO);
+		const { auftrag, montag } = await testAuftrag(page, `E2E Kolonne ${Date.now()}`);
+		const name = `E2E-Kolonne ${Date.now()}`;
+		try {
+			await page.goto('/plantafel/kolonnen');
+			await page.getByRole('button', { name: 'Kolonne hinzufügen' }).click();
+			const f = page.locator('form[action="?/speichern"]').filter({ hasNot: page.locator('input[name="id"]') });
+			await f.locator('input[name="name"]').fill(name);
+			await f.getByRole('checkbox', { name: MONTEUR_NAME }).check();
+			await f.getByRole('button', { name: 'Kolonne anlegen' }).click();
+			await expect(page.getByRole('list', { name: 'Kolonnen' })).toContainText(name);
+
+			// Filter: nur diese Kolonne (bleibt in der Adresse)
+			await page.goto(`/plantafel?tag=${montag}`);
+			await page.locator('.pt-filter > summary').click();
+			await page.getByRole('checkbox', { name }).check();
+			await expect(page).toHaveURL(/[?&]ko=/);
+			await page.reload();
+			await expect(page.locator('.pt-filter > summary')).toContainText('Filter (1)');
+			await expect(page.locator('table.pt-raster tbody th.pt-name').first()).toContainText(name);
+
+			// Kolonne Mo–Mi einplanen
+			await page.getByRole('button', { name: `${name} am ${tagKurz(montag)} einplanen` }).click();
+			const dlg = page.locator('dialog.pt-dialog');
+			await dlg.getByPlaceholder('Nummer, Titel oder Kunde').fill(auftrag.nummer);
+			await dlg.locator('select[required]').first().selectOption(auftrag.id);
+			await dlg.getByLabel('Letzter Tag (mehrtägig)').fill(tagPlus(montag, 2));
+			await dlg.getByRole('button', { name: 'Einsatz anlegen' }).click();
+			const lane = (tag: string) => page.locator(`table.pt-raster td[data-tag="${tag}"][data-benutzer^="ko:"]`);
+			for (const t of [0, 1, 2]) await expect(lane(tagPlus(montag, t))).toContainText(auftrag.nummer);
+			await expect(lane(tagPlus(montag, 3))).not.toContainText(auftrag.nummer);
+			await expect(lane(tagPlus(montag, 1)).locator('.pt-zeit')).toContainText('↳');
+
+			// Ende auf Donnerstag ziehen → verlängert
+			await ziehe(page, lane(tagPlus(montag, 2)).locator('.pt-griff'), lane(tagPlus(montag, 3)));
+			await expect(lane(tagPlus(montag, 3))).toContainText(auftrag.nummer);
+
+			// ganzen Termin löschen
+			await lane(montag).locator('.pt-karte').first().click();
+			await dlg.getByRole('button', { name: 'Ganzen Termin löschen' }).click();
+			await expect(lane(montag)).not.toContainText(auftrag.nummer);
+		} finally {
+			await page.goto('/plantafel/kolonnen');
+			const li = page.getByRole('list', { name: 'Kolonnen' }).locator('li', { hasText: name });
+			if (await li.count()) {
+				await li.locator('summary').click();
+				await li.getByRole('button', { name: 'Kolonne löschen' }).click();
+				await expect(li).toHaveCount(0);
+			}
+			await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`).catch(() => null);
+		}
+	});
+});
+
 test.describe('Plantafel', () => {
 	test('Büro zieht ein Kärtchen von Mo auf Di (bleibt nach Neuladen), auf belegten Tag → Warnung', async ({ page }, info) => {
 		test.skip(info.project.name !== 'desktop', 'Ziehen und Ablegen im Raster ab 700 px (PC, 1280×800)');

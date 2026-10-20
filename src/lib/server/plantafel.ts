@@ -3,7 +3,7 @@ import { ApiFehler } from './fehler';
 import { textFeld, UUID } from './kunden';
 import { kundeNameAus, ortAus } from './auftraege';
 import { darf, darfEines } from './tarif';
-import { berlinTag, istTag, tagesGrenzen, tagPlus, wocheVon } from '../zeit';
+import { ausTagUndUhrzeit, berlinTag, istTag, tagesGrenzen, tagPlus, verschiebeAufTag, wocheVon } from '../zeit';
 import { istEinsatzArt, type EinsatzArt } from '../einsatz-art';
 
 /**
@@ -43,6 +43,9 @@ export type Einsatz = {
 	/** Besichtigung, Montage oder Wartung. */
 	art: EinsatzArt;
 	warnungen: Warnung[];
+	/** Mehrtägiger Termin bzw. Kolonnen-Einsatz: gemeinsame Gruppe (erster/letzter Tag), sonst null. */
+	gruppe: { id: string; vonTag: string; bisTag: string } | null;
+	kolonne: { id: string; name: string } | null;
 };
 
 export type Abwesenheit = {
@@ -148,9 +151,15 @@ export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.benutzer_id, e.beginn, e.e
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
 	o.id as objekt_id, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
-	a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort`;
+	a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort,
+	e.gruppe_id, e.kolonne_id, ko.name as kolonne_name,
+	(select to_char(min(g.beginn at time zone 'Europe/Berlin'), 'YYYY-MM-DD') from app.einsaetze g
+		where g.gruppe_id = e.gruppe_id and g.betrieb_id = e.betrieb_id) as gruppe_von,
+	(select to_char(max(g.beginn at time zone 'Europe/Berlin'), 'YYYY-MM-DD') from app.einsaetze g
+		where g.gruppe_id = e.gruppe_id and g.betrieb_id = e.betrieb_id) as gruppe_bis`;
 
 export const EINSATZ_VON = `app.einsaetze e
+	left join app.kolonnen ko on ko.id = e.kolonne_id and ko.betrieb_id = e.betrieb_id
 	join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
 	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 	left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id
@@ -171,7 +180,9 @@ export function zuEinsatz(z: Record<string, any>, warnungen: Warnung[] = []): Ei
 		ende: iso(z.ende),
 		notiz: z.notiz,
 		art: z.art ?? 'montage',
-		warnungen
+		warnungen,
+		gruppe: z.gruppe_id ? { id: z.gruppe_id, vonTag: z.gruppe_von, bisTag: z.gruppe_bis } : null,
+		kolonne: z.kolonne_id ? { id: z.kolonne_id, name: z.kolonne_name } : null
 	};
 }
 
@@ -290,6 +301,177 @@ export async function loescheEinsatz(k: Kontext, id: string): Promise<void> {
 	return mitBetrieb(k, async (tx) => {
 		const z = await tx`delete from app.einsaetze where id = ${id} and betrieb_id = ${k.betriebId} returning id`;
 		if (z.length === 0) throw einsatzNichtGefunden();
+	});
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Gruppen: mehrtägige Termine und Kolonnen (Wünsche Jamil msgs 2510, 2513)
+
+export const MAX_GRUPPEN_TAGE = 62;
+const UHRZEIT = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export type GruppenWerte = {
+	auftragId: string;
+	benutzerIds: string[];
+	kolonneId: string | null;
+	vonTag: string;
+	bisTag: string;
+	vonZeit: string;
+	bisZeit: string;
+	art: EinsatzArt;
+	notiz: string | null;
+	ohneWochenende: boolean;
+};
+
+/** Tage eines Zeitraums (inklusive), ohne Samstag/Sonntag, wenn gewünscht. */
+export function gruppenTage(vonTag: string, bisTag: string, ohneWochenende: boolean): string[] {
+	const tage: string[] = [];
+	for (let t = vonTag; t <= bisTag; t = tagPlus(t, 1)) {
+		const wt = new Date(`${t}T12:00:00Z`).getUTCDay();
+		if (ohneWochenende && (wt === 0 || wt === 6)) continue;
+		tage.push(t);
+	}
+	return tage;
+}
+
+export function pruefeGruppe(e: Record<string, unknown>): GruppenWerte {
+	const auftragId = idFeld(e.auftragId, 'Bitte einen Auftrag wählen.');
+	const kolonneId = e.kolonneId === undefined || e.kolonneId === null || e.kolonneId === '' ? null : idFeld(e.kolonneId, 'Kolonne: ungültige Auswahl.');
+	const roh = e.benutzerIds === undefined || e.benutzerIds === null || e.benutzerIds === '' ? [] : Array.isArray(e.benutzerIds) ? e.benutzerIds : [e.benutzerIds];
+	const benutzerIds = [...new Set(roh.map((b) => idFeld(b, 'Mitarbeiter: ungültige Auswahl.')))];
+	if (!kolonneId && benutzerIds.length === 0) throw new ApiFehler(400, 'Bitte Mitarbeiter oder eine Kolonne wählen.');
+	if (!istTag(e.vonTag)) throw new ApiFehler(400, 'Bitte den ersten Tag wählen.');
+	const bisTag = e.bisTag === undefined || e.bisTag === null || e.bisTag === '' ? e.vonTag : e.bisTag;
+	if (!istTag(bisTag)) throw new ApiFehler(400, 'Bitte den letzten Tag wählen.');
+	if (bisTag < e.vonTag) throw new ApiFehler(400, 'Der letzte Tag liegt vor dem ersten.');
+	if (Date.parse(`${bisTag}T00:00:00Z`) - Date.parse(`${e.vonTag}T00:00:00Z`) > (MAX_GRUPPEN_TAGE - 1) * 86_400_000) {
+		throw new ApiFehler(400, `Ein Termin darf höchstens ${MAX_GRUPPEN_TAGE} Tage lang sein.`);
+	}
+	const vonZeit = typeof e.vonZeit === 'string' && e.vonZeit !== '' ? e.vonZeit : '07:00';
+	const bisZeit = typeof e.bisZeit === 'string' && e.bisZeit !== '' ? e.bisZeit : '16:00';
+	if (!UHRZEIT.test(vonZeit) || !UHRZEIT.test(bisZeit)) throw new ApiFehler(400, 'Arbeitszeit: Bitte Uhrzeiten wie 07:00 angeben.');
+	if (bisZeit <= vonZeit) throw new ApiFehler(400, 'Arbeitszeit: Ende muss nach dem Beginn liegen.');
+	const art = e.art === undefined || e.art === null || e.art === '' ? 'montage' : e.art;
+	if (!istEinsatzArt(art)) throw new ApiFehler(400, 'Bitte eine Art wählen: Besichtigung, Montage oder Wartung.');
+	const ohneWochenende = e.ohneWochenende === undefined || e.ohneWochenende === '' ? true : e.ohneWochenende === true || e.ohneWochenende === 'true' || e.ohneWochenende === 'on';
+	if (gruppenTage(e.vonTag, bisTag, ohneWochenende).length === 0) throw new ApiFehler(400, 'Im Zeitraum liegen keine Arbeitstage.');
+	return { auftragId, benutzerIds, kolonneId, vonTag: e.vonTag, bisTag, vonZeit, bisZeit, art, notiz: textFeld(e.notiz, 'Notiz', 500), ohneWochenende };
+}
+
+async function ladeGruppe(tx: TransactionSql, k: Kontext, gruppeId: string): Promise<Einsatz[]> {
+	const z = await tx`
+		select ${tx.unsafe(EINSATZ_AUSWAHL)} from ${tx.unsafe(EINSATZ_VON)}
+		where e.gruppe_id = ${gruppeId} and e.betrieb_id = ${k.betriebId} order by e.beginn, b.name, e.id`;
+	if (z.length === 0) throw new ApiFehler(404, 'Termin nicht gefunden.');
+	const liste: Einsatz[] = [];
+	for (const r of z) {
+		liste.push(zuEinsatz(r, await warnungenFuer(tx, k, { id: r.id, benutzerId: r.benutzer_id, beginn: new Date(r.beginn), ende: new Date(r.ende) })));
+	}
+	return liste;
+}
+
+/**
+ * Mehrtägigen Termin und/oder Kolonne einplanen: je Arbeitstag und Person ein Einsatz mit den täglichen Arbeitszeiten,
+ * alle mit derselben gruppe_id. Bei einer Kolonne sind die Personen ihre aktiven Mitglieder (plus ausdrücklich gewählte).
+ */
+export async function legeGruppeAn(k: Kontext, e: Record<string, unknown>): Promise<{ gruppeId: string; einsaetze: Einsatz[] }> {
+	const w = pruefeGruppe(e);
+	return mitBetrieb(k, async (tx) => {
+		await pruefeAuftrag(tx, k, w.auftragId);
+		let personen = [...w.benutzerIds];
+		if (w.kolonneId) {
+			const [ko] = await tx`select 1 from app.kolonnen where id = ${w.kolonneId} and betrieb_id = ${k.betriebId} and aktiv`;
+			if (!ko) throw new ApiFehler(400, 'Die Kolonne wurde nicht gefunden.');
+			const m = await tx`
+				select m.benutzer_id from app.kolonnen_mitglieder m join app.benutzer b on b.id = m.benutzer_id and b.betrieb_id = m.betrieb_id
+				where m.kolonne_id = ${w.kolonneId} and m.betrieb_id = ${k.betriebId} and b.aktiv`;
+			personen = [...new Set([...personen, ...m.map((r) => r.benutzer_id as string)])];
+			if (personen.length === 0) throw new ApiFehler(400, 'Die Kolonne hat keine aktiven Mitglieder.');
+		}
+		for (const p of personen) await pruefeMitarbeiter(tx, k, p);
+		const [{ id: gruppeId }] = await tx`select gen_random_uuid() as id`;
+		for (const tag of gruppenTage(w.vonTag, w.bisTag, w.ohneWochenende)) {
+			const beginn = ausTagUndUhrzeit(tag, w.vonZeit);
+			const ende = ausTagUndUhrzeit(tag, w.bisZeit);
+			for (const p of personen) {
+				await tx`
+					insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art, gruppe_id, kolonne_id)
+					values (${k.betriebId}, ${w.auftragId}, ${p}, ${beginn}, ${ende}, ${w.notiz}, ${w.art}, ${gruppeId}, ${w.kolonneId})`;
+			}
+		}
+		return { gruppeId, einsaetze: await ladeGruppe(tx, k, gruppeId) };
+	});
+}
+
+const gruppenId = (id: unknown) => {
+	if (typeof id !== 'string' || !UUID.test(id)) throw new ApiFehler(404, 'Termin nicht gefunden.');
+	return id.toLowerCase();
+};
+
+/** Ganze Gruppe um `tage` Tage verschieben (Ziehen auf der Plantafel). */
+export async function verschiebeGruppe(k: Kontext, id: unknown, tage: number): Promise<Einsatz[]> {
+	const gid = gruppenId(id);
+	if (!Number.isInteger(tage) || Math.abs(tage) > 366) throw new ApiFehler(400, 'Ungültige Verschiebung.');
+	return mitBetrieb(k, async (tx) => {
+		const z = await tx`
+			-- in Berliner Ortszeit verschieben (Uhrzeit bleibt auch über die Zeitumstellung gleich)
+			update app.einsaetze
+			set beginn = ((beginn at time zone 'Europe/Berlin') + make_interval(days => ${tage})) at time zone 'Europe/Berlin',
+				ende = ((ende at time zone 'Europe/Berlin') + make_interval(days => ${tage})) at time zone 'Europe/Berlin'
+			where gruppe_id = ${gid} and betrieb_id = ${k.betriebId} returning id`;
+		if (z.length === 0) throw new ApiFehler(404, 'Termin nicht gefunden.');
+		return ladeGruppe(tx, k, gid);
+	});
+}
+
+/**
+ * Letzten Tag ändern (Ziehen am Ende des Balkens): verlängern legt für die neuen Tage Einsätze mit den Personen und
+ * Zeiten des bisher letzten Tags an (Wochenenden nur, wenn die Gruppe schon Wochenendtage hat); kürzen löscht die
+ * Tage danach. Mindestens der erste Tag bleibt.
+ */
+export async function aendereGruppenEnde(k: Kontext, id: unknown, bisTag: unknown): Promise<Einsatz[]> {
+	const gid = gruppenId(id);
+	if (!istTag(bisTag)) throw new ApiFehler(400, 'Bitte den letzten Tag wählen.');
+	return mitBetrieb(k, async (tx) => {
+		const zeilen = await tx`
+			select id, auftrag_id, benutzer_id, beginn, ende, notiz, art, kolonne_id,
+				to_char(beginn at time zone 'Europe/Berlin', 'YYYY-MM-DD') as tag
+			from app.einsaetze where gruppe_id = ${gid} and betrieb_id = ${k.betriebId} order by beginn for update`;
+		if (zeilen.length === 0) throw new ApiFehler(404, 'Termin nicht gefunden.');
+		const ersterTag = zeilen[0].tag as string;
+		const letzterTag = zeilen.at(-1)!.tag as string;
+		if (bisTag < ersterTag) throw new ApiFehler(400, 'Der letzte Tag liegt vor dem ersten.');
+		if (Date.parse(`${bisTag}T00:00:00Z`) - Date.parse(`${ersterTag}T00:00:00Z`) > (MAX_GRUPPEN_TAGE - 1) * 86_400_000) {
+			throw new ApiFehler(400, `Ein Termin darf höchstens ${MAX_GRUPPEN_TAGE} Tage lang sein.`);
+		}
+		if (bisTag < letzterTag) {
+			await tx`
+				delete from app.einsaetze where gruppe_id = ${gid} and betrieb_id = ${k.betriebId}
+					and (beginn at time zone 'Europe/Berlin')::date > ${bisTag}::date`;
+		} else if (bisTag > letzterTag) {
+			const mitWochenende = zeilen.some((z) => [0, 6].includes(new Date(`${z.tag}T12:00:00Z`).getUTCDay()));
+			const vorlage = zeilen.filter((z) => z.tag === letzterTag);
+			for (const tag of gruppenTage(tagPlus(letzterTag, 1), bisTag, !mitWochenende)) {
+				for (const v of vorlage) {
+					const b = new Date(v.beginn);
+					const en = new Date(v.ende);
+					const neu = verschiebeAufTag(b, en, tag);
+					await tx`
+						insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art, gruppe_id, kolonne_id)
+						values (${k.betriebId}, ${v.auftrag_id}, ${v.benutzer_id}, ${neu.beginn}, ${neu.ende}, ${v.notiz}, ${v.art}, ${gid}, ${v.kolonne_id})`;
+				}
+			}
+		}
+		return ladeGruppe(tx, k, gid);
+	});
+}
+
+export async function loescheGruppe(k: Kontext, id: unknown): Promise<number> {
+	const gid = gruppenId(id);
+	return mitBetrieb(k, async (tx) => {
+		const z = await tx`delete from app.einsaetze where gruppe_id = ${gid} and betrieb_id = ${k.betriebId} returning id`;
+		if (z.length === 0) throw new ApiFehler(404, 'Termin nicht gefunden.');
+		return z.length;
 	});
 }
 

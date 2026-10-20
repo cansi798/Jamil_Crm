@@ -53,6 +53,19 @@ describe('Sprache: neue Aktionen (Ersatz-KI)', () => {
 		expect(await deute('Welche To-dos sind überfällig?')).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'heute', nur_ueberfaellig: true } });
 	});
 
+	it('Kolonnen und mehrtägige Termine', async () => {
+		expect(await deute('Plane Kolonne A bei Müller von Montag bis Mittwoch ein')).toEqual({
+			aktion: 'einsatz_anlegen',
+			daten: { bis: { tag: 'wochentag', wochentag: 'mittwoch' }, start: { tag: 'wochentag', wochentag: 'montag' }, mitarbeiter: ['Kolonne A'], auftrag: 'Müller' }
+		});
+		expect(await deute('Termin bei Müller mit Ali ab Montag 8 Uhr bis Freitag')).toMatchObject({
+			aktion: 'einsatz_anlegen',
+			daten: { bis: { tag: 'wochentag', wochentag: 'freitag' }, start: { tag: 'wochentag', wochentag: 'montag', uhrzeit: '08:00' }, mitarbeiter: ['Ali'] }
+		});
+		expect(await deute('Weise Kolonne A dem Auftrag Müller zu')).toEqual({ aktion: 'mitarbeiter_zuweisen', daten: { auftrag: 'Müller', mitarbeiter: ['Kolonne A'] } });
+		expect(await deute('Was hat Kolonne A diese Woche?')).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'woche', wer: 'Kolonne A' } });
+	});
+
 	it('Schemas: Status nur aus der Liste, Anlage-Typ geprüft', () => {
 		expect(() => pruefeAktion({ aktion: 'status_aendern', daten: { auftrag: 'x', status: 'fertig' } })).toThrow();
 		expect(() => pruefeAktion({ aktion: 'anlage_anlegen', daten: { kunde: { name: 'x' }, typ: 'atom' } })).toThrow();

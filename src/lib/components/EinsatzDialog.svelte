@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { ausTagUndUhrzeit, berlinTag, berlinUhrzeit, tagPlus } from '$lib/zeit';
 
 	type Einsatz = {
@@ -12,6 +13,8 @@
 		beginn: string;
 		ende: string;
 		notiz: string | null;
+		gruppe?: { id: string; vonTag: string; bisTag: string } | null;
+		kolonne?: { id: string; name: string } | null;
 	};
 	type AuftragKurz = { id: string; nummer: string; titel: string; kundeName: string };
 
@@ -27,13 +30,16 @@
 		vorbelegung = null,
 		mitarbeiter,
 		auftraege,
+		kolonnen = [],
 		onfertig,
 		onschliessen
 	}: {
 		einsatz?: Einsatz | null;
-		vorbelegung?: { tag: string; benutzerId: string } | null;
+		vorbelegung?: { tag: string; benutzerId: string; kolonneId?: string } | null;
 		mitarbeiter: { id: string; name: string }[];
 		auftraege: AuftragKurz[];
+		/** Kolonnen zur Auswahl „Wer“ (Wunsch Jamil msg 2510). */
+		kolonnen?: { id: string; name: string; mitglieder: { id: string; name: string }[] }[];
 		onfertig: (ergebnis: { aktion: 'angelegt' | 'geaendert' | 'geloescht'; einsatz: any }) => void;
 		onschliessen: () => void;
 	} = $props();
@@ -72,6 +78,14 @@
 	let von = $state(start.von);
 	let bis = $state(start.bis);
 	let notiz = $state(start.notiz);
+	// Mehrtägig / Kolonne (msgs 2510, 2513) – nur beim Anlegen
+	let wer = $state<'person' | 'kolonne'>(untrack(() => (vorbelegung?.kolonneId ? 'kolonne' : 'person')));
+	let kolonneId = $state(untrack(() => vorbelegung?.kolonneId ?? kolonnen[0]?.id ?? ''));
+	let bisTag = $state(start.tag);
+	let ohneWochenende = $state(true);
+	// Bestehende Gruppe: letzten Tag ändern
+	let gruppenEnde = $state(untrack(() => einsatz?.gruppe?.bisTag ?? ''));
+	const alsGruppe = $derived(!einsatz && (wer === 'kolonne' || (bisTag !== '' && bisTag > tag)));
 
 	let gefunden = $state<AuftragKurz[] | null>(null);
 	let suchFehler = $state<string | null>(null);
@@ -151,6 +165,22 @@
 		}
 		sendet = true;
 		try {
+			if (alsGruppe) {
+				if (folgetag) throw new Error('Mehrtägige Termine: „Bis“ muss am selben Tag nach „Von“ liegen.');
+				const g = await senden('POST', '/api/einsatz-gruppen', {
+					auftragId,
+					...(wer === 'kolonne' ? { kolonneId } : { benutzerIds: [benutzerId] }),
+					vonTag: tag,
+					bisTag: bisTag < tag ? tag : bisTag,
+					vonZeit: von,
+					bisZeit: bis,
+					notiz,
+					ohneWochenende
+				});
+				const alle = g.einsaetze as { warnungen: unknown[] }[];
+				onfertig({ aktion: 'angelegt', einsatz: { ...alle[0], warnungen: alle.flatMap((x) => x.warnungen) } });
+				return;
+			}
 			const koerper = { auftragId, benutzerId, ...zeiten, notiz };
 			const ergebnis = einsatz
 				? await senden('PATCH', `/api/einsaetze/${einsatz.id}`, koerper)
@@ -158,6 +188,25 @@
 			onfertig({ aktion: einsatz ? 'geaendert' : 'angelegt', einsatz: ergebnis });
 		} catch (e) {
 			fehler = e instanceof Error ? e.message : 'Speichern hat nicht geklappt.';
+		} finally {
+			sendet = false;
+		}
+	}
+
+	async function gruppeAendern(art: 'ende' | 'loeschen') {
+		if (!einsatz?.gruppe) return;
+		fehler = null;
+		sendet = true;
+		try {
+			if (art === 'loeschen') {
+				await senden('DELETE', `/api/einsatz-gruppen/${einsatz.gruppe.id}`);
+				onfertig({ aktion: 'geloescht', einsatz });
+			} else {
+				const liste = await senden('PATCH', `/api/einsatz-gruppen/${einsatz.gruppe.id}`, { bisTag: gruppenEnde });
+				onfertig({ aktion: 'geaendert', einsatz: { ...liste[0], warnungen: liste.flatMap((x: { warnungen: unknown[] }) => x.warnungen) } });
+			}
+		} catch (e) {
+			fehler = e instanceof Error ? e.message : 'Hat nicht geklappt.';
 		} finally {
 			sendet = false;
 		}
@@ -211,26 +260,68 @@
 			</label>
 		{/if}
 
+		{#if einsatz?.gruppe}
+			<div class="pt-gruppe" role="note">
+				<p>
+					{einsatz.kolonne ? `${einsatz.kolonne.name} · ` : ''}Termin {einsatz.gruppe.vonTag === einsatz.gruppe.bisTag ? 'am' : 'über mehrere Tage'}:
+					{einsatz.gruppe.vonTag.split('-').reverse().join('.')}{einsatz.gruppe.bisTag !== einsatz.gruppe.vonTag ? ` – ${einsatz.gruppe.bisTag.split('-').reverse().join('.')}` : ''}.
+					Unten änderst du nur diesen Tag dieser Person.
+				</p>
+				<div class="kd-zwei">
+					<label>Letzter Tag <input type="date" bind:value={gruppenEnde} min={einsatz.gruppe.vonTag} /></label>
+					<button type="button" class="kd-knopf hell" disabled={sendet || !gruppenEnde} onclick={() => gruppeAendern('ende')}>Termin bis dahin</button>
+				</div>
+				<button type="button" class="kd-knopf gefahr" disabled={sendet} onclick={() => gruppeAendern('loeschen')}>Ganzen Termin löschen</button>
+			</div>
+		{/if}
+
 		<fieldset>
 			<legend>{einsatz ? 'Verschieben' : 'Wer und wann'}</legend>
 			<div class="kd-formular">
-				<label>
-					Mitarbeiter
-					<select bind:value={benutzerId} required>
-						{#each auswahlMitarbeiter as m (m.id)}
-							<option value={m.id}>{m.name}</option>
-						{/each}
-					</select>
-				</label>
-				<label>
-					Tag
-					<input type="date" bind:value={tag} required />
-				</label>
+				{#if !einsatz && kolonnen.length > 0}
+					<div class="pt-wer" role="radiogroup" aria-label="Wer">
+						<label class="kd-haken"><input type="radio" bind:group={wer} value="person" /><span>Mitarbeiter</span></label>
+						<label class="kd-haken"><input type="radio" bind:group={wer} value="kolonne" /><span>Kolonne</span></label>
+					</div>
+				{/if}
+				{#if wer === 'kolonne' && !einsatz}
+					<label>
+						Kolonne
+						<select bind:value={kolonneId} required>
+							{#each kolonnen as ko (ko.id)}<option value={ko.id}>{ko.name} ({ko.mitglieder.map((m) => m.name.split(' ')[0]).join(', ')})</option>{/each}
+						</select>
+					</label>
+				{:else}
+					<label>
+						Mitarbeiter
+						<select bind:value={benutzerId} required>
+							{#each auswahlMitarbeiter as m (m.id)}
+								<option value={m.id}>{m.name}</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
+				<div class={einsatz ? '' : 'kd-zwei'}>
+					<label>
+						{einsatz ? 'Tag' : 'Erster Tag'}
+						<input type="date" bind:value={tag} required onchange={() => { if (!einsatz && bisTag < tag) bisTag = tag; }} />
+					</label>
+					{#if !einsatz}
+						<label>
+							Letzter Tag (mehrtägig)
+							<input type="date" bind:value={bisTag} min={tag} />
+						</label>
+					{/if}
+				</div>
+				{#if alsGruppe && bisTag > tag}
+					<label class="kd-haken"><input type="checkbox" bind:checked={ohneWochenende} /><span>Samstag und Sonntag auslassen</span></label>
+				{/if}
 				<div class="kd-zwei">
 					<label>Von <input type="time" bind:value={von} required /></label>
 					<label>Bis <input type="time" bind:value={bis} required /></label>
 				</div>
-				{#if folgetag}<p class="kd-info">Der Einsatz endet am Folgetag.</p>{/if}
+				{#if folgetag && !alsGruppe}<p class="kd-info">Der Einsatz endet am Folgetag.</p>{/if}
+				{#if alsGruppe}<p class="kd-info">Arbeitszeit gilt für jeden Tag{wer === 'kolonne' ? ' und jedes Mitglied der Kolonne' : ''}.</p>{/if}
 			</div>
 		</fieldset>
 
@@ -272,6 +363,20 @@
 		padding: 0.5rem 0.75rem 0.75rem;
 		margin: 0;
 		min-width: 0;
+	}
+	.pt-gruppe {
+		display: grid;
+		gap: 0.5rem;
+		padding: 0.6rem 0.75rem;
+		border-radius: 0.5rem;
+		background: #eef3fa;
+	}
+	.pt-gruppe p {
+		margin: 0;
+	}
+	.pt-wer {
+		display: flex;
+		gap: 1rem;
 	}
 	.pt-dialog select[size] {
 		min-height: 6rem;

@@ -12,6 +12,8 @@
 		ende: string;
 		notiz: string | null;
 		warnungen: Warnung[];
+		gruppe?: { id: string; vonTag: string; bisTag: string } | null;
+		kolonne?: { id: string; name: string } | null;
 	};
 </script>
 
@@ -33,8 +35,11 @@
 		einsaetze,
 		abwesenheiten,
 		darfPlanen,
+		kolonnen = [],
 		onverschieben,
+		onverlaengern = () => {},
 		onzelle,
+		onkolonne = () => {},
 		oneinsatz
 	}: {
 		tage: string[];
@@ -43,8 +48,14 @@
 		einsaetze: Einsatz[];
 		abwesenheiten: Abwesenheit[];
 		darfPlanen: boolean;
+		/** Kolonnen als eigene Zeilen oben (Wunsch Jamil msg 2510). */
+		kolonnen?: { id: string; name: string; mitglieder: { id: string; name: string }[] }[];
 		onverschieben: (e: Einsatz, tag: string, benutzerId: string) => void;
+		/** Ende eines mehrtägigen Termins auf einen anderen Tag ziehen. */
+		onverlaengern?: (e: Einsatz, bisTag: string) => void;
 		onzelle: (tag: string, benutzerId: string) => void;
+		/** „+“ in einer Kolonnen-Zeile. */
+		onkolonne?: (tag: string, kolonneId: string) => void;
 		oneinsatz: (e: Einsatz) => void;
 	} = $props();
 
@@ -58,16 +69,25 @@
 	const kartenLabel = (e: Einsatz) =>
 		[`${zeit(e)}, ${e.auftragNummer}, ${e.kundeName}, ${e.benutzerName}`, warnText(e)].filter(Boolean).join(' – ');
 
-	/** Einsätze je „Mitarbeiter|Tag“. */
+	/** Einsätze je „Mitarbeiter|Tag“; Kolonnen-Einsätze zusätzlich je „ko:Kolonne|Tag“ (einer je Gruppe). */
 	const zellen = $derived.by(() => {
 		const m = new Map<string, Einsatz[]>();
+		const fuege = (schluessel: string, e: Einsatz) => m.set(schluessel, [...(m.get(schluessel) ?? []), e]);
 		for (const e of einsaetze) {
-			const schluessel = `${e.benutzerId}|${tagVon(e)}`;
-			m.set(schluessel, [...(m.get(schluessel) ?? []), e]);
+			fuege(`${e.benutzerId}|${tagVon(e)}`, e);
+			if (e.kolonne) {
+				const s = `ko:${e.kolonne.id}|${tagVon(e)}`;
+				if (!(m.get(s) ?? []).some((x) => x.gruppe?.id === e.gruppe?.id)) fuege(s, e);
+			}
 		}
 		return m;
 	});
 	const inZelle = (benutzerId: string, tag: string) => zellen.get(`${benutzerId}|${tag}`) ?? [];
+	/** Teil eines mehrtägigen Balkens: Anfang, Mitte oder Ende (null = eintägig). */
+	const segment = (e: Einsatz, tag: string) =>
+		!e.gruppe || e.gruppe.vonTag === e.gruppe.bisTag ? null : tag === e.gruppe.vonTag ? 'anfang' : tag === e.gruppe.bisTag ? 'ende' : 'mitte';
+	const personenImTermin = (e: Einsatz, tag: string) =>
+		einsaetze.filter((x) => x.gruppe?.id === e.gruppe?.id && tagVon(x) === tag).length;
 	const abwesenheitAm = (benutzerId: string, tag: string) =>
 		abwesenheiten.find((a) => a.benutzerId === benutzerId && a.von <= tag && a.bis >= tag) ?? null;
 
@@ -83,6 +103,8 @@
 		breite: number;
 		aktiv: boolean;
 		ziel: { tag: string; benutzerId: string } | null;
+		/** ziehen = verschieben, ende = mehrtägigen Termin verlängern/kürzen */
+		modus: 'ziehen' | 'ende';
 	};
 	let zug = $state<Zug | null>(null);
 	let klickSperre = false;
@@ -92,8 +114,9 @@
 		return el?.dataset.tag && el.dataset.benutzer ? { tag: el.dataset.tag, benutzerId: el.dataset.benutzer } : null;
 	}
 
-	function runter(ev: PointerEvent, e: Einsatz) {
+	function runter(ev: PointerEvent, e: Einsatz, modus: 'ziehen' | 'ende' = 'ziehen') {
 		if (!darfPlanen || !ev.isPrimary || ev.button !== 0) return;
+		ev.stopPropagation();
 		const el = ev.currentTarget as HTMLElement;
 		const r = el.getBoundingClientRect();
 		zug = {
@@ -106,7 +129,8 @@
 			dy: ev.clientY - r.top,
 			breite: r.width,
 			aktiv: false,
-			ziel: null
+			ziel: null,
+			modus
 		};
 		el.setPointerCapture(ev.pointerId);
 	}
@@ -129,6 +153,10 @@
 		klickSperre = true; // der folgende click gehört zum Ziehen, nicht zum Öffnen
 		setTimeout(() => (klickSperre = false), 0);
 		const ziel = zelleBei(ev.clientX, ev.clientY);
+		if (z.modus === 'ende') {
+			if (ziel && z.einsatz.gruppe && ziel.tag !== z.einsatz.gruppe.bisTag) onverlaengern(z.einsatz, ziel.tag);
+			return;
+		}
 		if (ziel && (ziel.tag !== tagVon(z.einsatz) || ziel.benutzerId !== z.einsatz.benutzerId)) {
 			onverschieben(z.einsatz, ziel.tag, ziel.benutzerId);
 		}
@@ -160,11 +188,20 @@
 	});
 </script>
 
-{#snippet karte(e: Einsatz, ziehbar: boolean)}
-	{#if darfPlanen}
+{#snippet karte(e: Einsatz, ziehbar: boolean, tag: string = tagVon(e), lane = false)}
+	{@const seg = segment(e, tag)}
+	{#if e.kolonne && !lane}
+		<!-- Kolonnen-Einsatz in der Zeile des Mitglieds: kleiner Hinweis, gezogen wird in der Kolonnen-Zeile -->
+		<button type="button" class="pt-ko-chip" class:warn={e.warnungen.length > 0} aria-label={`${e.kolonne.name}: ${kartenLabel(e)}`} onclick={() => klick(e)}>
+			{e.kolonne.name} · {zeit(e)}
+		</button>
+	{:else if darfPlanen}
+		<div class="pt-karte-huelle" class:seg-anfang={seg === 'anfang'} class:seg-mitte={seg === 'mitte'} class:seg-ende={seg === 'ende'}>
 		<button
 			type="button"
 			class="pt-karte"
+			class:gruppe={!!seg}
+			class:ko={lane}
 			class:warn={e.warnungen.length > 0}
 			class:gezogen={zug?.aktiv && zug.einsatz.id === e.id}
 			class:ziehbar
@@ -177,10 +214,23 @@
 			onpointercancel={ziehbar ? abbrechen : undefined}
 			onclick={() => klick(e)}
 		>
-			<span class="pt-zeit">{zeit(e)}{#if e.warnungen.length > 0}<span class="pt-warnzeichen" aria-hidden="true"> ⚠</span>{/if}</span>
-			<span class="pt-nr">{e.auftragNummer}</span>
+			<span class="pt-zeit">{seg && seg !== 'anfang' ? '↳ ' : ''}{zeit(e)}{#if e.warnungen.length > 0}<span class="pt-warnzeichen" aria-hidden="true"> ⚠</span>{/if}</span>
+			<span class="pt-nr">{e.auftragNummer}{lane ? ` · ${personenImTermin(e, tag)} Pers.` : ''}</span>
 			<span class="pt-kunde">{e.kundeName}</span>
 		</button>
+		{#if ziehbar && seg === 'ende'}
+			<button
+				type="button"
+				class="pt-griff"
+				aria-label={`Termin ${e.auftragNummer} verlängern oder kürzen (Ende ziehen)`}
+				title="Ende ziehen: verlängern oder kürzen"
+				onpointerdown={(ev) => runter(ev, e, 'ende')}
+				onpointermove={bewegen}
+				onpointerup={hoch}
+				onpointercancel={abbrechen}>⇥</button
+			>
+		{/if}
+		</div>
 	{:else}
 		<a
 			href={`/auftraege/${e.auftragId}`}
@@ -210,6 +260,23 @@
 			</tr>
 		</thead>
 		<tbody>
+			{#each kolonnen as ko (ko.id)}
+				<tr class="pt-ko-zeile">
+					<th scope="row" class="pt-name">
+						{ko.name}<small>{ko.mitglieder.map((m) => m.name.split(' ')[0]).join(', ')}</small>
+					</th>
+					{#each tage as t (t)}
+						<td class="pt-zelle" class:heute={t === heute} data-zelle data-tag={t} data-benutzer={`ko:${ko.id}`}>
+							{#each inZelle(`ko:${ko.id}`, t) as e (e.id)}
+								{@render karte(e, true, t, true)}
+							{/each}
+							{#if darfPlanen}
+								<button type="button" class="pt-plus" aria-label={`${ko.name} am ${tagKurz(t)} einplanen`} onclick={() => onkolonne(t, ko.id)}>+</button>
+							{/if}
+						</td>
+					{/each}
+				</tr>
+			{/each}
 			{#each mitarbeiter as m (m.id)}
 				<tr>
 					<th scope="row" class="pt-name" class:inaktiv={!m.aktiv}>
@@ -228,7 +295,7 @@
 						>
 							{#if abw}<span class="pt-abw">{ABW_NAMEN[abw.art]}</span>{/if}
 							{#each inZelle(m.id, t) as e (e.id)}
-								{@render karte(e, true)}
+								{@render karte(e, true, t)}
 							{/each}
 							{#if darfPlanen && m.aktiv}
 								<button
@@ -281,6 +348,20 @@
 	</ul>
 	<h2 class="pt-tagtitel">{tagKurz(tagMobil)}{tagMobil === heute ? ' – heute' : ''}</h2>
 	<ul class="pt-personen">
+		{#each kolonnen as ko (ko.id)}
+			{@const liste = inZelle(`ko:${ko.id}`, tagMobil)}
+			<li class="pt-person pt-ko-zeile">
+				<div class="pt-person-kopf"><strong>{ko.name}</strong><small>{ko.mitglieder.map((m) => m.name.split(' ')[0]).join(', ')}</small></div>
+				{#each liste as e (e.id)}
+					{@render karte(e, false, tagMobil, true)}
+				{:else}
+					<span class="pt-frei">frei</span>
+				{/each}
+				{#if darfPlanen}
+					<button type="button" class="pt-plus-mobil" onclick={() => onkolonne(tagMobil, ko.id)}>+ {ko.name} einplanen</button>
+				{/if}
+			</li>
+		{/each}
 		{#each mitarbeiter as m (m.id)}
 			{@const abw = abwesenheitAm(m.id, tagMobil)}
 			{@const liste = inZelle(m.id, tagMobil)}
@@ -290,7 +371,7 @@
 					{#if abw}<span class="pt-abw">{ABW_NAMEN[abw.art]}</span>{/if}
 				</div>
 				{#each liste as e (e.id)}
-					{@render karte(e, false)}
+					{@render karte(e, false, tagMobil)}
 				{:else}
 					<span class="pt-frei">frei</span>
 				{/each}
@@ -332,6 +413,76 @@
 		text-align: left;
 		text-decoration: none;
 		cursor: pointer;
+	}
+	.pt-karte-huelle {
+		position: relative;
+	}
+	/* mehrtägiger Termin: ein durchgehender Balken über die Tage */
+	.pt-karte.gruppe {
+		background: #dfe9f7;
+		border-color: #7d9cc4;
+	}
+	.seg-anfang .pt-karte {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+		margin-right: -0.3rem;
+		width: calc(100% + 0.3rem);
+	}
+	.seg-mitte .pt-karte {
+		border-radius: 0;
+		border-left-width: 1px;
+		margin-left: -0.3rem;
+		margin-right: -0.3rem;
+		width: calc(100% + 0.6rem);
+	}
+	.seg-ende .pt-karte {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+		border-left-width: 1px;
+		margin-left: -0.3rem;
+		width: calc(100% + 0.3rem);
+	}
+	.pt-karte.ko {
+		border-left-color: #6b4fbb;
+		background: #efeafb;
+	}
+	.pt-griff {
+		position: absolute;
+		top: 0;
+		right: -0.3rem;
+		width: 1.4rem;
+		height: calc(100% - 0.25rem);
+		border: 0;
+		border-radius: 0 0.35rem 0.35rem 0;
+		background: #7d9cc4;
+		color: #fff;
+		font-size: 0.75rem;
+		cursor: ew-resize;
+		touch-action: none;
+	}
+	.pt-ko-chip {
+		display: block;
+		width: 100%;
+		margin: 0 0 0.25rem;
+		padding: 0.15rem 0.35rem;
+		border: 1px dashed #6b4fbb;
+		border-radius: 0.3rem;
+		background: #f7f4fd;
+		color: #4b3590;
+		font: inherit;
+		font-size: 0.72rem;
+		text-align: left;
+		cursor: pointer;
+	}
+	.pt-ko-chip.warn {
+		border-color: #d9a400;
+	}
+	.pt-ko-zeile .pt-name small,
+	.pt-ko-zeile .pt-person-kopf small {
+		display: block;
+		font-weight: 400;
+		color: var(--text-leise);
+		font-size: 0.72rem;
 	}
 	.pt-karte.ziehbar {
 		touch-action: none;

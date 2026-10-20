@@ -79,7 +79,7 @@ export type AnlageDaten = {
 };
 export type NachfassenDaten = { angebot: string; fortsetzen?: boolean };
 export type TagesplanDaten = { wer?: string; zeitraum: 'heute' | 'morgen' | 'woche' | 'datum'; datum?: string; nur_ueberfaellig?: boolean };
-export type EinsatzDaten = { auftrag: string; mitarbeiter: string[]; start: Zeitangabe; ende_uhrzeit?: string; notiz?: string };
+export type EinsatzDaten = { auftrag: string; mitarbeiter: string[]; start: Zeitangabe; ende_uhrzeit?: string; notiz?: string; bis?: Zeitangabe };
 export type VerschiebenDaten = { mitarbeiter?: string; auftrag?: string; von?: Zeitangabe; nach: Zeitangabe };
 export type AngebotDaten = { auftrag: string; stichworte: string };
 export type ProtokollDaten = {
@@ -204,10 +204,11 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		type: 'object',
 		properties: {
 			auftrag: text(200, 'Kunde oder Auftrag, bei dem der Termin ist'),
-			mitarbeiter: { type: 'array', items: text(100, 'Vorname des Mitarbeiters'), minItems: 1, maxItems: 10 },
+			mitarbeiter: { type: 'array', items: text(100, 'Vorname des Mitarbeiters oder Kolonne (z. B. „Kolonne A“)'), minItems: 1, maxItems: 10 },
 			start: ZEIT,
 			ende_uhrzeit: UHRZEIT,
-			notiz: text(500, 'Notiz zum Termin')
+			notiz: text(500, 'Notiz zum Termin'),
+			bis: { ...ZEIT, description: 'Letzter Tag bei mehrtägigen Terminen („von Montag bis Mittwoch“, „bis Freitag“) – sonst weglassen' }
 		},
 		required: ['auftrag', 'mitarbeiter', 'start'],
 		additionalProperties: false
@@ -443,6 +444,7 @@ export function pruefeAktion(x: unknown): KiAktion {
 	pruefeZeit(daten.faellig, 'daten.faellig');
 	pruefeZeit(daten.von, 'daten.von');
 	pruefeZeit(daten.nach, 'daten.nach');
+	pruefeZeit(daten.bis, 'daten.bis');
 	return { aktion: x.aktion, daten } as KiAktion;
 }
 

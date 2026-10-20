@@ -43,6 +43,8 @@ function systemAktion(k: KiKontext): string {
 		'- „Hake das To-do X ab“ / „X ist erledigt“: todo_abhaken.',
 		'- „Neue Wärmepumpe/Anlage bei Müller, Hersteller …, Wartung jährlich“: anlage_anlegen (typ: waermepumpe, solar, heizung, klima, lueftung, wallbox, gasspeicher, sonstige).',
 		'- „Nachfassen für Angebot … pausieren/fortsetzen“: nachfassen_pausieren.',
+		'- Kolonnen („Kolonne A“) stehen bei mitarbeiter wie ein Name, auch bei mitarbeiter_zuweisen und als wer bei abfrage_tagesplan.',
+		'- Mehrtägige Termine („von Montag bis Mittwoch“, „bis Freitag“): einsatz_anlegen mit start (erster Tag) und bis (letzter Tag).',
 		'- Fragen wie „Was steht heute für mich an?“, „Was hat Sabine morgen?“, „Was habe ich diese Woche?“, „Welche To-dos sind überfällig?“:',
 		'  abfrage_tagesplan (wer leer = ich; zeitraum heute|morgen|woche|datum; nur_ueberfaellig=true bei überfällig).',
 		'- Wenn keine Aktion passt (andere Fragen, Rechnungen, Löschen, …), rufe unbekannt auf.'

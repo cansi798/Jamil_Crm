@@ -8,6 +8,7 @@ import { FakeKi } from '../../src/lib/server/ki/fake';
 import { legeAngebotAn, setzeAngebotStatus, speicherePositionen } from '../../src/lib/server/angebote';
 import { legeTodoAn } from '../../src/lib/server/todos';
 import { berlinTag } from '../../src/lib/zeit';
+import { speichereKolonne } from '../../src/lib/server/kolonnen';
 import { antwort, baueUmgebung, jsonAnfrage, leereAngebote, type Umgebung } from './hilfe-1c';
 
 /** Neue Sprachaktionen (Jamil msgs 2645/2647): Vorschlag → Bestätigung → Ausführen; Frage ohne Bestätigung. */
@@ -83,6 +84,23 @@ describe('Sprache – neue Aktionen', () => {
 		expect((await root`select nachfassen_pausiert from app.angebote where id = ${a.id}`)[0].nachfassen_pausiert).toBe(true);
 		await sagUndBestaetige(u.chefA, 'Nachfassen bei Müller wieder fortsetzen');
 		expect((await root`select nachfassen_pausiert from app.angebote where id = ${a.id}`)[0].nachfassen_pausiert).toBe(false);
+	});
+
+	it('Kolonne: mehrtägig einplanen, dem Auftrag zuweisen, Plan der Kolonne abfragen', async () => {
+		await root`delete from app.einsaetze`;
+		await root`delete from app.kolonnen`;
+		await speichereKolonne(kA(), null, { name: 'Kolonne A', mitglieder: [u.ids.monteurA, u.ids.bueroA] });
+		const r = await sagUndBestaetige(u.chefA, 'Plane Kolonne A bei Müller von Montag bis Mittwoch ein');
+		expect(r.meldung).toBe('Termin an 3 Tagen eingeplant (6 Einsätze)');
+		expect((await root`select count(distinct gruppe_id)::int as n from app.einsaetze`)[0].n).toBe(1);
+		await sagUndBestaetige(u.chefA, 'Weise Kolonne A dem Auftrag Badsanierung zu');
+		const z = await root`select benutzer_id from app.auftrag_zustaendige where auftrag_id = ${u.auftragA}`;
+		expect(z.map((x) => x.benutzer_id)).toEqual(expect.arrayContaining([u.ids.monteurA, u.ids.bueroA]));
+		const plan = await text(u.monteurA, 'Was hat Kolonne A diese Woche?');
+		expect(plan.koerper.karte.fehler).toBeNull();
+		expect(plan.koerper.karte.titel).toBe('Tagesplan diese Woche – Kolonne A');
+		const fremd = await text(u.nurAngeboteA, 'Was hat Kolonne A diese Woche?'); // kein Mitglied, ohne „Alle To-dos ansehen“
+		expect(fremd.koerper.karte.fehler ?? '').toMatch(/eigenen Tagesplan|Berechtigung/);
 	});
 
 	it('Frage „Was steht heute an?“: Antwort ohne Bestätigung; Monteur nur über sich selbst', async () => {
