@@ -55,8 +55,8 @@ function zeichne(doc: PDFKit.PDFDocument, e: Etikett, qr: Buffer, d: EtikettenDa
 	}
 	const gross = h > mm(45) ? 10.5 : 8.5;
 	doc.font('fett').fontSize(gross).fillColor('#1c1f23');
-	doc.text(e.bezeichnung, tx, ty, { width: tb, height: gross * 2.5, ellipsis: true });
-	ty = Math.max(doc.y, ty + gross * 1.3) + mm(0.5);
+	doc.text(e.bezeichnung, tx, ty, { width: tb, height: gross * 2.75, ellipsis: true });
+	ty = Math.min(Math.max(doc.y, ty + gross * 1.3), ty + gross * 2.75) + mm(0.5);
 	doc.font('normal').fontSize(gross - 2.5).fillColor('#5b6168');
 	doc.text(e.typName, tx, ty, { width: tb, lineBreak: false, ellipsis: true });
 	ty += (gross - 2.5) * 1.35;
