@@ -30,7 +30,7 @@ test('Kalender: Monat mit Balken, Tag antippen, Filter-Chips, Ansichten; am PC v
 	await anmelden(page, BUERO);
 	// Testtermin: Mittwoch in zwei Wochen (bleibt im Monat oder im 6-Wochen-Raster des Monats, in dem er liegt)
 	const woche = await api(page, 'GET', '/api/plantafel');
-	const tag = tagPlus(woche.tage[0], 16);
+	const tag = tagPlus(woche.tage[0], info.project.name === 'mobil' ? 25 : 23);
 	const monteur = woche.mitarbeiter.find((m: { name: string }) => m.name === 'Murat Öztürk');
 	const [kunde] = await api(page, 'GET', '/api/kunden');
 	const titel = `E2E Kalender ${info.project.name} ${Date.now()}`;
@@ -50,7 +50,7 @@ test('Kalender: Monat mit Balken, Tag antippen, Filter-Chips, Ansichten; am PC v
 		await expect(balken).toBeVisible();
 
 		// Tag antippen → Liste mit dem Termin; Termin öffnet den Auftrag
-		await page.locator(`.kal-tag[data-tag="${tag}"]`).click();
+		await page.locator(`.kal-tag[data-tag="${tag}"] .kal-zahl`).click();
 		const liste = page.getByRole('region', { name: /^Termine / });
 		await expect(liste.getByRole('link', { name: new RegExp(titel) })).toHaveAttribute('href', `/auftraege/${auftrag.id}`);
 
