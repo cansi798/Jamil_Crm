@@ -183,7 +183,7 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 	// Aufträge und Kunden der Test-Buchungen wieder löschen
 	for (const url of [auftragUrl, auftrag3Url]) {
 		await page.goto(url);
-		const kundeUrl = new URL((await page.locator('.af-stamm a').first().getAttribute('href'))!, page.url()).href;
+		const kundeUrl = new URL((await page.locator('.af-kunde-kurz a').first().getAttribute('href'))!, page.url()).href;
 		await page.getByText('Auftrag löschen …').click();
 		await page.getByRole('button', { name: 'Endgültig löschen' }).click();
 		await expect(page).not.toHaveURL(url);
