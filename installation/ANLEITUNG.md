@@ -418,6 +418,9 @@ Wichtige Einträge:
 - `COMPOSE_PROFILES` – `https` (eigenes Zertifikat), `sprache` (Spracherkennung)
 - `CRM_KI_ANBIETER`, `CRM_MISTRAL_KEY` – KI-Funktionen (optional)
 - `CRM_SMTP_URL` – E-Mail-Versand (optional)
+- `KARTE_KACHEL_URL`, `KARTE_KONTAKT`, `KARTE_ATTRIBUTION` – Kartendienst der Auftragskarte. Standard ist
+  OpenStreetMap (für kleine Betriebe gedacht); bei vielen Nutzern einen eigenen Kachel-Server oder einen Anbieter
+  mit Schlüssel eintragen (Beispiel in `.env.beispiel`).
 - `CRM_SICHERUNG_TAGE` – wie lange Sicherungen aufbewahrt werden
 
 &nbsp;

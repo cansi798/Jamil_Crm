@@ -130,9 +130,13 @@
 			if (aus || !kartenEl) return;
 			L = mod.default ?? mod;
 			karte = L.map(kartenEl, { zoomControl: true }).setView([51.1, 10.4], 6);
-			L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			// Kacheln über den eigenen Server (msg 2689): kein Aufruf an Dritte aus dem Browser, OSM-Regeln eingehalten
+			L.tileLayer('/karte/kacheln/{z}/{x}/{y}.png', {
 				maxZoom: 19,
-				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+				// Quellenangabe bleibt sichtbar; anderer Dienst: Text aus KARTE_ATTRIBUTION (maskiert)
+				attribution: data.kachelHinweis
+					? data.kachelHinweis.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
+					: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende'
 			}).addTo(karte);
 			ebene = L.layerGroup().addTo(karte);
 			zeichnen();

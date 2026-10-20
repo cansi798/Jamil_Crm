@@ -26,7 +26,7 @@ const config = {
 				// Ausnahme meldet der Browser Verstöße und der Ansager wäre nicht mehr versteckt.
 				'style-src-attr': ['unsafe-inline'],
 				// data: für den QR-Code der Zwei-Faktor-Einrichtung; Kartenkacheln von OpenStreetMap (Auftragskarte)
-				'img-src': ['self', 'data:', 'https://tile.openstreetmap.org'],
+				'img-src': ['self', 'data:'],
 				'font-src': ['self'],
 				'connect-src': ['self'],
 				'manifest-src': ['self'],

@@ -11,6 +11,7 @@ import { hatModul } from '$lib/server/tarif';
 import { istStatus, type AuftragStatus } from '$lib/auftrag-status';
 import { berlinTag, istTag } from '$lib/zeit';
 import { UUID } from '$lib/server/kunden';
+import { kachelHinweis } from '$lib/server/kacheln';
 
 /**
  * Auftragskarte (Wunsch Jamil msg 2602): Aufträge als Punkte (Sichtbarkeit wie in der Auftragsliste), Filter in der
@@ -59,6 +60,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}
 	}
 	return {
+		kachelHinweis: kachelHinweis(),
 		auftraege: karte.auftraege.map((a) => ({
 			id: a.id,
 			nummer: a.nummer,

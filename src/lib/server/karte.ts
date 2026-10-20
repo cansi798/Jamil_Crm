@@ -1,4 +1,5 @@
 import { mitBetrieb, type Kontext } from './db';
+import { userAgent } from './kacheln';
 import { ApiFehler } from './fehler';
 import { AUSWAHL, VON, sichtbar, zuAuftrag, type Auftrag, type Sicht } from './auftraege';
 import { UUID } from './kunden';
@@ -30,7 +31,6 @@ export const normalAdresse = (a: string) => a.replace(/\s+/g, ' ').trim().slice(
 
 // ——— Geokodierung (Nominatim, 1 Anfrage/Sekunde) ———
 
-const USER_AGENT = 'waybuild-CRM/1.0 (+https://crm.waybuild-software.de; kontakt: info@waybuild.de)';
 const ABSTAND_MS = 1100;
 const MAX_VERSUCHE = 3;
 type Auftrag_ = { k: Kontext; adresse: string };
@@ -43,7 +43,7 @@ export const setzeGeokodierer = (f: typeof geokodierer) => (geokodierer = f);
 
 async function nominatim(adresse: string): Promise<{ lat: number; lng: number } | null> {
 	const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de,at,ch&accept-language=de&q=${encodeURIComponent(adresse)}`;
-	const r = await fetch(url, { headers: { 'user-agent': USER_AGENT, accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
+	const r = await fetch(url, { headers: { 'user-agent': userAgent(), accept: 'application/json' }, signal: AbortSignal.timeout(10_000) });
 	if (!r.ok) throw new Error(`Nominatim ${r.status}`);
 	const liste = (await r.json()) as { lat: string; lon: string }[];
 	if (!Array.isArray(liste) || liste.length === 0) return null;

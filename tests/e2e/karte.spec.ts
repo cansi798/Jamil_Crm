@@ -14,6 +14,15 @@ test('Karte: Kacheln laden, Aufträge in die Route, Reihenfolge, Google Maps', a
 	await expect(page.getByRole('heading', { name: 'Auftragskarte' })).toBeVisible();
 	await expect(page.locator('.leaflet-container')).toBeVisible();
 	await expect(page.locator('img.leaflet-tile').first()).toBeAttached({ timeout: 15_000 });
+	// Kacheln über den eigenen Server (msg 2689): 200 mit Bild, und mindestens eine Kachel ist wirklich geladen
+	const kachel = await page.evaluate(async () => {
+		const r = await fetch('/karte/kacheln/6/33/21.png');
+		return { status: r.status, art: r.headers.get('content-type') };
+	});
+	expect(kachel).toEqual({ status: 200, art: expect.stringMatching(/^image\//) });
+	await expect
+		.poll(() => page.evaluate(() => [...document.querySelectorAll<HTMLImageElement>('img.leaflet-tile')].some((i) => i.complete && i.naturalWidth > 0 && i.src.includes('/karte/kacheln/'))), { timeout: 15_000 })
+		.toBe(true);
 	const liste = page.getByRole('list', { name: 'Aufträge auf der Karte' });
 	const knoepfe = liste.getByRole('button', { name: 'Zur Route' });
 	expect(await knoepfe.count()).toBeGreaterThanOrEqual(2);

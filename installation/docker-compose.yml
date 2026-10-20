@@ -88,6 +88,9 @@ services:
       CRM_VAPID_OEFFENTLICH: ${CRM_VAPID_OEFFENTLICH:-}
       CRM_VAPID_PRIVAT: ${CRM_VAPID_PRIVAT:-}
       CRM_VAPID_KONTAKT: ${CRM_VAPID_KONTAKT:-}
+      KARTE_KACHEL_URL: ${KARTE_KACHEL_URL:-}
+      KARTE_KONTAKT: ${KARTE_KONTAKT:-}
+      KARTE_ATTRIBUTION: ${KARTE_ATTRIBUTION:-}
     ports:
       # Standard: nur lokal erreichbar (Caddy leitet weiter). Ohne Caddy: CRM_APP_BIND=0.0.0.0 setzen.
       - "${CRM_APP_BIND:-127.0.0.1}:${CRM_APP_PORT:-3000}:3000"
