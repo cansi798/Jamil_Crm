@@ -80,7 +80,7 @@
 			<dt>Termin</dt>
 			<dd><strong>{b.dienst.name}</strong></dd>
 			<dt>Wann</dt>
-			<dd data-testid="termin-wann">{wann(b.beginn)} – {bis(b.ende)} Uhr</dd>
+			<dd data-testid="termin-wann">{wann(b.beginn).replace(/ Uhr$/, '')}–{bis(b.ende)} Uhr</dd>
 			<dt>Wo</dt>
 			<dd>{b.dienst.ortName}{b.ort ? ` · ${b.ort}` : ''}</dd>
 			<dt>Mit</dt>
