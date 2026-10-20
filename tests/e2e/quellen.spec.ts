@@ -9,7 +9,7 @@ test('Quellen: Einstellungen, Filter, Auswertung mit Tabelle und Diagramm', asyn
 	await expect(page).not.toHaveURL(/\/anmelden/);
 
 	await page.goto('/einstellungen/quellen');
-	await expect(page.getByRole('list', { name: 'Quellen' })).toContainText('Hornbach');
+	await expect(page.getByRole('list', { name: 'Quellen' }).getByRole('textbox', { name: 'Name Hornbach' })).toHaveValue('Hornbach');
 
 	await page.goto('/auftraege?ansicht=liste');
 	await page.getByRole('combobox', { name: 'Quelle' }).selectOption({ label: 'Hornbach' });
