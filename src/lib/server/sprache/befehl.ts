@@ -61,7 +61,7 @@ async function beantworteNachkalkulation(k: { betriebId: string; benutzerId: str
 		});
 	}
 	const a = treffer[0];
-	const nk = await nachkalkulationAuftrag(k, a.id);
+	const nk = await nachkalkulationAuftrag(k, a.id, sichtVon(nutzer));
 	const std = (h: number) => `${String(h).replace('.', ',')} Stunden`;
 	const AMPEL = { rot: 'Verlust', gelb: 'deckt gerade die Kosten', gruen: 'mit Gewinn' } as const;
 	const zeilen = [

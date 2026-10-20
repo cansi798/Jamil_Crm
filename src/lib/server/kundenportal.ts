@@ -1,9 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { mitBetrieb, type Kontext } from './db';
 import { ApiFehler } from './fehler';
-import { holeAuftrag } from './auftraege';
+import { holeAuftrag, sichtVon, type Sicht } from './auftraege';
 import { UUID } from './kunden';
-import { pruefeRecht } from './rechte';
+import { hatRecht, pruefeRecht } from './rechte';
 import { darf } from './tarif';
 import { istTag, tagesGrenzen } from '../zeit';
 
@@ -14,10 +14,20 @@ import { istTag, tagesGrenzen } from '../zeit';
  * wird nur der SHA-256 – den Link sieht man nur direkt nach dem Erzeugen.
  */
 
-export async function portalZugriff(locals: { nutzer: Nutzer | null }): Promise<Kontext> {
+/**
+ * Zugriff auf die Portal-Verwaltung: Kontext, die echte Auftrags-Sicht des Nutzers (wer nur eigene Aufträge sieht,
+ * verwaltet nur deren Portal) und ob er Angebote (Preise) freigeben darf („Angebote bearbeiten“ + „Preise sehen“).
+ */
+export type PortalZugriff = { k: Kontext; sicht: Sicht; preise: boolean };
+
+export async function portalZugriff(locals: { nutzer: Nutzer | null }): Promise<PortalZugriff> {
 	await darf(locals, 'kundenportal', 'auftraege.bearbeiten');
 	const n = locals.nutzer!;
-	return { betriebId: n.betriebId!, benutzerId: n.id };
+	return {
+		k: { betriebId: n.betriebId!, benutzerId: n.id },
+		sicht: sichtVon(n),
+		preise: hatRecht(n, 'preise.sehen') && hatRecht(n, 'angebote.bearbeiten')
+	};
 }
 
 export async function portalEinstellungsZugriff(locals: { nutzer: Nutzer | null }): Promise<Kontext> {
@@ -45,13 +55,14 @@ export type PortalStand = {
 const iso = (d: unknown) => (d ? new Date(d as string).toISOString() : null);
 const STANDARD_FREIGABE: PortalFreigabe = { status: true, termine: true, mitarbeiter: true, annahme: true };
 
-async function auftragPruefen(k: Kontext, auftragId: unknown): Promise<string> {
+async function auftragPruefen(z: { k: Kontext; sicht: Sicht }, auftragId: unknown): Promise<string> {
 	if (typeof auftragId !== 'string' || !UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
-	return (await holeAuftrag(k, { alle: true, benutzerId: k.benutzerId }, auftragId)).id;
+	return (await holeAuftrag(z.k, z.sicht, auftragId)).id;
 }
 
-export async function portalStand(k: Kontext, auftragId: string, jetzt = new Date()): Promise<PortalStand> {
-	const id = await auftragPruefen(k, auftragId);
+export async function portalStand(z: PortalZugriff, auftragId: string, jetzt = new Date()): Promise<PortalStand> {
+	const { k } = z;
+	const id = await auftragPruefen(z, auftragId);
 	return mitBetrieb(k, async (tx) => {
 		const links = await tx`select * from app.portal_links where betrieb_id = ${k.betriebId} and auftrag_id = ${id} order by angelegt desc`;
 		const [f] = await tx`select status, termine, mitarbeiter, annahme from app.portal_auftrag where auftrag_id = ${id} and betrieb_id = ${k.betriebId}`;
@@ -59,7 +70,8 @@ export async function portalStand(k: Kontext, auftragId: string, jetzt = new Dat
 		const [e] = await tx`select ab_automatisch from app.portal_einstellungen where betrieb_id = ${k.betriebId}`;
 		const geteilt = await tx`select art, ref_id from app.portal_dokumente where auftrag_id = ${id} and betrieb_id = ${k.betriebId}`;
 		const ist = (art: string, ref: string) => geteilt.some((g) => g.art === art && g.ref_id === ref);
-		const angebote = await tx`select id, nummer, status from app.angebote where auftrag_id = ${id} and betrieb_id = ${k.betriebId} and status <> 'entwurf' order by angelegt`;
+		// Angebote (Preise) nur, wer sie freigeben darf
+		const angebote = z.preise ? await tx`select id, nummer, status from app.angebote where auftrag_id = ${id} and betrieb_id = ${k.betriebId} and status <> 'entwurf' order by angelegt` : [];
 		const dateien = await tx`select id, name, typ from app.dateien where auftrag_id = ${id} and betrieb_id = ${k.betriebId} order by angelegt desc limit 200`;
 		return {
 			links: links.map((l) => ({
@@ -85,8 +97,9 @@ export async function portalStand(k: Kontext, auftragId: string, jetzt = new Dat
  * nur hier zurückgegeben. Beim ersten Link wird die Standard-Freigabe angelegt; angenommene/versendete Angebote und das
  * Status/Termine-Paket sind dann direkt sichtbar (Chef kann alles abwählen).
  */
-export async function erzeugeLink(k: Kontext, auftragId: unknown, laeuftAb?: unknown): Promise<{ token: string; id: string }> {
-	const id = await auftragPruefen(k, auftragId);
+export async function erzeugeLink(z: PortalZugriff, auftragId: unknown, laeuftAb?: unknown): Promise<{ token: string; id: string }> {
+	const { k } = z;
+	const id = await auftragPruefen(z, auftragId);
 	let ablauf: Date | null = null;
 	if (laeuftAb !== undefined && laeuftAb !== null && laeuftAb !== '') {
 		if (!istTag(laeuftAb)) throw new ApiFehler(400, 'Ungültiges Ablaufdatum.');
@@ -101,27 +114,32 @@ export async function erzeugeLink(k: Kontext, auftragId: unknown, laeuftAb?: unk
 			insert into app.portal_links (betrieb_id, auftrag_id, token_hash, laeuft_ab, angelegt_von)
 			values (${k.betriebId}, ${id}, ${tokenHash(token)}, ${ablauf}, ${k.benutzerId}) returning id`;
 		await tx`insert into app.portal_auftrag (auftrag_id, betrieb_id) values (${id}, ${k.betriebId}) on conflict do nothing`;
-		await tx`
-			insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id)
-			select ${k.betriebId}, ${id}, 'angebot', an.id from app.angebote an
-			where an.auftrag_id = ${id} and an.betrieb_id = ${k.betriebId} and an.status in ('versendet', 'angenommen')
-			on conflict do nothing`;
+		// Angebote (mit Preisen) nur freigeben, wenn der Nutzer selbst Preise sehen und Angebote bearbeiten darf
+		if (z.preise) {
+			await tx`
+				insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id)
+				select ${k.betriebId}, ${id}, 'angebot', an.id from app.angebote an
+				where an.auftrag_id = ${id} and an.betrieb_id = ${k.betriebId} and an.status in ('versendet', 'angenommen')
+				on conflict do nothing`;
+		}
 		return l.id as string;
 	});
 	return { token, id: linkId };
 }
 
-export async function widerrufeLink(k: Kontext, auftragId: unknown, linkId: unknown): Promise<void> {
-	const id = await auftragPruefen(k, auftragId);
+export async function widerrufeLink(z: PortalZugriff, auftragId: unknown, linkId: unknown): Promise<void> {
+	const { k } = z;
+	const id = await auftragPruefen(z, auftragId);
 	if (typeof linkId !== 'string' || !UUID.test(linkId)) throw new ApiFehler(404, 'Link nicht gefunden.');
-	const z = await mitBetrieb(k, (tx) => tx`
+	const zeilen = await mitBetrieb(k, (tx) => tx`
 		update app.portal_links set widerrufen_am = now()
 		where id = ${linkId} and auftrag_id = ${id} and betrieb_id = ${k.betriebId} and widerrufen_am is null returning id`);
-	if (z.length === 0) throw new ApiFehler(404, 'Link nicht gefunden oder schon widerrufen.');
+	if (zeilen.length === 0) throw new ApiFehler(404, 'Link nicht gefunden oder schon widerrufen.');
 }
 
-export async function setzeFreigabe(k: Kontext, auftragId: unknown, f: Partial<Record<keyof PortalFreigabe, unknown>>): Promise<void> {
-	const id = await auftragPruefen(k, auftragId);
+export async function setzeFreigabe(z: PortalZugriff, auftragId: unknown, f: Partial<Record<keyof PortalFreigabe, unknown>>): Promise<void> {
+	const { k } = z;
+	const id = await auftragPruefen(z, auftragId);
 	const b = (w: unknown) => w === true || w === 'ja' || w === 'on';
 	await mitBetrieb(k, (tx) => tx`
 		insert into app.portal_auftrag (auftrag_id, betrieb_id, status, termine, mitarbeiter, annahme)
@@ -131,9 +149,11 @@ export async function setzeFreigabe(k: Kontext, auftragId: unknown, f: Partial<R
 }
 
 /** Dokument (Angebot oder Datei des Auftrags) fürs Portal freigeben bzw. zurücknehmen. */
-export async function setzeDokument(k: Kontext, auftragId: unknown, art: unknown, refId: unknown, geteilt: boolean): Promise<void> {
-	const id = await auftragPruefen(k, auftragId);
+export async function setzeDokument(z: PortalZugriff, auftragId: unknown, art: unknown, refId: unknown, geteilt: boolean): Promise<void> {
+	const { k } = z;
+	const id = await auftragPruefen(z, auftragId);
 	if (art !== 'angebot' && art !== 'datei') throw new ApiFehler(400, 'Unbekannte Art.');
+	if (art === 'angebot' && !z.preise) throw new ApiFehler(403, 'Keine Berechtigung');
 	if (typeof refId !== 'string' || !UUID.test(refId)) throw new ApiFehler(404, 'Dokument nicht gefunden.');
 	await mitBetrieb(k, async (tx) => {
 		const [da] = art === 'angebot'
@@ -149,9 +169,10 @@ export async function setzeDokument(k: Kontext, auftragId: unknown, art: unknown
 }
 
 /** Auftragsbestätigung automatisch je Auftrag: true/false oder null (= wie im Betrieb). */
-export async function setzeAbAutomatisch(k: Kontext, auftragId: unknown, wert: boolean | null): Promise<void> {
+export async function setzeAbAutomatisch(z: { k: Kontext; sicht: Sicht }, auftragId: unknown, wert: boolean | null): Promise<void> {
+	const { k } = z;
 	if (typeof auftragId !== 'string' || !UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
-	await holeAuftrag(k, { alle: true, benutzerId: k.benutzerId }, auftragId);
+	await holeAuftrag(k, z.sicht, auftragId);
 	await mitBetrieb(k, (tx) => tx`update app.auftraege set ab_automatisch = ${wert} where id = ${auftragId} and betrieb_id = ${k.betriebId}`);
 }
 

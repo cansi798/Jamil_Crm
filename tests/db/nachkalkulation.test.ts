@@ -62,7 +62,7 @@ describe('Nachkalkulation', () => {
 		await trageNach(m, { art: 'arbeit', tag: '2026-10-21', von: '07:00', bis: '14:00', auftragId: u.auftragA, grund: 'Test' });
 		await trageNach(m, { art: 'fahrt', tag: '2026-10-20', von: '06:00', bis: '07:00', auftragId: u.auftragA, km: '50', grund: 'Test' });
 		await materialHinzufuegen(await zeitZugriff({ nutzer: u.chefA }), u.auftragA, [{ bezeichnung: 'Kleber', einheit: 'Sack', menge: '4', preis: '60' }]);
-		const nk = await nachkalkulationAuftrag(kA(), u.auftragA);
+		const nk = await nachkalkulationAuftrag(kA(), u.auftragA, { alle: true, benutzerId: u.ids.chefA });
 		expect(nk.plan).toMatchObject({ stunden: 10, materialCent: 20_000, kostenCent: 70_000, erloesCent: 100_000, gewinnCent: 30_000 });
 		// Ist: 15 h × 50 = 750; Fahrt 1 h × 50 + 50 km × 0,40 = 70; Material 240 → 1.060 → −60 €
 		expect(nk.ist).toMatchObject({ stunden: 15, fahrtStunden: 1, km: 50, kmKostenCent: 2_000, fahrtkostenCent: 7_000, materialCent: 24_000, kostenCent: 106_000, gewinnCent: -6_000 });

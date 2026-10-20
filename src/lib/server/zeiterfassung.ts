@@ -280,7 +280,7 @@ async function letzterOrt(z: ZeitZugriff, jetzt: Date): Promise<string | null> {
 	if (l) {
 		if (l.art === 'fahrt' && l.ziel_adresse) return l.ziel_adresse;
 		try {
-			const a = await holeAuftrag(z.k, { alle: true, benutzerId: z.nutzer.id }, l.auftrag_id);
+			const a = await holeAuftrag(z.k, sichtVon(z.nutzer), l.auftrag_id);
 			if (a.adresse) return normalAdresse(a.adresse);
 		} catch {
 			/* Auftrag weg – dann Firma */

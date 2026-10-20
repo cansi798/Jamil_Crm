@@ -1,6 +1,6 @@
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
-import { holeAuftrag } from './auftraege';
+import { holeAuftrag, type Sicht } from './auftraege';
 import { ladeKalkulation } from './kalkulation';
 import { UUID } from './kunden';
 import { hatRecht, pruefeRecht } from './rechte';
@@ -126,9 +126,9 @@ async function rechne(k: Kontext, ids: string[], jetzt: Date) {
 }
 
 /** Nachkalkulation eines Auftrags (Plan/Ist/Ampel). */
-export async function nachkalkulationAuftrag(k: Kontext, auftragId: string, jetzt = new Date()): Promise<Nachkalkulation & { kmSatzCent: number | null; satz: Firmensatz | null }> {
+export async function nachkalkulationAuftrag(k: Kontext, auftragId: string, sicht: Sicht, jetzt = new Date()): Promise<Nachkalkulation & { kmSatzCent: number | null; satz: Firmensatz | null }> {
 	if (!UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
-	await holeAuftrag(k, { alle: true, benutzerId: k.benutzerId }, auftragId);
+	await holeAuftrag(k, sicht, auftragId);
 	const { g, aus } = await rechne(k, [auftragId], jetzt);
 	return { ...aus.get(auftragId)!.nk, kmSatzCent: g.kmSatzCent, satz: g.satz };
 }

@@ -94,7 +94,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			: [null, null, null, []];
 		// Kundenportal (Jamil msgs 2770–2774, 2778): Links, Freigaben; Auftragsbestätigungen (mit Preisen)
 		const darfPortal = darfBearbeiten && (await hatModul(k.betriebId, 'kundenportal'));
-		const portal = darfPortal ? await portalStand(k, auftrag.id) : null;
+		const portal = darfPortal ? await portalStand({ k, sicht, preise: preise && hatRecht(nutzer, 'angebote.bearbeiten') }, auftrag.id) : null;
 		const auftragsbestaetigungen = angeboteSichtbar && preise ? await listeAuftragsbestaetigungen(k, auftrag.id) : [];
 		const portalEintraege = darfPortal || auftragsbestaetigungen.length > 0 ? await portalVerlauf(k, auftrag.id) : [];
 		const verlauf = [
@@ -106,7 +106,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		// Nachkalkulation (Plan/Ist, Ampel): Chef/Büro mit „Preise sehen“ und „Alle Aufträge ansehen“
 		const nachkalkulation =
 			preise && hatRecht(nutzer, 'auftraege.alle_lesen') && (await hatModul(k.betriebId, 'zeiterfassung'))
-				? await nachkalkulationAuftrag(k, auftrag.id)
+				? await nachkalkulationAuftrag(k, auftrag.id, sicht)
 				: null;
 		return {
 			auftrag,
@@ -380,8 +380,8 @@ export const actions: Actions = {
 		const w = (await request.formData()).get('wert');
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-			await angeboteZugriff(locals);
-			await setzeAbAutomatisch(betriebKontext(locals), params.id, w === 'an' ? true : w === 'aus' ? false : null);
+			const zg = await angeboteZugriff(locals);
+			await setzeAbAutomatisch({ k: betriebKontext(locals), sicht: zg.sicht }, params.id, w === 'an' ? true : w === 'aus' ? false : null);
 		} catch (e) {
 			return alsFormFehler(e);
 		}
