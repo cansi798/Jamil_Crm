@@ -82,6 +82,7 @@
 			<span class="kk-label">Kosten pro Monat</span>
 			<strong>{euro(u.monatskostenCent)}</strong>
 			<span class="kk-label">{euro(u.gesamtkostenCent)} pro Jahr</span>
+			<span class="kk-label">davon Personal {euro(Math.round(u.personalkostenCent / 12))}</span>
 		</div>
 		<div class="kk-kachel">
 			<span class="kk-label">Produktive Stunden / Jahr</span>
@@ -145,6 +146,8 @@
 						<tr><td>{KATEGORIE_NAMEN[k.kategorie]}</td><td>{euro(k.jahresCent)}/Jahr</td></tr>
 					{/each}
 					<tr class="kk-summe"><td>Summe Kostenzeilen</td><td>{euro(u.kostenzeilenCent)}/Jahr</td></tr>
+					<tr><td>+ <a href="#mitarbeiter">Personalkosten ({u.mitarbeiter.length} Mitarbeiter)</a></td><td data-testid="personalkosten">{euro(u.personalkostenCent)}/Jahr</td></tr>
+					<tr class="kk-summe"><td>= Gesamtkosten (Kostenzeilen + Personalkosten)</td><td>{euro(u.gesamtkostenCent)}/Jahr</td></tr>
 				</tbody>
 			</table>
 		{/if}
@@ -155,6 +158,7 @@
 		</AddPanel>
 	</Karte>
 
+	<div id="mitarbeiter"></div>
 	<Karte>
 		{#snippet titel()}Mitarbeiter (produktive Stunden){/snippet}
 		{#if u.mitarbeiter.length === 0}
