@@ -53,11 +53,12 @@
 		align-items: center;
 		gap: 0.2rem;
 		max-width: 100%;
-		padding: 0 0.4rem;
-		border-radius: 999px;
+		padding: 0.1rem 0.45rem;
+		border-radius: 0.7rem;
 		font-size: 0.75rem;
-		line-height: 1.35rem;
-		white-space: nowrap;
+		line-height: 1.2rem;
+		white-space: normal;
+		overflow-wrap: anywhere;
 		background: var(--m365-flaeche-hover, #f3f2f1);
 		color: var(--m365-text, #1c1f23);
 	}
