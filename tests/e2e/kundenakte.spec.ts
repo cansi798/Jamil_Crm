@@ -57,9 +57,8 @@ test('Kundenakte: Notiz schreiben, Dokument hochladen und herunterladen, lösche
 		await page.getByRole('button', { name: 'Hochladen' }).click();
 		await expect(page.getByRole('alert')).toContainText('passt nicht zum Dateityp');
 		await expect(dokumente.getByRole('link')).toHaveCount(1);
-		// Kundenportal (Platzhalter)
-		await expect(page.getByRole('heading', { name: 'Kundenportal' })).toBeVisible();
-		await expect(page.getByRole('button', { name: /Kundenportal öffnen/ })).toBeDisabled();
+		// Kundenportal: echter Abschnitt (mit Recht) oder Platzhalter – nie beides
+		await expect(page.getByRole('heading', { name: 'Kundenportal' })).toHaveCount(1);
 		await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 		// löschen
 		await dokumente.getByRole('button', { name: 'Dokument Grundriss Bad.pdf löschen' }).click();

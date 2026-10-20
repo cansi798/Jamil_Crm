@@ -243,6 +243,7 @@
 		</ul>
 	</Abschnitt>
 
+	{#if !data.portal}
 	<Abschnitt titel="Kundenportal">
 		<div class="ka-portal">
 			<p class="kd-info">
@@ -252,6 +253,7 @@
 			<button type="button" class="kd-knopf hell" disabled>Kundenportal öffnen (in Vorbereitung)</button>
 		</div>
 	</Abschnitt>
+	{/if}
 
 	<Abschnitt titel="Verlauf">
 		{#snippet aktionen()}
