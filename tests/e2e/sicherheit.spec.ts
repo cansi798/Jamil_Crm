@@ -35,6 +35,8 @@ function erwarteCsp(kopf: Record<string, string>, wo: string) {
 	expect(direktiven.get('form-action'), wo).toEqual(["'self'"]);
 	// QR-Code der Zwei-Faktor-Einrichtung ist ein data:-Bild
 	expect(direktiven.get('img-src'), wo).toEqual(["'self'", 'data:']);
+	// Kartenkacheln kommen über den eigenen Server (/karte/kacheln, msg 2689) – nie direkt von OpenStreetMap
+	expect(direktiven.get('img-src')!.some((w) => w.includes('openstreetmap')), wo).toBe(false);
 }
 
 const kopfzeilen = (antwort: Response | null) => {
