@@ -66,11 +66,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 			mehr.push({ name: 'Auftrags-Vorlagen', href: '/auftrag-vorlagen', symbol: 'todos' });
 		}
 		// Zeiterfassung (Wunsch Jamil msgs 2770–2774): eigene Zeiten bzw. alle (Chef/Büro), Tätigkeiten ohne Auftrag
-		if (module.includes('zeiterfassung') && (hat('zeiten.erfassen') || hat('zeiten.verwalten'))) {
+		if (module.includes('zeiterfassung') && (hat('zeiterfassung.nutzen') || hat('zeiterfassung.alle_sehen'))) {
 			mehr.push({ name: 'Zeiten', href: '/zeiten', symbol: 'abwesenheiten' });
-		}
-		if (module.includes('zeiterfassung') && hat('zeiten.verwalten')) {
-			mehr.push({ name: 'Tätigkeiten ohne Auftrag', href: '/einstellungen/zeiterfassung', symbol: 'todos' });
 		}
 		// Nachkalkulation (Plan/Ist): Preise + alle Aufträge (Chef/Büro)
 		if (module.includes('zeiterfassung') && hat('preise.sehen') && hat('auftraege.alle_lesen')) {

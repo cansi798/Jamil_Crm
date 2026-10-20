@@ -7,7 +7,7 @@ import { berlinTag } from '$lib/zeit';
 import { planPersonen, tagesplan, zeitraumTage } from '$lib/server/tagesplan';
 import { dieserMonat, ladeAuslastung } from '$lib/server/auslastung';
 import { gewinnSatz } from '$lib/auslastung';
-import { laufend, listeTaetigkeiten } from '$lib/server/zeiterfassung';
+import { laufend } from '$lib/server/zeiterfassung';
 
 /**
  * Startseite. Plattform-Admins haben keinen Betrieb und damit keine fachliche Startseite – sie landen in der
@@ -23,8 +23,8 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 	let heute = null;
 	let plan = null;
 	let personen: { id: string; name: string }[] = [];
-	// Zeiterfassung auf „Heute“ (Wunsch Jamil msgs 2770–2774, 2776): Start/Abfahrt je Auftrag von heute + Tätigkeiten
-	let zeit: { laufend: Awaited<ReturnType<typeof laufend>>; taetigkeiten: { id: string; name: string }[]; auftraege: { id: string; nummer: string; titel: string; kunde: string; zeit: string }[] } | null = null;
+	// Zeiterfassung auf „Heute“ (Wunsch Jamil msgs 2770–2774): Start/Abfahrt je Auftrag von heute
+	let zeit: { laufend: Awaited<ReturnType<typeof laufend>>; auftraege: { id: string; nummer: string; titel: string; kunde: string; zeit: string }[] } | null = null;
 	let monat: { satz: string; erreicht: boolean; kalkulationFehlt: boolean; link: string } | null = null;
 	if (nutzer?.betriebId && (hatRecht(nutzer, 'auftraege.lesen') || hatRecht(nutzer, 'auftraege.alle_lesen') || hatRecht(nutzer, 'auftraege.bearbeiten'))) {
 		const k = { betriebId: nutzer.betriebId, benutzerId: nutzer.id };
@@ -41,7 +41,7 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 				link: '/plantafel/auslastung'
 			};
 		}
-		if (module.includes('zeiterfassung') && (hatRecht(nutzer, 'zeiten.erfassen') || hatRecht(nutzer, 'zeiten.verwalten'))) {
+		if (module.includes('zeiterfassung') && (hatRecht(nutzer, 'zeiterfassung.nutzen') || hatRecht(nutzer, 'zeiterfassung.alle_sehen'))) {
 			const einsaetze = heute ?? (module.includes('plantafel') ? await meineEinsaetzeHeute(k, nutzer.id, jetzt) : []);
 			const gesehen = new Set<string>();
 			const auftraege = [];
@@ -51,10 +51,10 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 				auftraege.push({ id: e.auftragId, nummer: e.auftragNummer ?? '', titel: e.auftragTitel ?? '', kunde: e.kundeName ?? '', zeit: e.beginn });
 			}
 			const lauf = await laufend(k, nutzer.id);
-			if (lauf?.auftragId && !gesehen.has(lauf.auftragId)) {
+			if (lauf && !gesehen.has(lauf.auftragId)) {
 				auftraege.unshift({ id: lauf.auftragId, nummer: lauf.auftragNummer ?? '', titel: lauf.auftragTitel ?? '', kunde: '', zeit: lauf.beginn });
 			}
-			zeit = { laufend: lauf, taetigkeiten: (await listeTaetigkeiten(k, true)).map((t) => ({ id: t.id, name: t.name })), auftraege };
+			zeit = { laufend: lauf, auftraege };
 		}
 		// Kachel „Heute“ (Wunsch Jamil msg 2647): Termine, To-dos, Nachfassen – Chef/Büro mit Personenwahl
 		if (module.includes('auftraege')) {

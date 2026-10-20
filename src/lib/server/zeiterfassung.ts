@@ -6,12 +6,12 @@ import { textFeld, UUID } from './kunden';
 import { hatRecht } from './rechte';
 import { darfEines } from './tarif';
 import { fahrKm } from './routen';
-import { ausTagUndUhrzeit, berlinTag, istTag, tagesGrenzen, tagPlus } from '../zeit';
+import { ausTagUndUhrzeit, berlinTag, istTag, tagesGrenzen, tagPlus, wochentag } from '../zeit';
 import {
-	START_TAETIGKEITEN,
-	STEMPEL_AKTIONEN,
+		STEMPEL_AKTIONEN,
 	ZEIT_ARTEN,
 	summiere,
+	sollMinuten,
 	tagesUebersicht,
 	tageZwischen,
 	type TagesZeile,
@@ -23,25 +23,25 @@ import {
 
 /**
  * Zeiterfassung (Wunsch Jamil msgs 2770/2772/2774, 2776; Migration 080): Stempeln mit einem Tipp, Nachträge und
- * Korrekturen mit Grund, Freigabe, Tätigkeiten ohne Auftrag. Rechnen: src/lib/zeiterfassung.ts.
+ * Korrekturen mit Grund, Freigabe; jede Zeit gehört zu einem Auftrag (msg 2790). Rechnen: src/lib/zeiterfassung.ts.
  *
  * Rechte (Modul `zeiterfassung`):
- * - `zeiten.erfassen`: eigene Zeiten stempeln, nachtragen und ändern (bis zur Freigabe), eigenes Material erfassen.
- * - `zeiten.verwalten` (Chef/Büro): Zeiten aller sehen, für andere nachtragen, korrigieren (auch nach der Freigabe)
- *   und freigeben; Tätigkeiten ohne Auftrag pflegen.
+ * - `zeiterfassung.nutzen`: eigene Zeiten stempeln, nachtragen und ändern (bis zur Freigabe), eigenes Material erfassen.
+ * - `zeiterfassung.alle_sehen` (Chef/Büro): Zeiten aller sehen, für andere nachtragen, korrigieren (auch nach der Freigabe)
+ *   und freigeben.
  * Stempeln auf einen Auftrag verlangt, dass der Auftrag für den Nutzer sichtbar ist (wie überall: sonst 404).
  */
 
 export type ZeitZugriff = { k: Kontext; nutzer: Nutzer; verwalten: boolean };
 
 export async function zeitZugriff(locals: { nutzer: Nutzer | null }): Promise<ZeitZugriff> {
-	await darfEines(locals, 'zeiterfassung', ['zeiten.erfassen', 'zeiten.verwalten']);
+	await darfEines(locals, 'zeiterfassung', ['zeiterfassung.nutzen', 'zeiterfassung.alle_sehen']);
 	const nutzer = locals.nutzer!;
-	return { k: { betriebId: nutzer.betriebId!, benutzerId: nutzer.id }, nutzer, verwalten: hatRecht(nutzer, 'zeiten.verwalten') };
+	return { k: { betriebId: nutzer.betriebId!, benutzerId: nutzer.id }, nutzer, verwalten: hatRecht(nutzer, 'zeiterfassung.alle_sehen') };
 }
 
 export async function zeitVerwaltung(locals: { nutzer: Nutzer | null }): Promise<ZeitZugriff> {
-	await darfEines(locals, 'zeiterfassung', ['zeiten.verwalten']);
+	await darfEines(locals, 'zeiterfassung', ['zeiterfassung.alle_sehen']);
 	return zeitZugriff(locals);
 }
 
@@ -57,89 +57,14 @@ function uebersetze(e: unknown): never {
 	throw e;
 }
 
-// ——— Tätigkeiten ohne Auftrag (Jamil msg 2776) ———
-
-export type Taetigkeit = { id: string; name: string; aktiv: boolean };
-
-/** Tätigkeiten des Betriebs; beim allerersten Aufruf bekommt der Betrieb die Startliste. */
-export async function listeTaetigkeiten(k: Kontext, nurAktive = false): Promise<Taetigkeit[]> {
-	return mitBetrieb(k, async (tx) => {
-		let z = await tx`select id, name, aktiv from app.zeit_taetigkeiten where betrieb_id = ${k.betriebId} order by sortierung, lower(name), id`;
-		if (z.length === 0) {
-			await tx`
-				insert into app.zeit_taetigkeiten (betrieb_id, name, sortierung)
-				select ${k.betriebId}, n, i from unnest(${[...START_TAETIGKEITEN]}::text[]) with ordinality as t (n, i)
-				on conflict do nothing`;
-			z = await tx`select id, name, aktiv from app.zeit_taetigkeiten where betrieb_id = ${k.betriebId} order by sortierung, lower(name), id`;
-		}
-		return z.map((t) => ({ id: t.id, name: t.name, aktiv: t.aktiv })).filter((t) => !nurAktive || t.aktiv);
-	});
-}
-
-function taetigkeitName(w: unknown): string {
-	const n = textFeld(w, 'Name der Tätigkeit', 80);
-	if (!n) throw new ApiFehler(400, 'Bitte einen Namen für die Tätigkeit eingeben.');
-	return n;
-}
-
-export async function legeTaetigkeitAn(k: Kontext, name: unknown): Promise<Taetigkeit> {
-	const n = taetigkeitName(name);
-	return mitBetrieb(k, async (tx) => {
-		const [{ anzahl }] = await tx`select count(*)::int as anzahl from app.zeit_taetigkeiten where betrieb_id = ${k.betriebId}`;
-		if (anzahl >= 50) throw new ApiFehler(409, 'Höchstens 50 Tätigkeiten.');
-		try {
-			const [t] = await tx`
-				insert into app.zeit_taetigkeiten (betrieb_id, name, sortierung) values (${k.betriebId}, ${n}, ${anzahl + 1})
-				returning id, name, aktiv`;
-			return { id: t.id, name: t.name, aktiv: t.aktiv };
-		} catch (e) {
-			if ((e as { code?: string }).code === '23505') throw new ApiFehler(409, `Die Tätigkeit „${n}“ gibt es schon.`);
-			throw e;
-		}
-	});
-}
-
-export async function aendereTaetigkeit(k: Kontext, id: unknown, e: { name?: unknown; aktiv?: unknown }): Promise<void> {
-	if (typeof id !== 'string' || !UUID.test(id)) throw new ApiFehler(404, 'Tätigkeit nicht gefunden.');
-	const name = e.name !== undefined ? taetigkeitName(e.name) : null;
-	const aktiv = typeof e.aktiv === 'boolean' ? e.aktiv : null;
-	await mitBetrieb(k, async (tx) => {
-		try {
-			const z = await tx`
-				update app.zeit_taetigkeiten set name = coalesce(${name}, name), aktiv = coalesce(${aktiv}, aktiv)
-				where id = ${id} and betrieb_id = ${k.betriebId} returning id`;
-			if (z.length === 0) throw new ApiFehler(404, 'Tätigkeit nicht gefunden.');
-		} catch (err) {
-			if ((err as { code?: string }).code === '23505') throw new ApiFehler(409, `Die Tätigkeit „${name}“ gibt es schon.`);
-			throw err;
-		}
-	});
-}
-
-/** Löschen nur, solange keine Zeit darauf gebucht ist – sonst wird sie ausgeblendet (inaktiv). */
-export async function loescheTaetigkeit(k: Kontext, id: unknown): Promise<'geloescht' | 'ausgeblendet'> {
-	if (typeof id !== 'string' || !UUID.test(id)) throw new ApiFehler(404, 'Tätigkeit nicht gefunden.');
-	return mitBetrieb(k, async (tx) => {
-		const [benutzt] = await tx`select 1 from app.zeit_eintraege where taetigkeit_id = ${id} and betrieb_id = ${k.betriebId} limit 1`;
-		if (benutzt) {
-			await tx`update app.zeit_taetigkeiten set aktiv = false where id = ${id} and betrieb_id = ${k.betriebId}`;
-			return 'ausgeblendet';
-		}
-		const z = await tx`delete from app.zeit_taetigkeiten where id = ${id} and betrieb_id = ${k.betriebId} returning id`;
-		if (z.length === 0) throw new ApiFehler(404, 'Tätigkeit nicht gefunden.');
-		return 'geloescht';
-	});
-}
-
 // ——— Lesen ———
 
 const AUSWAHL = `z.id, z.benutzer_id, b.name as benutzer_name, z.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel,
-	z.taetigkeit_id, t.name as taetigkeit_name, z.art, z.beginn, z.ende, z.pause_min, z.km, z.km_berechnet, z.km_quelle,
+	z.art, z.beginn, z.ende, z.pause_min, z.km, z.km_berechnet, z.km_quelle,
 	z.start_adresse, z.ziel_adresse, z.notiz, z.manuell, z.korrektur_grund, z.freigegeben_am`;
 const VON = `app.zeit_eintraege z
 	join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
-	left join app.auftraege a on a.id = z.auftrag_id and a.betrieb_id = z.betrieb_id
-	left join app.zeit_taetigkeiten t on t.id = z.taetigkeit_id and t.betrieb_id = z.betrieb_id`;
+	left join app.auftraege a on a.id = z.auftrag_id and a.betrieb_id = z.betrieb_id`;
 
 const iso = (d: unknown) => (d ? new Date(d as string).toISOString() : null);
 const zahl = (w: unknown) => (w === null || w === undefined ? null : Number(w));
@@ -152,8 +77,6 @@ export function zuEintrag(z: Record<string, any>): ZeitEintrag {
 		auftragId: z.auftrag_id,
 		auftragNummer: z.auftrag_nummer ?? null,
 		auftragTitel: z.auftrag_titel ?? null,
-		taetigkeitId: z.taetigkeit_id ?? null,
-		taetigkeitName: z.taetigkeit_name ?? null,
 		art: z.art,
 		beginn: iso(z.beginn)!,
 		ende: iso(z.ende),
@@ -228,31 +151,23 @@ export async function zeitenZumAuftrag(
 
 // ——— Stempeln ———
 
-export type Ziel = { auftragId?: string | null; taetigkeitId?: string | null };
+export type Ziel = { auftragId?: string | null };
 
 export function pruefeStempelAktion(w: unknown): StempelAktion {
 	if (typeof w !== 'string' || !(STEMPEL_AKTIONEN as readonly string[]).includes(w)) throw new ApiFehler(400, 'Unbekannte Aktion.');
 	return w as StempelAktion;
 }
 
-async function pruefeZiel(z: ZeitZugriff, ziel: Ziel, pflicht: boolean): Promise<{ auftragId: string | null; taetigkeitId: string | null; adresse: string | null }> {
+/** Auftrag (Pflicht für start/abfahrt, sonst optional) – nur sichtbare Aufträge (Monteur: eigene). */
+async function pruefeZiel(z: ZeitZugriff, ziel: Ziel, pflicht: boolean): Promise<{ auftragId: string | null; adresse: string | null }> {
 	const auftragId = ziel.auftragId || null;
-	const taetigkeitId = ziel.taetigkeitId || null;
-	if (auftragId && taetigkeitId) throw new ApiFehler(400, 'Bitte entweder einen Auftrag oder eine Tätigkeit wählen.');
 	if (auftragId) {
 		if (!UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
-		// Sichtbarkeit wie überall (Monteur: nur eigene Aufträge)
 		const a = await holeAuftrag(z.k, sichtVon(z.nutzer), auftragId);
-		return { auftragId: a.id, taetigkeitId: null, adresse: a.adresse };
+		return { auftragId: a.id, adresse: a.adresse };
 	}
-	if (taetigkeitId) {
-		if (!UUID.test(taetigkeitId)) throw new ApiFehler(404, 'Tätigkeit nicht gefunden.');
-		const [t] = await mitBetrieb(z.k, (tx) => tx`select id from app.zeit_taetigkeiten where id = ${taetigkeitId} and betrieb_id = ${z.k.betriebId} and aktiv`);
-		if (!t) throw new ApiFehler(404, 'Tätigkeit nicht gefunden.');
-		return { auftragId: null, taetigkeitId, adresse: null };
-	}
-	if (pflicht) throw new ApiFehler(400, 'Bitte einen Auftrag oder eine Tätigkeit wählen.');
-	return { auftragId: null, taetigkeitId: null, adresse: null };
+	if (pflicht) throw new ApiFehler(400, 'Bitte einen Auftrag wählen.');
+	return { auftragId: null, adresse: null };
 }
 
 /** Schließt den laufenden Abschnitt zum Zeitpunkt `jetzt` (zu kurz = unter einer Sekunde → verworfen). */
@@ -265,10 +180,10 @@ async function schliesse(tx: TransactionSql, k: Kontext, lauf: Record<string, an
 	return lauf.art === 'fahrt' ? (lauf.id as string) : null;
 }
 
-async function neu(tx: TransactionSql, k: Kontext, benutzerId: string, art: ZeitArt, ziel: { auftragId: string | null; taetigkeitId: string | null }, jetzt: Date, extra: { start?: string | null; ziel?: string | null } = {}) {
+async function neu(tx: TransactionSql, k: Kontext, benutzerId: string, art: ZeitArt, auftragId: string, jetzt: Date, extra: { start?: string | null; ziel?: string | null } = {}) {
 	await tx`
-		insert into app.zeit_eintraege (betrieb_id, benutzer_id, auftrag_id, taetigkeit_id, art, beginn, start_adresse, ziel_adresse)
-		values (${k.betriebId}, ${benutzerId}, ${ziel.auftragId}, ${ziel.taetigkeitId}, ${art}, ${jetzt}, ${extra.start ?? null}, ${extra.ziel ?? null})`;
+		insert into app.zeit_eintraege (betrieb_id, benutzer_id, auftrag_id, art, beginn, start_adresse, ziel_adresse)
+		values (${k.betriebId}, ${benutzerId}, ${auftragId}, ${art}, ${jetzt}, ${extra.start ?? null}, ${extra.ziel ?? null})`;
 }
 
 /** Wo war die Person zuletzt (heute)? Adresse des letzten Auftrags von heute, sonst die Firmenadresse. */
@@ -307,28 +222,27 @@ export async function stempeln(z: ZeitZugriff, aktion: StempelAktion, ziel: Ziel
 	const meldung = await mitBetrieb(k, async (tx) => {
 		await tx`select pg_advisory_xact_lock(hashtextextended(${'zeit:' + z.nutzer.id}, 0))`;
 		const [lauf] = await tx`select * from app.zeit_eintraege where betrieb_id = ${k.betriebId} and benutzer_id = ${z.nutzer.id} and ende is null for update`;
-		const gleicherOrt = (l: Record<string, any>) =>
-			(l.auftrag_id ?? null) === zielGeprueft.auftragId && (l.taetigkeit_id ?? null) === zielGeprueft.taetigkeitId;
+		const gleicherOrt = (l: Record<string, any>) => l.auftrag_id === zielGeprueft.auftragId;
 		try {
 			switch (aktion) {
 				case 'start': {
 					if (lauf && lauf.art === 'arbeit' && gleicherOrt(lauf)) return 'Läuft bereits.';
 					if (lauf) fahrtGeschlossen = await schliesse(tx, k, lauf, jetzt);
-					await neu(tx, k, z.nutzer.id, 'arbeit', zielGeprueft, jetzt);
+					await neu(tx, k, z.nutzer.id, 'arbeit', zielGeprueft.auftragId!, jetzt);
 					return 'Arbeitszeit gestartet.';
 				}
 				case 'pause': {
 					if (lauf?.art === 'pause') return 'Pause läuft bereits.';
 					if (!lauf || lauf.art !== 'arbeit') throw new ApiFehler(409, 'Es läuft keine Arbeitszeit.');
 					await schliesse(tx, k, lauf, jetzt);
-					await neu(tx, k, z.nutzer.id, 'pause', { auftragId: lauf.auftrag_id, taetigkeitId: lauf.taetigkeit_id }, jetzt);
+					await neu(tx, k, z.nutzer.id, 'pause', lauf.auftrag_id, jetzt);
 					return 'Pause gestartet.';
 				}
 				case 'weiter': {
 					if (lauf?.art === 'arbeit') return 'Arbeitszeit läuft bereits.';
 					if (!lauf || lauf.art !== 'pause') throw new ApiFehler(409, 'Es läuft keine Pause.');
 					await schliesse(tx, k, lauf, jetzt);
-					await neu(tx, k, z.nutzer.id, 'arbeit', { auftragId: lauf.auftrag_id, taetigkeitId: lauf.taetigkeit_id }, jetzt);
+					await neu(tx, k, z.nutzer.id, 'arbeit', lauf.auftrag_id, jetzt);
 					return 'Weiter geht’s – Arbeitszeit läuft.';
 				}
 				case 'fertig': {
@@ -342,7 +256,7 @@ export async function stempeln(z: ZeitZugriff, aktion: StempelAktion, ziel: Ziel
 				case 'abfahrt': {
 					if (lauf && lauf.art === 'fahrt' && gleicherOrt(lauf)) return 'Fahrt läuft bereits.';
 					if (lauf) fahrtGeschlossen = await schliesse(tx, k, lauf, jetzt);
-					await neu(tx, k, z.nutzer.id, 'fahrt', zielGeprueft, jetzt, {
+					await neu(tx, k, z.nutzer.id, 'fahrt', zielGeprueft.auftragId!, jetzt, {
 						start,
 						ziel: zielGeprueft.adresse ? normalAdresse(zielGeprueft.adresse) : null
 					});
@@ -351,7 +265,7 @@ export async function stempeln(z: ZeitZugriff, aktion: StempelAktion, ziel: Ziel
 				case 'angekommen': {
 					if (!lauf || lauf.art !== 'fahrt') throw new ApiFehler(409, 'Es läuft keine Fahrt.');
 					fahrtGeschlossen = await schliesse(tx, k, lauf, jetzt);
-					await neu(tx, k, z.nutzer.id, 'arbeit', { auftragId: lauf.auftrag_id, taetigkeitId: null }, jetzt);
+					await neu(tx, k, z.nutzer.id, 'arbeit', lauf.auftrag_id, jetzt);
 					return 'Angekommen – Arbeitszeit läuft.';
 				}
 			}
@@ -397,8 +311,7 @@ export type ZeitWerte = {
 	beginn: Date;
 	ende: Date | null;
 	pauseMin: number;
-	auftragId: string | null;
-	taetigkeitId: string | null;
+	auftragId: string;
 	km: number | null;
 	notiz: string | null;
 };
@@ -451,16 +364,13 @@ export function pruefeZeitEingabe(e: Record<string, unknown>, laeuft = false): O
 	const pauseMin = art === 'arbeit' ? ganzzahl(e.pauseMin, 'Pause (Minuten)', 0, 720) : 0;
 	if (ende && pauseMin * 60_000 >= ende.getTime() - beginn.getTime()) throw new ApiFehler(400, 'Die Pause ist länger als die Arbeitszeit.');
 	const auftragId = typeof e.auftragId === 'string' && e.auftragId !== '' ? e.auftragId : null;
-	const taetigkeitId = typeof e.taetigkeitId === 'string' && e.taetigkeitId !== '' ? e.taetigkeitId : null;
-	if (auftragId && taetigkeitId) throw new ApiFehler(400, 'Bitte entweder einen Auftrag oder eine Tätigkeit wählen.');
-	if (art === 'fahrt' && !auftragId) throw new ApiFehler(400, 'Eine Fahrt gehört zu einem Auftrag.');
+	if (!auftragId) throw new ApiFehler(400, 'Bitte einen Auftrag wählen – jede Zeit gehört zu einem Auftrag.');
 	return {
 		art: art as ZeitArt,
 		beginn,
 		ende,
 		pauseMin,
 		auftragId,
-		taetigkeitId: art === 'fahrt' ? null : taetigkeitId,
 		km: art === 'fahrt' ? kmAus(e.km) : null,
 		notiz: textFeld(e.notiz, 'Notiz', 500)
 	};
@@ -492,9 +402,9 @@ export async function trageNach(z: ZeitZugriff, e: Record<string, unknown>): Pro
 		if (!p) throw new ApiFehler(400, 'Ungültige Person.');
 		try {
 			const [r] = await tx`
-				insert into app.zeit_eintraege (betrieb_id, benutzer_id, auftrag_id, taetigkeit_id, art, beginn, ende, pause_min, km, km_quelle,
+				insert into app.zeit_eintraege (betrieb_id, benutzer_id, auftrag_id, art, beginn, ende, pause_min, km, km_quelle,
 					notiz, manuell, korrektur_grund)
-				values (${z.k.betriebId}, ${fuer}, ${w.auftragId}, ${w.taetigkeitId}, ${w.art}, ${w.beginn}, ${w.ende}, ${w.pauseMin}, ${w.km},
+				values (${z.k.betriebId}, ${fuer}, ${w.auftragId}, ${w.art}, ${w.beginn}, ${w.ende}, ${w.pauseMin}, ${w.km},
 					${w.km === null ? null : 'manuell'}, ${w.notiz}, true, ${grund})
 				returning id`;
 			return r.id as string;
@@ -527,7 +437,7 @@ export async function korrigiere(z: ZeitZugriff, id: unknown, e: Record<string, 
 		try {
 			await tx`
 				update app.zeit_eintraege set art = ${w.art}, beginn = ${w.beginn}, ende = ${w.ende}, pause_min = ${w.pauseMin},
-					auftrag_id = ${w.auftragId}, taetigkeit_id = ${w.taetigkeitId}, km = ${kmNeu},
+					auftrag_id = ${w.auftragId}, km = ${kmNeu},
 					km_berechnet = ${w.art === 'fahrt' ? vorher.km_berechnet : null},
 					km_quelle = ${w.art !== 'fahrt' ? null : kmGeaendert ? (kmNeu === null ? null : 'manuell') : vorher.km_quelle},
 					notiz = ${w.notiz}, manuell = true, korrektur_grund = ${grund}
@@ -623,7 +533,44 @@ export type Nachweis = {
 	eintraege: ZeitEintrag[];
 	summe: Summe;
 	offenFreigabe: number;
+	/** Soll laut Kalkulation (Arbeitstage ohne Abwesenheit × Stunden/Tag) – null ohne Eintrag in der Kalkulation */
+	sollMin: number | null;
 };
+
+/** Stunden pro Tag eines Mitarbeiters aus der Kalkulation (Mitarbeiter → Standard des Betriebs) und seine Abwesenheitstage. */
+async function sollGrundlage(z: ZeitZugriff, benutzerIds: string[], von: string, bis: string): Promise<Map<string, { stundenTag: number | null; abwesend: Set<string> }>> {
+	const zeilen = await mitBetrieb(z.k, (tx) => tx`
+		select m.benutzer_id, coalesce(m.stunden_tag, b.standard_stunden_tag) as stunden_tag
+		from app.kalkulation_mitarbeiter m left join app.kalkulation_betrieb b on b.betrieb_id = m.betrieb_id
+		where m.betrieb_id = ${z.k.betriebId} and m.benutzer_id = any(${benutzerIds}::uuid[])`);
+	const abw = await mitBetrieb(z.k, (tx) => tx`
+		select benutzer_id, to_char(greatest(von, ${von}::date), 'YYYY-MM-DD') as von, to_char(least(bis, ${bis}::date), 'YYYY-MM-DD') as bis
+		from app.abwesenheiten where betrieb_id = ${z.k.betriebId} and benutzer_id = any(${benutzerIds}::uuid[]) and von <= ${bis}::date and bis >= ${von}::date`);
+	const m = new Map<string, { stundenTag: number | null; abwesend: Set<string> }>();
+	for (const id of benutzerIds) m.set(id, { stundenTag: null, abwesend: new Set() });
+	for (const r of zeilen) m.get(r.benutzer_id)!.stundenTag = r.stunden_tag === null ? null : Number(r.stunden_tag);
+	for (const a of abw) for (const t of tageZwischen(a.von, a.bis)) m.get(a.benutzer_id)!.abwesend.add(t);
+	return m;
+}
+
+export type TeamZeile = { benutzerId: string; name: string; arbeitMin: number; pauseMin: number; fahrtMin: number; km: number; sollMin: number | null; offenFreigabe: number };
+
+/** Teamübersicht für Chef/Büro: je aktivem Mitarbeiter Summen, Soll und offene Freigaben im Zeitraum. */
+export async function teamUebersicht(z: ZeitZugriff, von: string, bis: string, jetzt = new Date()): Promise<TeamZeile[]> {
+	if (!z.verwalten) throw new ApiFehler(403, 'Keine Berechtigung');
+	if (!istTag(von) || !istTag(bis) || bis < von) throw new ApiFehler(400, 'Ungültiger Zeitraum.');
+	const personen = await mitBetrieb(z.k, (tx) => tx`select id, name from app.benutzer where betrieb_id = ${z.k.betriebId} and aktiv order by name, id`);
+	const alle = await listeZeiten(z, { von, bis });
+	const tage = tageZwischen(von, bis);
+	const soll = await sollGrundlage(z, personen.map((p) => p.id as string), von, bis);
+	const rahmen = { von: tagesGrenzen(von).beginn, bis: tagesGrenzen(tage.at(-1)!).ende };
+	return personen.map((p) => {
+		const eigene = alle.filter((e) => e.benutzerId === p.id);
+		const s = summiere(eigene, jetzt, rahmen);
+		const g = soll.get(p.id)!;
+		return { benutzerId: p.id, name: p.name, ...s, sollMin: sollMinuten(tage, g.stundenTag, g.abwesend, wochentag), offenFreigabe: eigene.filter((e) => e.ende && !e.freigegeben).length };
+	});
+}
 
 /** Nachweis einer Person (ohne „Zeiten aller verwalten“ immer die eigene) für die Tage von–bis (höchstens 62). */
 export async function nachweis(z: ZeitZugriff, f: { benutzerId?: string; von: string; bis: string }, jetzt = new Date()): Promise<Nachweis> {
@@ -637,5 +584,15 @@ export async function nachweis(z: ZeitZugriff, f: { benutzerId?: string; von: st
 	const eintraege = await listeZeiten({ ...z, verwalten: true }, { benutzerId: personId, von: f.von, bis });
 	const zeilen = tagesUebersicht(eintraege, tage, jetzt);
 	const summe = zeilen.reduce((s, t) => ({ arbeitMin: s.arbeitMin + t.arbeitMin, pauseMin: s.pauseMin + t.pauseMin, fahrtMin: s.fahrtMin + t.fahrtMin, km: Math.round((s.km + t.km) * 10) / 10 }), { arbeitMin: 0, pauseMin: 0, fahrtMin: 0, km: 0 });
-	return { person: { id: p.id, name: p.name }, von: f.von, bis, tage: zeilen, eintraege, summe, offenFreigabe: eintraege.filter((e) => e.ende && !e.freigegeben).length };
+	const g = (await sollGrundlage(z, [personId], f.von, bis)).get(personId)!;
+	return {
+		person: { id: p.id, name: p.name },
+		von: f.von,
+		bis,
+		tage: zeilen,
+		eintraege,
+		summe,
+		offenFreigabe: eintraege.filter((e) => e.ende && !e.freigegeben).length,
+		sollMin: sollMinuten(tage, g.stundenTag, g.abwesend, wochentag)
+	};
 }

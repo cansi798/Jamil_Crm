@@ -5,25 +5,22 @@
 
 	/**
 	 * Große Knöpfe der Zeiterfassung (mobil zuerst, ein Tipp): Start / Pause / Weiter / Fertig, Abfahrt / Angekommen.
-	 * Mit `auftragId` für diesen Auftrag; ohne Auftrag mit Auswahl einer Tätigkeit (Lager, Werkstatt …, Jamil msg 2776).
+	 * Immer für einen Auftrag (jede Zeit gehört zu einem Auftrag, Jamil msg 2790).
 	 * Startet man hier, während woanders etwas läuft, wird das automatisch beendet (je Person läuft immer nur eines).
 	 */
 	let {
-		auftragId = null,
+		auftragId,
 		titel = '',
 		laufend,
-		taetigkeiten = [],
 		kompakt = false
 	}: {
-		auftragId?: string | null;
+		auftragId: string;
 		/** z. B. „A-2026-0003 Badsanierung“ – für Meldungen und Screenreader */
 		titel?: string;
 		laufend: ZeitEintrag | null;
-		taetigkeiten?: { id: string; name: string }[];
 		kompakt?: boolean;
 	} = $props();
 
-	let taetigkeitId = $state('');
 	let fehler = $state('');
 	let meldung = $state('');
 	let laeuft = $state(false);
@@ -31,28 +28,22 @@
 	const uhr = setInterval(() => (jetzt = new Date()), 15_000);
 	onDestroy(() => clearInterval(uhr));
 
-	const hier = $derived(
-		!!laufend && (auftragId ? laufend.auftragId === auftragId : !laufend.auftragId && (!!laufend.taetigkeitId || laufend.art !== 'fahrt'))
-	);
+	const hier = $derived(!!laufend && laufend.auftragId === auftragId);
 	const woanders = $derived(!!laufend && !hier);
 	const wasLaeuftWoanders = $derived(
-		laufend ? `${ZEIT_ART_NAMEN[laufend.art]} · ${laufend.auftragNummer ? `${laufend.auftragNummer} ${laufend.auftragTitel ?? ''}` : (laufend.taetigkeitName ?? 'ohne Auftrag')}` : ''
+		laufend ? `${ZEIT_ART_NAMEN[laufend.art]} · ${laufend.auftragNummer ?? ''} ${laufend.auftragTitel ?? ''}`.trim() : ''
 	);
 
 	async function tippe(aktion: StempelAktion) {
 		if (laeuft) return;
 		fehler = '';
 		meldung = '';
-		if (!auftragId && aktion === 'start' && !taetigkeitId && !(laufend && hier)) {
-			fehler = 'Bitte zuerst eine Tätigkeit wählen.';
-			return;
-		}
 		laeuft = true;
 		try {
 			const r = await fetch('/api/zeiten/stempeln', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ aktion, auftragId: auftragId ?? undefined, taetigkeitId: !auftragId && aktion === 'start' ? taetigkeitId : undefined })
+				body: JSON.stringify({ aktion, auftragId })
 			});
 			const j = await r.json().catch(() => ({}));
 			if (!r.ok) fehler = j.fehler ?? 'Das hat nicht geklappt – bitte noch einmal.';
@@ -72,7 +63,7 @@
 	{#if hier && laufend}
 		<p class="zk-status" class:pause={laufend.art === 'pause'} class:fahrt={laufend.art === 'fahrt'}>
 			<span class="zk-punkt" aria-hidden="true"></span>
-			<span><strong>{ZEIT_ART_NAMEN[laufend.art]} läuft</strong> · {laufzeitText(laufend.beginn, jetzt)}{#if !auftragId && laufend.taetigkeitName} · {laufend.taetigkeitName}{/if}</span>
+			<span><strong>{ZEIT_ART_NAMEN[laufend.art]} läuft</strong> · {laufzeitText(laufend.beginn, jetzt)}</span>
 		</p>
 		<div class="zk-knoepfe">
 			{#if laufend.art === 'arbeit'}
@@ -90,20 +81,9 @@
 		{#if woanders}
 			<p class="zk-hinweis">Läuft gerade: {wasLaeuftWoanders} – ein Start hier beendet das.</p>
 		{/if}
-		{#if !auftragId}
-			<label class="zk-wahl">
-				<span>Tätigkeit ohne Auftrag</span>
-				<select bind:value={taetigkeitId} aria-label="Tätigkeit ohne Auftrag">
-					<option value="">Bitte wählen …</option>
-					{#each taetigkeiten as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
-				</select>
-			</label>
-		{/if}
 		<div class="zk-knoepfe">
 			<button type="button" class="zk-knopf start" disabled={laeuft} onclick={() => tippe('start')} aria-label={`Arbeitszeit starten${titel ? ` – ${titel}` : ''}`}>Start</button>
-			{#if auftragId}
-				<button type="button" class="zk-knopf fahrt" disabled={laeuft} onclick={() => tippe('abfahrt')} aria-label={`Abfahrt${titel ? ` zu ${titel}` : ''}`}>Abfahrt</button>
-			{/if}
+			<button type="button" class="zk-knopf fahrt" disabled={laeuft} onclick={() => tippe('abfahrt')} aria-label={`Abfahrt${titel ? ` zu ${titel}` : ''}`}>Abfahrt</button>
 		</div>
 	{/if}
 	<p class="zk-meldung" role="status" aria-live="polite">{#if fehler}<span class="fehler">{fehler}</span>{:else}{meldung}{/if}</p>
@@ -201,22 +181,6 @@
 		margin: 0;
 		font-size: var(--ui-schrift-s);
 		color: var(--ui-text-leise);
-	}
-	.zk-wahl {
-		display: grid;
-		gap: var(--ui-a1);
-		font-size: var(--ui-schrift-s);
-		color: var(--ui-text-leise);
-	}
-	.zk-wahl select {
-		min-height: var(--ui-feld-hoehe);
-		font: inherit;
-		font-size: var(--ui-schrift-l);
-		color: var(--ui-text);
-		border: 1px solid var(--ui-rand-stark);
-		border-radius: var(--ui-radius);
-		background: var(--ui-flaeche);
-		padding: 0 var(--ui-a2);
 	}
 	.zk-meldung {
 		margin: 0;

@@ -6,12 +6,11 @@ import {
 	gebeFrei,
 	korrigiere,
 	laufend,
-	listeTaetigkeiten,
 	listeZeiten,
-	loescheTaetigkeit,
 	loescheZeit,
 	nachweis,
 	stempeln,
+	teamUebersicht,
 	trageNach,
 	zeitenZumAuftrag,
 	zeitVerlauf,
@@ -96,10 +95,10 @@ describe('Zeiterfassung', () => {
 		expect(alle[0].ende).toBe(t('2026-10-21T09:00:00+02:00').toISOString());
 		// direkt in der Datenbank: ein zweiter laufender ist unmöglich, Überschneidung auch
 		await expect(
-			mitBetrieb(chef.k, (tx) => tx`insert into app.zeit_eintraege (betrieb_id, benutzer_id, art, beginn) values (${u.betriebA}, ${u.ids.chefA}, 'arbeit', '2026-10-22T07:00:00+02:00')`)
+			mitBetrieb(chef.k, (tx) => tx`insert into app.zeit_eintraege (betrieb_id, benutzer_id, auftrag_id, art, beginn) values (${u.betriebA}, ${u.ids.chefA}, ${u.auftragA}, 'arbeit', '2026-10-22T07:00:00+02:00')`)
 		).rejects.toMatchObject({ code: expect.stringMatching(/23505|23P01/) });
 		await expect(
-			mitBetrieb(chef.k, (tx) => tx`insert into app.zeit_eintraege (betrieb_id, benutzer_id, art, beginn, ende) values (${u.betriebA}, ${u.ids.chefA}, 'arbeit', '2026-10-21T08:00:00+02:00', '2026-10-21T08:30:00+02:00')`)
+			mitBetrieb(chef.k, (tx) => tx`insert into app.zeit_eintraege (betrieb_id, benutzer_id, auftrag_id, art, beginn, ende) values (${u.betriebA}, ${u.ids.chefA}, ${u.auftragA}, 'arbeit', '2026-10-21T08:00:00+02:00', '2026-10-21T08:30:00+02:00')`)
 		).rejects.toMatchObject({ code: '23P01' });
 	});
 
@@ -140,7 +139,7 @@ describe('Zeiterfassung', () => {
 		// Freigabe (nur Chef/Büro), danach darf der Monteur nicht mehr ändern, der Chef schon
 		await expect(gebeFrei(monteur, u.ids.monteurA, '2026-10-19', '2026-10-25')).rejects.toMatchObject({ status: 403 });
 		expect(await gebeFrei(buero, u.ids.monteurA, '2026-10-19', '2026-10-25')).toBe(1);
-		await expect(korrigiere(monteur, e.id, { art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '16:30', grund: 'nochmal' })).rejects.toMatchObject({ status: 409 });
+		await expect(korrigiere(monteur, e.id, { auftragId: u.auftragA, art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '16:30', grund: 'nochmal' })).rejects.toMatchObject({ status: 409 });
 		await expect(loescheZeit(monteur, e.id, 'weg damit')).rejects.toMatchObject({ status: 409 });
 		await korrigiere(chef, e.id, { art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '16:30', pauseMin: '30', auftragId: u.auftragA, grund: 'Chef korrigiert' });
 		await loescheZeit(chef, e.id, 'doppelt erfasst');
@@ -149,9 +148,9 @@ describe('Zeiterfassung', () => {
 	});
 
 	it('Sichtbarkeit: Monteur sieht nur eigene Zeiten (auch mit fremder Person im Filter), Chef alle; fremder Betrieb nie (RLS)', async () => {
-		await trageNach(chef, { art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '09:00', grund: 'Test', benutzerId: u.ids.chefA });
-		await trageNach(chef, { art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '10:00', grund: 'Für Ali', benutzerId: u.ids.monteurA });
-		await expect(trageNach(monteur, { art: 'arbeit', tag: '2026-10-19', von: '11:00', bis: '12:00', grund: 'für Chef', benutzerId: u.ids.chefA })).rejects.toMatchObject({ status: 403 });
+		await trageNach(chef, { auftragId: u.auftragA, art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '09:00', grund: 'Test', benutzerId: u.ids.chefA });
+		await trageNach(chef, { auftragId: u.auftragA, art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '10:00', grund: 'Für Ali', benutzerId: u.ids.monteurA });
+		await expect(trageNach(monteur, { auftragId: u.auftragA, art: 'arbeit', tag: '2026-10-19', von: '11:00', bis: '12:00', grund: 'für Chef', benutzerId: u.ids.chefA })).rejects.toMatchObject({ status: 403 });
 		const eigene = await listeZeiten(monteur, { benutzerId: u.ids.chefA });
 		expect(eigene.every((e) => e.benutzerId === u.ids.monteurA)).toBe(true);
 		expect(eigene).toHaveLength(1);
@@ -164,21 +163,34 @@ describe('Zeiterfassung', () => {
 		expect(sichtbar[0].n).toBe(0);
 		// Monteur kann fremde Einträge nicht korrigieren (404)
 		const fremd = (await listeZeiten(chef, { benutzerId: u.ids.chefA }))[0];
-		await expect(korrigiere(monteur, fremd.id, { art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '09:30', grund: 'Hack' })).rejects.toMatchObject({ status: 404 });
+		await expect(korrigiere(monteur, fremd.id, { auftragId: u.auftragA, art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '09:30', grund: 'Hack' })).rejects.toMatchObject({ status: 404 });
 	});
 
-	it('Tätigkeiten ohne Auftrag: Startliste, Start „Lager“, zählt im Nachweis; benutzte Tätigkeit wird nur ausgeblendet', async () => {
-		const liste = await listeTaetigkeiten(chef.k);
-		expect(liste.map((x) => x.name)).toEqual(['Lager aufräumen', 'Werkstatt', 'Fahrzeugpflege', 'Büro', 'Schulung', 'Material holen']);
-		const lager = liste[0];
-		await stempeln(monteur, 'start', { taetigkeitId: lager.id }, t('2026-10-24T07:00:00+02:00'));
-		const l = await stempeln(monteur, 'pause', {}, t('2026-10-24T09:00:00+02:00'));
-		expect(l.laufend).toMatchObject({ art: 'pause', taetigkeitId: lager.id, taetigkeitName: 'Lager aufräumen' });
-		await stempeln(monteur, 'fertig', {}, t('2026-10-24T09:15:00+02:00'));
-		expect((await nachweis(monteur, { von: '2026-10-24', bis: '2026-10-24' })).summe.arbeitMin).toBe(120);
-		expect(await loescheTaetigkeit(chef.k, lager.id)).toBe('ausgeblendet');
-		await expect(stempeln(monteur, 'start', { taetigkeitId: lager.id })).rejects.toMatchObject({ status: 404 });
-		await expect(stempeln(monteur, 'abfahrt', { taetigkeitId: liste[1].id })).rejects.toMatchObject({ status: 400 });
+	it('Jede Zeit gehört zu einem Auftrag (msg 2790): Start ohne Auftrag 400, Nachtragen ohne Auftrag 400, DB lässt nichts ohne Auftrag zu', async () => {
+		await expect(stempeln(monteur, 'start', {})).rejects.toMatchObject({ status: 400 });
+		await expect(trageNach(monteur, { art: 'arbeit', tag: '2026-10-24', von: '07:00', bis: '09:00', grund: 'Lager' })).rejects.toMatchObject({ status: 400 });
+		await expect(
+			mitBetrieb(chef.k, (tx) => tx`insert into app.zeit_eintraege (betrieb_id, benutzer_id, art, beginn, ende) values (${u.betriebA}, ${u.ids.chefA}, 'arbeit', '2026-10-24T07:00:00+02:00', '2026-10-24T08:00:00+02:00')`)
+		).rejects.toMatchObject({ code: '23502' });
+		const [t] = await root`select count(*)::int as n from information_schema.tables where table_schema = 'app' and table_name = 'zeit_taetigkeiten'`;
+		expect(t.n).toBe(0);
+	});
+
+	it('Monatssicht: Soll aus der Kalkulation minus Abwesenheit, Saldo, Teamübersicht nur für Chef/Büro', async () => {
+		await root`insert into app.kalkulation_betrieb (betrieb_id, jahr, standard_stunden_tag) values (${u.betriebA}, 2026, 7) on conflict (betrieb_id) do nothing`;
+		await root`insert into app.kalkulation_mitarbeiter (betrieb_id, name, benutzer_id, brutto_cent, ag_art, ag_prozent, stunden_tag)
+			values (${u.betriebA}, 'Ali', ${u.ids.monteurA}, 0, 'prozent', 0, 8)`;
+		await root`insert into app.abwesenheiten (betrieb_id, benutzer_id, art, von, bis) values (${u.betriebA}, ${u.ids.monteurA}, 'urlaub', '2026-10-05', '2026-10-05')`;
+		await trageNach(monteur, { auftragId: u.auftragA, art: 'arbeit', tag: '2026-10-06', von: '07:00', bis: '17:00', pauseMin: '60', grund: 'Test' });
+		const n = await nachweis(monteur, { von: '2026-10-01', bis: '2026-10-31' });
+		expect(n.sollMin).toBe(21 * 8 * 60);
+		expect(n.summe.arbeitMin).toBe(540);
+		await expect(teamUebersicht(monteur, '2026-10-01', '2026-10-31')).rejects.toMatchObject({ status: 403 });
+		const team = await teamUebersicht(chef, '2026-10-01', '2026-10-31');
+		expect(team.find((t) => t.benutzerId === u.ids.monteurA)).toMatchObject({ arbeitMin: 540, sollMin: 21 * 8 * 60 });
+		expect(team.find((t) => t.benutzerId === u.ids.chefA)?.sollMin).toBeNull();
+		await root`delete from app.abwesenheiten`;
+		await root`delete from app.kalkulation_mitarbeiter`;
 	});
 
 	it('API /api/zeiten/stempeln: JSON-Pflicht, unbekannte Aktion 400, Start 200', async () => {

@@ -19,8 +19,8 @@ export const RECHTE = {
 	'protokolle.vorlagen_bearbeiten': 'Protokoll-Vorlagen gestalten',
 	'erinnerungen.nutzen': 'Erinnerungen für To-dos und Termine nutzen',
 	'buchung.verwalten': 'Online-Buchung verwalten (Dienste, Buchungslinks)',
-	'zeiten.erfassen': 'Eigene Zeiten erfassen (Arbeit, Fahrt, Material)',
-	'zeiten.verwalten': 'Zeiten aller Mitarbeiter sehen, korrigieren und freigeben',
+	'zeiterfassung.nutzen': 'Zeiterfassung nutzen (eigene Zeiten, Fahrt, Material)',
+	'zeiterfassung.alle_sehen': 'Zeiten aller Mitarbeiter sehen, korrigieren und freigeben',
 	'benutzer.verwalten': 'Benutzer verwalten',
 	einstellungen: 'Einstellungen verwalten'
 } as const;
@@ -37,7 +37,7 @@ export const VORLAGEN = {
 	chef: ALLE_RECHTE,
 	// Online-Buchung (Wunsch Jamil msgs 2684/2686) standardmäßig nur der Chef; in „Rollen“ vergebbar
 	buero: ALLE_RECHTE.filter((r) => r !== 'einstellungen' && r !== 'benutzer.verwalten' && r !== 'buchung.verwalten'),
-	monteur: ['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen', 'erinnerungen.nutzen', 'zeiten.erfassen']
+	monteur: ['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen', 'erinnerungen.nutzen', 'zeiterfassung.nutzen']
 } as const satisfies Record<string, readonly Recht[]>;
 
 export type Vorlage = keyof typeof VORLAGEN;

@@ -18,9 +18,6 @@ export const ZEIT_ARTEN = ['arbeit', 'pause', 'fahrt'] as const;
 export type ZeitArt = (typeof ZEIT_ARTEN)[number];
 export const ZEIT_ART_NAMEN: Record<ZeitArt, string> = { arbeit: 'Arbeit', pause: 'Pause', fahrt: 'Fahrt' };
 
-/** Startliste „Tätigkeiten ohne Auftrag“ (Jamil msg 2776); in Einstellungen → Zeiterfassung änderbar. */
-export const START_TAETIGKEITEN = ['Lager aufräumen', 'Werkstatt', 'Fahrzeugpflege', 'Büro', 'Schulung', 'Material holen'] as const;
-
 export const STEMPEL_AKTIONEN = ['start', 'pause', 'weiter', 'fertig', 'abfahrt', 'angekommen'] as const;
 export type StempelAktion = (typeof STEMPEL_AKTIONEN)[number];
 
@@ -28,12 +25,9 @@ export type ZeitEintrag = {
 	id: string;
 	benutzerId: string;
 	benutzerName?: string;
-	auftragId: string | null;
+	auftragId: string;
 	auftragNummer?: string | null;
 	auftragTitel?: string | null;
-	/** Tätigkeit ohne Auftrag (Lager, Werkstatt, …) – Jamil msg 2776 */
-	taetigkeitId: string | null;
-	taetigkeitName?: string | null;
 	art: ZeitArt;
 	beginn: string;
 	/** leer = läuft noch */
@@ -216,3 +210,39 @@ export function tageZwischen(von: string, bis: string): string[] {
 export const laufzeitText = (beginn: string, jetzt: Date) => stundenText(Math.max(0, (jetzt.getTime() - Date.parse(beginn)) / MIN));
 
 export { berlinTag };
+
+// ——— Monatssicht (Jamil msg 2797) ———
+
+/** Alle Tage eines Monats `JJJJ-MM`. */
+export function monatsTage(monat: string): string[] {
+	const [j, m] = monat.split('-').map(Number);
+	const anzahl = new Date(Date.UTC(j, m, 0)).getUTCDate();
+	return Array.from({ length: anzahl }, (_, i) => `${monat}-${String(i + 1).padStart(2, '0')}`);
+}
+
+export const istMonat = (w: unknown): w is string => typeof w === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(w);
+
+/**
+ * Soll-Stunden: Arbeitstage (Mo–Fr) im Zeitraum ohne Abwesenheitstage × Stunden pro Tag (Kalkulation: je Mitarbeiter,
+ * sonst Standard des Betriebs). `null`, wenn der Mitarbeiter nicht in der Kalkulation steht.
+ */
+export function sollMinuten(tage: readonly string[], stundenTag: number | null, abwesend: ReadonlySet<string>, wochentagVon: (t: string) => number): number | null {
+	if (stundenTag === null || !(stundenTag > 0)) return null;
+	const arbeitstage = tage.filter((t) => wochentagVon(t) < 5 && !abwesend.has(t)).length;
+	return Math.round(arbeitstage * stundenTag * 60);
+}
+
+/** Wochen-Zwischensummen (ISO-Kalenderwoche) für die Monatstabelle. */
+export function wochenSummen(zeilen: readonly TagesZeile[], kw: (t: string) => number): { kw: number; arbeitMin: number; pauseMin: number; fahrtMin: number; km: number }[] {
+	const m = new Map<number, { kw: number; arbeitMin: number; pauseMin: number; fahrtMin: number; km: number }>();
+	for (const z of zeilen) {
+		const w = kw(z.tag);
+		const s = m.get(w) ?? { kw: w, arbeitMin: 0, pauseMin: 0, fahrtMin: 0, km: 0 };
+		s.arbeitMin += z.arbeitMin;
+		s.pauseMin += z.pauseMin;
+		s.fahrtMin += z.fahrtMin;
+		s.km = Math.round((s.km + z.km) * 10) / 10;
+		m.set(w, s);
+	}
+	return [...m.values()];
+}

@@ -48,6 +48,7 @@ test('Monteur: Start → Pause → Weiter → Fertig auf „Start“, Anzeige ob
 	await expect(page.getByRole('heading', { name: 'Zeiten' })).toBeVisible();
 	await page.getByRole('button', { name: 'Zeit nachtragen' }).click();
 	const f = page.locator('form[action="?/nachtragen"]');
+	await f.locator('select[name="auftragId"]').selectOption({ index: 1 });
 	await f.locator('input[name="von"]').fill('07:00');
 	await f.locator('input[name="bis"]').fill('15:30');
 	await f.locator('input[name="pauseMin"]').fill('30');
@@ -83,7 +84,7 @@ test('Chef: Zeiten des Monteurs, Woche freigeben, Export CSV/PDF', async ({ brow
 		await freigeben.click();
 		await expect(chef.getByText(/freigegeben/).first()).toBeVisible();
 	}
-	const [csv] = await Promise.all([chef.waitForEvent('download'), chef.getByRole('link', { name: 'CSV' }).click()]);
+	const [csv] = await Promise.all([chef.waitForEvent('download'), chef.getByRole('link', { name: 'CSV', exact: true }).click()]);
 	expect(csv.suggestedFilename()).toMatch(/^Arbeitszeitnachweis_.*\.csv$/);
 	const [pdf] = await Promise.all([chef.waitForEvent('download'), chef.getByRole('link', { name: 'PDF' }).click()]);
 	expect(pdf.suggestedFilename()).toMatch(/\.pdf$/);
@@ -118,4 +119,17 @@ test('Auftrag: Abfahrt → Angekommen → Fertig, Material hinzufügen und entfe
 	await material.getByRole('button', { name: `${name} entfernen` }).click();
 	await expect(material.getByText(name)).toHaveCount(0);
 	await page.context().close();
+});
+
+test('Monatssicht: Monat wählen, Wochen- und Monatssumme, Teamübersicht für den Chef', async ({ browser }, info) => {
+	const viewport = info.project.name === 'mobil' ? { width: 390, height: 844 } : { width: 1280, height: 800 };
+	const chef = await alsTestzugang(browser, 'can.chef', viewport);
+	await chef.goto('/zeiten?ansicht=monat&monat=2026-10');
+	await expect(chef.getByText('Oktober 2026').first()).toBeVisible();
+	await expect(chef.locator('.zt-woche.gesamt')).toContainText('Monat');
+	await expect(chef.getByTestId('team')).toBeVisible();
+	const [team] = await Promise.all([chef.waitForEvent('download'), chef.getByRole('link', { name: 'Team-CSV' }).click()]);
+	expect(team.suggestedFilename()).toMatch(/^Zeiten_Team_2026-10-01_2026-10-31\.csv$/);
+	await erwarteKeinQuerScrollen(chef, viewport.width);
+	await chef.context().close();
 });

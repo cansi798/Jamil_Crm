@@ -30,8 +30,8 @@ describe('Rechte und Vorlagen', () => {
 			'protokolle.vorlagen_bearbeiten',
 			'erinnerungen.nutzen',
 			'buchung.verwalten',
-			'zeiten.erfassen',
-			'zeiten.verwalten',
+			'zeiterfassung.nutzen',
+			'zeiterfassung.alle_sehen',
 			'benutzer.verwalten',
 			'einstellungen'
 		]);
@@ -39,7 +39,7 @@ describe('Rechte und Vorlagen', () => {
 	});
 
 	it('Vorlage monteur hat kein preise.sehen', () => {
-		expect(VORLAGEN.monteur).toEqual(['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen', 'erinnerungen.nutzen', 'zeiten.erfassen']);
+		expect(VORLAGEN.monteur).toEqual(['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen', 'erinnerungen.nutzen', 'zeiterfassung.nutzen']);
 		expect(VORLAGEN.monteur).not.toContain('preise.sehen');
 	});
 

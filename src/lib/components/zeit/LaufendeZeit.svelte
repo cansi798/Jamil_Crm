@@ -7,8 +7,8 @@
 	let jetzt = $state(new Date());
 	const uhr = setInterval(() => (jetzt = new Date()), 30_000);
 	onDestroy(() => clearInterval(uhr));
-	const ziel = $derived(laufend.auftragId ? `/auftraege/${laufend.auftragId}#zeiterfassung` : '/zeiten');
-	const was = $derived(laufend.auftragNummer ?? laufend.taetigkeitName ?? 'ohne Auftrag');
+	const ziel = $derived(`/auftraege/${laufend.auftragId}#zeiterfassung`);
+	const was = $derived(laufend.auftragNummer ?? '');
 </script>
 
 <a href={ziel} class="lz" class:schmal class:pause={laufend.art === 'pause'} class:fahrt={laufend.art === 'fahrt'} data-testid="laufende-zeit">

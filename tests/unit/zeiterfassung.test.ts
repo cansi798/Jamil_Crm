@@ -18,8 +18,7 @@ import { fahrKm, umwegFaktor } from '../../src/lib/server/routen';
 const e = (art: ZeitEintrag['art'], beginn: string, ende: string | null, extra: Partial<ZeitEintrag> = {}): ZeitEintrag => ({
 	id: Math.random().toString(36),
 	benutzerId: 'b',
-	auftragId: null,
-	taetigkeitId: null,
+	auftragId: 'a',
 	art,
 	beginn: new Date(beginn).toISOString(),
 	ende: ende ? new Date(ende).toISOString() : null,
@@ -144,5 +143,24 @@ describe('Zeiterfassung – CSV', () => {
 		expect(csvFeld('a;b')).toBe('"a;b"');
 		expect(csvFeld('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`);
 		expect(csv([['Tag', 'Stunden'], ['2026-10-20', 8.25]])).toBe('﻿Tag;Stunden\r\n2026-10-20;8,25\r\n');
+	});
+});
+
+describe('Zeiterfassung – Monatssicht (msg 2797)', () => {
+	it('Monatstage, Soll (Mo–Fr ohne Abwesenheit × Stunden), Wochensummen', async () => {
+		const { monatsTage, sollMinuten, wochenSummen, istMonat } = await import('../../src/lib/zeiterfassung');
+		const { wochentag, kalenderwoche } = await import('../../src/lib/zeit');
+		const okt = monatsTage('2026-10');
+		expect(okt).toHaveLength(31);
+		expect(monatsTage('2028-02')).toHaveLength(29);
+		expect(istMonat('2026-13')).toBe(false);
+		expect(sollMinuten(okt, 8, new Set(), wochentag)).toBe(22 * 8 * 60);
+		expect(sollMinuten(okt, 8, new Set(['2026-10-05', '2026-10-10']), wochentag)).toBe(21 * 8 * 60); // Sa zählt nicht
+		expect(sollMinuten(okt, null, new Set(), wochentag)).toBeNull();
+		const zeilen = ['2026-10-02', '2026-10-05', '2026-10-06'].map((tag) => ({ tag, arbeitMin: 60, pauseMin: 10, fahrtMin: 5, km: 1.5, beginn: null, ende: null, hinweise: [], eintraege: 1 }));
+		expect(wochenSummen(zeilen, kalenderwoche)).toEqual([
+			{ kw: 40, arbeitMin: 60, pauseMin: 10, fahrtMin: 5, km: 1.5 },
+			{ kw: 41, arbeitMin: 120, pauseMin: 20, fahrtMin: 10, km: 3 }
+		]);
 	});
 });

@@ -39,7 +39,7 @@
 	<Abschnitt titel={`Nach ${data.gruppen[a.gruppe]}`} anzahl={a.zeilen.length}>
 		<div class="nkw-huelle">
 			<table class="nkw-tabelle">
-				<thead><tr><th>{data.gruppen[a.gruppe]}</th><th>Aufträge</th><th>Std. Plan</th><th>Std. Ist</th><th>Erlös</th><th>Kosten Ist</th><th>Gewinn Plan</th><th>Gewinn Ist</th><th>Ampel</th>{#if a.gruppe === 'mitarbeiter'}<th>nicht produktiv</th><th>produktiv</th>{/if}</tr></thead>
+				<thead><tr><th>{data.gruppen[a.gruppe]}</th><th>Aufträge</th><th>Std. Plan</th><th>Std. Ist</th><th>Erlös</th><th>Kosten Ist</th><th>Gewinn Plan</th><th>Gewinn Ist</th><th>Ampel</th></tr></thead>
 				<tbody>
 					{#each a.zeilen as z (z.schluessel)}
 						<tr>
@@ -47,7 +47,6 @@
 							<td>{geld(z.erloesCent)}</td><td>{geld(z.istKostenCent)}</td><td>{geld(z.planGewinnCent)}</td>
 							<td class:schlecht={(z.istGewinnCent ?? 0) < 0}>{geld(z.istGewinnCent)}</td>
 							<td>{#if z.ampel}<span class={`nkw-ampel ${z.ampel}`}>{AMPEL[z.ampel]}</span>{:else}–{/if}</td>
-							{#if a.gruppe === 'mitarbeiter'}<td>{h(z.nichtProduktivStunden ?? 0)}</td><td>{z.produktivProzent === null || z.produktivProzent === undefined ? '–' : `${z.produktivProzent} %`}</td>{/if}
 						</tr>
 					{:else}
 						<tr><td colspan="9" class="kd-leer">Keine Aufträge mit erfasster Zeit in diesem Zeitraum.</td></tr>
@@ -70,14 +69,6 @@
 		</ul>
 	</Abschnitt>
 
-	{#if a.nichtProduktiv.length > 0}
-		<Abschnitt titel="Nicht produktiv / Gemeinkosten">
-			<ul class="nkw-auftraege">
-				{#each a.nichtProduktiv as n, i (i)}<li>{n.mitarbeiter} · {n.taetigkeit}: <strong>{h(n.stunden)}</strong></li>{/each}
-			</ul>
-			<p class="kd-info">Zeiten auf Tätigkeiten ohne Auftrag (Lager, Werkstatt …) zählen in keinem Auftrag – sie gehören in die Gemeinkosten der Kalkulation.</p>
-		</Abschnitt>
-	{/if}
 
 	<Abschnitt titel="Lernen: Minuten pro Einheit">
 		{#if form?.lernFehler}<p role="alert" class="kd-fehler">{form.lernFehler}</p>{/if}

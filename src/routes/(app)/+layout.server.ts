@@ -34,7 +34,7 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const erinnern = !!nutzer.betriebId && hatRecht(nutzer, 'erinnerungen.nutzen');
 	const ungelesen = nutzer.betriebId ? (await benachrichtigungen({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }, 1)).ungelesen : 0;
 	// Zeiterfassung: laufende Zeit oben anzeigen (je Person höchstens eine)
-	const zeiten = !!nutzer.betriebId && module.includes('zeiterfassung') && (hatRecht(nutzer, 'zeiten.erfassen') || hatRecht(nutzer, 'zeiten.verwalten'));
+	const zeiten = !!nutzer.betriebId && module.includes('zeiterfassung') && (hatRecht(nutzer, 'zeiterfassung.nutzen') || hatRecht(nutzer, 'zeiterfassung.alle_sehen'));
 	const laufendeZeit = zeiten ? await laufend({ betriebId: nutzer.betriebId!, benutzerId: nutzer.id }, nutzer.id) : null;
 	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen, laufendeZeit };
 };

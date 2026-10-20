@@ -22,8 +22,7 @@ import type { Ampel, Firmensatz } from '../kalkulation';
 /**
  * Nachkalkulation je Auftrag und Auswertung (Wunsch Jamil msgs 2770–2774, Punkt 1). Rechnung: src/lib/nachkalkulation.ts.
  * Zugriff: Modul `zeiterfassung`, „Preise sehen“ UND „Alle Aufträge ansehen“ (Chef/Büro) – Monteure nie.
- * Zeiten auf „Tätigkeiten ohne Auftrag“ (Lager, Werkstatt …) zählen nie auf einen Auftrag, sondern erscheinen in der
- * Auswertung je Mitarbeiter als „nicht produktiv / Gemeinkosten“ (Jamil msg 2776).
+ * Jede erfasste Zeit gehört zu einem Auftrag (Jamil msg 2790).
  */
 
 export async function nachkalkZugriff(locals: { nutzer: Nutzer | null }): Promise<Kontext> {
@@ -150,9 +149,6 @@ export type GruppenZeile = {
 	planStunden: number;
 	istStunden: number;
 	ampel: Ampel | null;
-	/** nur Mitarbeiter: Stunden auf Tätigkeiten ohne Auftrag */
-	nichtProduktivStunden?: number;
-	produktivProzent?: number | null;
 };
 
 export type AuswertungsAuftrag = {
@@ -172,7 +168,6 @@ export type Auswertung = {
 	gruppe: Gruppe;
 	auftraege: AuswertungsAuftrag[];
 	zeilen: GruppenZeile[];
-	nichtProduktiv: { mitarbeiter: string; taetigkeit: string; stunden: number }[];
 	lernen: LernVorschlag[];
 	satz: Firmensatz | null;
 	kmSatzCent: number | null;
@@ -189,7 +184,7 @@ function ampelVon(dbCent: number, stunden: number, satz: Firmensatz | null, erlo
 /**
  * Aufträge mit erfasster Zeit im Zeitraum (Berliner Tage von–bis); für sie zählt die GANZE Ist-Zeit (Nachkalkulation je
  * Auftrag). Gruppiert nach Gewerk (überwiegendes Gewerk der geplanten Stunden), Leistung (Katalogposition, Ist anteilig
- * nach geplanten Minuten), Auftragsquelle oder Mitarbeiter (Anteil an den Stunden; dazu nicht produktive Stunden).
+ * nach geplanten Minuten), Auftragsquelle oder Mitarbeiter (Anteil an den Stunden).
  * Lernvorschläge aus abgenommenen/abgerechneten Aufträgen (alle Zeiträume).
  */
 export async function auswertung(k: Kontext, f: { von: string; bis: string; gruppe: Gruppe }, jetzt = new Date()): Promise<Auswertung> {
@@ -288,24 +283,6 @@ export async function auswertung(k: Kontext, f: { von: string; bis: string; grup
 		}
 	}
 
-	// Nicht produktiv (Tätigkeiten ohne Auftrag) im Zeitraum, je Mitarbeiter und Tätigkeit
-	const np = await mitBetrieb(k, (tx) => tx`
-		select z.benutzer_id, b.name, t.name as taetigkeit, z.art, z.beginn, z.ende, z.pause_min, z.km
-		from app.zeit_eintraege z
-		join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
-		left join app.zeit_taetigkeiten t on t.id = z.taetigkeit_id and t.betrieb_id = z.betrieb_id
-		where z.betrieb_id = ${k.betriebId} and z.auftrag_id is null and z.beginn < ${bis} and coalesce(z.ende, now()) > ${ab}`);
-	const npMap = new Map<string, { mitarbeiter: string; taetigkeit: string; min: number; benutzerId: string }>();
-	for (const r of np) {
-		if (r.art !== 'arbeit') continue;
-		const s = summiere([{ art: 'arbeit', beginn: new Date(r.beginn).toISOString(), ende: r.ende ? new Date(r.ende).toISOString() : null, pauseMin: Number(r.pause_min), km: null }], jetzt, { von: ab, bis });
-		const key = `${r.benutzer_id}|${r.taetigkeit ?? ''}`;
-		const e = npMap.get(key) ?? { mitarbeiter: r.name, taetigkeit: r.taetigkeit ?? 'ohne Auftrag', min: 0, benutzerId: r.benutzer_id };
-		e.min += s.arbeitMin;
-		npMap.set(key, e);
-	}
-	const nichtProduktiv = [...npMap.values()].map((e) => ({ mitarbeiter: e.mitarbeiter, taetigkeit: e.taetigkeit, stunden: r2(e.min / 60) }));
-
 	const zeilen: GruppenZeile[] = [...gruppen].map(([schluessel, s]) => {
 		const z: GruppenZeile = {
 			schluessel,
@@ -319,24 +296,11 @@ export async function auswertung(k: Kontext, f: { von: string; bis: string; grup
 			istStunden: r2(s.istStd),
 			ampel: ampelVon(s.db, s.std, g.satz, s.erloes)
 		};
-		if (f.gruppe === 'mitarbeiter') {
-			const npStd = [...npMap.values()].filter((e) => e.benutzerId === schluessel).reduce((x, e) => x + e.min / 60, 0);
-			z.nichtProduktivStunden = r2(npStd);
-			z.produktivProzent = s.std + npStd > 0 ? Math.round((s.std / (s.std + npStd)) * 100) : null;
-		}
 		return z;
 	});
-	// Mitarbeiter nur mit nicht produktiven Stunden
-	if (f.gruppe === 'mitarbeiter') {
-		for (const e of npMap.values()) {
-			if (zeilen.some((z) => z.schluessel === e.benutzerId)) continue;
-			const npStd = [...npMap.values()].filter((x) => x.benutzerId === e.benutzerId).reduce((x, y) => x + y.min / 60, 0);
-			zeilen.push({ schluessel: e.benutzerId, name: e.mitarbeiter, auftraege: 0, erloesCent: 0, istKostenCent: 0, istGewinnCent: 0, planGewinnCent: 0, planStunden: 0, istStunden: 0, ampel: null, nichtProduktivStunden: r2(npStd), produktivProzent: 0 });
-		}
-	}
 	zeilen.sort((a, b) => (a.istGewinnCent ?? 0) - (b.istGewinnCent ?? 0));
 
-	return { von: f.von, bis: f.bis, gruppe: f.gruppe, auftraege, zeilen, nichtProduktiv, lernen: await lernen(k, jetzt), satz: g.satz, kmSatzCent: g.kmSatzCent };
+	return { von: f.von, bis: f.bis, gruppe: f.gruppe, auftraege, zeilen, lernen: await lernen(k, jetzt), satz: g.satz, kmSatzCent: g.kmSatzCent };
 }
 
 /** Lernvorschläge „Minuten pro Einheit“ aus abgenommenen/abgerechneten Aufträgen mit erfasster Arbeitszeit. */

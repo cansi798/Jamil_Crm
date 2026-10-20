@@ -25,6 +25,8 @@ export type ZeitenPdfDaten = {
 	bis: string;
 	tage: TagesZeile[];
 	eintraege: ZeitEintrag[];
+	/** Soll laut Kalkulation (Minuten) – dann mit Überstunden-Saldo */
+	sollMin?: number | null;
 	erstellt: Date;
 };
 
@@ -85,6 +87,10 @@ export async function zeitenPdf(d: ZeitenPdfDaten): Promise<Uint8Array> {
 	const summe = d.tage.reduce((a, t) => ({ arbeit: a.arbeit + t.arbeitMin, pause: a.pause + t.pauseMin, fahrt: a.fahrt + t.fahrtMin, km: a.km + t.km }), { arbeit: 0, pause: 0, fahrt: 0, km: 0 });
 	zeile(['Summe', '', '', stundenText(summe.arbeit), stundenText(summe.pause), stundenText(summe.fahrt), String(Math.round(summe.km * 10) / 10).replace('.', ','), ''], true);
 
+	if (d.sollMin !== undefined && d.sollMin !== null) {
+		doc.moveDown(0.4);
+		doc.font('f').fontSize(10).text(`Soll laut Kalkulation: ${stundenText(d.sollMin)}   ·   Überstunden-Saldo: ${summe.arbeit - d.sollMin > 0 ? '+' : ''}${stundenText(summe.arbeit - d.sollMin)}`, links);
+	}
 	doc.moveDown(1);
 	doc.font('f').fontSize(11).text('Einzelne Einträge', links);
 	doc.moveDown(0.3);
@@ -92,7 +98,7 @@ export async function zeitenPdf(d: ZeitenPdfDaten): Promise<Uint8Array> {
 	for (const e of d.eintraege) {
 		if (doc.y > doc.page.height - mm(25)) doc.addPage();
 		const b = new Date(e.beginn);
-		const was = e.auftragNummer ? `${e.auftragNummer} ${e.auftragTitel ?? ''}` : (e.taetigkeitName ?? 'ohne Auftrag');
+		const was = `${e.auftragNummer ?? ''} ${e.auftragTitel ?? ''}`.trim();
 		const text = `${new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', weekday: 'short', day: '2-digit', month: '2-digit' }).format(b)} ${berlinUhrzeit(b)}–${e.ende ? berlinUhrzeit(new Date(e.ende)) : 'läuft'}  ${ZEIT_ART_NAMEN[e.art]}  ${was}${e.pauseMin ? `  (Pause ${e.pauseMin} Min.)` : ''}${e.km !== null ? `  ${String(e.km).replace('.', ',')} km` : ''}${e.manuell ? `  – korrigiert/nachgetragen: ${e.korrekturGrund ?? ''}` : ''}${e.freigegeben ? '  ✓ freigegeben' : ''}`;
 		doc.text(text, links, doc.y, { width: breite });
 	}

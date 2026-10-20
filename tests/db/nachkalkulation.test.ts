@@ -4,7 +4,7 @@ import { schliesseDb } from '../../src/lib/server/db';
 import { antwort, baueUmgebung, jsonAnfrage, leereAngebote, type Umgebung } from './hilfe-1c';
 import { legeKalkMitarbeiterAn, speichereBetriebswerte } from '../../src/lib/server/kalkulation';
 import { auswertung, lernen, nachkalkulationAuftrag, nachkalkZugriff, uebernimmMinuten, verlustAuftraege } from '../../src/lib/server/nachkalkulation';
-import { listeTaetigkeiten, stempeln, trageNach, zeitZugriff } from '../../src/lib/server/zeiterfassung';
+import { trageNach, zeitZugriff } from '../../src/lib/server/zeiterfassung';
 import { materialHinzufuegen } from '../../src/lib/server/material';
 import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
 import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
@@ -74,18 +74,12 @@ describe('Nachkalkulation', () => {
 		expect((await laden(u.ohnePreiseA)).nachkalkulation).toBeNull();
 	});
 
-	it('Auswertung je Gewerk, Quelle, Leistung und Mitarbeiter; Tätigkeiten ohne Auftrag als „nicht produktiv“', async () => {
-		const m = await zeitZugriff({ nutzer: u.monteurA });
-		const lager = (await listeTaetigkeiten(kA()))[0];
-		await stempeln(m, 'start', { taetigkeitId: lager.id }, new Date('2026-10-22T07:00:00+02:00'));
-		await stempeln(m, 'fertig', {}, new Date('2026-10-22T09:00:00+02:00'));
+	it('Auswertung je Gewerk, Quelle, Leistung und Mitarbeiter', async () => {
 		const g = await auswertung(kA(), { von: '2026-10-19', bis: '2026-10-25', gruppe: 'gewerk' });
 		expect(g.auftraege.map((a) => a.id)).toEqual([u.auftragA]);
 		expect(g.zeilen).toEqual([expect.objectContaining({ name: 'Fliesen', auftraege: 1, istGewinnCent: -6_000, ampel: 'rot' })]);
 		const ma = await auswertung(kA(), { von: '2026-10-19', bis: '2026-10-25', gruppe: 'mitarbeiter' });
-		expect(ma.zeilen[0]).toMatchObject({ name: 'Ali Monteur', istStunden: 15, nichtProduktivStunden: 2 });
-		expect(ma.zeilen[0].produktivProzent).toBe(89); // 16 h von 18 h
-		expect(ma.nichtProduktiv).toEqual([{ mitarbeiter: 'Ali Monteur', taetigkeit: 'Lager aufräumen', stunden: 2 }]);
+		expect(ma.zeilen[0]).toMatchObject({ name: 'Ali Monteur', istStunden: 15 });
 		const le = await auswertung(kA(), { von: '2026-10-19', bis: '2026-10-25', gruppe: 'leistung' });
 		expect(le.zeilen[0]).toMatchObject({ name: 'Fliesen verlegen', erloesCent: 100_000 });
 		const q = await auswertung(kA(), { von: '2026-10-19', bis: '2026-10-25', gruppe: 'quelle' });

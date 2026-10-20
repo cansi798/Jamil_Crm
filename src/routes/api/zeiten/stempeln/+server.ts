@@ -14,17 +14,14 @@ export const GET: RequestHandler = async ({ locals }) => {
 };
 
 /**
- * Ein Tipp der Zeiterfassung: `{ aktion: start|pause|weiter|fertig|abfahrt|angekommen, auftragId?, taetigkeitId? }`.
- * Recht `zeiten.erfassen` (oder `zeiten.verwalten`), Modul `zeiterfassung`; Auftrag muss sichtbar sein.
+ * Ein Tipp der Zeiterfassung: `{ aktion: start|pause|weiter|fertig|abfahrt|angekommen, auftragId? }`.
+ * Recht `zeiterfassung.nutzen` (oder `zeiterfassung.alle_sehen`), Modul `zeiterfassung`; Auftrag muss sichtbar sein.
  */
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
 		const z = await zeitZugriff(locals);
 		const e = await leseJson(request);
-		const r = await stempeln(z, pruefeStempelAktion(e.aktion), {
-			auftragId: typeof e.auftragId === 'string' ? e.auftragId : null,
-			taetigkeitId: typeof e.taetigkeitId === 'string' ? e.taetigkeitId : null
-		});
+		const r = await stempeln(z, pruefeStempelAktion(e.aktion), { auftragId: typeof e.auftragId === 'string' ? e.auftragId : null });
 		return json(r);
 	} catch (e) {
 		return alsAntwort(e);

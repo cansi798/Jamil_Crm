@@ -2,7 +2,6 @@
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import HeuteListe from '$lib/components/HeuteListe.svelte';
 	import ZeitKnoepfe from '$lib/components/zeit/ZeitKnoepfe.svelte';
-	import AddPanel from '$lib/components/AddPanel.svelte';
 	import { loesche, speichere } from '$lib/heute-kopie';
 	import { tagKurz } from '$lib/zeit';
 	import type { PageData } from './$types';
@@ -56,17 +55,8 @@
 					<ZeitKnoepfe auftragId={a.id} titel={`${a.nummer} ${a.titel}`} laufend={data.zeit.laufend} kompakt />
 				</div>
 			{:else}
-				<p class="leise">Heute keine Aufträge eingeplant – Zeiten auf einem Auftrag starten Sie im Auftrag selbst.</p>
+				<p class="leise">Heute keine Aufträge eingeplant – Zeiten starten Sie im Auftrag selbst.</p>
 			{/each}
-			{#if data.zeit.laufend && !data.zeit.laufend.auftragId}
-				<div class="zeit-auftrag"><ZeitKnoepfe laufend={data.zeit.laufend} taetigkeiten={data.zeit.taetigkeiten} kompakt /></div>
-			{:else}
-				<AddPanel label="Tätigkeit ohne Auftrag (Lager, Werkstatt …)">
-					{#snippet children()}
-						<ZeitKnoepfe laufend={data.zeit!.laufend} taetigkeiten={data.zeit!.taetigkeiten} kompakt />
-					{/snippet}
-				</AddPanel>
-			{/if}
 		</section>
 	{/if}
 
