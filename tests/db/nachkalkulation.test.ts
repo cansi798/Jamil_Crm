@@ -10,6 +10,8 @@ import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
 import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
 import { FakeKi } from '../../src/lib/server/ki/fake';
 import { load as auftragLoad } from '../../src/routes/(app)/auftraege/[id]/+page.server';
+import { _fuerTests } from '../../src/lib/server/sprache/befehl';
+import { nutzerVon } from './hilfe-1c';
 
 /** Nachkalkulation (Jamil msgs 2770–2774, Punkt 1): Plan/Ist je Auftrag, Auswertung, Lernen, Rechte, Sprache. */
 describe('Nachkalkulation', () => {
@@ -127,5 +129,26 @@ describe('Nachkalkulation', () => {
 		expect(v.karte.antwort.abschnitte[0].eintraege.length).toBeGreaterThanOrEqual(1);
 		const mo = await frage(u.monteurA, 'Wie lief der Auftrag Badsanierung?');
 		expect(mo.karte.fehler).toMatch(/Berechtigung/);
+	});
+
+	it('Sicherheit: Antworten prüfen die Rechte selbst; Monteur findet per Sprache keine fremden Aufträge', async () => {
+		setzeKiAnbieter(new FakeKi());
+		const kM = { betriebId: u.betriebA, benutzerId: u.ids.monteurA };
+		// direkt (an rechte.ts vorbei): trotzdem gesperrt, keine Zahlen
+		const nk = await _fuerTests.beantworteNachkalkulation(kM, u.monteurA, 'Badsanierung');
+		expect(nk.fehler).toMatch(/Berechtigung/);
+		expect(JSON.stringify(nk)).not.toMatch(/€/);
+		const ve = await _fuerTests.beantworteVerlust(kM, u.monteurA);
+		expect(ve.fehler).toMatch(/Berechtigung/);
+		expect(ve.antwort).toBeUndefined();
+		// „Preise sehen“ ohne „Alle Aufträge ansehen“ reicht nicht
+		const nurPreise = nutzerVon(u.ids.monteurA, u.betriebA, ['auftraege.lesen', 'preise.sehen']);
+		expect((await _fuerTests.beantworteNachkalkulation(kM, nurPreise, 'Fliesen')).fehler).toMatch(/Berechtigung/);
+		// Planer ohne „Alle Aufträge ansehen“ findet per Sprache nur eigene Aufträge (Termin auf fremden Auftrag)
+		const planer = nutzerVon(u.ids.monteurA, u.betriebA, ['kunden.lesen', 'auftraege.lesen', 'plantafel.bearbeiten']);
+		const fremd = await u.neuerAuftrag('beauftragt', 'Geheimprojekt Zentrale');
+		const r = (await antwort(await textPost({ locals: { nutzer: planer }, request: jsonAnfrage('POST', { text: 'Termin bei Geheimprojekt morgen um 8 Uhr' }) } as never))).koerper;
+		expect(JSON.stringify(r)).not.toContain(fremd);
+		expect(JSON.stringify(r.karte)).not.toMatch(/Geheimprojekt Zentrale –/);
 	});
 });

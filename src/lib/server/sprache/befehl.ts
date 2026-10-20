@@ -48,8 +48,11 @@ const karteVon = (aktion: Karte['aktion'], titel: string, fehler: string | null,
 
 /** „Wie lief der Auftrag Müller?“ – Plan gegen Ist mit Ampel (Nachkalkulation). */
 async function beantworteNachkalkulation(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, auftrag: string): Promise<Karte> {
-	const { nachkalkulationAuftrag } = await import('../nachkalkulation');
-	const treffer = await sucheAuftraege(k, nutzer, auftrag, true);
+	const { nachkalkulationAuftrag, nachkalkZugriff } = await import('../nachkalkulation');
+	// Gleiche Schranke wie die Seite (Preise sehen + alle Aufträge + Modul) – zusätzlich zur Prüfung in rechte.ts
+	const gesperrt = await nachkalkZugriff({ nutzer }).then(() => null, (e) => (e instanceof ApiFehler ? e.message : 'Dafür fehlt Ihnen die Berechtigung'));
+	if (gesperrt) return karteVon('abfrage_nachkalkulation', 'Nachkalkulation', gesperrt === 'Im aktuellen Tarif nicht enthalten' ? gesperrt : 'Dafür fehlt Ihnen die Berechtigung');
+	const treffer = await sucheAuftraege(k, nutzer, auftrag, hatRecht(nutzer, 'auftraege.alle_lesen'));
 	if (treffer.length === 0) return karteVon('abfrage_nachkalkulation', 'Nachkalkulation', `Keinen Auftrag zu „${auftrag}“ gefunden.`);
 	if (treffer.length > 1) {
 		return karteVon('abfrage_nachkalkulation', 'Welcher Auftrag?', null, {
@@ -78,8 +81,10 @@ async function beantworteNachkalkulation(k: { betriebId: string; benutzerId: str
 }
 
 /** „Welche Aufträge machen Verlust?“ – letzte 90 Tage, schlechteste zuerst. */
-async function beantworteVerlust(k: { betriebId: string; benutzerId: string }): Promise<Karte> {
-	const { verlustAuftraege } = await import('../nachkalkulation');
+async function beantworteVerlust(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer): Promise<Karte> {
+	const { verlustAuftraege, nachkalkZugriff } = await import('../nachkalkulation');
+	const gesperrt = await nachkalkZugriff({ nutzer }).then(() => null, (e) => (e instanceof ApiFehler ? e.message : 'Dafür fehlt Ihnen die Berechtigung'));
+	if (gesperrt) return karteVon('abfrage_verlust', 'Aufträge mit Verlust', gesperrt === 'Im aktuellen Tarif nicht enthalten' ? gesperrt : 'Dafür fehlt Ihnen die Berechtigung');
 	const liste = await verlustAuftraege(k, 90);
 	const vorlesen = liste.length === 0 ? 'In den letzten 90 Tagen hat kein Auftrag Verlust gemacht.' : `${liste.length} Auftr${liste.length === 1 ? 'ag macht' : 'äge machen'} Verlust, am meisten ${liste[0].kundeName} mit ${euro(-(liste[0].nk.ist.gewinnCent ?? 0))}.`;
 	return karteVon('abfrage_verlust', 'Aufträge mit Verlust (90 Tage)', null, {
@@ -445,7 +450,7 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 		return { text, vorschlag: null, karte: await beantworteNachkalkulation(k, nutzer, aktion.daten.auftrag) };
 	}
 	if (aktion.aktion === 'abfrage_verlust') {
-		return { text, vorschlag: null, karte: await beantworteVerlust(k) };
+		return { text, vorschlag: null, karte: await beantworteVerlust(k, nutzer) };
 	}
 	if (aktion.aktion === 'portallink_zeigen' || aktion.aktion === 'foto_aufmass') {
 		return { text, vorschlag: null, karte: await beantworteAuftragsLink(k, nutzer, aktion.aktion, aktion.daten.auftrag) };
@@ -485,3 +490,6 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 			: signiere({ aktion: vorschau.aktion, werte: vorschau.werte, auswahl: vorschau.auswahl }, nutzer.id, k.betriebId);
 	return { text, vorschlag, karte: vorschau.karte };
 }
+
+/** Nur für Tests: die Antwort-Funktionen direkt (prüfen die Rechte selbst noch einmal). */
+export const _fuerTests = { beantworteNachkalkulation, beantworteVerlust };

@@ -370,7 +370,7 @@ async function einsatzAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, {
 	const { kolonnen, personen } = await kolonnenAus(k, d.mitarbeiter ?? []);
 	if (kolonnen.length > 0 || d.bis) return mehrtaegigAnlegen(k, nutzer, d, jetzt, kolonnen, personen);
 	const bau = neuerBau();
-	const t = await findeAuftraege(k, nutzer, d.auftrag, true);
+	const t = await findeAuftraege(k, nutzer, d.auftrag, hatRecht(nutzer, 'auftraege.alle_lesen'));
 	bau.werte.auftragId = null;
 	if (t.length === 1) {
 		bau.werte.auftragId = t[0].id;
@@ -437,7 +437,7 @@ async function mehrtaegigAnlegen(
 	personen: string[]
 ): Promise<Bau> {
 	const bau = neuerBau();
-	await auftragAufloesen(bau, k, nutzer, d.auftrag ?? '', true);
+	await auftragAufloesen(bau, k, nutzer, d.auftrag ?? '', hatRecht(nutzer, 'auftraege.alle_lesen'));
 	const alle = await aktiveMitarbeiter(k);
 	const ids = personen.length > 0 ? mitarbeiterAufloesen(bau, alle, personen, nutzer.id) : [];
 	bau.werte.mitarbeiterIds = ids;
@@ -468,7 +468,7 @@ async function einsatzVerschieben(k: Kontext, nutzer: Nutzer, d: Extract<KiAktio
 	const alle = await aktiveMitarbeiter(k);
 	const mitarbeiter = d.mitarbeiter ? findeMitarbeiter(alle, d.mitarbeiter, nutzer.id) : null;
 	if (d.mitarbeiter && mitarbeiter!.length === 0) bau.fehlt.push(`Mitarbeiter „${d.mitarbeiter}“ nicht gefunden.`);
-	const auftraege = d.auftrag ? await findeAuftraege(k, nutzer, d.auftrag, true) : null;
+	const auftraege = d.auftrag ? await findeAuftraege(k, nutzer, d.auftrag, hatRecht(nutzer, 'auftraege.alle_lesen')) : null;
 	if (d.auftrag && auftraege!.length === 0) bau.fehlt.push(`Kein offener Auftrag zu „${ohneAnrede(d.auftrag)}“ gefunden.`);
 	const vonTag = d.von ? loeseTag(d.von, jetzt) : null;
 	let kandidaten: { id: string; label: string; beginn: Date; ende: Date }[] = [];
