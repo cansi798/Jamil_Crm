@@ -66,6 +66,7 @@ else
 	[ -n "$EMAIL_ZERT" ] || fehler "Ohne E-Mail geht es nicht (CRM_ADMIN_EMAIL)."
 
 	info "Lege Einstellungen mit zufälligen Passwörtern an …"
+	read -r VAPID_OEFF VAPID_PRIV <<< "$(vapid_paar)" || true
 	umask 077
 	sed -e "s|^CRM_PROJEKT=.*|CRM_PROJEKT=$PROJEKT|" \
 		-e "s|^CRM_FIRMENNAME=.*|CRM_FIRMENNAME=\"$FIRMA\"|" \
@@ -81,6 +82,9 @@ else
 		-e "s|^CRM_ADMIN_PASSWORT=.*|CRM_ADMIN_PASSWORT=$(zufall 32)|" \
 		-e "s|^CRM_AUTH_PASSWORT=.*|CRM_AUTH_PASSWORT=$(zufall 32)|" \
 		-e "s|^CRM_VORSCHLAG_GEHEIMNIS=.*|CRM_VORSCHLAG_GEHEIMNIS=$(zufall 48)|" \
+		-e "s|^CRM_VAPID_OEFFENTLICH=.*|CRM_VAPID_OEFFENTLICH=${VAPID_OEFF:-}|" \
+		-e "s|^CRM_VAPID_PRIVAT=.*|CRM_VAPID_PRIVAT=${VAPID_PRIV:-}|" \
+		-e "s|^CRM_VAPID_KONTAKT=.*|CRM_VAPID_KONTAKT=mailto:$EMAIL_ZERT|" \
 		"$INSTALL_ORDNER/.env.beispiel" > "$ENV_DATEI"
 	chmod 600 "$ENV_DATEI"
 	umask 022

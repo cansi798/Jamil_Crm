@@ -65,3 +65,40 @@ sw.addEventListener('fetch', (ereignis) => {
 		caches.open(CACHE).then(async (cache) => (await cache.match(url.pathname)) ?? fetch(anfrage))
 	);
 });
+
+// ——— Erinnerungen per Web-Push (Wunsch Jamil msg 2679) ———
+// Der Server schickt nur Titel, kurzen Text und einen Link innerhalb der App (verschlüsselt über den Push-Dienst).
+sw.addEventListener('push', (ereignis) => {
+	let n: { titel?: string; text?: string; link?: string } = {};
+	try {
+		n = ereignis.data?.json() ?? {};
+	} catch {
+		n = { titel: ereignis.data?.text() };
+	}
+	const link = typeof n.link === 'string' && n.link.startsWith('/') && !n.link.startsWith('//') ? n.link : '/';
+	ereignis.waitUntil(
+		sw.registration.showNotification(n.titel || 'Erinnerung', {
+			body: n.text || '',
+			icon: '/icons/icon-192.png',
+			badge: '/icons/icon-192.png',
+			tag: link,
+			data: { link }
+		})
+	);
+});
+
+sw.addEventListener('notificationclick', (ereignis) => {
+	ereignis.notification.close();
+	const ziel = new URL((ereignis.notification.data?.link as string) || '/', sw.location.origin).href;
+	ereignis.waitUntil(
+		sw.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (fenster) => {
+			for (const f of fenster) {
+				if (new URL(f.url).origin === sw.location.origin) {
+					await (f as WindowClient).focus();
+					return (f as WindowClient).navigate(ziel);
+				}
+			}
+			return sw.clients.openWindow(ziel);
+		})
+	);
+});

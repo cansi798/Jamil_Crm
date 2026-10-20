@@ -85,6 +85,9 @@ services:
       CRM_KI_MODELL_FOTO: ${CRM_KI_MODELL_FOTO:-pixtral-12b-latest}
       CRM_VORSCHLAG_GEHEIMNIS: ${CRM_VORSCHLAG_GEHEIMNIS:?CRM_VORSCHLAG_GEHEIMNIS fehlt in .env}
       CRM_SMTP_URL: ${CRM_SMTP_URL:-}
+      CRM_VAPID_OEFFENTLICH: ${CRM_VAPID_OEFFENTLICH:-}
+      CRM_VAPID_PRIVAT: ${CRM_VAPID_PRIVAT:-}
+      CRM_VAPID_KONTAKT: ${CRM_VAPID_KONTAKT:-}
     ports:
       # Standard: nur lokal erreichbar (Caddy leitet weiter). Ohne Caddy: CRM_APP_BIND=0.0.0.0 setzen.
       - "${CRM_APP_BIND:-127.0.0.1}:${CRM_APP_PORT:-3000}:3000"

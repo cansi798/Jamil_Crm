@@ -6,6 +6,7 @@ import { darfEines } from './tarif';
 import { textFeld, UUID } from './kunden';
 import { berlinTag, istTag } from '../zeit';
 import { istRegel, naechsterTermin, pruefeRegel, regelText, type Regel } from '../wiederholung';
+import { erinnerungenAusEingabe, setzeErinnerungen, todoFaelligUm } from './erinnerungen';
 
 /**
  * To-dos (Modul `auftraege`): zu einem Auftrag oder allgemein, mit Zuständigem und Fälligkeit.
@@ -30,6 +31,8 @@ export type Todo = {
 	zustaendigId: string | null;
 	zustaendigName: string | null;
 	faellig: string | null;
+	/** Optionale Uhrzeit zur Fälligkeit „HH:MM“ (Erinnerungen ohne Uhrzeit: 8:00). */
+	faelligZeit: string | null;
 	erledigt: boolean;
 	erledigtAm: string | null;
 	/** Nur in Listen: dem Nutzer direkt zugewiesen (sonst über einen Auftrag, für den er zuständig ist). */
@@ -55,13 +58,16 @@ export const TODO_FELDER = [
 	'auftragId',
 	'zustaendigId',
 	'faellig',
+	'faelligZeit',
+	'erinnerung1',
+	'erinnerung2',
 	'lautstaerke',
 	'schmutz',
 	'wiederholung',
 	'intervall',
 	'wiederholungEnde'
 ] as const;
-const AENDERBAR = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz'] as const;
+const AENDERBAR = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'faelligZeit', 'lautstaerke', 'schmutz'] as const;
 
 export const MAX_TODOS = 200;
 /** Höchstens so viele To-dos auf einmal (z. B. aus einer Auftrags-Vorlage). */
@@ -107,9 +113,16 @@ type TodoWerte = {
 	auftragId: string | null;
 	zustaendigId: string | null;
 	faellig: string | null;
+	faelligZeit: string | null;
 	lautstaerke: number | null;
 	schmutz: number | null;
 };
+
+function uhrzeitFeld(w: unknown): string | null {
+	if (w === undefined || w === null || w === '') return null;
+	if (typeof w !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(w.trim())) throw new ApiFehler(400, 'Uhrzeit: bitte als HH:MM angeben.');
+	return w.trim();
+}
 
 function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
 	const titel = textFeld(e.titel, 'Titel', 200);
@@ -120,13 +133,14 @@ function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
 		auftragId: idFeld(e.auftragId, 'Der Auftrag ist ungültig.'),
 		zustaendigId: idFeld(e.zustaendigId, 'Zuständig: ungültige Auswahl.'),
 		faellig: datumFeld(e.faellig),
+		faelligZeit: uhrzeitFeld(e.faelligZeit),
 		lautstaerke: stufeFeld(e.lautstaerke, 'Lautstärke'),
 		schmutz: stufeFeld(e.schmutz, 'Schmutz')
 	};
 }
 
 const AUSWAHL = `t.id, t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
-	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am,
+	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, to_char(t.faellig_zeit, 'HH24:MI') as faellig_zeit, t.erledigt_am,
 	t.serie_id, s.regel as serie_regel, s.intervall as serie_intervall, to_char(s.ende, 'YYYY-MM-DD') as serie_ende,
 	s.aktiv as serie_aktiv, t.anlage_id, an.bezeichnung as anlage_bezeichnung, nl.angebot_id as nachfass_angebot_id`;
 
@@ -150,6 +164,7 @@ function zuTodo(z: Record<string, any>): Todo {
 		zustaendigId: z.zustaendig_id,
 		zustaendigName: z.zustaendig_name ?? null,
 		faellig: z.faellig,
+		faelligZeit: z.faellig_zeit ?? null,
 		erledigt: z.erledigt_am !== null,
 		erledigtAm: z.erledigt_am === null ? null : new Date(z.erledigt_am).toISOString(),
 		serie: z.serie_id
@@ -251,6 +266,7 @@ const ALLE = (k: Kontext): TodoSicht => ({ alle: true, benutzerId: k.benutzerId,
 
 export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: Sicht = ALLE(k)): Promise<Todo> {
 	const w = pruefeTodoEingabe(e);
+	const erinnerungen = erinnerungenAusEingabe(e);
 	const wiederholung =
 		e.wiederholung === undefined || e.wiederholung === null || e.wiederholung === ''
 			? null
@@ -283,10 +299,14 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 			serieId = s.id;
 		}
 		const [z] = await tx`
-			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz, serie_id, anlage_id)
-			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${faellig},
+			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, faellig_zeit, lautstaerke, schmutz, serie_id, anlage_id)
+			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${faellig}, ${w.faelligZeit},
 				${w.lautstaerke}, ${w.schmutz}, ${serieId}, ${anlageId})
 			returning id`;
+		// Erinnerungen (Wunsch Jamil msg 2679) für den, der das To-do anlegt
+		if (erinnerungen && erinnerungen.length > 0) {
+			await setzeErinnerungen(tx, k, { todoId: z.id }, erinnerungen, todoFaelligUm(faellig, w.faelligZeit));
+		}
 		return ladeEines(tx, k, ALLE(k), z.id);
 	});
 }
@@ -387,11 +407,12 @@ export async function aendereTodo(
 	pruefeId(id);
 	const felder = AENDERBAR.filter((f) => Object.hasOwn(e, f));
 	const mitErledigt = Object.hasOwn(e, 'erledigt');
-	if (felder.length === 0 && !mitErledigt) throw new ApiFehler(400, 'Nichts zu ändern.');
+	const erinnerungen = erinnerungenAusEingabe(e);
+	if (felder.length === 0 && !mitErledigt && !erinnerungen) throw new ApiFehler(400, 'Nichts zu ändern.');
 	const erledigt = mitErledigt ? erledigtWert(e.erledigt) : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.erledigt_am,
+			select t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, to_char(t.faellig_zeit, 'HH24:MI') as faellig_zeit, t.erledigt_am,
 				t.serie_id
 			from ${tx.unsafe(VON)}
 			where t.id = ${id} and t.betrieb_id = ${k.betriebId} and ${todoSichtbar(tx, sicht)} for update of t`;
@@ -403,6 +424,7 @@ export async function aendereTodo(
 			schmutz: alt.schmutz,
 			zustaendigId: alt.zustaendig_id,
 			faellig: alt.faellig,
+			faelligZeit: alt.faellig_zeit,
 			...Object.fromEntries(felder.map((f) => [f, e[f]]))
 		});
 		if (felder.includes('zustaendigId') && w.zustaendigId !== alt.zustaendig_id) {
@@ -410,10 +432,11 @@ export async function aendereTodo(
 		}
 		await tx`
 			update app.todos set titel = ${w.titel}, beschreibung = ${w.beschreibung},
-				lautstaerke = ${w.lautstaerke}, schmutz = ${w.schmutz}, zustaendig_id = ${w.zustaendigId}, faellig = ${w.faellig}
+				lautstaerke = ${w.lautstaerke}, schmutz = ${w.schmutz}, zustaendig_id = ${w.zustaendigId}, faellig = ${w.faellig}, faellig_zeit = ${w.faelligZeit}
 				${erledigt === null ? tx`` : erledigt ? tx`, erledigt_am = coalesce(erledigt_am, now())` : tx`, erledigt_am = null`}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		if (erledigt === true && alt.erledigt_am === null) await naechsteInstanz(tx, k, id);
+		if (erinnerungen) await setzeErinnerungen(tx, k, { todoId: id }, erinnerungen, todoFaelligUm(w.faellig, w.faelligZeit));
 		return ladeEines(tx, k, sicht, id);
 	});
 }

@@ -52,6 +52,18 @@ frage_text() {
 	printf '%s' "${antwort:-$vorgabe}"
 }
 
+# Schlüsselpaar für Web-Push (VAPID, P-256) als „ÖFFENTLICH PRIVAT“ (base64url). Ohne openssl: nichts – dann
+# erzeugt das CRM die Schlüssel selbst und speichert sie in der Datenbank.
+vapid_paar() {
+	command -v openssl > /dev/null 2>&1 || return 0
+	local pem oeff priv
+	pem="$(openssl ecparam -name prime256v1 -genkey -noout 2> /dev/null)" || return 0
+	priv="$(printf '%s\n' "$pem" | openssl ec -outform DER 2> /dev/null | tail -c +8 | head -c 32 | base64 | tr '+/' '-_' | tr -d '=\n')"
+	oeff="$(printf '%s\n' "$pem" | openssl ec -pubout -outform DER 2> /dev/null | tail -c 65 | base64 | tr '+/' '-_' | tr -d '=\n')"
+	[ "${#priv}" -eq 43 ] && [ "${#oeff}" -eq 87 ] && printf '%s %s' "$oeff" "$priv"
+	return 0
+}
+
 # Zufälliges Passwort (nur Buchstaben und Ziffern, damit es in URLs und .env keine Probleme macht)
 zufall() {
 	local laenge="${1:-32}"
