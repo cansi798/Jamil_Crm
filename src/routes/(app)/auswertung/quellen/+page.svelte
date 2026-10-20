@@ -176,7 +176,7 @@
 	}
 	.qa-balken button[aria-pressed='true'] {
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 	.qa-balken ul {
 		list-style: none;

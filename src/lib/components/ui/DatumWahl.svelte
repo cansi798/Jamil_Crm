@@ -54,7 +54,7 @@
 		color: var(--ui-text-leise);
 	}
 	.gesetzt .dw-symbol {
-		color: var(--ui-akzent);
+		color: var(--ui-akzent-text);
 	}
 	.leise {
 		color: var(--ui-text-leise);

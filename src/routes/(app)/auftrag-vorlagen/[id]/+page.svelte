@@ -221,7 +221,7 @@
 		box-sizing: border-box;
 	}
 	input:focus, textarea:focus {
-		outline: 2px solid var(--primar, #0078d4);
+		outline: 2px solid var(--m365-primaer);
 		outline-offset: -1px;
 	}
 	.todo-stufen {
@@ -293,8 +293,8 @@
 		font-size: 1rem;
 	}
 	.hinzufuegen:hover {
-		border-color: var(--primar, #0078d4);
-		color: var(--primar, #0078d4);
+		border-color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 	}
 	.knoepfe {
 		display: flex;
@@ -314,12 +314,12 @@
 		cursor: pointer;
 	}
 	.knopf.prima {
-		background: var(--primar, #0078d4);
-		color: white;
-		border-color: var(--primar, #0078d4);
+		background: var(--m365-primaer);
+		color: var(--ui-akzent-auf);
+		border-color: var(--m365-primaer);
 	}
 	.knopf.prima:hover {
-		background: var(--primar-dunkel, #106ebe);
+		background: var(--ui-akzent-hover);
 	}
 	.knopf.gefahr {
 		background: #a4262c;

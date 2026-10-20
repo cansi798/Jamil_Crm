@@ -60,7 +60,7 @@
 		display: inline-flex;
 		align-items: center;
 		min-height: 2.75rem;
-		color: var(--primaer);
+		color: var(--ui-akzent-text);
 	}
 	.heute-auftrag {
 		color: var(--text-leise);

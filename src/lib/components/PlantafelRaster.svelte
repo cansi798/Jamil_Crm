@@ -567,7 +567,7 @@
 	}
 	.pt-tage button[aria-pressed='true'] {
 		background: var(--primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-weight: 700;
 	}
 	.pt-tagtitel {
@@ -607,7 +607,7 @@
 		border: 1px dashed var(--primaer);
 		border-radius: 0.4rem;
 		background: #fff;
-		color: var(--primaer);
+		color: var(--ui-akzent-text);
 		font: inherit;
 		cursor: pointer;
 	}
@@ -645,7 +645,7 @@
 		}
 		.pt-raster thead th.heute {
 			background: var(--primaer);
-			color: #fff;
+			color: var(--ui-akzent-auf);
 		}
 		.pt-ecke {
 			width: 9rem;
@@ -692,7 +692,7 @@
 		.pt-zelle:hover .pt-plus,
 		.pt-plus:focus-visible {
 			border-color: #9fb3cc;
-			color: var(--primaer);
+			color: var(--ui-akzent-text);
 		}
 		.pt-leer {
 			padding: 1rem;

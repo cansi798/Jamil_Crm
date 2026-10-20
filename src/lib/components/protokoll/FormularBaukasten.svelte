@@ -408,7 +408,7 @@
 		height: 1.9rem;
 		border-radius: 999px;
 		background: var(--ui-akzent);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-weight: 700;
 	}
 	.pb-titel {
@@ -506,7 +506,7 @@
 	.pb-mini button:hover:not(:disabled),
 	.pb-x:hover {
 		background: var(--ui-akzent-hell);
-		color: var(--ui-akzent);
+		color: var(--ui-akzent-text);
 	}
 	.pb-mini button:disabled {
 		opacity: 0.3;
@@ -557,7 +557,7 @@
 	}
 	.pb-neu {
 		border-style: dashed !important;
-		color: var(--ui-akzent) !important;
+		color: var(--ui-akzent-text) !important;
 		font-weight: 600 !important;
 		background: transparent !important;
 	}

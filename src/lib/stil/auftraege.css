@@ -37,7 +37,7 @@
 .af-reiter a[aria-current='page'] {
 	border-color: var(--m365-primaer);
 	background: var(--m365-primaer);
-	color: #fff;
+	color: var(--ui-akzent-auf);
 	font-weight: 600;
 }
 
@@ -47,7 +47,7 @@
 	padding: 0.0625rem 0.5rem;
 	border-radius: var(--m365-radius-gross);
 	background: var(--m365-primaer-hell);
-	color: var(--m365-primaer-dunkel);
+	color: var(--ui-akzent-text);
 	font-family: var(--m365-schrift);
 	font-size: 0.75rem;
 	font-weight: 600;
@@ -56,7 +56,7 @@
 }
 .af-status.s-anfrage { background: var(--m365-flaeche-hover); color: var(--m365-text); }
 .af-status.s-angebot { background: var(--m365-warnung-hell); color: #6b4d00; }
-.af-status.s-beauftragt { background: var(--m365-primaer-hell); color: var(--m365-primaer-dunkel); }
+.af-status.s-beauftragt { background: var(--m365-primaer-hell); color: var(--ui-akzent-text); }
 .af-status.s-in_arbeit { background: var(--m365-erfolg-hell); color: #145c3c; }
 .af-status.s-abgenommen { background: #ece6fa; color: #4b2d8f; }
 .af-status.s-abgerechnet { background: var(--m365-flaeche-hover); color: var(--m365-text-leise); }
@@ -111,17 +111,17 @@
 .af-kette li.erledigt::before {
 	content: '✓';
 	background: var(--m365-primaer-hell);
-	color: var(--m365-primaer);
+	color: var(--ui-akzent-text);
 }
 .af-kette li[aria-current='step'] {
 	border-color: var(--m365-primaer);
 	background: var(--m365-primaer);
-	color: #fff;
+	color: var(--ui-akzent-auf);
 	font-weight: 600;
 }
 .af-kette li[aria-current='step']::before {
 	background: #fff;
-	color: var(--m365-primaer);
+	color: var(--ui-akzent-text);
 }
 .af-schritte {
 	display: grid;
@@ -233,7 +233,7 @@
 .td-haken[aria-pressed='true'] {
 	background: var(--m365-primaer);
 	border-color: var(--m365-primaer);
-	color: #fff;
+	color: var(--ui-akzent-auf);
 }
 .td-haken:disabled {
 	border-color: var(--m365-rand);
@@ -299,7 +299,7 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: var(--tippziel);
-	color: var(--m365-primaer);
+	color: var(--ui-akzent-text);
 	font-size: 0.875rem;
 	font-weight: 600;
 	cursor: pointer;
@@ -361,7 +361,7 @@
 }
 .af-ansicht a[aria-current='page'] {
 	background: var(--m365-primaer);
-	color: #fff;
+	color: var(--ui-akzent-auf);
 	font-weight: 600;
 }
 .td-neu-knoepfe {

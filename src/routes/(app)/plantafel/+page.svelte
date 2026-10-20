@@ -366,8 +366,8 @@
 		border-left: 1px solid var(--m365-rand, #e1dfdd);
 	}
 	.pt-ansicht a[aria-current='page'] {
-		background: var(--m365-primaer, #0f6cbd);
-		color: #fff;
+		background: var(--m365-primaer);
+		color: var(--ui-akzent-auf);
 		font-weight: 600;
 	}
 	.pt-chips {
@@ -394,9 +394,9 @@
 		white-space: nowrap;
 	}
 	.pt-chip[aria-pressed='true'] {
-		background: var(--m365-primaer, #0f6cbd);
-		border-color: var(--m365-primaer, #0f6cbd);
-		color: #fff;
+		background: var(--m365-primaer);
+		border-color: var(--m365-primaer);
+		color: var(--ui-akzent-auf);
 		font-weight: 600;
 	}
 	.pt-chip.ko {
@@ -434,7 +434,7 @@
 		border: 1px solid var(--m365-rand, #e1dfdd);
 		border-radius: 1rem;
 		background: #fff;
-		color: var(--m365-primaer, #0f6cbd);
+		color: var(--ui-akzent-text);
 		box-shadow: 0 4px 14px rgb(5 52 107 / 0.25);
 		cursor: pointer;
 	}

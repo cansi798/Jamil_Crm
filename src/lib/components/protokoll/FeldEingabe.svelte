@@ -293,7 +293,7 @@
 	.pf-chip.an {
 		border-color: var(--ui-akzent);
 		background: var(--ui-akzent);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 	.pf-chip:disabled {
 		cursor: default;

@@ -29,6 +29,12 @@
 	let speicherFehler = $state<string | null>(null);
 	let rest = $state(MAX_SEKUNDEN);
 	let pegel = $state(0);
+	// Ring-Countdown (Jamil msgs 2832/2833): Anteil der verstrichenen Zeit, flüssig je Bild; Pegel-Balken live
+	let anteil = $state(0);
+	let balken = $state<number[]>(Array(24).fill(0));
+	let beginnMs = 0;
+	const ruhig = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const RING_UMFANG = 2 * Math.PI * 52;
 
 	let recorder: MediaRecorder | null = null;
 	let strom: MediaStream | null = null;
@@ -99,10 +105,13 @@
 		r.start(250);
 		zustand = 'aufnahme';
 		rest = MAX_SEKUNDEN;
+		anteil = 0;
 		const beginn = Date.now();
+		beginnMs = beginn;
 		uhr = setInterval(() => {
 			const vergangen = Date.now() - beginn;
 			rest = Math.max(0, MAX_SEKUNDEN - Math.floor(vergangen / 1000));
+			if (ruhig) anteil = Math.min(1, (MAX_SEKUNDEN - rest) / MAX_SEKUNDEN);
 			if (vergangen >= MAX_SEKUNDEN * 1000) stoppe();
 		}, 200);
 		startePegel(strom);
@@ -115,11 +124,24 @@
 			analyse.fftSize = 512;
 			audio.createMediaStreamSource(s).connect(analyse);
 			const daten = new Uint8Array(analyse.fftSize);
+			const frequenzen = new Uint8Array(analyse.frequencyBinCount);
 			const schritt = () => {
 				analyse.getByteTimeDomainData(daten);
 				let summe = 0;
 				for (const x of daten) summe += ((x - 128) / 128) ** 2;
 				pegel = Math.min(1, Math.sqrt(summe / daten.length) * 4);
+				if (!ruhig) {
+					anteil = Math.min(1, (Date.now() - beginnMs) / (MAX_SEKUNDEN * 1000));
+					// Sprachbereich (ca. 100 Hz – 4 kHz) in 24 Balken
+					analyse.getByteFrequencyData(frequenzen);
+					const von = 2;
+					const breite = Math.max(1, Math.floor(Math.min(frequenzen.length - von, 90) / 24));
+					balken = balken.map((alt, i) => {
+						let m = 0;
+						for (let j = 0; j < breite; j++) m = Math.max(m, frequenzen[von + i * breite + j] ?? 0);
+						return alt * 0.55 + (m / 255) * 0.45;
+					});
+				}
 				bild = requestAnimationFrame(schritt);
 			};
 			schritt();
@@ -135,6 +157,7 @@
 		void audio?.close().catch(() => {});
 		audio = null;
 		pegel = 0;
+		balken = balken.map(() => 0);
 	}
 
 	function stoppeStrom() {
@@ -335,23 +358,51 @@
 </button>
 
 {#if offen}
-	<button type="button" class="mk-schleier" tabindex="-1" aria-label="Dialog schließen" onclick={schliessen}></button>
-	<div class="mk-dialog" role="dialog" aria-modal="true" aria-label="Sprachbefehl" bind:this={dialogEl} tabindex="-1">
+	<button type="button" class="ui-schleier" tabindex="-1" aria-label="Dialog schließen" onclick={schliessen}></button>
+	<div class="ui-dialog mk-dialog" role="dialog" aria-modal="true" aria-label="Sprachbefehl" bind:this={dialogEl} tabindex="-1">
+		<span class="ui-dialog-griff" aria-hidden="true"></span>
 		{#if zustand === 'startet'}
-			<p class="mk-status" role="status">Mikrofon wird gestartet …</p>
+			<p class="mk-status" role="status"><span class="mk-dreht" aria-hidden="true"></span> Mikrofon wird gestartet …</p>
 		{:else if zustand === 'aufnahme'}
-			<h2 class="mk-titel">Ich höre zu …</h2>
-			<div class="mk-pegel" aria-hidden="true"><span style:width="{Math.round(pegel * 100)}%"></span></div>
-			<p class="mk-rest" aria-live="off">Noch <strong>{restText}</strong> (höchstens 60 Sekunden)</p>
+			<h2 class="ui-dialog-titel mk-mitte-titel">Ich höre zu …</h2>
+			<div class="mk-ring" class:ruhig role="timer" aria-label={`Noch ${rest} Sekunden`}>
+				{#if !ruhig}<span class="mk-puls" aria-hidden="true" style:transform={`scale(${1 + pegel * 0.28})`} style:opacity={0.25 + pegel * 0.6}></span>{/if}
+				<svg viewBox="0 0 120 120" aria-hidden="true">
+					<circle class="mk-spur" cx="60" cy="60" r="52" />
+					<circle
+						class="mk-fortschritt"
+						cx="60"
+						cy="60"
+						r="52"
+						stroke-dasharray={RING_UMFANG}
+						stroke-dashoffset={RING_UMFANG * anteil}
+						class:knapp={rest <= 10}
+					/>
+				</svg>
+				<span class="mk-mitte" aria-hidden="true">
+					<span class="mk-zahl">{rest}</span>
+					<span class="mk-einheit">Sekunden</span>
+				</span>
+			</div>
+			{#if !ruhig}
+				<div class="mk-welle" aria-hidden="true">
+					{#each balken as h, i (i)}<span style:height={`${Math.max(8, Math.round(h * 100))}%`}></span>{/each}
+				</div>
+			{/if}
+			<p class="mk-rest" aria-live="off">Noch {restText} · höchstens 60 Sekunden</p>
 			<p class="mk-tipp">z. B. „Neuer Auftrag für Montag, Ali und Mehmet, Badsanierung bei Müller“</p>
-			<div class="mk-knoepfe">
-				<button type="button" class="knopf mk-gross" onclick={stoppe}>Fertig</button>
-				<button type="button" class="mk-zweit" onclick={() => { verwerfen = true; stoppe(); zuTippen(null); }}>Befehl tippen</button>
-				<button type="button" class="mk-zweit" onclick={schliessen}>Abbrechen</button>
+			<div class="ui-dialog-fuss">
+				<button type="button" class="kd-knopf hell" onclick={() => { verwerfen = true; stoppe(); zuTippen(null); }}>Befehl tippen</button>
+				<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+				<button type="button" class="kd-knopf primaer ui-gross" onclick={stoppe}>
+					<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" /></svg>
+					Fertig
+				</button>
 			</div>
 		{:else if zustand === 'versteht'}
 			<p class="mk-status" role="status"><span class="mk-dreht" aria-hidden="true"></span> Wird verstanden …</p>
 		{:else if zustand === 'tippen'}
+			<h2 class="ui-dialog-titel">Befehl tippen</h2>
 			{#if meldung}<p class="mk-hinweis" class:mk-ohne={ohneMikro} role="alert">{meldung}</p>{/if}
 			<form class="mk-form" onsubmit={verstehe}>
 				<label for="mk-befehl">Befehl</label>
@@ -361,19 +412,20 @@
 					bind:value={befehl}
 					maxlength="2000"
 					rows="3"
-					placeholder="z. B. Neues To-do für Murat: Silikonfuge erneuern, bis Freitag"
+					placeholder="z. B. Neue Aufgabe für Murat: Silikonfuge erneuern, bis Freitag"
 				></textarea>
-				<div class="mk-knoepfe">
-					<button type="submit" class="knopf mk-gross" disabled={befehl.trim() === ''}>Verstehen</button>
-					<button type="button" class="mk-zweit" onclick={schliessen}>Abbrechen</button>
+				<div class="ui-dialog-fuss">
+					<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+					<button type="submit" class="kd-knopf primaer ui-gross" disabled={befehl.trim() === ''}>Verstehen</button>
 				</div>
 			</form>
 		{:else if zustand === 'fehler'}
+			<h2 class="ui-dialog-titel">Das hat nicht geklappt</h2>
 			<p class="mk-hinweis" role="alert">{meldung}</p>
-			<div class="mk-knoepfe">
-				<button type="button" class="knopf mk-gross" onclick={() => void starte()}>Noch einmal sprechen</button>
-				<button type="button" class="mk-zweit" onclick={() => zuTippen(null)}>Befehl tippen</button>
-				<button type="button" class="mk-zweit" onclick={schliessen}>Abbrechen</button>
+			<div class="ui-dialog-fuss">
+				<button type="button" class="kd-knopf hell" onclick={() => zuTippen(null)}>Befehl tippen</button>
+				<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+				<button type="button" class="kd-knopf primaer ui-gross" onclick={() => void starte()}>Noch einmal sprechen</button>
 			</div>
 		{:else if zustand === 'karte' && ergebnis}
 			<Bestaetigungskarte
@@ -387,16 +439,19 @@
 			/>
 		{:else if zustand === 'fertig' && gespeichert}
 			<div class="mk-fertig" role="status">
-				<h2 class="mk-titel">Gespeichert</h2>
+				<span class="mk-ok" aria-hidden="true"
+					><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span
+				>
+				<h2 class="ui-dialog-titel">Gespeichert</h2>
 				<p>{gespeichert.meldung}</p>
 				{#if gespeichert.warnungen.length > 0}
 					<ul class="mk-warnungen">
 						{#each gespeichert.warnungen as w, i (i)}<li>{w}</li>{/each}
 					</ul>
 				{/if}
-				<div class="mk-knoepfe">
-					{#if gespeichert.link}<a class="knopf mk-gross" href={gespeichert.link} onclick={schliessen}>Öffnen</a>{/if}
-					<button type="button" class="mk-zweit" onclick={schliessen}>Schließen</button>
+				<div class="ui-dialog-fuss">
+					<button type="button" class="kd-knopf hell" onclick={schliessen}>Schließen</button>
+					{#if gespeichert.link}<a class="kd-knopf primaer ui-gross" href={gespeichert.link} onclick={schliessen}>Öffnen</a>{/if}
 				</div>
 			</div>
 		{/if}
@@ -414,89 +469,139 @@
 		justify-content: center;
 		width: 3.75rem;
 		height: 3.75rem;
-		border: 0;
+		border: 3px solid var(--ui-flaeche);
 		border-radius: 50%;
-		background: var(--primaer);
-		color: #fff;
-		box-shadow: 0 4px 14px rgb(5 52 107 / 0.35);
+		background: var(--ui-anthrazit-800);
+		color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
+		box-shadow: 0 6px 18px rgba(31, 30, 32, 0.35);
 		cursor: pointer;
 		touch-action: none;
 		-webkit-user-select: none;
 		user-select: none;
+		transition: transform 150ms, background 150ms;
 	}
 	.mikro:hover {
-		background: var(--primaer-dunkel);
+		background: var(--ui-anthrazit-900);
+		transform: translateY(-1px);
 	}
 	.mikro.aktiv {
-		background: #c62828;
-		box-shadow: 0 0 0 6px rgb(198 40 40 / 0.25);
-	}
-	.mk-schleier {
-		position: fixed;
-		inset: 0;
-		z-index: 30;
-		border: 0;
-		padding: 0;
-		background: rgb(0 0 0 / 0.35);
-		cursor: default;
+		background: var(--ui-gefahr);
+		color: #fff;
+		box-shadow: 0 0 0 6px rgba(176, 58, 46, 0.25);
 	}
 	.mk-ohne {
 		font-weight: 600;
 	}
-	.mk-dialog {
-		position: fixed;
-		z-index: 31;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		max-height: 88vh;
-		overflow-y: auto;
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
-		border-radius: 1rem 1rem 0 0;
-		background: var(--flaeche);
-		box-shadow: 0 -6px 24px rgb(0 0 0 / 0.2);
+	.mk-mitte-titel {
+		text-align: center;
 	}
-	.mk-titel {
-		margin: 0;
-		font-size: 1.25rem;
+	/* Ring-Countdown mit Pegel-Puls */
+	.mk-ring {
+		position: relative;
+		width: min(13rem, 62vw);
+		aspect-ratio: 1;
+		margin: 0.25rem auto 0;
 	}
-	.mk-pegel {
-		height: 0.9rem;
-		border-radius: 0.45rem;
-		background: var(--hintergrund);
-		overflow: hidden;
-	}
-	.mk-pegel span {
-		display: block;
+	.mk-ring svg {
+		position: relative;
+		width: 100%;
 		height: 100%;
-		min-width: 4%;
-		background: linear-gradient(90deg, #2e7d32, #f9a825);
-		transition: width 80ms linear;
+		transform: rotate(-90deg);
+	}
+	.mk-spur {
+		fill: var(--ui-flaeche);
+		stroke: var(--ui-akzent-hell);
+		stroke-width: 8;
+	}
+	.mk-fortschritt {
+		fill: none;
+		stroke: var(--ui-akzent);
+		stroke-width: 8;
+		stroke-linecap: round;
+		transition: stroke 300ms;
+	}
+	.mk-fortschritt.knapp {
+		stroke: var(--ui-gefahr);
+	}
+	.mk-puls {
+		position: absolute;
+		inset: 6%;
+		border-radius: 50%;
+		background: radial-gradient(circle, var(--ui-akzent-rand) 0%, transparent 70%);
+		transition: transform 90ms linear, opacity 90ms linear;
+	}
+	.mk-mitte {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-content: center;
+		text-align: center;
+		line-height: 1;
+	}
+	.mk-zahl {
+		font-family: var(--ui-schrift-titel);
+		font-size: clamp(2.75rem, 12vw, 3.5rem);
+		font-weight: 800;
+		color: var(--ui-text);
+		font-variant-numeric: tabular-nums;
+	}
+	.mk-einheit {
+		margin-top: 0.35rem;
+		color: var(--ui-text-leise);
+		font-family: var(--ui-schrift-titel);
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+	}
+	.mk-welle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 3px;
+		height: 2.25rem;
+	}
+	.mk-welle span {
+		width: 4px;
+		min-height: 3px;
+		border-radius: 2px;
+		background: var(--ui-akzent);
+		transition: height 60ms linear;
 	}
 	.mk-rest,
-	.mk-tipp,
-	.mk-status {
+	.mk-tipp {
 		margin: 0;
+		text-align: center;
+	}
+	.mk-rest {
+		color: var(--ui-text-leise);
+		font-size: var(--ui-schrift-s);
+		font-variant-numeric: tabular-nums;
 	}
 	.mk-tipp {
-		color: var(--text-leise);
-		font-size: 0.9rem;
+		align-self: center;
+		max-width: 26rem;
+		padding: 0.5rem 0.85rem;
+		border-radius: 999px;
+		background: var(--ui-band);
+		color: var(--ui-text-leise);
+		font-size: var(--ui-schrift-s);
+		font-style: italic;
 	}
 	.mk-status {
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 0.6rem;
-		min-height: 3rem;
+		min-height: 6rem;
+		margin: 0;
 		font-weight: 600;
 	}
 	.mk-dreht {
-		width: 1.25rem;
-		height: 1.25rem;
-		border: 3px solid var(--primaer-hell);
-		border-top-color: var(--primaer);
+		width: 1.4rem;
+		height: 1.4rem;
+		border: 3px solid var(--ui-akzent-hell);
+		border-top-color: var(--ui-akzent);
 		border-radius: 50%;
 		animation: mk-drehen 0.9s linear infinite;
 	}
@@ -507,11 +612,11 @@
 	}
 	.mk-hinweis {
 		margin: 0;
-		padding: 0.6rem 0.75rem;
-		border: 1px solid #e0b100;
-		border-radius: 0.5rem;
-		background: #fff6d6;
-		color: #4d3b00;
+		padding: 0.65rem 0.85rem;
+		border-left: 4px solid var(--ui-orange);
+		border-radius: var(--ui-radius);
+		background: var(--ui-orange-hell);
+		color: #5c3d0c;
 	}
 	.mk-form {
 		display: flex;
@@ -519,70 +624,57 @@
 		gap: 0.4rem;
 	}
 	.mk-form label {
-		font-weight: 600;
+		color: var(--ui-text-leise);
+		font-size: var(--ui-schrift-s);
+		font-weight: 500;
 	}
 	.mk-form textarea {
 		width: 100%;
-		padding: 0.6rem;
-		border: 1px solid var(--rand);
-		border-radius: 0.5rem;
 		font-size: 1rem;
-	}
-	.mk-knoepfe {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-top: 0.25rem;
-	}
-	.mk-gross {
-		flex: 1 1 100%;
-		min-height: 3.25rem;
-		font-size: 1.1rem;
-	}
-	.mk-gross:disabled {
-		opacity: 0.55;
-	}
-	.mk-zweit {
-		flex: 1 1 0;
-		min-height: var(--tippziel);
-		padding: 0.5rem 1rem;
-		border: 1px solid var(--rand);
-		border-radius: 0.5rem;
-		background: var(--flaeche);
-		color: var(--text);
-		font-weight: 600;
-		cursor: pointer;
 	}
 	.mk-fertig {
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 		gap: 0.5rem;
+		text-align: center;
 	}
 	.mk-fertig p {
 		margin: 0;
 	}
+	.mk-fertig .ui-dialog-fuss {
+		align-self: stretch;
+	}
+	.mk-ok {
+		display: grid;
+		place-items: center;
+		width: 3.5rem;
+		height: 3.5rem;
+		border-radius: 50%;
+		background: var(--ui-gruen-hell);
+		color: var(--ui-gruen);
+	}
+	.mk-ok svg {
+		width: 1.75rem;
+		height: 1.75rem;
+	}
 	.mk-warnungen {
 		margin: 0;
 		padding: 0.6rem 0.75rem 0.6rem 1.75rem;
-		border: 1px solid #e0b100;
-		border-radius: 0.5rem;
-		background: #fff6d6;
+		border-left: 4px solid var(--ui-orange);
+		border-radius: var(--ui-radius);
+		background: var(--ui-orange-hell);
+		text-align: left;
 	}
-
+	@media (prefers-reduced-motion: reduce) {
+		.mk-fortschritt {
+			transition: none;
+		}
+	}
 	@media (min-width: 900px) {
 		.mikro {
 			right: 1.5rem;
 			bottom: 1.5rem;
-		}
-		.mk-dialog {
-			left: 50%;
-			right: auto;
-			bottom: auto;
-			top: 12vh;
-			width: min(34rem, calc(100vw - 2rem));
-			transform: translateX(-50%);
-			border-radius: 1rem;
-			padding: 1.5rem;
 		}
 	}
 </style>

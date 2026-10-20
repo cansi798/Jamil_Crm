@@ -165,7 +165,7 @@
 	}
 	.suche input:focus {
 		border-color: var(--m365-primaer);
-		box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
+		box-shadow: var(--ui-fokus-ring);
 		outline: none;
 	}
 
@@ -304,7 +304,7 @@
 		transform: translateY(-1px);
 	}
 	.kachel :global(.nav-symbol) {
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 	}
 	.kachel.aus {
 		color: var(--m365-text-leicht);

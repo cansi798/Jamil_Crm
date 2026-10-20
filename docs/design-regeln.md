@@ -1,0 +1,100 @@
+# Design-Regeln (Theme „Handwerk“)
+
+Auftrag Jamil (Talk 2828): modern, **einheitlich auf jeder Seite**, passend zum Handwerk – angelehnt an die Website
+Bauwelt Handwerk (Anthrazit + warmes Gold, Montserrat-Überschriften). Diese Regeln gelten für jede neue Seite und
+jede Änderung. Was hier steht, ist in gemeinsamen Bausteinen umgesetzt – **Bausteine benutzen, nicht nachbauen.**
+
+## 1. Farben, Schrift, Abstände
+
+| Token | Wofür |
+| --- | --- |
+| `--ui-akzent` | Füllung der Hauptaktion, aktiver Reiter/Segment, Markierungen. Standard Gold `#c3a56f` |
+| `--ui-akzent-auf` | Text **auf** der Akzentfüllung (dunkel oder weiß, automatisch lesbar) |
+| `--ui-akzent-text` | Akzent als **Text/Link** auf hellem Grund (Kontrast ≥ 4,6 : 1) |
+| `--ui-akzent-hell` / `-zart` / `-rand` | Tönungen (gewählte Zeile, Hover, Rahmen) |
+| `--ui-nav`, `--ui-anthrazit-*` | Seitenleiste, Kopfleiste, Leiste unten |
+| `--ui-hintergrund`, `--ui-flaeche`, `--ui-band`, `--ui-rand` | Seite (warmes Off-White), Karten (weiß), Kopfband, Linien |
+| `--ui-gruen/-orange/-rot/-blau/-lila/-grau` (+ `-hell`) | Statusfarben (Pills, farbiger Rand in Listen) |
+
+- **Hausfarbe je Betrieb:** Einstellungen → Briefkopf → „Hausfarbe“. Die App-Hülle leitet daraus alle
+  `--ui-akzent*`-Tokens ab (`src/lib/farbe.ts`). Nie Farben fest einbauen – immer Tokens.
+- **Nie** `color: var(--ui-akzent)` für Text auf Weiß (zu hell) → `--ui-akzent-text`. Auf Akzent-Füllung immer
+  `color: var(--ui-akzent-auf)`.
+- **Schrift:** Überschriften, Knöpfe, Überzeilen `--ui-schrift-titel` (Montserrat); Text Inter. Beide liegen unter
+  `static/schriften` (CSP erlaubt nur eigene Schriften).
+- **Abstände** im 4er/8er-Raster (`--ui-a1` … `--ui-a5`), Radien: Felder `--ui-radius` (8 px), Karten
+  `--ui-radius-karte` (12 px), Knöpfe/Chips Pille.
+
+## 2. Knöpfe – EIN System
+
+Baustein `components/ui/Knopf.svelte` (`art="primaer|sekundaer|ghost|gefahr"`, `symbol`, `href`, `voll`).
+Altbestand nutzt die Klassen `kd-knopf` (primär), `kd-knopf hell` (sekundär), `knopf-ghost`/`knopf-subtil`
+(ghost), `kd-knopf gefahr` (gefahr) – sie sehen identisch aus.
+
+- Alle Knöpfe gleich hoch (40 px, Touch 44 px), Pillenform, Montserrat, Symbol **links** vom Text.
+- **Je Bereich höchstens ein Primärknopf.** Löschen/Deaktivieren immer `gefahr`.
+- Keine Aktion als reiner Text-Link. Navigation (zur Seite X) darf ein Link sein.
+
+## 3. Seitenkopf
+
+Baustein `components/ui/SeitenKopf.svelte`: Zurück-Link (optional) → Überzeile (optional) → **Titel links**,
+Kennzahl darunter, **Hauptaktionen IMMER rechts** (`aktionen`-Snippet). Am Handy brechen die Aktionen unter den
+Titel um und bleiben rechtsbündig. Kein zweiter Titel auf der Seite.
+
+## 4. Abschnitte und Überschriften
+
+Baustein `components/Abschnitt.svelte` (bzw. `Karte.svelte`): weiße Karte, getöntes Kopfband, Titel in
+Montserrat-Großbuchstaben mit kleinem goldenem Strich davor, Aktionen rechts im Band. Überschriften nie unterstreichen,
+keine Linie darunter.
+
+## 5. Formulare
+
+- Beschriftung **über** dem Feld (mittelstark, gedämpft); Pflichtfelder mit „*“.
+- **Fuß:** Baustein `components/ui/FormFuss.svelte` – Aktionen **immer unten rechts**, „Abbrechen“ (sekundär)
+  **links** von „Speichern“ (primär).
+- Anlegen-Formulare eingeklappt: Baustein `components/AddPanel.svelte` („+ … hinzufügen“), außer die Seite IST das
+  Formular.
+- Keine `<fieldset>`/`<legend>`-Rahmen als Gestaltung – Gruppen als Abschnitt oder mit Zwischenüberschrift.
+
+## 6. Auswahl-Bausteine (statt Browser-Standard)
+
+| Statt … | Baustein |
+| --- | --- |
+| `<select>` | `components/ui/Auswahl.svelte` – gleiche Attribute, `<option>` als Inhalt (1:1 tauschbar) |
+| Optionsfelder (`type="radio"`) | `components/ui/Segmente.svelte` (Umschalter mit Segmenten) |
+| Häkchen-Listen von Mitarbeitern, Personen-`<select>` | `components/ui/PersonWahl.svelte` (einzeln oder `mehrfach`, Avatare, Suche) |
+| Einzelnes Ja/Nein-Häkchen | `components/ui/Schalter.svelte` |
+| gering/mittel/hoch | `components/ui/StufenWahl.svelte` |
+| Datum als Chip | `components/ui/DatumWahl.svelte` |
+| Kundensuche mit „Suchen“-Knopf | `components/ui/KundeWahl.svelte` (Live-Suche, Treffer als Liste) |
+
+- **Personen** werden überall mit `PersonWahl` gewählt oder gefiltert (Aufgaben, Aufträge, Plantafel, Zeiten,
+  Karte, Abwesenheiten …) – gleiche Optik, gleiche Bedienung.
+- Die Bausteine behalten echte Formularfelder darunter (Formularwert, Tastatur, Screenreader, Tests).
+
+## 7. Listen und Filter
+
+- **Filterleiste** `components/ui/FilterLeiste.svelte` auf jeder Listenseite gleich: Suche links
+  (`components/ui/SuchFeld.svelte`, sucht beim Tippen – **kein „Suchen“-Knopf**), Filter-Chips daneben
+  (z. B. `PersonWahl klein`), Ansicht-Umschalter rechts.
+- Zeilen: Hover-Tönung, farbiger Rand links je Status, Status als farbige Pill, Personen als Avatar.
+- Leere Listen: Symbol + hilfreicher Satz + passender Knopf.
+
+## 8. Dialoge
+
+Alle Dialoge (Sprache, Bestätigung, Einsatz …) gleich: Kopf mit Titel und Schließen, Inhalt, Fuß mit Aktionen
+rechts (Hauptaktion ganz rechts). Am Handy als Blatt von unten, mit einer Hand bedienbar.
+
+## 9. Ganze Arbeitsfläche (Jamil msg 2838)
+
+- **Jede Seite nutzt die volle Breite** des Arbeitsbereichs – keine schmalen, mittig gesetzten Spalten am Desktop.
+- Einstellungs- und Listenseiten: Tabellen/Raster über die ganze Breite, Aktionen je Zeile rechts.
+- Formulare ab ca. 1100 px zweispaltig (`.kd-formular` macht das automatisch: kurze Felder nebeneinander,
+  Textfelder, Gruppen, Hinweise und der Fuß über die ganze Breite).
+- Nur reiner Lesetext behält eine maximale Zeilenlänge (`.ui-lesetext`, ca. 70 Zeichen).
+
+## 10. Prüfen
+
+- Querscrollen bei 390 px: keins. Tippziele ≥ 44 px.
+- Vor dem Commit nach Ausreißern suchen: `grep -rn '<select\|type="radio"\|<fieldset\|style="' src --include=*.svelte`
+  – neue Treffer nur mit Begründung.

@@ -139,7 +139,7 @@
 	}
 	.feld input:focus {
 		border-color: var(--m365-primaer);
-		box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
+		box-shadow: var(--ui-fokus-ring);
 		outline: none;
 	}
 
@@ -151,7 +151,7 @@
 		border: 1px solid var(--m365-primaer);
 		border-radius: var(--m365-radius);
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-family: var(--m365-schrift);
 		font-size: 0.875rem;
 		font-weight: 600;
@@ -188,7 +188,7 @@
 	.mit-passwort summary {
 		cursor: pointer;
 		font-size: 0.8125rem;
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		font-weight: 600;
 	}
 	.mit-passwort label {
@@ -216,14 +216,14 @@
 		padding: 0.65rem 1rem;
 		border: 1px solid var(--m365-primaer);
 		border-radius: var(--m365-radius);
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		font-weight: 600;
 		text-decoration: none;
 	}
 	.nextcloud-knopf:hover,
 	.nextcloud-knopf:focus-visible {
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 
 	/* Wunsch Can 16.10.2026 */

@@ -248,7 +248,7 @@
 	}
 	.kal-tag.gewaehlt {
 		background: #eaf2fb;
-		box-shadow: inset 0 0 0 2px var(--m365-primaer, #0f6cbd);
+		box-shadow: inset 0 0 0 2px var(--m365-primaer);
 	}
 	.kal-tag.ziel {
 		background: #dbeafc;
@@ -262,14 +262,14 @@
 		white-space: nowrap;
 	}
 	.kal-tag.heute .kal-zahl {
-		background: var(--m365-primaer, #0f6cbd);
-		color: #fff;
+		background: var(--m365-primaer);
+		color: var(--ui-akzent-auf);
 		font-weight: 700;
 	}
 	.kal-mehr {
 		font-size: 0.75rem;
 		font-weight: 700;
-		color: var(--m365-primaer, #0f6cbd);
+		color: var(--ui-akzent-text);
 	}
 	.kal-balken {
 		position: relative;

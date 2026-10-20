@@ -261,7 +261,7 @@
 	}
 	.zt-reiter button.aktiv {
 		background: var(--ui-akzent);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 	.zt-blaettern {
 		display: flex;

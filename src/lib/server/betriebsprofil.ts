@@ -114,6 +114,14 @@ export async function holeProfil(k: Kontext): Promise<Profil> {
 	});
 }
 
+/** Nur die Hausfarbe (für die App-Hülle aller Benutzer des Betriebs; keine weiteren Profildaten). */
+export async function hausfarbe(k: Kontext): Promise<string | null> {
+	return mitBetrieb(k, async (tx) => {
+		const [z] = await tx`select farbe from app.betrieb_profil where betrieb_id = ${k.betriebId}`;
+		return (z?.farbe as string | null) ?? null;
+	});
+}
+
 /** Prüft die angegebenen Felder (unbekannte Felder → 400) und liefert Spalte → Wert. */
 export function pruefeProfilEingabe(e: Record<string, unknown>): Record<string, string | null> {
 	const unbekannt = Object.keys(e).filter((f) => !Object.hasOwn(FELDER, f));

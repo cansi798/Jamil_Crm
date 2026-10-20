@@ -398,7 +398,7 @@
 	}
 	.ob-einbetten summary {
 		cursor: pointer;
-		color: var(--ui-akzent);
+		color: var(--ui-akzent-text);
 		font-weight: 600;
 	}
 	.ob-abgesagt {

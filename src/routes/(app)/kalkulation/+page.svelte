@@ -352,7 +352,7 @@
 		font-weight: 600;
 	}
 	.kk-haupt strong {
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 	}
 	.kk-label {
 		font-size: 0.8125rem;
@@ -390,7 +390,7 @@
 		display: inline-flex;
 		align-items: center;
 		min-height: var(--tippziel, 44px);
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		cursor: pointer;
 	}
 	.kk-tabelle {

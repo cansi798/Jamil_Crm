@@ -243,7 +243,7 @@
 		gap: 0.5rem;
 	}
 	.karte-auftrag a {
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 	}
 	.ab-menue {
 		position: relative;
@@ -256,7 +256,7 @@
 		padding: 0 0.5rem;
 		border-radius: var(--m365-radius);
 		font-size: 0.75rem;
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		cursor: pointer;
 		list-style: none;
 	}
@@ -328,7 +328,7 @@
 		min-height: var(--tippziel, 44px);
 		font-family: var(--m365-schrift);
 		font-size: 0.75rem;
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		cursor: pointer;
 	}
 	.karte-formular {
@@ -357,7 +357,7 @@
 		margin: 0 0 0.25rem;
 		font-family: var(--m365-schrift);
 		font-size: 0.75rem;
-		color: var(--m365-primaer-dunkel);
+		color: var(--ui-akzent-text);
 	}
 	.karte-serie.beendet {
 		color: var(--m365-text-leise);
@@ -417,7 +417,7 @@
 		height: 1.25rem;
 		border-radius: 50%;
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-family: var(--m365-schrift);
 		font-size: 0.5625rem;
 		font-weight: 600;
@@ -464,6 +464,6 @@
 	.haken-knopf.erledigt {
 		background: var(--m365-primaer);
 		border-color: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 </style>

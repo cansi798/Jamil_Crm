@@ -28,14 +28,15 @@
 </script>
 
 {#if data.navigation}
-	<div class="huelle">
+	<div class="huelle" style={data.farbStil}>
 		<!-- Unter 900 px: Leiste unten (Start, Kunden, Plantafel, Mehr); ab 900 px: Seitenleiste mit allen Einträgen. -->
 		<nav class="hauptnav" aria-label="Hauptnavigation">
 			<a href="/" class="marke nur-breit">
 				<span class="marke-zeichen" aria-hidden="true">
-					<svg viewBox="0 0 24 24"><path d="M5 17V9l7-4 7 4v8l-7 4-7-4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /><path d="M12 13v8M5 9l7 4 7-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+					<!-- Haus mit Dachlinie, leicht handgezeichnet (Theme „Handwerk“) -->
+					<svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4.3l8.6 6.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /><path d="M6 10.2V19.6h12.1V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /><path d="M10 19.5v-5.2h4.1v5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
 				</span>
-				CRM System
+				<span class="marke-text"><span class="marke-klein">Handwerk</span>CRM System</span>
 			</a>
 			<ul class="liste">
 				{#each data.navigation.haupt as e (e.name)}
@@ -116,21 +117,21 @@
 {/if}
 
 <style>
+	/* Theme „Handwerk“: Navigation und Kopfleiste in Anthrazit, aktiver Eintrag mit Akzent (Gold bzw. Hausfarbe) */
 	.nur-schmal-zeit {
 		position: sticky;
 		top: 0;
 		z-index: 5;
 	}
-	/* Mobil: Bottom-Tab-Bar (wie M365-App auf dem Handy) */
+	/* Mobil: Leiste unten */
 	.hauptnav {
 		position: fixed;
 		z-index: 10;
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: var(--m365-flaeche);
-		border-top: 1px solid var(--m365-rand);
-		box-shadow: var(--m365-schatten);
+		background: var(--ui-nav);
+		box-shadow: 0 -4px 16px rgba(31, 30, 32, 0.18);
 		padding-bottom: env(safe-area-inset-bottom);
 	}
 	.liste {
@@ -157,10 +158,10 @@
 		border: 0;
 		border-radius: 0;
 		background: none;
-		color: var(--m365-text-leise);
+		color: var(--ui-nav-leise);
 		font-family: var(--m365-schrift);
 		font-size: 0.6875rem;
-		font-weight: 400;
+		font-weight: 500;
 		line-height: 1.2;
 		text-align: center;
 		text-decoration: none;
@@ -168,16 +169,16 @@
 		transition: color 150ms, background 150ms;
 	}
 	.eintrag[aria-current='page'] {
-		color: var(--m365-primaer);
+		color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 		font-weight: 600;
-		box-shadow: inset 0 2px 0 var(--m365-primaer);
+		box-shadow: inset 0 3px 0 var(--ui-akzent);
 	}
 	.eintrag:hover:not(.aus) {
-		color: var(--m365-text);
-		background: var(--m365-flaeche-hover);
+		color: #fff;
+		background: var(--ui-nav-hover);
 	}
 	.eintrag.aus {
-		color: var(--m365-text-leicht);
+		color: var(--ui-anthrazit-600);
 		cursor: default;
 	}
 	.text {
@@ -200,19 +201,13 @@
 		padding-bottom: calc(var(--nav-hoehe) + 5rem + env(safe-area-inset-bottom));
 	}
 
-	/* Desktop: linke Seitenleiste wie M365 App */
+	/* Desktop: Seitenleiste als eigene Spalte (Hintergrund bis ganz unten, Navigation bleibt stehen) */
 	@media (min-width: 900px) {
-		/* Seitenleiste als eigene Spalte: Hintergrund bis ganz unten, Navigation bleibt beim Scrollen stehen */
 		.huelle {
 			display: grid;
 			grid-template-columns: var(--seitenleiste) minmax(0, 1fr);
 			min-height: 100vh;
-			background: linear-gradient(
-				90deg,
-				var(--m365-nav) 0 calc(var(--seitenleiste) - 1px),
-				var(--ui-rand) calc(var(--seitenleiste) - 1px) var(--seitenleiste),
-				transparent var(--seitenleiste)
-			);
+			background: linear-gradient(90deg, var(--ui-nav) 0 var(--seitenleiste), transparent var(--seitenleiste));
 		}
 		.hauptnav {
 			position: sticky;
@@ -226,12 +221,12 @@
 			display: flex;
 			flex-direction: column;
 			gap: 0;
-			padding: 0;
-			border-top: 0;
-			border-right: 1px solid var(--m365-rand);
+			padding: 0 0 0.5rem;
 			box-shadow: none;
-			background: var(--m365-nav);
+			background: var(--ui-nav);
 			overflow-y: auto;
+			scrollbar-width: thin;
+			scrollbar-color: var(--ui-anthrazit-600) transparent;
 		}
 		.nur-breit {
 			display: block;
@@ -239,7 +234,7 @@
 		.nur-breit-flex {
 			display: flex;
 		}
-		/* Kopfleiste: Bereich (Brotkrume) links, Suche rechts */
+		/* Kopfleiste: Bereich links, Suche Mitte/rechts, Zeit und Glocke ganz rechts */
 		.kopfleiste {
 			position: sticky;
 			top: 0;
@@ -249,62 +244,80 @@
 			gap: 1rem;
 			height: 3.5rem;
 			padding: 0 1.5rem;
-			border-bottom: 1px solid var(--ui-rand);
-			background: rgba(255, 255, 255, 0.92);
-			backdrop-filter: saturate(1.4) blur(8px);
+			background: var(--ui-anthrazit-900);
+			color: var(--ui-nav-text);
 		}
 		.kopf-bereich {
 			display: flex;
 			align-items: center;
 			gap: 0.5rem;
 			min-width: 0;
-			color: var(--ui-text-leise);
-			font-size: var(--ui-schrift-m);
-			font-weight: 500;
+			color: var(--ui-nav-text);
+			font-family: var(--ui-schrift-titel);
+			font-size: var(--ui-schrift-s);
+			font-weight: 700;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
 		}
 		.kopf-bereich :global(.nav-symbol) {
 			width: 18px;
 			height: 18px;
+			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 		}
 		.kopf-bereich a {
 			color: inherit;
 			text-decoration: none;
 		}
 		.kopf-bereich a:hover {
-			color: var(--ui-text);
+			color: #fff;
 		}
 		.kopf-suche {
 			position: relative;
-			width: min(22rem, 40vw);
+			width: min(24rem, 40vw);
+			margin-left: auto;
 		}
 		.kopf-suche svg {
 			position: absolute;
-			left: 0.75rem;
+			left: 0.85rem;
 			top: 50%;
 			width: 15px;
 			height: 15px;
 			margin-top: -7.5px;
-			color: var(--ui-text-leise);
+			color: var(--ui-nav-leise);
 			pointer-events: none;
 		}
 		.kopf-suche input {
 			width: 100%;
 			min-height: 2.25rem;
-			padding-left: 2.1rem;
-			border-color: var(--ui-rand);
+			padding-left: 2.25rem;
+			border: 1px solid rgba(255, 255, 255, 0.12);
 			border-radius: 999px;
-			background: var(--ui-hintergrund);
+			background: rgba(255, 255, 255, 0.08);
+			color: #fff;
+		}
+		.kopf-suche input::placeholder {
+			color: var(--ui-nav-leise);
 		}
 		.kopf-suche input:focus {
-			background: var(--ui-flaeche);
+			border-color: var(--ui-akzent);
+			background: rgba(255, 255, 255, 0.12);
+		}
+		/* Glocke auf dunklem Grund hell (nur der Auslöser, nicht das aufklappende Feld) */
+		.kopf-glocke :global(.gl-knopf) {
+			color: var(--ui-nav-text);
+		}
+		.kopf-glocke :global(.gl-knopf:hover) {
+			color: #fff;
+			background: var(--ui-nav-hover);
 		}
 		.gruppe {
-			margin: 1rem 0 0.25rem;
-			padding: 0 1.25rem;
-			color: var(--ui-text-leise);
-			font-size: var(--ui-schrift-xs);
-			font-weight: 600;
-			letter-spacing: 0.04em;
+			margin: 1.25rem 0 0.35rem;
+			padding: 0 1.4rem;
+			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
+			font-family: var(--ui-schrift-titel);
+			font-size: 0.6875rem;
+			font-weight: 700;
+			letter-spacing: 0.12em;
 			text-transform: uppercase;
 		}
 		.nur-schmal {
@@ -315,49 +328,52 @@
 			display: none;
 		}
 		.kopf-glocke {
-			margin-left: 0.5rem;
+			margin-left: 0.25rem;
 		}
-		/* Branding-Bereich (wie M365 App-Kopf) */
 		.marke {
 			display: flex;
 			align-items: center;
-			gap: 0.5rem;
-			min-height: 3rem;
-			padding: 0 1rem;
-			margin-bottom: 0.5rem;
-			color: var(--m365-text);
-			font-family: var(--m365-schrift);
-			font-size: 1.125rem;
-			font-weight: 600;
-			text-decoration: none;
-			letter-spacing: -0.01em;
-		}
-		.marke {
+			gap: 0.65rem;
 			min-height: 3.5rem;
-			margin-bottom: 0.25rem;
 			padding: 0 1.25rem;
-			font-size: 1rem;
+			margin-bottom: 0.5rem;
+			background: var(--ui-anthrazit-900);
+			color: #fff;
+			text-decoration: none;
+		}
+		.marke-text {
+			display: grid;
+			font-family: var(--ui-schrift-titel);
+			font-size: 0.9375rem;
+			font-weight: 800;
+			letter-spacing: 0.02em;
+			line-height: 1.1;
+			text-transform: uppercase;
+		}
+		.marke-klein {
+			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
+			font-size: 0.625rem;
 			font-weight: 700;
-			letter-spacing: -0.01em;
+			letter-spacing: 0.16em;
 		}
 		.marke-zeichen {
 			display: inline-grid;
 			place-items: center;
-			width: 1.75rem;
-			height: 1.75rem;
-			border-radius: 8px;
-			background: linear-gradient(135deg, var(--ui-akzent), #7c5cf0);
-			color: #fff;
+			width: 2rem;
+			height: 2rem;
+			border-radius: 10px;
+			background: var(--ui-akzent);
+			color: var(--ui-akzent-auf);
 			flex-shrink: 0;
 		}
 		.marke-zeichen svg {
-			width: 1.1rem;
-			height: 1.1rem;
+			width: 1.2rem;
+			height: 1.2rem;
 		}
 		.liste {
 			flex-direction: column;
-			gap: 0;
-			padding: 0 0.5rem;
+			gap: 0.1rem;
+			padding: 0 0.6rem;
 		}
 		.eintrag {
 			flex-direction: row;
@@ -365,38 +381,43 @@
 			gap: 0.75rem;
 			min-height: 2.75rem; /* Tippziel ≥ 44 px */
 			margin: 0;
-			padding: 0.375rem 0.75rem;
-			border-radius: var(--m365-radius);
-			font-family: var(--m365-schrift);
+			padding: 0.375rem 0.8rem;
+			border-radius: 10px;
 			font-size: 0.875rem;
 			font-weight: 500;
 			text-align: left;
 			line-height: 1.2;
+			color: var(--ui-nav-text);
 		}
 		.eintrag[aria-current='page'] {
 			position: relative;
-			background: var(--ui-akzent-hell);
+			background: var(--ui-nav-aktiv);
 			box-shadow: none;
 			font-weight: 600;
-			color: var(--ui-akzent);
+			color: #fff;
+		}
+		.eintrag[aria-current='page'] :global(.nav-symbol) {
+			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 		}
 		.eintrag[aria-current='page']::before {
 			content: '';
 			position: absolute;
-			left: -0.5rem;
-			top: 0.6rem;
-			bottom: 0.6rem;
-			width: 3px;
-			border-radius: 0 3px 3px 0;
+			left: -0.6rem;
+			top: 0.55rem;
+			bottom: 0.55rem;
+			width: 4px;
+			border-radius: 0 4px 4px 0;
 			background: var(--ui-akzent);
 		}
 		.eintrag :global(.nav-symbol) {
 			width: 20px;
 			height: 20px;
 			flex: none;
+			color: var(--ui-nav-leise);
 		}
 		.eintrag:not(.aus):hover {
-			background: var(--m365-flaeche-hover);
+			background: var(--ui-nav-hover);
+			color: #fff;
 		}
 		.eintrag.aus {
 			font-size: 0.875rem;
@@ -404,16 +425,10 @@
 		.hinweis {
 			font-size: 0.75rem;
 		}
-		.verwaltung {
-			margin-top: 0;
-		}
-		.verwaltung .liste {
-			padding: 0 0.5rem;
-		}
 		.abmelden {
 			margin-top: auto;
-			padding: 0.5rem;
-			border-top: 1px solid var(--m365-rand);
+			padding: 0.75rem 0.6rem 0;
+			border-top: 1px solid rgba(255, 255, 255, 0.08);
 		}
 		.abmelden .eintrag {
 			width: 100%;

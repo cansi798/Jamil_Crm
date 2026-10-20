@@ -251,7 +251,7 @@
 		height: 1.4rem;
 		border-radius: 50%;
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-size: 0.75rem;
 		font-weight: 600;
 	}
@@ -286,7 +286,7 @@
 		padding: 0.4rem 0;
 		border: 0;
 		background: none;
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		font: inherit;
 		font-weight: 600;
 		cursor: pointer;

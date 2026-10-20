@@ -406,7 +406,7 @@
 	.pill.aktiv {
 		background: var(--m365-primaer);
 		border-color: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 	.ka-zeitleiste {
 		list-style: none;

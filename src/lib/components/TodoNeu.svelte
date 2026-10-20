@@ -180,7 +180,7 @@
 		gap: 0.5rem;
 	}
 	.ui-neu-plus {
-		color: var(--ui-akzent) !important;
+		color: var(--ui-akzent-text) !important;
 	}
 	.ui-neu-regel {
 		display: grid;

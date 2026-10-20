@@ -138,7 +138,7 @@
 	.po-nummer { margin: 0; font-size: var(--ui-schrift-s); color: var(--ui-text-leise); }
 	h1 { margin: 0; font-size: var(--ui-schrift-xxl); }
 	h2 { margin: var(--ui-a3) 0 0; font-size: var(--ui-schrift-l); }
-	.po-status { margin: 0; font-weight: 600; color: var(--ui-akzent-dunkel); }
+	.po-status { margin: 0; font-weight: 600; color: var(--ui-akzent-text); }
 	.po-stufen { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
 	.po-stufen li { flex: 1; height: 6px; border-radius: 3px; background: var(--ui-rand); }
 	.po-stufen li.erreicht { background: var(--ui-akzent); }
@@ -157,8 +157,8 @@
 	.po-check { display: flex !important; gap: var(--ui-a2); align-items: flex-start; }
 	.po-check input { width: 1.4rem; height: 1.4rem; margin-top: 2px; flex: none; }
 	.po-knoepfe { display: flex; flex-wrap: wrap; gap: var(--ui-a2); }
-	.po-knopf { display: inline-flex; align-items: center; justify-content: center; min-height: 3rem; padding: 0 var(--ui-a5); border: 0; border-radius: var(--ui-knopf-radius); background: var(--ui-akzent); color: #fff; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+	.po-knopf { display: inline-flex; align-items: center; justify-content: center; min-height: 3rem; padding: 0 var(--ui-a5); border: 0; border-radius: var(--ui-knopf-radius); background: var(--ui-akzent); color: var(--ui-akzent-auf); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
 	.po-knopf:hover { background: var(--ui-akzent-hover); }
-	.po-knopf.hell { background: var(--ui-flaeche); color: var(--ui-akzent-dunkel); border: 1px solid var(--ui-rand-stark); }
+	.po-knopf.hell { background: var(--ui-flaeche); color: var(--ui-akzent-text); border: 1px solid var(--ui-rand-stark); }
 	.po-knopf:focus-visible { outline: none; box-shadow: var(--ui-fokus-ring); }
 </style>

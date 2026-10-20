@@ -238,7 +238,7 @@
 	.ab-reiter-knopf[aria-pressed='true'] {
 		border-color: var(--m365-primaer);
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 	.ab-reiter-knopf[aria-pressed='true'] .ab-zahl {
 		background: rgba(255, 255, 255, 0.25);

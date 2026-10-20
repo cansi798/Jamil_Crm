@@ -113,8 +113,8 @@
 		border-left: 1px solid var(--m365-rand-stark, #8a8886);
 	}
 	.mv-schalter button[aria-pressed='true'] {
-		background: var(--m365-primaer, #0f6cbd);
-		color: #fff;
+		background: var(--m365-primaer);
+		color: var(--ui-akzent-auf);
 	}
 	.mv-buehne {
 		padding: 0.75rem;

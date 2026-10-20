@@ -178,7 +178,7 @@
 	.af-meine .pill[aria-current='page'] {
 		background: var(--m365-primaer);
 		border-color: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 	.af-liste-vorort {
 		display: flex;
@@ -201,6 +201,6 @@
 		border-radius: 999px;
 		font-size: 0.75rem;
 		background: var(--m365-primaer-hell);
-		color: var(--m365-primaer-dunkel);
+		color: var(--ui-akzent-text);
 	}
 </style>

@@ -20,7 +20,7 @@
 	gap: 0.5rem;
 	padding: 0.5rem 1rem;
 	background: var(--primaer);
-	color: #fff;
+	color: var(--ui-akzent-auf);
 }
 .ad-kopf form {
 	margin: 0;
@@ -59,7 +59,7 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: 2.75rem;
-	color: var(--primaer);
+	color: var(--ui-akzent-text);
 }
 .ad-knopf {
 	display: flex;
@@ -70,7 +70,7 @@
 	border: 1px solid var(--primaer);
 	border-radius: 0.5rem;
 	background: var(--primaer);
-	color: #fff;
+	color: var(--ui-akzent-auf);
 	font: inherit;
 	font-weight: 600;
 	text-decoration: none;
@@ -78,7 +78,7 @@
 }
 .ad-knopf.hell {
 	background: #fff;
-	color: var(--primaer);
+	color: var(--ui-akzent-text);
 }
 .ad-formular {
 	display: grid;
@@ -186,7 +186,7 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: 2.75rem;
-	color: var(--primaer);
+	color: var(--ui-akzent-text);
 	font-weight: 600;
 }
 @media (max-width: 48rem) {

@@ -70,8 +70,8 @@
 		</div>
 		<label>Internetseite <input type="text" name="web" maxlength="200" value={werte.web ?? ''} /></label>
 		<label class="bk-farbe">
-			Hausfarbe (Online-Buchungsseite)
-			<input type="color" name="farbe" value={werte.farbe || '#0f6cbd'} />
+			Hausfarbe (App, Online-Buchung, Kundenportal)
+			<input type="color" name="farbe" value={werte.farbe || '#c3a56f'} />
 		</label>
 		<div class="kd-zwei">
 			<label>Steuernummer <input type="text" name="steuernummer" maxlength="50" value={werte.steuernummer ?? ''} /></label>

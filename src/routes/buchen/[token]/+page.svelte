@@ -258,7 +258,7 @@
 		height: 1.75rem;
 		border-radius: 999px;
 		background: var(--ui-akzent);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-size: var(--ui-schrift-m);
 	}
 	.bu-gewaehlt {

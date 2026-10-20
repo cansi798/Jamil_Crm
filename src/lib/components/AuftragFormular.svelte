@@ -517,7 +517,7 @@
 		margin-top: 0.5rem;
 	}
 	.af-todo-hinzufuegen:hover {
-		border-color: var(--primar, #0078d4);
-		color: var(--primar, #0078d4);
+		border-color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 	}
 </style>

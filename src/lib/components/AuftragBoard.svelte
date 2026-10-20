@@ -216,7 +216,7 @@
 	}
 	.ab-titel:hover,
 	.ab-titel:focus-visible {
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		text-decoration: underline;
 	}
 	.ab-kunde,
@@ -266,7 +266,7 @@
 		height: 1.25rem;
 		border-radius: 50%;
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-size: 0.5625rem;
 		font-weight: 600;
 	}
@@ -281,7 +281,7 @@
 		padding: 0 0.5rem;
 		border-radius: var(--m365-radius);
 		font-size: 0.75rem;
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		cursor: pointer;
 		list-style: none;
 	}
@@ -328,6 +328,6 @@
 		color: var(--m365-text-leise);
 	}
 	.ab-mehr a {
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 	}
 </style>

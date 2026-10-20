@@ -137,7 +137,7 @@
 	.tw-tag.an {
 		border-color: var(--ui-akzent);
 		background: var(--ui-akzent);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 	.tw-tag.an small {
 		color: #fff;
@@ -153,7 +153,7 @@
 		border: 1px solid var(--ui-akzent);
 		border-radius: var(--ui-radius);
 		background: var(--ui-flaeche);
-		color: var(--ui-akzent);
+		color: var(--ui-akzent-text);
 		font: inherit;
 		font-weight: 600;
 		cursor: pointer;
@@ -163,7 +163,7 @@
 	}
 	.tw-zeit.an {
 		background: var(--ui-akzent);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 	}
 	.tw-tag:focus-visible,
 	.tw-zeit:focus-visible {

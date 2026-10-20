@@ -1,5 +1,7 @@
-/* Grundgestaltung für alle Seiten: Microsoft-365-Fluent-Design, mobil zuerst.
-   Tippflächen mindestens 44 px (2,75 rem), kleinste Zielbreite 360 px ohne horizontales Scrollen. */
+/* Grundgestaltung für alle Seiten – Theme „Handwerk“ (Jamil msg 2828, angelehnt an die Website Bauwelt Handwerk):
+   Anthrazit für Navigation und Kopf, warmes Off-White als Seite, Gold als Akzent (je Betrieb änderbar: Briefkopf →
+   Hausfarbe, Ableitung in src/lib/farbe.ts), Montserrat für Überschriften, Inter für Text. Regeln: docs/design-regeln.md.
+   Mobil zuerst; Tippflächen mindestens 44 px, kleinste Zielbreite 360 px ohne horizontales Scrollen. */
 @import '../stil/komponenten.css';
 
 /* Inter (SIL Open Font License, static/schriften/Inter-LIZENZ.txt), eine variable Datei für alle Stärken */
@@ -10,24 +12,49 @@
 	font-display: swap;
 	src: url('/schriften/InterVariable.woff2') format('woff2');
 }
+/* Montserrat für Überschriften und Knöpfe (SIL Open Font License, static/schriften/Montserrat-LIZENZ.txt) */
+@font-face {
+	font-family: 'Montserrat';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('/schriften/Montserrat.woff2') format('woff2');
+}
 :root {
-	/* ── Design-Tokens (UX-Durchgang 20.10.2026, Wunsch Jamil msgs 2579–2583) ──────────────────────────────
-	   Eine Akzentfarbe, neutraler Seitenhintergrund, weiße Flächen mit zart getönten Kopfbändern.
-	   Die --m365-*-Namen bleiben (alle Seiten nutzen sie); nur ihre Werte kommen von hier. */
-	--ui-akzent: #2563eb;
-	--ui-akzent-hover: #1d4fd7;
-	--ui-akzent-dunkel: #1e3a8a;
-	--ui-akzent-hell: #eaf1fe;
-	--ui-akzent-zart: #f6f9ff;
-	--ui-hintergrund: #f5f6fa;
+	/* ── Akzent (Standard: Gold; je Betrieb überschrieben über die App-Hülle, siehe farbe.ts) ─────────── */
+	--ui-akzent: #c3a56f; /* Füllung: Hauptknopf, aktive Reiter */
+	--ui-akzent-hover: #b09564;
+	--ui-akzent-auf: #1f1e20; /* Text auf der Füllung */
+	--ui-akzent-text: #7f6b48; /* Akzent als Text/Link auf hellem Grund (Kontrast ≥ 4,6 : 1) */
+	--ui-akzent-hell: #f5f1e8;
+	--ui-akzent-zart: #fbf9f5;
+	--ui-akzent-rand: #e4d7be;
+	--ui-akzent-dunkel: var(--ui-akzent-text);
+	--ui-fokus-ring: 0 0 0 3px rgba(195, 165, 111, 0.35);
+
+	/* ── Anthrazit (Navigation, Kopfleiste, Text) ──────────────────────────────────────────────────── */
+	--ui-anthrazit-900: #1f1e20;
+	--ui-anthrazit-800: #2d2c2e;
+	--ui-anthrazit-700: #444346;
+	--ui-anthrazit-600: #6b6a6d;
+	--ui-anthrazit-400: #a3a2a5;
+	--ui-anthrazit-200: #d6d5d7;
+	--ui-nav: var(--ui-anthrazit-800);
+	--ui-nav-text: #d9d6d0;
+	--ui-nav-leise: #9c9a96;
+	--ui-nav-hover: rgba(255, 255, 255, 0.07);
+	--ui-nav-aktiv: rgba(195, 165, 111, 0.16);
+
+	/* ── Flächen und Linien (warm) ─────────────────────────────────────────────────────────────────── */
+	--ui-hintergrund: #f6f4f0;
 	--ui-flaeche: #ffffff;
-	--ui-band: #f8f9fc; /* Kopfband von Abschnitten/Karten */
-	--ui-rand: #e4e7ef;
-	--ui-rand-stark: #cdd2de;
-	--ui-text: #1f2430;
-	--ui-text-leise: #646b7d;
-	--ui-gefahr: #d92d43;
-	--ui-gefahr-hell: #fdeef0;
+	--ui-band: #faf8f4; /* Kopfband von Abschnitten/Karten */
+	--ui-rand: #e6e1d8;
+	--ui-rand-stark: #cfc8bc;
+	--ui-text: #2d2c2e;
+	--ui-text-leise: #6b6a6d;
+	--ui-gefahr: #b03a2e;
+	--ui-gefahr-hell: #f7e3e0;
 
 	/* Abstände (4er-Raster), Radien, Höhen */
 	--ui-a1: 0.25rem;
@@ -36,27 +63,26 @@
 	--ui-a4: 1rem;
 	--ui-a5: 1.5rem;
 	--ui-radius: 8px; /* Eingabefelder, kleine Flächen */
-	--ui-knopf-radius: 10px; /* Knöpfe: runder, modern (Jamil msg 2597) */
+	--ui-knopf-radius: 999px; /* Knöpfe: Pille wie auf der Website (Jamil msgs 2597, 2828) */
 	--ui-chip-radius: 999px; /* kleine Chip-Knöpfe, Reiter, Filter */
 	--ui-radius-karte: 12px;
 	--ui-knopf-hoehe: var(--ui-feld-hoehe); /* Knöpfe so hoch wie Felder: 40 px Desktop, 44 px mobil */
-	--ui-schatten: 0 1px 2px rgba(23, 29, 48, 0.05), 0 1px 3px rgba(23, 29, 48, 0.04);
-	--ui-schatten-hoch: 0 4px 12px rgba(23, 29, 48, 0.08), 0 1px 3px rgba(23, 29, 48, 0.06);
-	--ui-fokus-ring: 0 0 0 3px rgba(37, 99, 235, 0.25);
+	--ui-schatten: 0 1px 2px rgba(45, 44, 46, 0.05), 0 2px 8px rgba(45, 44, 46, 0.04);
+	--ui-schatten-hoch: 0 4px 16px rgba(45, 44, 46, 0.1), 0 1px 3px rgba(45, 44, 46, 0.06);
 
 	/* Statusfarben (Pills, Gruppenränder) – eigene Palette */
-	--ui-gruen: #1f9d63;
-	--ui-gruen-hell: #e3f6ec;
-	--ui-orange: #e8912d;
-	--ui-orange-hell: #fff1df;
-	--ui-rot: #d92d43;
-	--ui-rot-hell: #fdeef0;
-	--ui-lila: #8a4fd1;
-	--ui-lila-hell: #f2eafc;
-	--ui-blau: #3b7ff5;
-	--ui-blau-hell: #e8f0fe;
-	--ui-grau: #8d94a5;
-	--ui-grau-hell: #eef0f4;
+	--ui-gruen: #3f7d4e;
+	--ui-gruen-hell: #e6f0e8;
+	--ui-orange: #c27a1c;
+	--ui-orange-hell: #fbefdd;
+	--ui-rot: #b03a2e;
+	--ui-rot-hell: #f7e3e0;
+	--ui-lila: #7a5aa6;
+	--ui-lila-hell: #efeaf6;
+	--ui-blau: #3a6ea5;
+	--ui-blau-hell: #e4ecf5;
+	--ui-grau: #8a8885;
+	--ui-grau-hell: #efede9;
 
 	/* Typo-Skala */
 	--ui-schrift-xs: 0.75rem;
@@ -69,23 +95,23 @@
 
 	--m365-primaer: var(--ui-akzent);
 	--m365-primaer-hover: var(--ui-akzent-hover);
-	--m365-primaer-dunkel: var(--ui-akzent-dunkel);
+	--m365-primaer-dunkel: var(--ui-akzent-text);
 	--m365-primaer-hell: var(--ui-akzent-hell);
-	--m365-erfolg: #107c10;
-	--m365-erfolg-hell: #dff6dd;
-	--m365-warnung: #ff8c00;
-	--m365-warnung-hell: #fff4ce;
+	--m365-erfolg: var(--ui-gruen);
+	--m365-erfolg-hell: var(--ui-gruen-hell);
+	--m365-warnung: #d08a2c;
+	--m365-warnung-hell: #fbefdd;
 	--m365-fehler: var(--ui-gefahr);
 	--m365-fehler-hell: var(--ui-gefahr-hell);
 	--m365-text: var(--ui-text);
 	--m365-text-leise: var(--ui-text-leise);
-	--m365-text-leicht: #a19f9d;
+	--m365-text-leicht: #a3a2a5;
 	--m365-rand: var(--ui-rand);
 	--m365-rand-stark: var(--ui-rand-stark);
 	--m365-flaeche: var(--ui-flaeche);
-	--m365-flaeche-hover: #f1f3f8;
+	--m365-flaeche-hover: #f3f0ea;
 	--m365-hintergrund: var(--ui-hintergrund);
-	--m365-nav: #ffffff;
+	--m365-nav: var(--ui-nav);
 	--m365-fokus: var(--ui-akzent);
 
 	--m365-radius-klein: 4px;
@@ -99,6 +125,7 @@
 
 	/* Typografie */
 	--m365-schrift: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+	--ui-schrift-titel: 'Montserrat', 'Inter', system-ui, sans-serif;
 
 	/* Bestehende Aliase (Rückwärtskompatibilität) */
 	--primaer: var(--m365-primaer);
@@ -113,7 +140,7 @@
 	--fokus: var(--m365-fokus);
 	--tippziel: 2.75rem;
 	--nav-hoehe: 4rem;
-	--seitenleiste: 15rem;
+	--seitenleiste: 15.5rem;
 	color-scheme: light;
 }
 
@@ -147,7 +174,7 @@ body {
 }
 
 a {
-	color: var(--m365-primaer);
+	color: var(--ui-akzent-text);
 }
 
 button,

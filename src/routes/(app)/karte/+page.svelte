@@ -432,7 +432,7 @@
 		height: 1.6rem;
 		border-radius: 50%;
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-size: 0.8rem;
 		font-weight: 700;
 	}

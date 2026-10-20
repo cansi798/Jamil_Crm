@@ -321,7 +321,7 @@
 		height: 1.6rem;
 		border-radius: 50%;
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-size: 0.8125rem;
 		font-weight: 700;
 	}
@@ -363,7 +363,7 @@
 	}
 	.nf-platzhalter summary {
 		cursor: pointer;
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 		font-weight: 600;
 	}
 	.nf-platzhalter ul {

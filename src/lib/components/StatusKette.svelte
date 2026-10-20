@@ -138,11 +138,11 @@
 	li.erledigt > button,
 	li.erledigt > span {
 		background: var(--m365-primaer-hell);
-		color: var(--m365-primaer);
+		color: var(--ui-akzent-text);
 	}
 	li.aktuell > span {
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font-weight: 600;
 	}
 	.sk-weiter {
@@ -152,7 +152,7 @@
 		border: 0;
 		border-radius: var(--m365-radius);
 		background: var(--m365-primaer);
-		color: #fff;
+		color: var(--ui-akzent-auf);
 		font: inherit;
 		font-size: 0.875rem;
 		font-weight: 600;
@@ -171,7 +171,7 @@
 		border-radius: 999px !important;
 		border: 1px solid var(--m365-primaer) !important;
 		background: var(--m365-primaer-hell) !important;
-		color: var(--m365-primaer) !important;
+		color: var(--ui-akzent-text) !important;
 		font-weight: 600;
 	}
 	@media (max-width: 40rem) {

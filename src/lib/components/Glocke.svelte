@@ -185,7 +185,7 @@
 	.gl-link {
 		border: 0;
 		background: none;
-		color: var(--m365-primaer, #0f6cbd);
+		color: var(--ui-akzent-text);
 		font: inherit;
 		font-size: 0.875rem;
 		cursor: pointer;

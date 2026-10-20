@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
+	import { farbStil } from '$lib/farbe';
 
 	/**
 	 * Rahmen der öffentlichen Buchungsseiten (Online-Buchung): Kopf mit Logo und Firmenname in der Hausfarbe, Inhalt,
@@ -22,9 +23,8 @@
 		children: Snippet;
 	} = $props();
 
-	const stil = $derived(
-		`--ui-akzent:${farben.akzent};--ui-akzent-hover:${farben.hover};--ui-akzent-dunkel:${farben.dunkel};--ui-akzent-hell:${farben.hell};--ui-akzent-zart:${farben.zart};--ui-fokus-ring:0 0 0 3px ${farben.hell};`
-	);
+	// Alle Akzent-Tokens aus der Hausfarbe (gleiche Ableitung wie in der App, Text darauf immer lesbar)
+	const stil = $derived(`${farbStil(farben.akzent)}; --ui-akzent-dunkel: var(--ui-akzent-text)`);
 	const webLink = $derived(betrieb.web ? (/^https?:\/\//i.test(betrieb.web) ? betrieb.web : `https://${betrieb.web}`) : null);
 	const sichererLink = (u: string | null) => (u && /^https?:\/\//i.test(u) ? u : null);
 
