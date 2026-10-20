@@ -1,12 +1,15 @@
 import { ApiFehler } from '../fehler';
-import { betriebKontext } from '../rechte';
+import { betriebKontext, hatRecht } from '../rechte';
 import { pruefeModul } from '../tarif';
 import { kiAnbieter, kiKontext } from '../ki/anbieter';
 import { verbrauche } from '../ki/kontingent';
 import { hinweisKarte, loeseAuf, personAufloesen, type Karte } from './aufloesen';
-import { kolonnenplan, tagesplan, zeitraumTage } from '../tagesplan';
+import { darfPlanSehen, kolonnenplan, tagesplan, zeitraumTage } from '../tagesplan';
 import { berlinTag } from '../../zeit';
 import type { TagesplanDaten } from './aktionen';
+import { firmenStart, termineAlsStopps } from '../karte';
+import { sichtVon } from '../auftraege';
+import { googleRouteLink } from '../../route';
 import { rechteHinweis } from './rechte';
 import { signiere } from './vorschlag';
 
@@ -20,6 +23,54 @@ export const MAX_BEFEHL_ZEICHEN = 2000;
 export const UNBEKANNT_HINWEIS =
 	'Ich kann Kunden, Aufträge, To-dos (auch wiederkehrende), Termine und Anlagen anlegen, Termine verschieben, Mitarbeiter zuweisen, ' +
 	'den Auftragsstatus und die Quelle ändern, To-dos abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht.';
+
+async function beantworteRoute(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, wer: string | undefined): Promise<Karte> {
+	const karte = (titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
+		aktion: 'route_heute',
+		titel,
+		zeilen: [],
+		auswahl: [],
+		warnungen: [],
+		fehler,
+		aendern: null,
+		...(antwort ? { antwort } : {})
+	});
+	const p = await personAufloesen(k, nutzer, wer);
+	let ziel: { benutzerId?: string; kolonneId?: string };
+	let name: string;
+	let link: string;
+	if (p.kolonne) {
+		if (!hatRecht(nutzer, 'todos.alle_lesen') && !p.kolonne.mitglieder.some((m) => m.id === nutzer.id)) {
+			return karte('Route für heute', 'Sie dürfen nur Ihre eigene Route und die Ihrer Kolonne sehen.');
+		}
+		ziel = { kolonneId: p.kolonne.id };
+		name = p.kolonne.name;
+		link = `/karte?route=heute&kolonne=${p.kolonne.id}`;
+	} else if (p.id) {
+		if (!darfPlanSehen(nutzer, p.id)) return karte('Route für heute', 'Sie dürfen nur Ihre eigene Route sehen.');
+		ziel = { benutzerId: p.id };
+		name = p.id === nutzer.id ? 'deine' : wer ?? '';
+		link = p.id === nutzer.id ? '/karte?route=heute' : `/karte?route=heute&person=${p.id}`;
+	} else return karte('Route für heute', p.frage);
+	const stopps = await termineAlsStopps(k, sichtVon(nutzer), ziel);
+	const start = await firmenStart(k);
+	const google = googleRouteLink(start?.adresse ?? null, stopps.map((s) => s.adresse ?? '').filter(Boolean));
+	const eintraege = stopps.map((s) => ({ zeit: s.zeit, titel: `${s.titel} – ${s.kundeName}`, ort: s.adresse, link: `/auftraege/${s.auftragId}`, ueberfaellig: false }));
+	const links = [
+		{ zeit: '', titel: 'Auf der Karte öffnen (Reihenfolge ändern)', ort: null, link, ueberfaellig: false },
+		...(google ? [{ zeit: '', titel: 'In Google Maps öffnen', ort: null, link: google, ueberfaellig: false }] : [])
+	];
+	const vorlesen = stopps.length === 0
+		? `Heute gibt es keine Termine für ${name === 'deine' ? 'dich' : name}.`
+		: `Route für heute mit ${stopps.length} Stopp${stopps.length === 1 ? '' : 's'}: ${stopps.map((s) => `${s.zeit} ${s.kundeName}${s.adresse ? `, ${s.adresse}` : ''}`).join('; ')}.`;
+	return karte(`Route für heute${name === 'deine' ? '' : ` – ${name}`}`, null, {
+		abschnitte: [
+			{ titel: 'Stopps', eintraege },
+			...(stopps.length > 0 ? [{ titel: 'Öffnen', eintraege: links }] : [])
+		],
+		vorlesen
+	});
+}
 
 /** Frage „Was steht heute an?“ beantworten (nur lesend, ohne Bestätigung). */
 async function beantworteTagesplan(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, d: TagesplanDaten, jetzt: Date): Promise<Karte> {
@@ -89,6 +140,10 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	}
 	const fehlt = await rechteHinweis(locals, aktion.aktion);
 	if (fehlt) return { text, vorschlag: null, karte: hinweisKarte(aktion.aktion, fehlt) };
+	// „Route für heute“ (Wunsch Jamil msgs 2602/2645): Stopps + Links zur Karte und zu Google Maps
+	if (aktion.aktion === 'route_heute') {
+		return { text, vorschlag: null, karte: await beantworteRoute(k, nutzer, aktion.daten.wer) };
+	}
 	// Fragen: sofort beantworten, kein Vorschlag, keine Bestätigung (Wunsch Jamil msg 2647)
 	if (aktion.aktion === 'abfrage_tagesplan') {
 		return { text, vorschlag: null, karte: await beantworteTagesplan(k, nutzer, aktion.daten, jetzt) };

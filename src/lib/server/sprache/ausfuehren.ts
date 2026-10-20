@@ -186,6 +186,7 @@ async function ausfuehrenJe(
 		case 'quelle_setzen':
 			return neueAktionen(k, nutzer, aktion, w);
 		case 'abfrage_tagesplan':
+		case 'route_heute':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
 		case 'protokoll_ausfuellen': {
 			if (w.formular) {

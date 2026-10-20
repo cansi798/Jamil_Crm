@@ -248,6 +248,12 @@ function bereinige(text: string): string {
 export function deute(text: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
 	const t = bereinige(text);
 	const l = t.toLowerCase();
+	if (/\broute\b/.test(l)) {
+		const kolonne = /\bkolonne\s+([A-ZÄÖÜ0-9][\wäöüß-]*)/i.exec(t);
+		const person = /\b(?:von|für|fuer)\s+(?!heute|mich|morgen)([A-ZÄÖÜ][\wäöüß-]+)/.exec(t);
+		const wer = kolonne ? `Kolonne ${kolonne[1]}` : person && istNamensWort(person[1]) ? person[1] : undefined;
+		return { aktion: 'route_heute', daten: wer ? { wer } : {} };
+	}
 	if (istFrage(text, l)) return abfrage(t, kontext);
 	if (/\bnachfass/.test(l)) return nachfassen(t);
 	if (/\b(?:hake|hak|abhaken|abgehakt)\b|\b(?:ist|sind|als)\s+(?:jetzt\s+)?(?:erledigt|abgehakt)\b|\berledigt\s*$/.test(l) && !/\b(?:soll|muss|bis)\b/.test(l)) {

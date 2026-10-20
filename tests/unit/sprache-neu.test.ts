@@ -75,6 +75,12 @@ describe('Sprache: neue Aktionen (Ersatz-KI)', () => {
 		expect(await deute('Auftrag Schulz kam über die Website')).toEqual({ aktion: 'quelle_setzen', daten: { auftrag: 'Schulz', quelle: 'Website' } });
 	});
 
+	it('Route für heute', async () => {
+		expect(await deute('Route für heute')).toEqual({ aktion: 'route_heute', daten: {} });
+		expect(await deute('Zeig mir die Route von Ali')).toEqual({ aktion: 'route_heute', daten: { wer: 'Ali' } });
+		expect(await deute('Route für Kolonne A')).toEqual({ aktion: 'route_heute', daten: { wer: 'Kolonne A' } });
+	});
+
 	it('Schemas: Status nur aus der Liste, Anlage-Typ geprüft', () => {
 		expect(() => pruefeAktion({ aktion: 'status_aendern', daten: { auftrag: 'x', status: 'fertig' } })).toThrow();
 		expect(() => pruefeAktion({ aktion: 'anlage_anlegen', daten: { kunde: { name: 'x' }, typ: 'atom' } })).toThrow();

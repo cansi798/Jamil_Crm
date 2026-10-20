@@ -81,6 +81,7 @@ describe('Aufträge Phase 2', () => {
 					locals: { nutzer: u.chefA },
 					request: form([
 						['kundeId', u.kundeA],
+						['quelleId', d.quellen[0].id], // Quelle ist Pflicht (msg 2593)
 						['titel', 'Formular Zuständige'],
 						['zustaendigeGesendet', '1'],
 						['zustaendige', u.ids.monteurA]
@@ -95,6 +96,7 @@ describe('Aufträge Phase 2', () => {
 					params: { id },
 					request: form([
 						['kundeId', u.kundeA],
+						['quelleId', d.quellen[0].id], // Quelle ist Pflicht (msg 2593)
 						['titel', 'Formular Zuständige'],
 						['zustaendigeGesendet', '1']
 					])

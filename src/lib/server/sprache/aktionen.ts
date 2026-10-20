@@ -22,11 +22,12 @@ export const AKTIONEN = [
 	'anlage_anlegen',
 	'nachfassen_pausieren',
 	'abfrage_tagesplan',
-	'quelle_setzen'
+	'quelle_setzen',
+	'route_heute'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
-export const NUR_LESEN = ['abfrage_tagesplan'] as const;
+export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt';
@@ -109,6 +110,7 @@ export type KiAktion =
 	| { aktion: 'nachfassen_pausieren'; daten: NachfassenDaten }
 	| { aktion: 'abfrage_tagesplan'; daten: TagesplanDaten }
 	| { aktion: 'quelle_setzen'; daten: QuelleDaten }
+	| { aktion: 'route_heute'; daten: { wer?: string } }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -338,6 +340,11 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		required: ['auftrag', 'quelle'],
 		additionalProperties: false
 	},
+	route_heute: {
+		type: 'object',
+		properties: { wer: text(100, 'Person (Vorname) oder Kolonne – leer = ich') },
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -353,6 +360,7 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	todo_abhaken: 'Ein offenes To-do als erledigt abhaken.',
 	anlage_anlegen: 'Eine Anlage (Wärmepumpe, Solar, Heizung, Klima, Lüftung, Wallbox, Gasspeicher …) beim Objekt eines Kunden anlegen.',
 	nachfassen_pausieren: 'Automatisches Nachfassen für ein Angebot pausieren oder fortsetzen.',
+	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',
 	quelle_setzen: 'Quelle eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',
 	abfrage_tagesplan:
 		'Frage nach dem Tagesplan beantworten: Termine und To-dos für eine Person (ich oder Name) heute, morgen, diese Woche oder ein Datum; auch „überfällige To-dos“.',

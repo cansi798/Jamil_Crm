@@ -46,6 +46,7 @@ function systemAktion(k: KiKontext): string {
 		'- Quelle (woher der Auftrag kam: „über Hornbach“, „kam über eine Empfehlung“) bei auftrag_anlegen als quelle; nachträglich quelle_setzen.',
 		'- Kolonnen („Kolonne A“) stehen bei mitarbeiter wie ein Name, auch bei mitarbeiter_zuweisen und als wer bei abfrage_tagesplan.',
 		'- Mehrtägige Termine („von Montag bis Mittwoch“, „bis Freitag“): einsatz_anlegen mit start (erster Tag) und bis (letzter Tag).',
+		'- „Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“: route_heute (wer leer = ich).',
 		'- Fragen wie „Was steht heute für mich an?“, „Was hat Sabine morgen?“, „Was habe ich diese Woche?“, „Welche To-dos sind überfällig?“:',
 		'  abfrage_tagesplan (wer leer = ich; zeitraum heute|morgen|woche|datum; nur_ueberfaellig=true bei überfällig).',
 		'- Wenn keine Aktion passt (andere Fragen, Rechnungen, Löschen, …), rufe unbekannt auf.'

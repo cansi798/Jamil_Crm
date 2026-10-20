@@ -747,7 +747,8 @@ const TITEL: Record<AktionsName, string> = {
 	anlage_anlegen: 'Anlage anlegen',
 	nachfassen_pausieren: 'Nachfassen',
 	abfrage_tagesplan: 'Tagesplan',
-	quelle_setzen: 'Quelle setzen'
+	quelle_setzen: 'Quelle setzen',
+	route_heute: 'Route für heute'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -790,7 +791,7 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 export async function loeseAuf(
 	k: Kontext,
 	nutzer: Nutzer,
-	aktion: Exclude<KiAktion, { aktion: 'unbekannt' | 'abfrage_tagesplan' }>,
+	aktion: Exclude<KiAktion, { aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' }>,
 	jetzt: Date
 ): Promise<Vorschau> {
 	let bau: Bau;

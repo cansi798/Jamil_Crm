@@ -95,7 +95,11 @@
 						{#each ab.eintraege as e, i (i)}
 							<li class:ueberfaellig={e.ueberfaellig}>
 								<span class="bk-zeit">{e.zeit}</span>
-								<a href={e.link} onclick={onabbrechen}>{e.titel}</a>
+								{#if e.link.startsWith('http')}
+									<a href={e.link} target="_blank" rel="noopener">{e.titel}</a>
+								{:else}
+									<a href={e.link} onclick={onabbrechen}>{e.titel}</a>
+								{/if}
 								{#if e.ort}<span class="bk-ort">{e.ort}</span>{/if}
 							</li>
 						{/each}

@@ -25,7 +25,8 @@ const config = {
 				// (#svelte-announcer, versteckt per style="…") und die Hülle in app.html brauchen sie – ohne diese
 				// Ausnahme meldet der Browser Verstöße und der Ansager wäre nicht mehr versteckt.
 				'style-src-attr': ['unsafe-inline'],
-				'img-src': ['self', 'data:'], // QR-Code der Zwei-Faktor-Einrichtung ist ein data:-Bild
+				// data: für den QR-Code der Zwei-Faktor-Einrichtung; Kartenkacheln von OpenStreetMap (Auftragskarte)
+				'img-src': ['self', 'data:', 'https://tile.openstreetmap.org'],
 				'font-src': ['self'],
 				'connect-src': ['self'],
 				'manifest-src': ['self'],

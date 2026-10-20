@@ -60,6 +60,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		}
 		if (auftraegeLesen) {
 			mehr.push({ name: 'To-dos', href: '/todos', symbol: 'todos' });
+			// Auftragskarte mit Route (Wunsch Jamil msg 2602) – Monteure sehen nur ihre Aufträge
+			mehr.push({ name: 'Karte', href: '/karte', symbol: 'plantafel' });
 			mehr.push({ name: 'Auftrags-Vorlagen', href: '/auftrag-vorlagen', symbol: 'todos' });
 		}
 		if (module.includes('plantafel') && hat('plantafel.bearbeiten')) {

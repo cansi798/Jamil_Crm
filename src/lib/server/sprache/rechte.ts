@@ -55,6 +55,7 @@ export async function pruefeAktionsRechte(
 			return darf(locals, 'auftraege', 'auftraege.bearbeiten');
 		case 'todo_abhaken':
 		case 'abfrage_tagesplan':
+		case 'route_heute':
 			return darfEines(locals, 'auftraege', ['auftraege.bearbeiten', 'auftraege.lesen', 'auftraege.alle_lesen']);
 		case 'anlage_anlegen':
 			return darf(locals, 'kunden', 'kunden.bearbeiten');
