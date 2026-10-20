@@ -163,15 +163,17 @@
 		font-size: 0.8rem;
 		font-weight: 700;
 	}
-	.pe-arbeit {
+	.pe-zeile label.pe-arbeit {
 		display: inline-flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
 		align-items: center;
 		gap: 0.4rem;
 		margin-top: 0.35rem;
 		font-size: 0.8125rem;
 		color: var(--m365-text-leise, #5b6168);
 	}
-	.pe-arbeit input {
+	.pe-zeile .pe-arbeit input {
 		width: 4.5rem !important;
 		min-height: 2rem !important;
 		padding: 0.15rem 0.4rem !important;
