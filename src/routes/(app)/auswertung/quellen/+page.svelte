@@ -22,7 +22,10 @@
 	const pfeil = (spalte: Spalte) => (sortierung.spalte === spalte ? (sortierung.ab ? ' ▼' : ' ▲') : '');
 	const aria = (spalte: Spalte) => (sortierung.spalte === spalte ? (sortierung.ab ? 'descending' : 'ascending') : 'none');
 
-	let balken = $state<'auftraege' | 'umsatzCent'>(untrack(() => (data.mitPreisen ? 'umsatzCent' : 'auftraege')));
+	// Ohne Umsatz im Zeitraum zeigt das Diagramm zuerst die Aufträge
+	let balken = $state<'auftraege' | 'umsatzCent'>(
+		untrack(() => (data.mitPreisen && data.zeilen.some((z) => (z.umsatzCent ?? 0) > 0) ? 'umsatzCent' : 'auftraege'))
+	);
 	const maxWert = $derived(Math.max(1, ...data.zeilen.map((z) => (z[balken] as number | null) ?? 0)));
 	const summe = $derived({
 		auftraege: data.zeilen.reduce((s, z) => s + z.auftraege, 0),
