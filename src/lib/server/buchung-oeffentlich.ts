@@ -592,6 +592,18 @@ export async function kalenderDaten(token: unknown): Promise<{ uid: string; begi
 	};
 }
 
+/** Logo des Betriebs zur Buchung (Verwaltungs-Seite). */
+export async function logoZurBuchung(token: unknown): Promise<{ bytes: Uint8Array; typ: string } | null> {
+	const v = await loeseVerwaltungAuf(token);
+	if (!v) return null;
+	return mitBetriebOeffentlich(v.betriebId, async (tx) => {
+		const [z] = await tx`select logo, logo_typ from app.betrieb_profil where betrieb_id = ${v.betriebId} and logo is not null`;
+		if (!z) return null;
+		const buf = z.logo as Buffer;
+		return { bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), typ: z.logo_typ };
+	});
+}
+
 /** Einbett-Erlaubnis einer Verwaltungs-Seite (für die CSP). */
 export async function einbettenFuerBuchung(token: unknown): Promise<string[]> {
 	const v = await loeseVerwaltungAuf(token);

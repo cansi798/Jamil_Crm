@@ -57,7 +57,7 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<Rahmen betrieb={b.betrieb} farben={data.farben} logoUrl={null} datenschutzUrl={b.datenschutzUrl}>
+<Rahmen betrieb={b.betrieb} farben={data.farben} logoUrl={`${basis}/logo?v=${b.betrieb.logoStand}`} datenschutzUrl={b.datenschutzUrl}>
 	{#if b.status === 'storniert'}
 		<section class="bv-kopf abgesagt" role="status">
 			<h1>Termin abgesagt</h1>
