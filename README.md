@@ -236,6 +236,12 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Auftragsbestätigung (PDF, AB-JJJJ-NNNN; abschaltbar je Betrieb und Auftrag) – Versand über `MailVersand`, sonst
     „bereit zum Versand“ mit Aufgabe und Glocke. Weitere Anbindungen (z. B. Lexware) hängen sich mit `abonniere` an.
 19. Foto-Aufmaß: in Migration 083 eingeführt, mit Migration 086 samt Lerndaten wieder entfernt (Jamil msg 2904).
+20. Kennzahlen (Migration 087, `src/lib/kennzahlen.ts` + `src/lib/server/kennzahlen.ts`): Fakten aus der Datenbank in
+    der Sicht des Nutzers, gerechnet in reinen Funktionen; Statuszeitpunkte aus `app.aenderungen`; ersetzte Angebote
+    zählen nicht; Beträge nur mit „Preise sehen“; fehlende Grundlage → „Daten fehlen: …“ statt 0.
+21. Links am Auftrag (Migration 088, `app.auftrag_links`): nur http/https (App und CHECK in der Datenbank), keine
+    Zugangsdaten in der Adresse, Ausgabe mit `rel="noopener noreferrer"`; sichtbar wie der Auftrag, ändern mit
+    „Aufträge bearbeiten“, „im Kundenportal“ nur mit `kundenportal.verwalten` (Standard aus, ohne Notiz).
 
 ## Installation auf einem eigenen Server
 

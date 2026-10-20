@@ -27,6 +27,8 @@ export type HeuteEinsatz = {
 	kundeName: string;
 	ort: string | null;
 	notiz: string | null;
+	/** Links am Auftrag (Jamil msg 2850) – nur Titel, Adresse, Domain. */
+	links?: { titel: string; url: string; domain: string }[] | null;
 };
 
 export type HeuteKopie = { benutzerId: string; tag: string; stand: string; einsaetze: HeuteEinsatz[] };
@@ -45,6 +47,13 @@ function speicher(): Storage | null {
 function bereinige(e: HeuteEinsatz): HeuteEinsatz {
 	const sauber: Record<string, unknown> = {};
 	for (const f of FELDER) sauber[f] = e[f] ?? null;
+	// Links nur, wenn vorhanden: Titel, Adresse (nur http/https), Domain – nichts sonst
+	if (Array.isArray(e.links)) {
+		sauber.links = e.links
+			.filter((l) => typeof l?.url === 'string' && /^https?:\/\//i.test(l.url))
+			.slice(0, 10)
+			.map((l) => ({ titel: String(l.titel ?? '').slice(0, 200), url: l.url.slice(0, 2000), domain: String(l.domain ?? '').slice(0, 200) }));
+	}
 	return sauber as HeuteEinsatz;
 }
 

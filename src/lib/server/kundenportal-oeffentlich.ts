@@ -77,6 +77,8 @@ export type PortalAuftrag = {
 	angebote: PortalAngebot[];
 	dateien: { id: string; name: string; typ: string }[];
 	auftragsbestaetigungen: { id: string; nummer: string }[];
+	/** Links, die ausdrücklich fürs Portal freigegeben sind (Jamil msg 2850; Standard aus) – ohne interne Notiz. */
+	links: { titel: string; url: string }[];
 };
 export type PortalSeite = {
 	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean; farbe: string | null };
@@ -151,6 +153,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			? await tx`select id, name, typ from app.dateien where betrieb_id = ${p.betriebId} and auftrag_id = ${id} and id = any(${dateiIds}::uuid[]) order by angelegt`
 			: [];
 		const abs = await tx`select id, nummer from app.auftragsbestaetigungen where betrieb_id = ${p.betriebId} and auftrag_id = ${id} order by angelegt`;
+		const links = await tx`select titel, url from app.auftrag_links where betrieb_id = ${p.betriebId} and auftrag_id = ${id} and im_portal order by sortierung, angelegt, id`;
 		auftraege.push({
 			id: a.id,
 			nummer: a.nummer,
@@ -174,7 +177,8 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 				};
 			}),
 			dateien: dateien.map((d) => ({ id: d.id, name: d.name, typ: d.typ })),
-			auftragsbestaetigungen: abs.map((x) => ({ id: x.id, nummer: x.nummer }))
+			auftragsbestaetigungen: abs.map((x) => ({ id: x.id, nummer: x.nummer })),
+			links: links.map((l) => ({ titel: l.titel, url: l.url }))
 		});
 	}
 	return {

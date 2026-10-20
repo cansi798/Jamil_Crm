@@ -40,6 +40,7 @@ import { lieferscheinAuslesen } from '$lib/server/ki/lieferschein';
 import { nachkalkulationAuftrag } from '$lib/server/nachkalkulation';
 import { portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe } from '$lib/server/kundenportal';
 import { abEinstellung, listeAuftragsbestaetigungen, markiereAbGesendet } from '$lib/server/auftragsbestaetigung';
+import { aendereLink, legeLinkAn, linkVerlauf, listeLinks, loescheLink, setzeLinkImPortal } from '$lib/server/auftrag-links';
 
 /** Zeiterfassung nur mit Modul und Recht – sonst `null` (Bereich ausgeblendet). */
 async function zeitOderNull(locals: { nutzer: Nutzer | null }): Promise<ZeitZugriff | null> {
@@ -97,11 +98,14 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const portal = darfPortal ? await portalStand({ k, sicht, preise: preise && hatRecht(nutzer, 'angebote.bearbeiten') }, auftrag.id) : null;
 		const auftragsbestaetigungen = angeboteSichtbar && preise ? await listeAuftragsbestaetigungen(k, auftrag.id) : [];
 		const portalEintraege = darfPortal || auftragsbestaetigungen.length > 0 ? await portalVerlauf(k, auftrag.id) : [];
+		// Links (Jamil msg 2850): sieht jeder, der den Auftrag sieht
+		const [links, linkEintraege] = await Promise.all([listeLinks(k, sicht, auftrag.id), linkVerlauf(k, auftrag.id)]);
 		const verlauf = [
 			...protokoll.eintraege.map((e) => ({ iso: e.zeit, zeile: verlaufZeile(e) })),
 			...protokollEintraege,
 			...zeitEintraege,
-			...portalEintraege
+			...portalEintraege,
+			...linkEintraege
 		].sort((x, y) => (x.iso < y.iso ? 1 : x.iso > y.iso ? -1 : 0));
 		// Nachkalkulation (Plan/Ist, Ampel): Chef/Büro mit „Preise sehen“ und „Alle Aufträge ansehen“
 		const nachkalkulation =
@@ -110,6 +114,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 				: null;
 		return {
 			auftrag,
+			links,
+			darfLinkPortal: darfBearbeiten && darfPortal,
 			nachkalkulation,
 			portal,
 			auftragsbestaetigungen,
@@ -162,6 +168,15 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 };
 
 const todo = todoAktionen(true);
+
+/** Links anlegen/ändern/löschen: Modul `auftraege` + „Aufträge bearbeiten“, nur an sichtbaren Aufträgen. */
+async function linkZugriff(locals: { nutzer: Nutzer | null }) {
+	await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+	return { k: betriebKontext(locals), sicht: sichtVon(locals.nutzer!) };
+}
+/** „Im Kundenportal anzeigen“ wie die Dokument-Freigaben: Modul `kundenportal` + `kundenportal.verwalten`. */
+const darfLinkPortal = async (locals: { nutzer: Nutzer | null }) =>
+	hatRecht(locals.nutzer!, 'kundenportal.verwalten') && (await hatModul(locals.nutzer!.betriebId!, 'kundenportal'));
 
 const text = (f: FormData, feld: string) => {
 	const w = f.get(feld);
@@ -336,6 +351,47 @@ export const actions: Actions = {
 			return { materialMeldung: `${n} Position${n === 1 ? '' : 'en'} vom Lieferschein übernommen.` };
 		} catch (e) {
 			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	// ——— Links (Jamil msg 2850) ———
+	linkNeu: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			const imPortal = f.get('imPortal') === 'on' && (await darfLinkPortal(locals));
+			await legeLinkAn(z.k, z.sicht, params.id, { titel: f.get('titel'), url: f.get('url'), notiz: f.get('notiz'), imPortal });
+			return { linkMeldung: 'Link gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { linkFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.', linkWerte: { titel: text(f, 'titel'), url: text(f, 'url'), notiz: text(f, 'notiz') } });
+		}
+	},
+	linkAendern: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			await aendereLink(z.k, z.sicht, params.id, f.get('linkId'), { titel: f.get('titel'), url: f.get('url'), notiz: f.get('notiz') });
+			return { linkMeldung: 'Link gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { linkFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.', linkFehlerId: text(f, 'linkId') });
+		}
+	},
+	linkPortal: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			if (!(await darfLinkPortal(locals))) throw new ApiFehler(403, 'Keine Berechtigung für das Kundenportal.');
+			await setzeLinkImPortal(z.k, z.sicht, params.id, f.get('linkId'), f.get('imPortal') === 'ja');
+		} catch (e) {
+			return alsFormFehler(e, { linkFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	linkLoeschen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			await loescheLink(z.k, z.sicht, params.id, f.get('linkId'));
+		} catch (e) {
+			return alsFormFehler(e, { linkFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
 	},
 	portalFreigabe: async ({ locals, params, request }) => {

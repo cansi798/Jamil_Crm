@@ -76,6 +76,14 @@ describe('Offline-Kopie „Meine Einsätze heute“', () => {
 		expect(speicher.getItem(SCHLUESSEL)).not.toContain('1234');
 	});
 
+	it('Links (msg 2850): nur Titel, Adresse, Domain und nur http/https', () => {
+		const mitLinks = { ...EINSATZ, links: [{ titel: 'Abnahme', url: 'https://partner.de/a', domain: 'partner.de', notiz: 'intern' }, { titel: 'Böse', url: 'javascript:alert(1)', domain: '' }] } as never;
+		speichere('b1', '2026-10-21', [mitLinks], berlinZeitpunkt('2026-10-21', 7));
+		const roh = JSON.parse(speicher.getItem(SCHLUESSEL)!);
+		expect(roh.einsaetze[0].links).toEqual([{ titel: 'Abnahme', url: 'https://partner.de/a', domain: 'partner.de' }]);
+		expect(speicher.getItem(SCHLUESSEL)).not.toContain('javascript');
+	});
+
 	it('kaputte Daten oder fehlender Speicher → null, keine Ausnahme', () => {
 		speicher.setItem(SCHLUESSEL, '{kaputt');
 		expect(lade(new Date(), nutzerKennung('b1'))).toBeNull();

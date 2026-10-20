@@ -9,6 +9,7 @@
 	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
+	import AuftragLinks from '$lib/components/AuftragLinks.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
@@ -797,6 +798,13 @@
 				</div>
 			{/if}
 
+			<div class="af-k k-links" id="links">
+				<Karte>
+					{#snippet titel()}Links{/snippet}
+					<AuftragLinks links={data.links} darfBearbeiten={data.darfBearbeiten} darfPortal={data.darfLinkPortal} {form} />
+				</Karte>
+			</div>
+
 			<div class="af-k k-doku">
 				<Karte>
 					{#snippet titel()}Dokumente &amp; Protokolle{/snippet}
@@ -866,6 +874,7 @@
 	.k-termine { order: 5; }
 	.k-protokolle { order: 5; }
 	.k-angebote { order: 6; }
+	.k-links { order: 7; }
 	.k-doku { order: 7; }
 	.k-verlauf { order: 8; }
 	.k-loeschen { order: 9; }

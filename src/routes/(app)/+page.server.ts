@@ -8,6 +8,8 @@ import { planPersonen, tagesplan, zeitraumTage } from '$lib/server/tagesplan';
 import { dieserMonat, ladeAuslastung } from '$lib/server/auslastung';
 import { gewinnSatz } from '$lib/auslastung';
 import { laufend } from '$lib/server/zeiterfassung';
+import { linksZuAuftraegen } from '$lib/server/auftrag-links';
+import { sichtVon } from '$lib/server/auftraege';
 
 /**
  * Startseite. Plattform-Admins haben keinen Betrieb und damit keine fachliche Startseite – sie landen in der
@@ -30,6 +32,12 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 		const k = { betriebId: nutzer.betriebId, benutzerId: nutzer.id };
 		const module = await moduleDesBetriebs(k);
 		if (module.includes('plantafel')) heute = await meineEinsaetzeHeute(k, nutzer.id, jetzt);
+		// Links der Aufträge (Jamil msg 2850) – für Monteure unterwegs
+		if (heute?.length) {
+			const ids = [...new Set(heute.map((e) => e.auftragId).filter((x): x is string => !!x))];
+			const links = await linksZuAuftraegen(k, sichtVon(nutzer), ids);
+			heute = heute.map((e) => ({ ...e, links: e.auftragId ? (links.get(e.auftragId) ?? []).map(({ titel, url, domain }) => ({ titel, url, domain })) : [] }));
+		}
 		// Kachel „Diesen Monat: X € Gewinn verplant, Y Stunden frei“ (Wunsch Jamil msg 2476, Punkt 5) – nur „Preise sehen“
 		if (module.includes('plantafel') && hatRecht(nutzer, 'preise.sehen')) {
 			const m = dieserMonat(jetzt);

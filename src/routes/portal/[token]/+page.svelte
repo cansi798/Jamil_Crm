@@ -113,6 +113,12 @@
 						{#each a.dateien as d (d.id)}<li><a href={doc('datei', d.id)} target="_blank" rel="noopener">{d.name}</a></li>{/each}
 					</ul>
 				{/if}
+				{#if a.links?.length}
+					<h2>Links</h2>
+					<ul class="po-liste">
+						{#each a.links as l (l.url)}<li><a href={l.url} target="_blank" rel="noopener noreferrer external">{l.titel}</a></li>{/each}
+					</ul>
+				{/if}
 			</section>
 		{:else}
 			<section class="po-karte"><p>Hier ist gerade nichts freigegeben.</p></section>
