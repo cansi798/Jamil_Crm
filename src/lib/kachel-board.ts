@@ -1,4 +1,4 @@
-/** Eine Spalte des gemeinsamen Kachel-Boards (`KachelBoard.svelte`: Aufträge, To-dos). */
+/** Eine Spalte des gemeinsamen Kachel-Boards (`KachelBoard.svelte`: Aufträge, Aufgaben). */
 export type KachelSpalte<T> = {
 	id: string;
 	titel: string;

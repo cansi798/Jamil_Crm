@@ -42,7 +42,7 @@
 		objekte?: Objekt[];
 		kundenSuche?: boolean;
 		vorlagen?: Vorlage[];
-		/** Bearbeiten: To-dos aus der Vorlage kommen zu den vorhandenen To-dos des Auftrags dazu. */
+		/** Bearbeiten: Aufgaben aus der Vorlage kommen zu den vorhandenen Aufgaben des Auftrags dazu. */
 		todosZusaetzlich?: boolean;
 		/** Aktive Mitarbeiter zur Auswahl „Zuständig“ und die schon gewählten IDs. */
 		mitarbeiter?: { id: string; name: string }[];
@@ -248,7 +248,7 @@
 	{#if vorlagen.length > 0}
 		<label class="af-voll">
 			{todosZusaetzlich ? 'Aufgaben aus Vorlage hinzufügen' : 'Aufgaben-Vorlage'}
-			<Auswahl bind:value={vorlageWahl} onchange={ladeVorlage} aria-label="To-do-Vorlage">
+			<Auswahl bind:value={vorlageWahl} onchange={ladeVorlage} aria-label="Aufgaben-Vorlage">
 				<option value="">Ohne Vorlage</option>
 				{#each vorlagen as v (v.id)}
 					<option value={v.id}>{v.name}</option>
@@ -263,19 +263,19 @@
 	{/if}
 
 	{#if todos.length > 0}
-		<div class="af-todos" role="group" aria-label="To-dos">
+		<div class="af-todos" role="group" aria-label="Aufgaben">
 			<span class="af-label">Aufgaben</span>
 			{#each todos as todo, i (i)}
 				<div class="af-todo">
 					<div class="af-todo-felder">
-						<input type="text" name="todo_{i}" placeholder="Aufgabe {i + 1}" bind:value={todo.titel} maxlength="200" aria-label="To-do {i + 1}" />
-						<input type="text" name="todo_beschreibung_{i}" placeholder="Beschreibung (optional)" bind:value={todo.beschreibung} maxlength="500" aria-label="Beschreibung To-do {i + 1}" />
+						<input type="text" name="todo_{i}" placeholder="Aufgabe {i + 1}" bind:value={todo.titel} maxlength="200" aria-label="Aufgabe {i + 1}" />
+						<input type="text" name="todo_beschreibung_{i}" placeholder="Beschreibung (optional)" bind:value={todo.beschreibung} maxlength="500" aria-label="Beschreibung Aufgabe {i + 1}" />
 						<div class="af-todo-stufen">
-							<Auswahl name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke To-do {i + 1}">
+							<Auswahl name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke Aufgabe {i + 1}">
 								<option value="">Lautstärke –</option>
 								{#each STUFEN as n (n)}<option value={String(n)}>Lautstärke: {STUFE_NAMEN[n]}</option>{/each}
 							</Auswahl>
-							<Auswahl name="todo_schmutz_{i}" bind:value={todo.schmutz} aria-label="Schmutz To-do {i + 1}">
+							<Auswahl name="todo_schmutz_{i}" bind:value={todo.schmutz} aria-label="Schmutz Aufgabe {i + 1}">
 								<option value="">Schmutz –</option>
 								{#each STUFEN as n (n)}<option value={String(n)}>Schmutz: {STUFE_NAMEN[n]}</option>{/each}
 							</Auswahl>

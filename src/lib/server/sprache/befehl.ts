@@ -26,8 +26,8 @@ import { signiere } from './vorschlag';
 
 export const MAX_BEFEHL_ZEICHEN = 2000;
 export const UNBEKANNT_HINWEIS =
-	'Ich kann Kunden, Aufträge, To-dos (auch wiederkehrende), Termine und Anlagen anlegen, Termine verschieben, Mitarbeiter zuweisen, ' +
-	'den Auftragsstatus und die Auftragsquelle ändern, To-dos abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht, ' +
+	'Ich kann Kunden, Aufträge, Aufgaben (auch wiederkehrende), Termine und Anlagen anlegen, Termine verschieben, Mitarbeiter zuweisen, ' +
+	'den Auftragsstatus und die Auftragsquelle ändern, Aufgaben abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht, ' +
 	'wie die Auslastung ist, wie viel Gewinn diesen Monat verplant ist, wo Nachfassen fällig ist, wie ein Auftrag gelaufen ist und welche Aufträge Verlust machen.';
 
 /** Aufträge zum gesprochenen Namen – auch abgerechnete (für Nachkalkulation, Portal, Foto-Aufmaß). */
@@ -391,10 +391,10 @@ async function beantworteTagesplan(k: { betriebId: string; benutzerId: string },
 	try {
 		const plan = await tagesplan(k, nutzer, p.id, z, { nurUeberfaellig: d.nur_ueberfaellig, jetzt });
 		const abschnitte = d.nur_ueberfaellig
-			? [{ titel: 'Überfällige To-dos', eintraege: [...plan.todos, ...plan.nachfassen] }]
+			? [{ titel: 'Überfällige Aufgaben', eintraege: [...plan.todos, ...plan.nachfassen] }]
 			: [
 					{ titel: 'Termine', eintraege: plan.termine },
-					{ titel: 'To-dos', eintraege: plan.todos },
+					{ titel: 'Aufgaben', eintraege: plan.todos },
 					{ titel: 'Nachfassen', eintraege: plan.nachfassen }
 				].filter((a) => a.titel !== 'Nachfassen' || a.eintraege.length > 0);
 		const wer = p.id === nutzer.id ? '' : ` – ${plan.person.name}`;

@@ -108,7 +108,7 @@
 <main class="kd-seite">
 	<h1>Benachrichtigungen</h1>
 	<p class="kd-info">
-		Erinnerungen zu To-dos und Terminen erscheinen immer in der Glocke oben. Hier schaltest du zusätzlich Push-Nachrichten auf diesem Gerät
+		Erinnerungen zu Aufgaben und Terminen erscheinen immer in der Glocke oben. Hier schaltest du zusätzlich Push-Nachrichten auf diesem Gerät
 		ein – dann klingelt das Handy bzw. der PC, auch wenn das CRM gerade nicht offen ist.
 	</p>
 
@@ -145,9 +145,9 @@
 	<section class="bn-karte" aria-label="So funktioniert es">
 		<h2>So funktioniert es</h2>
 		<ul>
-			<li>Beim Anlegen eines To-dos oder Termins „Erinnern“ wählen – bis zu zwei, z. B. „1 Tag vorher“ und „1 Stunde vorher“.</li>
+			<li>Beim Anlegen einer Aufgabe oder Termins „Erinnern“ wählen – bis zu zwei, z. B. „1 Tag vorher“ und „1 Stunde vorher“.</li>
 			<li>Per Sprache: „… erinnere mich einen Tag vorher und eine Stunde vorher“.</li>
-			<li>To-dos ohne Uhrzeit gelten für Erinnerungen als um 8:00 Uhr fällig.</li>
+			<li>Aufgaben ohne Uhrzeit gelten für Erinnerungen als um 8:00 Uhr fällig.</li>
 			<li>Per E-Mail kommen Erinnerungen, sobald die Mail-Anbindung eingerichtet ist.</li>
 		</ul>
 	</section>

@@ -241,7 +241,7 @@ describe('Online-Buchung', () => {
 		expect(b.kunde_id).toBe(u.kundeA);
 	});
 
-	it('Verwalten: verschieben (nur auf freie Zeit), absagen → Termin weg, To-do + Glocke', async () => {
+	it('Verwalten: verschieben (nur auf freie Zeit), absagen → Termin weg, Aufgabe + Glocke', async () => {
 		const r = await buche(standardLink(besichtigung), um(13));
 		const v = await ladeVerwaltung(r.verwaltungToken, JETZT);
 		expect(v).toMatchObject({ status: 'aktiv', aenderbar: true, mitarbeiterVorname: 'Ali' });

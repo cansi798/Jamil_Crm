@@ -127,7 +127,7 @@ describe('Kundenportal', () => {
 		expect(stand.dateien[0]).toMatchObject({ name: 'foto.png', geteilt: true });
 	});
 
-	it('Annahme im Portal: AGB-Häkchen Pflicht, Nachweis (Token- und IP-Hash), Auftrag beauftragt, Auftragsbestätigung mit To-do und Glocke, Hook', async () => {
+	it('Annahme im Portal: AGB-Häkchen Pflicht, Nachweis (Token- und IP-Hash), Auftrag beauftragt, Auftragsbestätigung mit Aufgabe und Glocke, Hook', async () => {
 		await speicherePortalEinstellungen(kA(), { agbUrl: 'https://a.test/agb', abAutomatisch: 'ja', standard: 'nur_markierte' });
 		const an = await versendetesAngebot(u.auftragA);
 		const { token } = await erzeugeLink(zA(), u.kundeA);
@@ -152,7 +152,7 @@ describe('Kundenportal', () => {
 		expect(abs).toEqual([expect.objectContaining({ versandStatus: 'bereit', mailAn: 'mueller@kunde.test', mailBetreff: expect.stringMatching(/^Auftragsbestätigung AB-/) })]);
 		const [pdf] = await root`select pdf from app.auftragsbestaetigungen where id = ${abs[0].id}`;
 		expect(Buffer.from(pdf.pdf).subarray(0, 5).toString()).toBe('%PDF-');
-		// To-do und Glocke für den Zuständigen (Büro A ist zuständig)
+		// Aufgabe und Glocke für den Zuständigen (Büro A ist zuständig)
 		const [t] = await root`select zustaendig_id, titel from app.todos where id = (select todo_id from app.auftragsbestaetigungen where id = ${abs[0].id})`;
 		expect(t).toMatchObject({ zustaendig_id: u.ids.bueroA, titel: expect.stringMatching(/an den Kunden senden/) });
 		const [glocke] = await root`select benutzer_id, titel from app.erinnerungen where todo_id = (select todo_id from app.auftragsbestaetigungen where id = ${abs[0].id})`;
@@ -172,7 +172,7 @@ describe('Kundenportal', () => {
 		expect(erledigt.erledigt_am).not.toBeNull();
 	});
 
-	it('Ablehnung mit Grund → To-do; Online-Annahme abgeschaltet → 403', async () => {
+	it('Ablehnung mit Grund → Aufgabe; Online-Annahme abgeschaltet → 403', async () => {
 		const an = await versendetesAngebot(u.auftragA);
 		const { token } = await erzeugeLink(zA(), u.kundeA);
 		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: true, termine: true, mitarbeiter: true, annahme: false });

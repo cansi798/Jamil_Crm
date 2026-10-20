@@ -41,7 +41,7 @@ const formAnfrage = (felder: Record<string, string>) => {
 
 const UNBEKANNT = '11111111-1111-4111-8111-111111111111';
 
-describe('To-dos', () => {
+describe('Aufgaben', () => {
 	let db: TestDb;
 	let root: postgres.Sql;
 	let betriebA: string, betriebB: string, betriebC: string;
@@ -122,7 +122,7 @@ describe('To-dos', () => {
 		auftragB = await seedAuftrag(betriebB, kundeB, 'Fremd');
 	});
 
-	it('Zuständiger Monteur setzt eigenes To-do erledigt → ok (und wieder offen); ändert Titel → 403', async () => {
+	it('Zuständiger Monteur setzt eigene Aufgabe erledigt → ok (und wieder offen); ändert Titel → 403', async () => {
 		const t = await legeTodoAn(kA(), { titel: 'Silikon kaufen', auftragId: auftragA, zustaendigId: monteurAId });
 		const r = await patch(monteurA, t.id, { erledigt: true });
 		expect(r.status).toBe(200);
@@ -138,7 +138,7 @@ describe('To-dos', () => {
 		expect(z).toEqual({ titel: 'Silikon kaufen', erledigt_am: null });
 	});
 
-	it('Fremdes To-do → 404 (Kollege, anderer Betrieb, unbekannt, kaputt); sichtbares fremdes To-do abhaken → 403', async () => {
+	it('Fremdes Aufgabe → 404 (Kollege, anderer Betrieb, unbekannt, kaputt); sichtbares fremdes Aufgabe abhaken → 403', async () => {
 		const kollege = await legeTodoAn(kA(), { titel: 'Kollege', auftragId: auftrag2A, zustaendigId: monteur2AId });
 		const [fremd] = await root`insert into app.todos (betrieb_id, titel) values (${betriebB}, 'B') returning id`;
 		for (const id of [kollege.id, fremd.id, UNBEKANNT, 'kaputt']) {
@@ -147,7 +147,7 @@ describe('To-dos', () => {
 		}
 		expect((await patch(chefB, kollege.id, { titel: 'Gehackt' })).status).toBe(404);
 		expect((await del(chefB, kollege.id)).status).toBe(404);
-		// Monteur sieht den Auftrag (eigenes To-do darin) – das To-do des Kollegen dort ist sichtbar, aber nicht seins
+		// Monteur sieht den Auftrag (eigene Aufgabe darin) – die Aufgabe des Kollegen dort ist sichtbar, aber nicht seins
 		await legeTodoAn(kA(), { titel: 'Meins', auftragId: auftrag2A, zustaendigId: monteurAId });
 		expect((await get(monteurA, kollege.id)).status).toBe(200);
 		expect((await patch(monteurA, kollege.id, { erledigt: true })).status).toBe(403);
@@ -171,7 +171,7 @@ describe('To-dos', () => {
 		}
 		const t = await legeTodoAn(kA(), { titel: 'x', zustaendigId: monteurAId });
 		expect((await patch(chefA, t.id, { zustaendigId: inaktivAId })).status).toBe(400);
-		// Zuständigen wird später deaktiviert: To-do bleibt änderbar, solange der Zuständige nicht neu gesetzt wird
+		// Zuständigen wird später deaktiviert: Aufgabe bleibt änderbar, solange der Zuständige nicht neu gesetzt wird
 		await root`update app.benutzer set aktiv = false where id = ${monteur2AId}`;
 		try {
 			const t2 = await root`insert into app.todos (betrieb_id, titel, zustaendig_id) values (${betriebA}, 'alt', ${monteur2AId}) returning id`;
@@ -223,14 +223,14 @@ describe('To-dos', () => {
 		});
 	});
 
-	it('Monteur sieht durch eigenes To-do den Auftrag in listeAuftraege (Ergänzung zu Task 3)', async () => {
+	it('Monteur sieht durch eigene Aufgabe den Auftrag in listeAuftraege (Ergänzung zu Task 3)', async () => {
 		const k = { betriebId: betriebA, benutzerId: monteurAId };
 		expect(await listeAuftraege(k, { alle: false, benutzerId: monteurAId }, {})).toEqual([]);
 		await legeTodoAn(kA(), { titel: 'Ali', auftragId: auftrag2A, zustaendigId: monteurAId });
 		expect((await listeAuftraege(k, { alle: false, benutzerId: monteurAId }, {})).map((a) => a.titel)).toEqual(['Fliesen']);
 	});
 
-	it('Chef: anlegen (201), ändern, löschen (204); Verlauf eines fremden To-dos für den Monteur 404', async () => {
+	it('Chef: anlegen (201), ändern, löschen (204); Verlauf eines fremden Aufgaben für den Monteur 404', async () => {
 		const r = await post(chefA, { titel: 'Neu', auftragId: auftragA, zustaendigId: monteurAId, faellig: '2026-10-30' });
 		expect(r.status).toBe(201);
 		expect(r.koerper).toMatchObject({ titel: 'Neu', faellig: '2026-10-30', zustaendigName: 'Ali Monteur' });
@@ -254,7 +254,7 @@ describe('To-dos', () => {
 	describe('Seiten', () => {
 		const ort = (nutzer: Nutzer | null) => ({ locals: { nutzer } });
 
-		it('To-do-Seite: Reiter meine/offen/alle (Offen/Alle nur mit alle_lesen), heute (Berlin) für Überfälliges', async () => {
+		it('Aufgaben-Seite: Reiter meine/offen/alle (Offen/Alle nur mit alle_lesen), heute (Berlin) für Überfälliges', async () => {
 			await legeTodoAn(kA(), { titel: 'Ali', zustaendigId: monteurAId, faellig: '2020-01-01' });
 			await legeTodoAn(kA(), { titel: 'Chef', zustaendigId: chefAId });
 			const d = (await seitenLoad({ ...ort(chefA), url: new URL('http://localhost/todos?nur=alle') } as never)) as any;
@@ -271,7 +271,7 @@ describe('To-dos', () => {
 			await expect(seitenLoad({ ...ort(chefC), url: new URL('http://localhost/todos') } as never)).rejects.toMatchObject({ status: 402 });
 		});
 
-		it('To-do-Seite: abhaken (Monteur, eigenes), anlegen/löschen nur Chef', async () => {
+		it('Aufgaben-Seite: abhaken (Monteur, eigenes), anlegen/löschen nur Chef', async () => {
 			const t = await legeTodoAn(kA(), { titel: 'Ali', zustaendigId: monteurAId });
 			const ok = await seitenAktionen.umschalten({
 				...ort(monteurA),
@@ -300,7 +300,7 @@ describe('To-dos', () => {
 			expect(await root`select 1 from app.todos where id = ${neu.id}`).toHaveLength(0);
 		});
 
-		it('„+ To-do“ mit Beschreibung (To-do-Seite und Auftragsseite); zu lang → 400 mit Eingaben zurück', async () => {
+		it('„+ Aufgabe“ mit Beschreibung (Aufgaben-Seite und Auftragsseite); zu lang → 400 mit Eingaben zurück', async () => {
 			expect(
 				await seitenAktionen.anlegen({
 					...ort(chefA),
@@ -361,7 +361,7 @@ describe('To-dos', () => {
 			expect(zuLang.status).toBe(400);
 		});
 
-		it('Auftragsseite: To-do-Bereich mit „+ To-do“ (Chef), Abhaken dort', async () => {
+		it('Auftragsseite: Aufgaben-Bereich mit „+ Aufgabe“ (Chef), Abhaken dort', async () => {
 			await legeTodoAn(kA(), { titel: 'Am Auftrag', auftragId: auftragA, zustaendigId: monteurAId });
 			await legeTodoAn(kA(), { titel: 'Anderswo', auftragId: auftrag2A });
 			const d = (await auftragLoad({ ...ort(chefA), params: { id: auftragA } } as never)) as any;
@@ -421,7 +421,7 @@ describe('To-dos', () => {
 			expect((await post(chefA, { titel: 'x', lautstaerke: falsch })).status, String(falsch)).toBe(400);
 			expect((await post(chefA, { titel: 'x', schmutz: falsch })).status, String(falsch)).toBe(400);
 		}
-		// Seite: „+ To-do“ im Auftrag mit beiden Stufen
+		// Seite: „+ Aufgabe“ im Auftrag mit beiden Stufen
 		expect(
 			await auftragAktionen.todoAnlegen({
 				locals: { nutzer: chefA },
@@ -444,7 +444,7 @@ describe('To-dos', () => {
 		expect(z2).toEqual({ lautstaerke: 2, schmutz: null, beschreibung: 'mit Staubschutz' });
 	});
 
-	it('legeTodosAn: mehrere To-dos in Reihenfolge mit Beschreibung; ungültiges → keins angelegt; unsichtbarer Auftrag → 400', async () => {
+	it('legeTodosAn: mehrere Aufgaben in Reihenfolge mit Beschreibung; ungültiges → keins angelegt; unsichtbarer Auftrag → 400', async () => {
 		const liste = [
 			{ titel: 'Filter wechseln', beschreibung: 'F7' },
 			{ titel: 'Brenner reinigen', beschreibung: null },
@@ -470,7 +470,7 @@ describe('To-dos', () => {
 		expect(await legeTodosAn(kA(), auftragA, [])).toEqual([]);
 	});
 
-	it('Schreiben ohne alle_lesen: To-dos unsichtbarer Aufträge → 404 (ändern, löschen), Anlegen daran → 400', async () => {
+	it('Schreiben ohne alle_lesen: Aufgaben unsichtbarer Aufträge → 404 (ändern, löschen), Anlegen daran → 400', async () => {
 		const schreiber = nutzerVon(monteurAId, betriebA, ['auftraege.lesen', 'auftraege.bearbeiten']);
 		const fremd = await legeTodoAn(kA(), { titel: 'Fremd', auftragId: auftrag2A, zustaendigId: monteur2AId });
 		const meins = await legeTodoAn(kA(), { titel: 'Meins', auftragId: auftragA, zustaendigId: monteurAId });
@@ -479,7 +479,7 @@ describe('To-dos', () => {
 		expect((await del(schreiber, fremd.id)).status).toBe(404);
 		expect((await post(schreiber, { titel: 'x', auftragId: auftrag2A })).status).toBe(400);
 		expect((await patch(schreiber, meins.id, { titel: 'Meins neu' })).status).toBe(200);
-		// To-do im sichtbaren Auftrag anlegen geht
+		// Aufgabe im sichtbaren Auftrag anlegen geht
 		expect((await post(schreiber, { titel: 'Neu', auftragId: auftragA })).status).toBe(201);
 		const [z] = await root`select titel, erledigt_am from app.todos where id = ${fremd.id}`;
 		expect(z).toEqual({ titel: 'Fremd', erledigt_am: null });

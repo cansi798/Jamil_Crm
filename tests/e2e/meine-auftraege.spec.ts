@@ -3,7 +3,7 @@ import { anmelden, personenWaehlen } from './hilfe';
 
 /**
  * Wünsche Jamil (msgs 2489, 2490, 2497): Mitarbeiter direkt im Auftrag zuweisen; der Mitarbeiter sieht den Auftrag
- * unter „Meine Aufträge“ und die To-dos des Auftrags unter „Meine To-dos“. Geprüft mit dem Testzugang
+ * unter „Meine Aufträge“ und die Aufgaben des Auftrags unter „Meine Aufgaben“. Geprüft mit dem Testzugang
  * „jamil.monteur“ (nur im Testmodus der Vorschau). Eigene Daten, am Ende gelöscht.
  */
 const BUERO = 'buero@bauwelt.test';
@@ -34,7 +34,7 @@ async function alsTestzugang(browser: Browser, name: string): Promise<Page> {
 	return p;
 }
 
-test('Büro weist „Jamil (Test) – Monteur“ im Auftrag zu → er sieht Auftrag und To-dos unter „Meine“', async ({ page, browser }, info) => {
+test('Büro weist „Jamil (Test) – Monteur“ im Auftrag zu → er sieht Auftrag und Aufgaben unter „Meine“', async ({ page, browser }, info) => {
 	await page.goto('/anmelden');
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus (Testzugänge)');
 	await anmelden(page, BUERO);
@@ -48,11 +48,11 @@ test('Büro weist „Jamil (Test) – Monteur“ im Auftrag zu → er sieht Auft
 		await personenWaehlen(zuweisen, 'Mitarbeiter zuweisen', ['Jamil (Test) – Monteur']);
 		await expect(page.getByRole('list', { name: 'Zuständige Mitarbeiter' }).getByText('Jamil (Test) – Monteur')).toBeVisible();
 		await expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible();
-		// To-do ohne direkte Zuweisung im Auftrag
-		await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
+		// Aufgabe ohne direkte Zuweisung im Auftrag
+		await page.getByRole('button', { name: 'Aufgabe hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
-		await f.getByLabel('Neues To-do').fill('Material holen (E2E)');
-		await f.getByRole('button', { name: 'To-do speichern' }).click();
+		await f.getByLabel('Neue Aufgabe').fill('Material holen (E2E)');
+		await f.getByRole('button', { name: 'Aufgabe speichern' }).click();
 		await expect(page.locator('.tl-zeile', { hasText: 'Material holen (E2E)' })).toBeVisible();
 
 		const monteur = await alsTestzugang(browser, 'jamil.monteur');

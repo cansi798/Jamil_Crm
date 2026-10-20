@@ -125,9 +125,9 @@ test('Handy: Status-Reiter statt Spalten, Verschieben über das Menü', async ({
 	}
 });
 
-// To-dos: gleiches Board wie die Aufträge (Wunsch Jamil msg 2595) – Offen / In Arbeit / Erledigt, Ziehen und Menü,
+// Aufgaben: gleiches Board wie die Aufträge (Wunsch Jamil msg 2595) – Offen / In Arbeit / Erledigt, Ziehen und Menü,
 // Umschalter „Board / Liste“, Filter bleiben erhalten.
-test('To-dos: Board mit Ziehen und Menü, Rücknahme bei Fehler, Liste', async ({ page }, info) => {
+test('Aufgaben: Board mit Ziehen und Menü, Rücknahme bei Fehler, Liste', async ({ page }, info) => {
 	await anmelden(page, BUERO);
 	const titel = `E2E-Todo-Board ${info.project.name} ${Date.now()}`;
 	const r = await page.request.post('/api/todos', { data: { titel } });

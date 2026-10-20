@@ -93,7 +93,7 @@
 				</label>
 			{/if}
 		</div>
-		<p class="kd-info">Mit „Wartung planen“ auf der Anlage entsteht daraus ein wiederkehrendes To-do.</p>
+		<p class="kd-info">Mit „Wartung planen“ auf der Anlage entsteht daraus ein wiederkehrende Aufgabe.</p>
 	</fieldset>
 
 	<label>

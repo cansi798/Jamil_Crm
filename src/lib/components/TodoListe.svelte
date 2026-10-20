@@ -21,9 +21,9 @@
 	};
 
 	/**
-	 * To-dos im Auftrag als schlichte Liste (Wunsch Jamil, msg 2579): je Zeile Häkchen (erledigt), Titel, Zuständiger und
+	 * Aufgaben im Auftrag als schlichte Liste (Wunsch Jamil, msg 2579): je Zeile Häkchen (erledigt), Titel, Zuständiger und
 	 * Fälligkeit; Klick auf den Titel klappt Details und Bearbeiten auf. Erledigte stehen eingeklappt unten.
-	 * (Die To-do-Seite behält ihr Board.)
+	 * (Die Aufgaben-Seite behält ihr Board.)
 	 */
 	let {
 		todos,
@@ -32,7 +32,7 @@
 		darfBearbeiten = false,
 		mitarbeiter = [],
 		aktionen,
-		leer = 'Keine To-dos.'
+		leer = 'Keine Aufgaben.'
 	}: {
 		todos: Todo[];
 		heute: string;
@@ -137,7 +137,7 @@
 							method="POST"
 							action={aktionen.loeschen}
 							use:enhance={({ cancel }) => {
-								if (!confirm(`To-do „${t.titel}“ löschen?`)) cancel();
+								if (!confirm(`Aufgabe „${t.titel}“ löschen?`)) cancel();
 							}}
 						>
 							<input type="hidden" name="id" value={t.id} />
@@ -153,7 +153,7 @@
 {#if todos.length === 0}
 	<p class="kd-leer">{leer}</p>
 {:else}
-	<ul class="tl-liste" aria-label="Offene To-dos">
+	<ul class="tl-liste" aria-label="Offene Aufgaben">
 		{#each offen as t (t.id)}{@render zeile(t)}{:else}<li class="kd-info tl-alle">Alles erledigt.</li>{/each}
 	</ul>
 	{#if erledigt.length > 0}
@@ -161,7 +161,7 @@
 			{erledigteZeigen ? '▾' : '▸'} {erledigt.length} erledigt {erledigteZeigen ? 'ausblenden' : 'anzeigen'}
 		</button>
 		{#if erledigteZeigen}
-			<ul class="tl-liste" aria-label="Erledigte To-dos">
+			<ul class="tl-liste" aria-label="Erledigte Aufgaben">
 				{#each erledigt as t (t.id)}{@render zeile(t)}{/each}
 			</ul>
 		{/if}

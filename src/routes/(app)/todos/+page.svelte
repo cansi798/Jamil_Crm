@@ -13,9 +13,9 @@
 
 	const NAMEN = { meine: 'Meine', offen: 'Offen', alle: 'Alle' } as const;
 	const LEER = {
-		meine: 'Keine To-dos – weder direkt zugewiesen noch in Aufträgen, für die Sie zuständig sind.',
-		offen: 'Keine offenen To-dos.',
-		alle: 'Noch keine To-dos angelegt.'
+		meine: 'Keine Aufgaben – weder direkt zugewiesen noch in Aufträgen, für die Sie zuständig sind.',
+		offen: 'Keine offenen Aufgaben.',
+		alle: 'Noch keine Aufgaben angelegt.'
 	} as const;
 
 	/** Link mit Ansicht, Reiter und Filtern (leere Werte entfallen) – wie auf der Auftragsseite. */
@@ -35,12 +35,12 @@
 </script>
 
 <svelte:head>
-	<title>To-dos</title>
+	<title>Aufgaben</title>
 </svelte:head>
 
 <main class="kd-seite breit">
 	<header class="seiten-kopf">
-		<h1>{data.nur === 'meine' ? 'Meine To-dos' : 'To-dos'}</h1>
+		<h1>{data.nur === 'meine' ? 'Meine Aufgaben' : 'Aufgaben'}</h1>
 		<div class="seiten-aktionen">
 			<nav class="af-ansicht" aria-label="Ansicht">
 				<a href={link({ ansicht: 'board' })} aria-current={data.ansicht === 'board' ? 'page' : undefined}>Board</a>
@@ -49,20 +49,20 @@
 			{#if data.darfBearbeiten}
 				<button type="button" class="kd-knopf" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>
 					<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" /></svg>
-					To-do hinzufügen
+					Aufgabe hinzufügen
 				</button>
 			{/if}
 		</div>
 	</header>
 
-	<FilterLeiste label="To-dos filtern">
+	<FilterLeiste label="Aufgaben filtern">
 		{#snippet suche()}
 			{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
 			{#if data.nur !== 'meine'}<input type="hidden" name="nur" value={data.nur} />{/if}
 		{/snippet}
 		{#snippet filter()}
 			{#if data.reiter.length > 1}
-				<nav aria-label="Meine oder alle To-dos" class="pills">
+				<nav aria-label="Meine oder alle Aufgaben" class="pills">
 					{#each data.reiter as r (r)}
 						<a href={link({ nur: r })} class="pill" class:aktiv={data.nur === r} aria-current={data.nur === r ? 'page' : undefined}>{NAMEN[r]}</a>
 					{/each}
@@ -87,7 +87,7 @@
 	{/if}
 
 	{#if data.darfBearbeiten}
-		<AddPanel label="To-do hinzufügen" knopf={false} bind:offen={neuOffen}>
+		<AddPanel label="Aufgabe hinzufügen" knopf={false} bind:offen={neuOffen}>
 			{#snippet children(schliessen)}
 				<TodoNeu
 					aktion="?/anlegen"

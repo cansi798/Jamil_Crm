@@ -507,7 +507,7 @@ export async function termineZumVerschieben(token: unknown, vonRoh: unknown, jet
 }
 
 /**
- * Termin absagen: Buchung storniert, Termin in der Plantafel gelöscht. Der Auftrag bleibt und bekommt ein To-do
+ * Termin absagen: Buchung storniert, Termin in der Plantafel gelöscht. Der Auftrag bleibt und bekommt eine Aufgabe
  * „Online-Buchung abgesagt“ für den Mitarbeiter – daran hängt die Benachrichtigung (Glocke + Push) für ihn und die
  * Verwalter (die Benachrichtigungen zum gelöschten Termin verschwinden mit ihm).
  */

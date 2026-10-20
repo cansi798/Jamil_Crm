@@ -18,8 +18,8 @@ describe('FakeKi (regelbasiert)', () => {
 		});
 	});
 
-	it('To-do mit Zuständigem und Fälligkeit', async () => {
-		expect(await ki.aktionAusText('Neues To-do für Murat: Silikonfuge erneuern, bis Freitag', kontext)).toEqual({
+	it('Aufgabe mit Zuständigem und Fälligkeit', async () => {
+		expect(await ki.aktionAusText('Neue Aufgabe für Murat: Silikonfuge erneuern, bis Freitag', kontext)).toEqual({
 			aktion: 'todo_anlegen',
 			daten: { titel: 'Silikonfuge erneuern', zustaendig: 'Murat', faellig: { tag: 'wochentag', wochentag: 'freitag' } }
 		});

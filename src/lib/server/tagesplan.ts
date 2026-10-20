@@ -7,11 +7,11 @@ import { berlinTag, berlinUhrzeit, tagDeutsch, tagPlus, wochentag } from '../zei
 
 /**
  * Tagesplan (Wunsch Jamil msg 2647): „Was steht heute für mich an?“ – Termine (Einsätze) mit Uhrzeit, Adresse und
- * Auftrag, dann fällige/überfällige To-dos, dann Nachfass-To-dos. Für die Sprachfrage (`abfrage_tagesplan`) und die
+ * Auftrag, dann fällige/überfällige Aufgaben, dann Nachfass-Aufgaben. Für die Sprachfrage (`abfrage_tagesplan`) und die
  * Kachel „Heute“ auf der Startseite. Nur lesend.
  *
- * Sichtbarkeit: Jeder darf seinen eigenen Plan sehen; den Plan anderer nur mit „Alle To-dos ansehen“
- * (`todos.alle_lesen`) – das gilt für To-dos UND Termine.
+ * Sichtbarkeit: Jeder darf seinen eigenen Plan sehen; den Plan anderer nur mit „Alle Aufgaben ansehen“
+ * (`todos.alle_lesen`) – das gilt für Aufgaben UND Termine.
  */
 
 export type PlanEintrag = { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean };
@@ -113,10 +113,10 @@ export async function tagesplan(
 		const wer = ich ? 'Du hast' : `${person.name} hat`;
 		const ueber = [...normal, ...nachfassen].filter((t) => t.ueberfaellig).length;
 		const teile = opts.nurUeberfaellig
-			? [`${wer} ${anzahl(normal.length + nachfassen.length, 'überfälliges To-do', 'überfällige To-dos')}.`]
+			? [`${wer} ${anzahl(normal.length + nachfassen.length, 'überfällige Aufgabe', 'überfällige Aufgaben')}.`]
 			: [
 					`${wer} ${z.text} ${anzahl(terminEintraege.length, 'Termin', 'Termine')}${terminEintraege.length > 0 ? ': ' + terminEintraege.slice(0, 5).map((t) => `${t.zeit.replace('–', ' bis ')} ${t.titel}${t.ort ? `, ${t.ort}` : ''}`).join('; ') : ''}.`,
-					`Dazu ${anzahl(normal.length, 'To-do', 'To-dos')}${ueber > 0 ? `, davon ${ueber} überfällig` : ''}${nachfassen.length > 0 ? `, und ${anzahl(nachfassen.length, 'Nachfass-Aufgabe', 'Nachfass-Aufgaben')}` : ''}.`
+					`Dazu ${anzahl(normal.length, 'Aufgabe', 'Aufgaben')}${ueber > 0 ? `, davon ${ueber} überfällig` : ''}${nachfassen.length > 0 ? `, und ${anzahl(nachfassen.length, 'Nachfass-Aufgabe', 'Nachfass-Aufgaben')}` : ''}.`
 				];
 		return {
 			person: { id: person.id, name: person.name },
@@ -133,7 +133,7 @@ export async function tagesplan(
 
 /**
  * „Was hat Kolonne A diese Woche?“ – Termine der Kolonne (je Gruppe und Tag einer). Sehen darf, wer Mitglied ist oder
- * „Alle To-dos ansehen“ hat.
+ * „Alle Aufgaben ansehen“ hat.
  */
 export async function kolonnenplan(
 	k: Kontext,

@@ -7,13 +7,13 @@ import { UUID } from '$lib/server/kunden';
 import { berlinTag } from '$lib/zeit';
 
 /**
- * To-dos als Board oder Liste (wie Aufträge) mit Reitern „Meine“ / „Offen“ / „Alle“ (die beiden letzten nur mit `auftraege.alle_lesen`). Überfällig ist,
+ * Aufgaben als Board oder Liste (wie Aufträge) mit Reitern „Meine“ / „Offen“ / „Alle“ (die beiden letzten nur mit `auftraege.alle_lesen`). Überfällig ist,
  * was vor dem heutigen Tag (Berlin) fällig und noch offen ist.
  */
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const k = await seitenZugriff(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
 	const nutzer = locals.nutzer!;
-	// Sicht nach dem Recht „Alle To-dos ansehen“ (sonst: eigene + die in eigenen Aufträgen)
+	// Sicht nach dem Recht „Alle Aufgaben ansehen“ (sonst: eigene + die in eigenen Aufträgen)
 	const sicht = todoSichtVon(nutzer);
 	const reiter: TodoAuswahl[] = sicht.alle ? ['meine', 'offen', 'alle'] : ['meine'];
 	const roh = url.searchParams.get('nur');
@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		heute: berlinTag(new Date()),
 		darfBearbeiten,
 		benutzerId: nutzer.id,
-		// „+ To-do“ vorbelegt (z. B. „Ändern“ auf der Bestätigungskarte der Sprachsteuerung)
+		// „+ Aufgabe“ vorbelegt (z. B. „Ändern“ auf der Bestätigungskarte der Sprachsteuerung)
 		vorbelegt: vorbelegung(url, ['titel', 'faellig'])
 	};
 };

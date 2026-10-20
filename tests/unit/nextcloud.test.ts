@@ -105,7 +105,7 @@ describe('Formate', () => {
 		expect(kalenderUri('Can Siebert')).toMatch(/^crm-einsaetze-[0-9a-f]{16}$/);
 	});
 	it('Talk-Text mit Link', () => {
-		expect(talkText({ titel: 'To-do: X', text: 'Fällig Mo', link: '/todos' }, 'https://crm.x.de')).toBe('🔔 To-do: X\nFällig Mo\nhttps://crm.x.de/todos');
+		expect(talkText({ titel: 'Aufgabe: X', text: 'Fällig Mo', link: '/todos' }, 'https://crm.x.de')).toBe('🔔 Aufgabe: X\nFällig Mo\nhttps://crm.x.de/todos');
 	});
 });
 

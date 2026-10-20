@@ -306,12 +306,12 @@ function erinnerungenAufloesen(bau: Bau, nutzer: Nutzer, liste: ErinnerungDaten[
 async function todoAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'todo_anlegen' }>['daten'], jetzt: Date): Promise<Bau> {
 	const bau = neuerBau();
 	bau.werte.titel = d.titel;
-	bau.zeilen.push({ label: 'To-do', wert: d.titel });
+	bau.zeilen.push({ label: 'Aufgabe', wert: d.titel });
 	bau.werte.zustaendigId = null;
 	if (d.zustaendig) {
 		const alle = await aktiveMitarbeiter(k);
 		const [id] = mitarbeiterAufloesen(bau, alle, [d.zustaendig], nutzer.id);
-		// Auswahl heißt bei To-dos „zustaendig“
+		// Auswahl heißt bei Aufgaben „zustaendig“
 		for (const a of bau.auswahl) if (a.feld === 'mitarbeiter.0') a.feld = 'zustaendig';
 		bau.werte.zustaendigId = id;
 		bau.zeilen.push({ label: 'Zuständig', wert: mitarbeiterText(alle, [id], [d.zustaendig]) });
@@ -338,7 +338,7 @@ async function todoAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { ak
 			bau.auswahl.push({ feld: 'auftrag', frage: 'Welcher Auftrag ist gemeint?', optionen: t.slice(0, 8).map((a) => ({ id: a.id, label: auftragLabel(a) })) });
 			bau.zeilen.push({ label: 'Auftrag', wert: `${d.auftrag} (bitte wählen)` });
 		} else {
-			bau.warnungen.push(`Auftrag „${d.auftrag}“ nicht gefunden – das To-do wird ohne Auftrag angelegt.`);
+			bau.warnungen.push(`Auftrag „${d.auftrag}“ nicht gefunden – die Aufgabe wird ohne Auftrag angelegt.`);
 		}
 	}
 	return bau;
@@ -685,13 +685,13 @@ async function todoAbhaken(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { ak
 	const label = (t: (typeof offen)[number]) => `${t.titel}${t.auftragNummer ? ` · ${t.auftragNummer}` : ''}${t.zustaendigName ? ` · ${t.zustaendigName}` : ''}`;
 	if (treffer.length === 1) {
 		bau.werte.todoId = treffer[0].id;
-		bau.zeilen.push({ label: 'To-do', wert: label(treffer[0]) });
-		if (treffer[0].serie?.aktiv) bau.warnungen.push(`Wiederkehrend (${treffer[0].serie.text}) – das nächste To-do entsteht automatisch.`);
+		bau.zeilen.push({ label: 'Aufgabe', wert: label(treffer[0]) });
+		if (treffer[0].serie?.aktiv) bau.warnungen.push(`Wiederkehrend (${treffer[0].serie.text}) – die nächste Aufgabe entsteht automatisch.`);
 	} else if (treffer.length > 1) {
-		bau.auswahl.push({ feld: 'todo', frage: 'Welches To-do ist erledigt?', optionen: treffer.slice(0, 8).map((t) => ({ id: t.id, label: label(t) })) });
-		bau.zeilen.push({ label: 'To-do', wert: `${d.titel} (bitte wählen)` });
+		bau.auswahl.push({ feld: 'todo', frage: 'Welche Aufgabe ist erledigt?', optionen: treffer.slice(0, 8).map((t) => ({ id: t.id, label: label(t) })) });
+		bau.zeilen.push({ label: 'Aufgabe', wert: `${d.titel} (bitte wählen)` });
 	} else {
-		bau.fehlt.push(`Kein offenes To-do „${d.titel}“ gefunden.`);
+		bau.fehlt.push(`Kein offene Aufgabe „${d.titel}“ gefunden.`);
 	}
 	return bau;
 }
@@ -851,14 +851,14 @@ export async function personAufloesen(
 const TITEL: Record<AktionsName, string> = {
 	kunde_anlegen: 'Kunde anlegen',
 	auftrag_anlegen: 'Auftrag anlegen',
-	todo_anlegen: 'To-do anlegen',
+	todo_anlegen: 'Aufgabe anlegen',
 	einsatz_anlegen: 'Termin einplanen',
 	einsatz_verschieben: 'Termin verschieben',
 	angebot_entwurf: 'Angebotsentwurf (KI)',
 	protokoll_ausfuellen: 'Protokoll ausfüllen',
 	mitarbeiter_zuweisen: 'Mitarbeiter zuweisen',
 	status_aendern: 'Auftragsstatus ändern',
-	todo_abhaken: 'To-do abhaken',
+	todo_abhaken: 'Aufgabe abhaken',
 	anlage_anlegen: 'Anlage anlegen',
 	nachfassen_pausieren: 'Nachfassen',
 	abfrage_tagesplan: 'Tagesplan',

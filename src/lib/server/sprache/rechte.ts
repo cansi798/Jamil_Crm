@@ -8,13 +8,13 @@ import type { AktionsName } from './aktionen';
  * - Kunde anlegen: Modul `kunden` + `kunden.bearbeiten`
  * - Auftrag anlegen: Modul `auftraege` + `auftraege.bearbeiten` und Kunden suchen (`kunden.lesen`); mit eingeplanten
  *   Mitarbeitern zusätzlich Modul `plantafel` + `plantafel.bearbeiten`
- * - To-do anlegen: Modul `auftraege` + `auftraege.bearbeiten`
+ * - Aufgabe anlegen: Modul `auftraege` + `auftraege.bearbeiten`
  * - Termin einplanen/verschieben: Modul `plantafel` + `plantafel.bearbeiten`
  * - Angebotsentwurf: Modul `ki_angebote` und `angebote` + `angebote.bearbeiten` + `preise.sehen`
  * - Protokoll: Vorlage starten (Formular) Modul `protokolle` + `protokolle.ausfuellen` oder `protokolle.bearbeiten`;
  *   Baustellen-Protokoll (feste Typen) `protokolle.bearbeiten`
  * - Mitarbeiter zuweisen, Status ändern: Modul `auftraege` + `auftraege.bearbeiten`
- * - To-do abhaken: Modul `auftraege`; abhaken darf, wer bearbeiten darf, sonst nur eigene To-dos (beim Ausführen)
+ * - Aufgabe abhaken: Modul `auftraege`; abhaken darf, wer bearbeiten darf, sonst nur eigene Aufgaben (beim Ausführen)
  * - Anlage anlegen: Modul `kunden` + `kunden.bearbeiten`
  * - Angebot angenommen/abgelehnt eintragen: wie Angebote (`angebote.bearbeiten` + `preise.sehen`)
  * - Nachfassen pausieren: wie Angebote (`angebote.bearbeiten` + `preise.sehen`)
@@ -25,7 +25,7 @@ import type { AktionsName } from './aktionen';
  * - Kundenportal: Modul `kundenportal` + `auftraege.bearbeiten`
  * - Foto-Aufmaß: wie der KI-Angebotsentwurf (Modul `ki_angebote` + Angebote mit Preisen)
  * - Tagesplan abfragen (nur lesend): Modul `auftraege` und irgendein Auftragsrecht; andere Personen nur mit
- *   „Alle To-dos ansehen“ (geprüft beim Beantworten)
+ *   „Alle Aufgaben ansehen“ (geprüft beim Beantworten)
  */
 
 export const MELDUNG_RECHTE = 'Dafür fehlt Ihnen die Berechtigung';

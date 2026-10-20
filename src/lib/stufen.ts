@@ -1,4 +1,4 @@
-/** Stufen für „Lautstärke“ und „Schmutz“ je To-do (Wunsch Jamil, msg 2486: nur 3 Stufen). */
+/** Stufen für „Lautstärke“ und „Schmutz“ je Aufgabe (Wunsch Jamil, msg 2486: nur 3 Stufen). */
 export const STUFEN = [1, 2, 3] as const;
 export type Stufe = (typeof STUFEN)[number];
 

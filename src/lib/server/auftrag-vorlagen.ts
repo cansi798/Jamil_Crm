@@ -4,10 +4,10 @@ import { textFeld, UUID } from './kunden';
 import { stufeFeld } from './todos';
 
 /**
- * Fachlogik für Auftrags-To-do-Vorlagen (Modul `auftraege`).
+ * Fachlogik für Auftrags-Aufgaben-Vorlagen (Modul `auftraege`).
  *
- * Vorlagen speichern wiederkehrende To-do-Listen für Aufträge (z.B. "Wartung Heizung" mit 5 Aufgaben).
- * Beim Anlegen eines Auftrags kann eine Vorlage gewählt werden, die To-dos werden automatisch erstellt.
+ * Vorlagen speichern wiederkehrende Aufgabenlisten für Aufträge (z.B. "Wartung Heizung" mit 5 Aufgaben).
+ * Beim Anlegen eines Auftrags kann eine Vorlage gewählt werden, die Aufgaben werden automatisch erstellt.
  */
 
 export type Vorlage = {
@@ -22,7 +22,7 @@ export type VorlageTodo = {
 	id: string;
 	titel: string;
 	beschreibung: string | null;
-	/** 1 gering, 2 mittel, 3 hoch – wird beim Anwenden in die Auftrags-To-dos übernommen. */
+	/** 1 gering, 2 mittel, 3 hoch – wird beim Anwenden in die Auftrags-Aufgaben übernommen. */
 	lautstaerke: number | null;
 	schmutz: number | null;
 	sortierung: number;
@@ -58,17 +58,17 @@ export function pruefeVorlageEingabe(e: Record<string, unknown>): VorlageWerte {
 	return { name, beschreibung };
 }
 
-/** Prüft die Eingaben eines Vorlagen-To-dos und liefert bereinigte Werte. */
+/** Prüft die Eingaben eines Vorlagen-Aufgaben und liefert bereinigte Werte. */
 export function pruefeTodoEingabe(e: Record<string, unknown>, index: number): TodoWerte {
-	const titel = textFeld(e.titel, `To-do ${index + 1}: Titel`, 200);
-	if (!titel || titel.length < 1) throw new ApiFehler(400, `To-do ${index + 1}: Titel ist erforderlich.`);
-	const beschreibung = textFeld(e.beschreibung, `To-do ${index + 1}: Beschreibung`, 500) || null;
+	const titel = textFeld(e.titel, `Aufgabe ${index + 1}: Titel`, 200);
+	if (!titel || titel.length < 1) throw new ApiFehler(400, `Aufgabe ${index + 1}: Titel ist erforderlich.`);
+	const beschreibung = textFeld(e.beschreibung, `Aufgabe ${index + 1}: Beschreibung`, 500) || null;
 	const sortierung = typeof e.sortierung === 'number' && Number.isInteger(e.sortierung) ? e.sortierung : index;
 	return {
 		titel,
 		beschreibung,
-		lautstaerke: stufeFeld(e.lautstaerke, `To-do ${index + 1}: Lautstärke`),
-		schmutz: stufeFeld(e.schmutz, `To-do ${index + 1}: Schmutz`),
+		lautstaerke: stufeFeld(e.lautstaerke, `Aufgabe ${index + 1}: Lautstärke`),
+		schmutz: stufeFeld(e.schmutz, `Aufgabe ${index + 1}: Schmutz`),
 		sortierung
 	};
 }
@@ -90,7 +90,7 @@ export async function listeVorlagen(k: Kontext): Promise<Vorlage[]> {
 	});
 }
 
-/** Liefert eine Vorlage mit To-dos (404 wenn nicht gefunden oder fremder Betrieb). */
+/** Liefert eine Vorlage mit Aufgaben (404 wenn nicht gefunden oder fremder Betrieb). */
 export async function holeVorlage(k: Kontext, id: string): Promise<VorlageMitTodos> {
 	const vorlageId = idFeld(id);
 	return mitBetrieb(k, async (tx) => {
@@ -124,7 +124,7 @@ export async function holeVorlage(k: Kontext, id: string): Promise<VorlageMitTod
 	});
 }
 
-/** Legt eine Vorlage mit To-dos an. */
+/** Legt eine Vorlage mit Aufgaben an. */
 export async function legeVorlageAn(
 	k: Kontext,
 	e: { name: string; beschreibung?: string; todos?: { titel: string; beschreibung?: string | null; lautstaerke?: unknown; schmutz?: unknown; sortierung?: number }[] }
@@ -151,7 +151,7 @@ export async function legeVorlageAn(
 	return holeVorlage(k, vorlageId);
 }
 
-/** Ändert eine Vorlage. To-dos werden komplett ersetzt, wenn `todos` angegeben ist. */
+/** Ändert eine Vorlage. Aufgaben werden komplett ersetzt, wenn `todos` angegeben ist. */
 export async function aendereVorlage(
 	k: Kontext,
 	id: string,
@@ -186,7 +186,7 @@ export async function aendereVorlage(
 	return holeVorlage(k, vorlageId);
 }
 
-/** Löscht eine Vorlage (To-dos werden mitgelöscht). */
+/** Löscht eine Vorlage (Aufgaben werden mitgelöscht). */
 export async function loescheVorlage(k: Kontext, id: string): Promise<void> {
 	const vorlageId = idFeld(id);
 	await mitBetrieb(k, async (tx) => {

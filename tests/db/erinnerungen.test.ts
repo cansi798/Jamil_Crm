@@ -52,7 +52,7 @@ describe('Erinnerungen', () => {
 		gesendet.length = 0;
 	});
 
-	it('To-do mit Uhrzeit: 1 Tag und 1 Stunde vorher; Fälligkeit ändern → zieht nach; ohne Uhrzeit 8:00', async () => {
+	it('Aufgabe mit Uhrzeit: 1 Tag und 1 Stunde vorher; Fälligkeit ändern → zieht nach; ohne Uhrzeit 8:00', async () => {
 		const t = await legeTodoAn(kA(), { titel: 'Material bestellen', faellig: morgen, faelligZeit: '10:00', erinnerung1: '1440', erinnerung2: '60' });
 		expect(t.faelligZeit).toBe('10:00');
 		const um = ausTagUndUhrzeit(morgen, '10:00').getTime();
@@ -86,11 +86,11 @@ describe('Erinnerungen', () => {
 		await aendereTodo(kA(), t2.id, { erledigt: true });
 		await root`update app.erinnerungen set zeitpunkt = now() - interval '1 minute'`;
 		expect(await stelleFaelligeZu()).toEqual({ gesendet: 1, uebersprungen: 1 });
-		expect(gesendet).toEqual([{ endpoint: FCM, n: { titel: 'To-do: Material bestellen', text: expect.stringMatching(/^Fällig \w\w \d\d\.\d\d\. 10:00$/), link: '/todos' } }]);
+		expect(gesendet).toEqual([{ endpoint: FCM, n: { titel: 'Aufgabe: Material bestellen', text: expect.stringMatching(/^Fällig \w\w \d\d\.\d\d\. 10:00$/), link: '/todos' } }]);
 		expect(await stelleFaelligeZu()).toEqual({ gesendet: 0, uebersprungen: 0 }); // nur einmal
 		const b = await benachrichtigungen(kA());
 		expect(b.ungelesen).toBe(1);
-		expect(b.liste[0]).toMatchObject({ titel: 'To-do: Material bestellen', gelesen: false });
+		expect(b.liste[0]).toMatchObject({ titel: 'Aufgabe: Material bestellen', gelesen: false });
 		expect((await benachrichtigungen({ betriebId: u.betriebA, benutzerId: u.ids.bueroA })).ungelesen).toBe(0); // nur eigene
 		await markiereGelesen(kA(), b.liste[0].id);
 		expect((await benachrichtigungen(kA())).ungelesen).toBe(0);
@@ -114,7 +114,7 @@ describe('Erinnerungen', () => {
 		expect(b.liste[0]).toMatchObject({ titel: expect.stringMatching(/^Termin: Badsanierung/), link: `/auftraege/${u.auftragA}` });
 	});
 
-	it('Sprache: To-do und Termin mit zwei Erinnerungen; eigener Termin (auch Monteur für sich); Rechte', async () => {
+	it('Sprache: Aufgabe und Termin mit zwei Erinnerungen; eigener Termin (auch Monteur für sich); Rechte', async () => {
 		setzeKiAnbieter(new FakeKi());
 		const sag = async (nutzer: unknown, text: string) => {
 			const k = await antwort(await textPost({ locals: { nutzer }, request: jsonAnfrage('POST', { text }) } as never));
@@ -123,7 +123,7 @@ describe('Erinnerungen', () => {
 		const ausfuehren = async (nutzer: unknown, vorschlag: string) =>
 			antwort(await ausfuehrenPost({ locals: { nutzer }, request: jsonAnfrage('POST', { vorschlag }) } as never));
 
-		const t = await sag(u.chefA, 'Erstelle To-do Material bestellen für übermorgen 10 Uhr, erinnere mich einen Tag vorher und eine Stunde vorher');
+		const t = await sag(u.chefA, 'Erstelle Aufgabe Material bestellen für übermorgen 10 Uhr, erinnere mich einen Tag vorher und eine Stunde vorher');
 		expect(t.karte.fehler).toBeNull();
 		expect(t.karte.zeilen.find((z) => z.label === '🔔 Erinnerung')?.wert).toMatch(/^1 Tag vorher .* und 1 Stunde vorher /);
 		expect((await ausfuehren(u.chefA, t.vorschlag!)).status).toBe(201);

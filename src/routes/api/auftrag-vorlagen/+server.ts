@@ -6,7 +6,7 @@ import { darf, darfEines } from '$lib/server/tarif';
 import { listeVorlagen, legeVorlageAn } from '$lib/server/auftrag-vorlagen';
 
 /**
- * Auftrags-To-do-Vorlagen auflisten: `GET /api/auftrag-vorlagen` – alle Vorlagen des Betriebs.
+ * Auftrags-Aufgaben-Vorlagen auflisten: `GET /api/auftrag-vorlagen` – alle Vorlagen des Betriebs.
  * Lesen: Modul `auftraege` + `auftraege.lesen`.
  */
 export const GET: RequestHandler = async ({ locals }) => {

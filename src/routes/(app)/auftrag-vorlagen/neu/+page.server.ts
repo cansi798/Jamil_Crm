@@ -20,7 +20,7 @@ export const actions: Actions = {
 			const name = daten.get('name') as string;
 			const beschreibung = daten.get('beschreibung') as string;
 
-			// To-dos mit Beschreibung und Stufen (Lautstärke/Schmutz) – gleiche Felder wie im Auftrag-Formular
+			// Aufgaben mit Beschreibung und Stufen (Lautstärke/Schmutz) – gleiche Felder wie im Auftrag-Formular
 			const todos = todosAusFormular(daten).map((t, i) => ({ ...t, sortierung: i }));
 
 			erg = await legeVorlageAn(betriebKontext(locals), {

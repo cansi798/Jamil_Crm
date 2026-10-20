@@ -28,7 +28,7 @@
 	};
 
 	/**
-	 * To-do-Board – gleiches Kachel-Board wie bei den Aufträgen (`KachelBoard`): Spalten Offen, In Arbeit, Erledigt.
+	 * Aufgaben-Board – gleiches Kachel-Board wie bei den Aufträgen (`KachelBoard`): Spalten Offen, In Arbeit, Erledigt.
 	 * Ziehen (ab 700 px) oder Menü „Status ▾“ verschiebt sofort (optimistisch) und speichert über die API; bei einem
 	 * Fehler geht die Karte zurück. „In Arbeit“ heißt wie bisher: offen mit Fälligkeit (beim Verschieben: heute).
 	 */
@@ -41,7 +41,7 @@
 		zeigeAuftrag = true,
 		zeigeQuelle = false,
 		aktionen,
-		leer = 'Keine To-dos.'
+		leer = 'Keine Aufgaben.'
 	}: {
 		todos: Todo[];
 		heute: string;
@@ -49,7 +49,7 @@
 		darfBearbeiten?: boolean;
 		mitarbeiter?: { id: string; name: string }[];
 		zeigeAuftrag?: boolean;
-		/** „Meine To-dos“: kennzeichnen, was nur über einen Auftrag (Zuständig) hier steht. */
+		/** „Meine Aufgaben“: kennzeichnen, was nur über einen Auftrag (Zuständig) hier steht. */
 		zeigeQuelle?: boolean;
 		aktionen: { umschalten: string; aendern: string; loeschen: string; serieBeenden?: string };
 		leer?: string;
@@ -85,7 +85,7 @@
 			const koerper = await r.json().catch(() => null);
 			if (!r.ok) throw new Error(koerper?.fehler ?? `Fehler ${r.status}`);
 			meldung = `„${t.titel}“ ist jetzt „${SPALTEN_NAMEN[nach]}“.`;
-			// Neu laden: z. B. legt das Abhaken eines wiederkehrenden To-dos das nächste an
+			// Neu laden: z. B. legt das Abhaken eines wiederkehrenden Aufgaben das nächste an
 			await invalidateAll();
 		} catch (e) {
 			liste = liste.map((x) => (x.id === t.id ? { ...x, ...vorher } : x));

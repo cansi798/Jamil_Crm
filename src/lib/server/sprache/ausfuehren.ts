@@ -141,7 +141,7 @@ async function ausfuehrenJe(
 			);
 			return {
 				status: 201,
-				meldung: t.serie ? `Wiederkehrendes To-do „${t.titel}“ angelegt (${t.serie.text})` : `To-do „${t.titel}“ angelegt`,
+				meldung: t.serie ? `Wiederkehrende Aufgabe „${t.titel}“ angelegt (${t.serie.text})` : `Aufgabe „${t.titel}“ angelegt`,
 				link: t.auftragId ? `/auftraege/${t.auftragId}` : '/todos',
 				warnungen: []
 			};
@@ -259,7 +259,7 @@ async function neueAktionen(k: { betriebId: string; benutzerId: string }, nutzer
 			const t = hatRecht(nutzer, 'auftraege.bearbeiten')
 				? await aendereTodo(k, w.todoId, { erledigt: true }, tsv(nutzer))
 				: await setzeErledigt(k, tsv(nutzer), w.todoId, true);
-			return { status: 200, meldung: `To-do „${t.titel}“ erledigt`, link: t.auftragId ? `/auftraege/${t.auftragId}` : '/todos', warnungen: [] };
+			return { status: 200, meldung: `Aufgabe „${t.titel}“ erledigt`, link: t.auftragId ? `/auftraege/${t.auftragId}` : '/todos', warnungen: [] };
 		}
 		case 'anlage_anlegen': {
 			const { legeAnlageAn } = await import('../anlagen');

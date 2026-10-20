@@ -31,3 +31,12 @@ Deshalb gilt für **jede** neue Funktion bzw. jeden Commit:
    `./9-deinstallieren.sh --ja`. Laufende Vorschau/Sandbox-Container dabei nie anfassen.
 
 Skripte, Kommentare und `ANLEITUNG.md` bleiben auf Deutsch und in einfacher Sprache (Can ist kein Techniker).
+
+## Menü-Gruppen (Regel von Jamil, Talk msg 2860)
+
+Jede neue Seite bzw. jeder neue Bereich kommt in die passende Gruppe der Navigation (`src/lib/navigation.ts`):
+**Hauptbereich** (Start, Kunden, Aufträge, Angebote, Plantafel, Karte, Aufgaben), **Vorlagen**, **Stammdaten &
+Kalkulation**, **Personal & Zeiten**, **Auswertungen**, **Automatisierung**, **Benutzeradministration**. Einträge
+erscheinen nur mit Modul und Recht. Passt keine Gruppe, eine sinnvolle neue Gruppe anlegen bzw. die Reihenfolge
+anpassen – und in der Talk-Notiz an Jamil IMMER sagen, was im Menü dazugekommen oder verschoben ist und warum.
+`tests/unit/navigation.test.ts` mitziehen. Seiten ohne eigenes Menü (z. B. „Gespeicherte Ansichten“) bekommen keinen Eintrag.

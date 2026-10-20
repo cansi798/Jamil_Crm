@@ -11,7 +11,7 @@
 	import { page } from '$app/state';
 
 	/**
-	 * Formular „To-do anlegen“ im modernen Stil (Jamil msgs 2618/2619): großer Titel oben, darunter Chips für
+	 * Formular „Aufgabe anlegen“ im modernen Stil (Jamil msgs 2618/2619): großer Titel oben, darunter Chips für
 	 * Zuständig (Avatar), Fällig (Kalender), Lärm/Schmutz (farbige Stufen), Wiederkehrend (Schalter);
 	 * Beschreibung auf Klick; „Speichern“ und „Abbrechen“ unten rechts. Feldnamen wie bisher (Server unverändert).
 	 */
@@ -28,7 +28,7 @@
 		mitarbeiter: { id: string; name: string }[];
 		fehler?: string | null;
 		werte?: Record<string, string>;
-		/** Auftrags-To-dos: Stufen „Lautstärke“ und „Schmutz“ (gering, mittel, hoch; optional). */
+		/** Auftrags-Aufgaben: Stufen „Lautstärke“ und „Schmutz“ (gering, mittel, hoch; optional). */
 		mitBelastung?: boolean;
 		/** Eingeklappt (msg 2579): nach erfolgreichem Speichern bzw. „Abbrechen“ wieder zuklappen. */
 		onfertig?: () => void;
@@ -71,7 +71,7 @@
 		maxlength="200"
 		required
 		placeholder="Was ist zu tun? z. B. Material bestellen"
-		aria-label="Neues To-do"
+		aria-label="Neue Aufgabe"
 		value={werte.titel ?? ''}
 	/>
 	{#if mitBeschreibung}
@@ -84,7 +84,7 @@
 		>
 	{/if}
 
-	<div class="ui-neu-meta" role="group" aria-label="Details zum To-do">
+	<div class="ui-neu-meta" role="group" aria-label="Details zur Aufgabe">
 		<PersonWahl name="zustaendigId" personen={mitarbeiter} bind:wert={zustaendig} />
 		<DatumWahl name="faellig" bind:wert={faellig} />
 		{#if faellig}
@@ -132,13 +132,13 @@
 				bis (optional)
 				<input type="date" name="wiederholungEnde" value={werte.wiederholungEnde ?? ''} />
 			</label>
-			<p class="kd-info">Erster Termin ist „Fällig“ (sonst heute). Beim Abhaken entsteht automatisch das nächste To-do.</p>
+			<p class="kd-info">Erster Termin ist „Fällig“ (sonst heute). Beim Abhaken entsteht automatisch die nächste Aufgabe.</p>
 		</div>
 	{/if}
 
 	<div class="ui-neu-fuss">
 		{#if onabbrechen}<button type="button" class="knopf-ghost" onclick={() => onabbrechen?.()}>Abbrechen</button>{/if}
-		<button type="submit" class="kd-knopf" aria-label="To-do speichern">Speichern</button>
+		<button type="submit" class="kd-knopf" aria-label="Aufgabe speichern">Speichern</button>
 	</div>
 </form>
 

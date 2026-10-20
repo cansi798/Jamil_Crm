@@ -52,7 +52,7 @@ async function zeitOderNull(locals: { nutzer: Nutzer | null }): Promise<ZeitZugr
 }
 
 /**
- * Auftrag mit Statuskette, Einsätzen, To-dos, Angeboten und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404.
+ * Auftrag mit Statuskette, Einsätzen, Aufgaben, Angeboten und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404.
  * Angebote nur mit Modul `angebote` und Recht `angebote.bearbeiten` (sonst `null`); Beträge nur mit `preise.sehen`,
  * Öffnen/Erstellen (`darfAngebote`) nur mit beiden Rechten.
  */

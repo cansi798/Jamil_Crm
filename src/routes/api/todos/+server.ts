@@ -7,7 +7,7 @@ import { istTodoAuswahl, legeTodoAn, listeTodos } from '$lib/server/todos';
 import { todoSicht, todoSichtVon } from '$lib/server/todos';
 
 /**
- * To-dos: `GET /api/todos?nur=meine|offen|alle&auftrag=<id>` (Standard: alle sichtbaren). Lesen: Modul `auftraege` +
+ * Aufgaben: `GET /api/todos?nur=meine|offen|alle&auftrag=<id>` (Standard: alle sichtbaren). Lesen: Modul `auftraege` +
  * `auftraege.alle_lesen` (alle) oder `auftraege.lesen` (eigene und die in eigenen Aufträgen).
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	}
 };
 
-/** Neues To-do (Recht `auftraege.bearbeiten`): `{ titel, auftragId?, zustaendigId?, faellig? }`. */
+/** Neue Aufgabe (Recht `auftraege.bearbeiten`): `{ titel, auftragId?, zustaendigId?, faellig? }`. */
 export const POST: RequestHandler = async ({ locals, request }) => {
 	try {
 		await darf(locals, 'auftraege', 'auftraege.bearbeiten');

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { todoSpalte, todoVerschiebung } from '../../src/lib/todo-board';
 
-describe('To-do-Board', () => {
-	it('ordnet To-dos den Spalten zu', () => {
+describe('Aufgaben-Board', () => {
+	it('ordnet Aufgaben den Spalten zu', () => {
 		expect(todoSpalte({ erledigt: false, faellig: null })).toBe('offen');
 		expect(todoSpalte({ erledigt: false, faellig: '2026-10-20' })).toBe('in-arbeit');
 		expect(todoSpalte({ erledigt: true, faellig: '2026-10-20' })).toBe('erledigt');

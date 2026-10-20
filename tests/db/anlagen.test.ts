@@ -77,7 +77,7 @@ describe('Anlagen', () => {
 		expect(await u.alsApp(u.betriebB, u.ids.chefB, (tx) => tx`select id from app.anlagen`)).toHaveLength(0);
 	});
 
-	it('Garantie-Erinnerung: To-do 30 Tage vor Ablauf; Änderung ersetzt es; abgelaufen → keins', async () => {
+	it('Garantie-Erinnerung: Aufgabe 30 Tage vor Ablauf; Änderung ersetzt es; abgelaufen → keins', async () => {
 		const bis = tagPlus(heute(), 100);
 		const a = await wp({ garantieBis: bis });
 		const erinnerung = async () =>
@@ -89,7 +89,7 @@ describe('Anlagen', () => {
 		expect(await erinnerung()).toEqual([]);
 	});
 
-	it('Wartung planen: wiederkehrendes To-do an der Anlage; Abhaken → nächstes (mit Anlage); doppelt → 409', async () => {
+	it('Wartung planen: wiederkehrende Aufgabe an der Anlage; Abhaken → nächstes (mit Anlage); doppelt → 409', async () => {
 		const a = await wp({ wartungRegel: 'jaehrlich', wartungIntervall: '1' });
 		expect(a.wartungText).toBe('jährlich');
 		const t = await planeWartung(kA(), a.id, { faellig: tagPlus(heute(), 7), zustaendigId: u.ids.monteurA });
@@ -124,7 +124,7 @@ describe('Anlagen', () => {
 		await root`delete from app.objekte where id = ${anderes}`;
 	});
 
-	it('Verlauf: Aufträge (nach Sicht), To-dos, Störungen; Störung beheben', async () => {
+	it('Verlauf: Aufträge (nach Sicht), Aufgaben, Störungen; Störung beheben', async () => {
 		const a = await wp({ garantieBis: tagPlus(heute(), 200) });
 		const auftrag = await legeAuftragAn(kA(), { titel: 'Reparatur WP', kundeId: u.kundeA, objektId: u.objektA, anlageId: a.id });
 		const s = await legeStoerungAn(kA(), a.id, { titel: 'Fehler E42', beschreibung: 'Läuft nicht an' });
@@ -134,7 +134,7 @@ describe('Anlagen', () => {
 		expect(v.auftraege.map((x) => x.titel)).toEqual(['Reparatur WP']);
 		expect(v.todos.map((x) => x.titel)).toEqual(['Garantie endet: WP Keller']);
 		expect(v.stoerungen.map((x) => x.titel)).toEqual(['Fehler E42']);
-		// Monteur ohne Bezug sieht den Auftrag und das fremde To-do nicht
+		// Monteur ohne Bezug sieht den Auftrag und das fremde Aufgabe nicht
 		const m = await anlagenVerlauf({ betriebId: u.betriebA, benutzerId: u.ids.monteurA }, a.id, sichtVon(u.monteurA), todoSichtVon(u.monteurA));
 		expect(m.auftraege).toEqual([]);
 		expect(m.todos).toEqual([]);

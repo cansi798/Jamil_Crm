@@ -7,9 +7,9 @@ import { darf } from './tarif';
 import { aendereTodo, aendereTodoAls, beendeSerie, erledigtWert, legeTodoAn, loescheTodo, TODO_FELDER } from './todos';
 
 /**
- * Formular-Aktionen für To-dos – gemeinsam für die Seite „To-dos“ und den To-do-Bereich eines Auftrags.
+ * Formular-Aktionen für Aufgaben – gemeinsam für die Seite „Aufgaben“ und den Aufgaben-Bereich eines Auftrags.
  * Erfolg liefert nichts (die Seite lädt neu), Fehler `fail(status, { fehler, todoFehler: true })`.
- * Mit `auftragAusPfad` hängen neue To-dos immer am Auftrag der URL (`params.id`).
+ * Mit `auftragAusPfad` hängen neue Aufgaben immer am Auftrag der URL (`params.id`).
  */
 type Ereignis = Pick<RequestEvent, 'locals' | 'request'> & { params: Partial<Record<string, string>> };
 
@@ -57,7 +57,7 @@ export function todoAktionen(auftragAusPfad: boolean) {
 			try {
 				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 				const id = text(form, 'id');
-				if (!id) throw new ApiFehler(404, 'To-do nicht gefunden.');
+				if (!id) throw new ApiFehler(404, 'Aufgabe nicht gefunden.');
 				// Nur gesendete Felder ändern: Das Kanban-Ziehen schickt z. B. nur `faellig` (und ggf. `erledigt`) –
 				// fehlende Felder dürfen Titel oder Beschreibung nicht leeren.
 				const gesendet = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz', 'erledigt'].filter((f) => form.has(f));
@@ -66,7 +66,7 @@ export function todoAktionen(auftragAusPfad: boolean) {
 				return alsFormFehler(e, { todoFehler: true });
 			}
 		},
-		/** Wiederholung beenden (keine neuen Instanzen); bestehende To-dos bleiben. */
+		/** Wiederholung beenden (keine neuen Instanzen); bestehende Aufgaben bleiben. */
 		serieBeenden: async ({ locals, request }: Ereignis) => {
 			const form = await request.formData();
 			try {

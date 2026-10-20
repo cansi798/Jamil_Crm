@@ -20,7 +20,7 @@ describe('todosAusFormular', () => {
 			{ titel: 'Zwei', beschreibung: 'B2', lautstaerke: '', schmutz: '' },
 			{ titel: 'Zehn', beschreibung: '', lautstaerke: '', schmutz: '' }
 		]);
-		// Stufen je To-do (Vorlagen und Auftrag-Formular)
+		// Stufen je Aufgabe (Vorlagen und Auftrag-Formular)
 		const mitStufen = todosAusFormular(form([['todo_0', 'Laut'], ['todo_lautstaerke_0', '3'], ['todo_schmutz_0', '1']]));
 		expect(mitStufen).toEqual([{ titel: 'Laut', beschreibung: '', lautstaerke: '3', schmutz: '1' }]);
 		expect(pruefeTodoListe(mitStufen)).toEqual([{ titel: 'Laut', beschreibung: null, lautstaerke: 3, schmutz: 1 }]);
@@ -39,7 +39,7 @@ describe('todosAusFormular', () => {
 		expect(() => pruefeTodoListe(liste)).toThrow(/Titel/);
 	});
 
-	it('ohne To-do-Felder → leere Liste; fremde Felder werden ignoriert', () => {
+	it('ohne Aufgaben-Felder → leere Liste; fremde Felder werden ignoriert', () => {
 		expect(todosAusFormular(form([['titel', 'x'], ['todo_x', 'y'], ['beschreibung', 'z']]))).toEqual([]);
 	});
 });
@@ -52,7 +52,7 @@ describe('pruefeTodoListe', () => {
 		]);
 	});
 
-	it(`mehr als ${MAX_TODOS_AUF_EINMAL} To-dos oder zu lange Texte → 400`, () => {
+	it(`mehr als ${MAX_TODOS_AUF_EINMAL} Aufgaben oder zu lange Texte → 400`, () => {
 		const viele = Array.from({ length: MAX_TODOS_AUF_EINMAL + 1 }, (_, i) => ({ titel: `T${i}` }));
 		expect(() => pruefeTodoListe(viele)).toThrow(/Höchstens/);
 		expect(() => pruefeTodoListe([{ titel: 'x'.repeat(201) }])).toThrow(/zu lang/);

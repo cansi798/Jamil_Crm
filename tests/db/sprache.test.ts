@@ -299,11 +299,11 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 		expect(b.koerper.karte.warnungen[0]).toMatch(/^Es gibt schon Kunden mit diesem Namen: Hans Müller, Norderstedt; Petra Müller, Hamburg/);
 	});
 
-	it('To-do mit Zuständigem und Fälligkeit „bis Freitag“', async () => {
-		const a = await text(u.bueroA, { text: 'Neues To-do für Mehmet: Silikonfuge erneuern, bis Freitag' });
+	it('Aufgabe mit Zuständigem und Fälligkeit „bis Freitag“', async () => {
+		const a = await text(u.bueroA, { text: 'Neue Aufgabe für Mehmet: Silikonfuge erneuern, bis Freitag' });
 		const k = a.koerper.karte;
-		expect(k.titel).toBe('To-do anlegen');
-		expect(zeile(k, 'To-do')).toBe('Silikonfuge erneuern');
+		expect(k.titel).toBe('Aufgabe anlegen');
+		expect(zeile(k, 'Aufgabe')).toBe('Silikonfuge erneuern');
 		expect(zeile(k, 'Zuständig')).toBe('Mehmet Kaya');
 		expect(zeile(k, 'Fällig')).toBe(`Freitag, ${deutsch(naechster(4))}`);
 		const v = pruefeVorschlag(a.koerper.vorschlag, u.ids.bueroA, u.betriebA).vorschau;
@@ -370,7 +370,7 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 		await root`
 			insert into app.ki_nutzung (betrieb_id, monat, anzahl)
 			values (${u.betriebA}, date_trunc('month', now() at time zone 'Europe/Berlin')::date, 1500)`;
-		const a = await text(u.bueroA, { text: 'Neues To-do: Material bestellen' });
+		const a = await text(u.bueroA, { text: 'Neue Aufgabe: Material bestellen' });
 		expect(a.status).toBe(429);
 		expect(a.koerper.fehler).toBe('KI-Kontingent dieses Monats aufgebraucht');
 		expect(ki.aufrufe).toBe(0);
@@ -433,7 +433,7 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 		expect(p.quelle).toBe('oberflaeche');
 	});
 
-	it('Kunde, To-do, Termin, Verschieben über den Vorschlag', async () => {
+	it('Kunde, Aufgabe, Termin, Verschieben über den Vorschlag', async () => {
 		const kunde = await text(u.bueroA, { text: 'Neuer Kunde Eva Schulz aus Hamburg' });
 		const k = await ausfuehren(u.bueroA, { vorschlag: kunde.koerper.vorschlag });
 		expect(k.status).toBe(201);
@@ -442,7 +442,7 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 		expect(schulz.ort).toBe('Hamburg');
 		expect(k.koerper.link).toBe(`/kunden/${schulz.id}`);
 
-		const todo = await text(u.bueroA, { text: 'Neues To-do für Mehmet: Silikonfuge erneuern, bis Freitag' });
+		const todo = await text(u.bueroA, { text: 'Neue Aufgabe für Mehmet: Silikonfuge erneuern, bis Freitag' });
 		const t = await ausfuehren(u.bueroA, { vorschlag: todo.koerper.vorschlag });
 		expect(t.status).toBe(201);
 		const [td] = await root`select zustaendig_id, to_char(faellig, 'YYYY-MM-DD') as faellig from app.todos where titel = 'Silikonfuge erneuern'`;

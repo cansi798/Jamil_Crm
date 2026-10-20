@@ -25,7 +25,7 @@ export type Board = {
 	spalten: { status: AuftragStatus; anzahl: number; karten: BoardKarte[] }[];
 };
 
-/** `meine`: nur Aufträge mit Bezug zum Nutzer (zuständig, eigenes To-do oder eigener Termin) – wie in der Liste. */
+/** `meine`: nur Aufträge mit Bezug zum Nutzer (zuständig, eigene Aufgabe oder eigener Termin) – wie in der Liste. */
 export type BoardOptionen = { suche?: string; meine?: boolean; mitPreisen: boolean; /** UUID oder „ohne“ */ quelleId?: string; nachfassenFaellig?: boolean };
 
 export async function ladeBoard(k: Kontext, sicht: Sicht, opt: BoardOptionen): Promise<Board> {

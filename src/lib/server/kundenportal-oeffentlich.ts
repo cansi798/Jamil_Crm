@@ -309,7 +309,7 @@ export async function entscheide(token: unknown, angebotId: unknown, e: Entschei
 		const hinweise = nach === 'angenommen'
 			? await melde('angebotAngenommen', { betriebId: p.betriebId, benutzerId: null, angebotId: vorgang.an.id, auftragId: vorgang.an.auftrag_id, quelle: 'kundenportal' })
 			: [];
-		// Glocke + To-do, wenn nicht schon die Auftragsbestätigung eines angelegt hat (Ablehnung immer)
+		// Glocke + Aufgabe, wenn nicht schon die Auftragsbestätigung eines angelegt hat (Ablehnung immer)
 		if (!hinweise.some((h) => h.startsWith('Auftragsbestätigung'))) {
 			await mitBetrieb(k, async (tx) => {
 				const wer = await zustaendig(tx, k, null, vorgang.an.auftrag_id);

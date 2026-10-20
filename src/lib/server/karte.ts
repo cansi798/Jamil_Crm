@@ -199,7 +199,7 @@ export type RoutenStopp = { auftragId: string; nummer: string; titel: string; ku
 
 /**
  * „Termine heute“ als Stopps (nach Uhrzeit) für einen Mitarbeiter oder eine Kolonne; je Auftrag ein Stopp.
- * Andere Personen nur mit „Alle To-dos ansehen“ – geprüft vom Aufrufer (darfPlanSehen).
+ * Andere Personen nur mit „Alle Aufgaben ansehen“ – geprüft vom Aufrufer (darfPlanSehen).
  */
 export async function termineAlsStopps(k: Kontext, sicht: Sicht, wer: { benutzerId?: string; kolonneId?: string }, tag = berlinTag(new Date())): Promise<RoutenStopp[]> {
 	if (!wer.benutzerId && !wer.kolonneId) return [];

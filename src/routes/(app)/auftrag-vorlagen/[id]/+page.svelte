@@ -57,9 +57,9 @@
 				<p class="beschreibung">{data.vorlage.beschreibung}</p>
 			{/if}
 
-			<h2>To-dos ({data.vorlage.todos.length})</h2>
+			<h2>Aufgaben ({data.vorlage.todos.length})</h2>
 			{#if data.vorlage.todos.length === 0}
-				<p class="leer">Keine To-dos vorhanden.</p>
+				<p class="leer">Keine Aufgaben vorhanden.</p>
 			{:else}
 				<ol class="todo-liste">
 					{#each data.vorlage.todos as todo (todo.id)}
@@ -93,14 +93,14 @@
 			</div>
 
 			<fieldset class="todos">
-				<legend>To-dos</legend>
+				<legend>Aufgaben</legend>
 				{#each todos as todo, i (i)}
 					<div class="todo">
 						<div class="todo-felder">
 							<input
 								type="text"
 								name="todo_{i}"
-								placeholder="To-do {i + 1}"
+								placeholder="Aufgabe {i + 1}"
 								bind:value={todo.titel}
 								required
 								maxlength="200"
@@ -113,11 +113,11 @@
 								maxlength="500"
 							/>
 							<div class="todo-stufen">
-								<Auswahl name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke To-do {i + 1}">
+								<Auswahl name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke Aufgabe {i + 1}">
 									<option value="">Lautstärke –</option>
 									{#each STUFEN as n (n)}<option value={String(n)}>Lautstärke: {STUFE_NAMEN[n]}</option>{/each}
 								</Auswahl>
-								<Auswahl name="todo_schmutz_{i}" bind:value={todo.schmutz} aria-label="Schmutz To-do {i + 1}">
+								<Auswahl name="todo_schmutz_{i}" bind:value={todo.schmutz} aria-label="Schmutz Aufgabe {i + 1}">
 									<option value="">Schmutz –</option>
 									{#each STUFEN as n (n)}<option value={String(n)}>Schmutz: {STUFE_NAMEN[n]}</option>{/each}
 								</Auswahl>

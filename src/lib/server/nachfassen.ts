@@ -27,8 +27,8 @@ import {
  * Einstellungen (Stufen, Mail-Vorlagen, Signatur): nur mit „Einstellungen“ (Chef/Admin) – geprüft von den Aufrufern.
  * Der Lauf (`pruefeNachfassen`) läuft für den ganzen Betrieb, sobald jemand die App benutzt (höchstens alle 10 Minuten
  * je Betrieb, siehe `pruefeNachfassenGedrosselt`): Für jedes versendete Angebot wird die fällige Stufe genau einmal
- * angelegt – Lauf mit fertigem Mailtext, dazu ein To-do. Angenommen/abgelehnt → keine neuen Stufen, offene
- * Nachfass-To-dos werden erledigt. Versenden kann später eine Anbindung (`MailVersand`); bis dahin „Kopieren“/mailto.
+ * angelegt – Lauf mit fertigem Mailtext, dazu eine Aufgabe. Angenommen/abgelehnt → keine neuen Stufen, offene
+ * Nachfass-Aufgaben werden erledigt. Versenden kann später eine Anbindung (`MailVersand`); bis dahin „Kopieren“/mailto.
  */
 
 /** Versand-Schnittstelle für später (Jamil 2589: Anbindung offen). Heute gibt es nur „nicht verbunden“. */
@@ -199,7 +199,7 @@ function pruefeStufe(e: Record<string, unknown>) {
 	if (!(ZUWEISUNGEN as readonly unknown[]).includes(e.zuweisung ?? 'zustaendig')) throw new ApiFehler(400, 'Zuständig: Bitte eine Auswahl treffen.');
 	const todo = bool(e.todo);
 	const mail = bool(e.mail);
-	if (!todo && !mail) throw new ApiFehler(400, 'Bitte „To-do anlegen“, „Mail vorbereiten“ oder beides wählen.');
+	if (!todo && !mail) throw new ApiFehler(400, 'Bitte „Aufgabe anlegen“, „Mail vorbereiten“ oder beides wählen.');
 	const mailVorlageId = optId(e.mailVorlageId, 'Mail-Vorlage');
 	if (mail && !mailVorlageId) throw new ApiFehler(400, 'Mail vorbereiten: Bitte eine Mail-Vorlage wählen.');
 	const zuweisung = (e.zuweisung || 'zustaendig') as Zuweisung;
@@ -212,7 +212,7 @@ function pruefeStufe(e: Record<string, unknown>) {
 		tage: ganz(e.tage, 'Nach Tagen', 0, 365),
 		todo,
 		mail,
-		todoTitel: textFeld(e.todoTitel, 'To-do-Titel', 300),
+		todoTitel: textFeld(e.todoTitel, 'Aufgaben-Titel', 300),
 		mailVorlageId,
 		zuweisung,
 		benutzerId,
@@ -365,7 +365,7 @@ export async function vorschauBeispiele(k: Kontext, mitPreisen: boolean, heute =
 	return liste;
 }
 
-/** Zuständigen für das To-do bestimmen (null, wenn niemand passt). */
+/** Zuständigen für die Aufgabe bestimmen (null, wenn niemand passt). */
 async function zustaendigFuer(tx: TransactionSql, k: Kontext, s: NachfassStufe, auftragId: string | null): Promise<string | null> {
 	if (s.zuweisung === 'fest' && s.benutzerId) {
 		const [b] = await tx`select id from app.benutzer where id = ${s.benutzerId} and betrieb_id = ${k.betriebId} and aktiv`;
@@ -387,13 +387,13 @@ async function zustaendigFuer(tx: TransactionSql, k: Kontext, s: NachfassStufe, 
 
 /**
  * Nachfassen für den Betrieb prüfen und fällige Stufen anlegen. Liefert die Zahl neuer Läufe. Erledigt außerdem offene
- * Nachfass-To-dos angenommener/abgelehnter Angebote. `heute` nur für Tests.
+ * Nachfass-Aufgaben angenommener/abgelehnter Angebote. `heute` nur für Tests.
  */
 export async function pruefeNachfassen(k: Kontext, heute = berlinTag(new Date())): Promise<number> {
 	const stufen = (await listeStufen(k, 'angebot')).filter((s) => s.aktiv);
 	const [kandidaten, signatur, vorlagen] = await Promise.all([
 		mitBetrieb(k, async (tx) => {
-			// Stopp: angenommen/abgelehnt → offene Nachfass-To-dos erledigt
+			// Stopp: angenommen/abgelehnt → offene Nachfass-Aufgaben erledigt
 			await tx`
 				update app.todos t set erledigt_am = now()
 				from app.nachfass_laeufe l join app.angebote an on an.id = l.angebot_id and an.betrieb_id = l.betrieb_id
@@ -535,7 +535,7 @@ export async function setzeKundeKeinNachfassen(k: Kontext, kundeId: unknown, aus
 	});
 }
 
-/** Mail von Hand als gesendet markieren (z. B. nach „In Mailprogramm öffnen“); das zugehörige To-do wird erledigt. */
+/** Mail von Hand als gesendet markieren (z. B. nach „In Mailprogramm öffnen“); das zugehörige Aufgabe wird erledigt. */
 export async function markiereGesendet(k: Kontext, angebotId: unknown, laufId: unknown): Promise<void> {
 	const aid = id(angebotId, 'Angebot');
 	const lid = id(laufId, 'Nachfass-Lauf');

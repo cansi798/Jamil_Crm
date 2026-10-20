@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { anmelden } from './hilfe';
 
-/** Wiederkehrende To-dos (Wunsch Jamil, msg 2501): im Auftrag anlegen, abhaken → nächstes erscheint, beenden. */
+/** Wiederkehrende Aufgaben (Wunsch Jamil, msg 2501): im Auftrag anlegen, abhaken → nächstes erscheint, beenden. */
 const BUERO = 'buero@bauwelt.test';
 
 async function api(page: Page, methode: string, url: string, koerper?: unknown) {
@@ -20,17 +20,17 @@ async function api(page: Page, methode: string, url: string, koerper?: unknown) 
 	return r.text ? JSON.parse(r.text) : null;
 }
 
-test('Wartung als wiederkehrendes To-do: anlegen, abhaken → nächstes, Wiederholung beenden', async ({ page }, info) => {
+test('Wartung als wiederkehrende Aufgabe: anlegen, abhaken → nächstes, Wiederholung beenden', async ({ page }, info) => {
 	await anmelden(page, BUERO);
 	const kunden = await api(page, 'GET', '/api/kunden');
 	const auftrag = await api(page, 'POST', '/api/auftraege', { titel: `E2E Serie ${info.project.name} ${Date.now()}`, kundeId: kunden[0].id });
 	try {
 		await page.goto(`/auftraege/${auftrag.id}`);
-		// eingeklappt, bis man „+ To-do hinzufügen“ drückt (msg 2579)
+		// eingeklappt, bis man „+ Aufgabe hinzufügen“ drückt (msg 2579)
 		await expect(page.locator('form.td-neu')).toHaveCount(0);
-		await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
+		await page.getByRole('button', { name: 'Aufgabe hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
-		await f.getByLabel('Neues To-do').fill('Heizung warten');
+		await f.getByLabel('Neue Aufgabe').fill('Heizung warten');
 		const haken = f.getByRole('checkbox', { name: /Wiederkehrend/ });
 		// normale Größe, nicht als riesiges Kästchen gestreckt (Jamil msg 2557)
 		const box = (await haken.boundingBox())!;
@@ -43,10 +43,10 @@ test('Wartung als wiederkehrendes To-do: anlegen, abhaken → nächstes, Wiederh
 		await haken.check();
 		await f.locator('select[name="wiederholung"]').selectOption('woechentlich');
 		await f.locator('input[name="intervall"]').fill('2');
-		await f.getByRole('button', { name: 'To-do speichern' }).click();
+		await f.getByRole('button', { name: 'Aufgabe speichern' }).click();
 		// nach dem Speichern wieder zu
 		await expect(page.locator('form.td-neu')).toHaveCount(0);
-		const offen = page.getByRole('list', { name: 'Offene To-dos' }).locator('.tl-zeile', { hasText: 'Heizung warten' });
+		const offen = page.getByRole('list', { name: 'Offene Aufgaben' }).locator('.tl-zeile', { hasText: 'Heizung warten' });
 		await expect(offen).toHaveCount(1);
 		await expect(offen).toContainText('alle 2 Wochen');
 		// abhaken → nächste Instanz entsteht automatisch; die erledigte steht eingeklappt unten

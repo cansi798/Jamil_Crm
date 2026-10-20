@@ -11,7 +11,7 @@ import { istTag } from '../zeit';
  * `/auftraege`. Alles läuft in `mitBetrieb` (RLS) und filtert zusätzlich ausdrücklich nach `betrieb_id`.
  *
  * Sichtbarkeit: Mit `auftraege.alle_lesen` sieht man alle Aufträge des Betriebs. Mit nur `auftraege.lesen` („eigene
- * Aufträge“) nur die, in denen man mindestens einen Einsatz hat oder für die einem ein To-do zugewiesen ist. Fremde,
+ * Aufträge“) nur die, in denen man mindestens einen Einsatz hat oder für die einem eine Aufgabe zugewiesen ist. Fremde,
  * unsichtbare oder unbekannte Aufträge (auch kaputte IDs) sind immer ein 404, nie ein 403 – so verrät die Antwort
  * nicht, dass es sie gibt. Das gilt auch beim Schreiben: Ändern, Status und Löschen bekommen die `Sicht` des
  * Nutzers – wer `auftraege.bearbeiten`, aber nicht `auftraege.alle_lesen` hat, ändert nur seine sichtbaren Aufträge
@@ -58,7 +58,7 @@ export type Auftrag = {
 	adresseVonObjekt: boolean;
 	/** Zuständige Mitarbeiter (nach Name). */
 	zustaendige: { id: string; name: string }[];
-	/** Nur in Listen: Bezug des angemeldeten Nutzers – zuständig, eigenes To-do, eigener Termin (Einsatz). */
+	/** Nur in Listen: Bezug des angemeldeten Nutzers – zuständig, eigene Aufgabe, eigener Termin (Einsatz). */
 	meinBezug?: ('zustaendig' | 'todo' | 'termin')[];
 	status: AuftragStatus;
 	beschreibung: string | null;
@@ -90,7 +90,7 @@ export type AuftragWerte = {
 };
 
 /** `offen`: ohne abgerechnete Aufträge (z. B. Auswahl beim Einplanen). */
-/** `meine`: nur Aufträge mit Bezug zum Nutzer (zuständig, eigenes To-do oder eigener Termin) – auch für Chefs. */
+/** `meine`: nur Aufträge mit Bezug zum Nutzer (zuständig, eigene Aufgabe oder eigener Termin) – auch für Chefs. */
 export type AuftragFilter = { status?: AuftragStatus; kundeId?: string; suche?: string; offen?: boolean; meine?: boolean; quelleId?: string; nachfassenFaellig?: boolean };
 
 export const MAX_AUFTRAEGE = 100;
@@ -174,7 +174,7 @@ export function pruefeStatus(w: unknown): AuftragStatus {
 }
 
 /**
- * SQL-Bedingung „für diese Sicht sichtbar“ (Alias `a` = app.auftraege). Eigene Aufträge: ein To-do ist dem Benutzer
+ * SQL-Bedingung „für diese Sicht sichtbar“ (Alias `a` = app.auftraege). Eigene Aufträge: eine Aufgabe ist dem Benutzer
  * zugewiesen oder er hat einen Einsatz darin.
  */
 export function sichtbar(tx: TransactionSql, sicht: Sicht) {
@@ -197,7 +197,7 @@ export function sichtbar(tx: TransactionSql, sicht: Sicht) {
 
 /**
  * Nächstes Nachfassen eines Auftrags (Wunsch Jamil msg 2674): neuestes versendetes Angebot (Kunde nicht „kein
- * Nachfassen“) → frühestes von (offenes Nachfass-To-do, nächste noch nicht gelaufene aktive Stufe = Versandtag + Tage).
+ * Nachfassen“) → frühestes von (offenes Nachfass-Aufgabe, nächste noch nicht gelaufene aktive Stufe = Versandtag + Tage).
  * Liefert Tag (Berlin) und ob pausiert – oder null.
  */
 const NACHFASSEN_SQL = `(select json_build_object('tag', to_char(n.tag, 'YYYY-MM-DD'), 'pausiert', n.pausiert) from (
@@ -573,7 +573,7 @@ export async function setzeStatus(
 	});
 }
 
-/** Löscht einen Auftrag samt To-dos – nur im Status „Anfrage“ und ohne Angebote (sonst 409). */
+/** Löscht einen Auftrag samt Aufgaben – nur im Status „Anfrage“ und ohne Angebote (sonst 409). */
 export async function loescheAuftrag(k: Kontext, id: string, sicht: Sicht = ALLE(k.benutzerId)): Promise<void> {
 	pruefeAuftragsId(id);
 	return mitBetrieb(k, async (tx) => {

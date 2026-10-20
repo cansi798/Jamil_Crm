@@ -63,7 +63,7 @@ describe('MistralKi gegen lokalen Test-Server', () => {
 
 	it('schickt Chat-Completions mit Werkzeugen, tool_choice any, richtigen Kopfzeilen und nur Text + Datum', async () => {
 		antworten.push({ status: 200, koerper: toolAntwort('todo_anlegen', { titel: 'Silikonfuge erneuern', zustaendig: 'Murat' }) });
-		const a = await ki().aktionAusText('Neues To-do für Murat: Silikonfuge erneuern', { heute: '2026-10-17', wochentag: 'Samstag' });
+		const a = await ki().aktionAusText('Neue Aufgabe für Murat: Silikonfuge erneuern', { heute: '2026-10-17', wochentag: 'Samstag' });
 		expect(a).toEqual({ aktion: 'todo_anlegen', daten: { titel: 'Silikonfuge erneuern', zustaendig: 'Murat' } });
 		expect(anfragen).toHaveLength(1);
 		const r = anfragen[0];
@@ -75,7 +75,7 @@ describe('MistralKi gegen lokalen Test-Server', () => {
 		expect(r.koerper.tool_choice).toBe('any');
 		expect(r.koerper.temperature).toBe(0);
 		expect(r.koerper.tools.map((t: any) => t.function.name)).toContain('auftrag_anlegen');
-		expect(r.koerper.messages.at(-1)).toEqual({ role: 'user', content: 'Neues To-do für Murat: Silikonfuge erneuern' });
+		expect(r.koerper.messages.at(-1)).toEqual({ role: 'user', content: 'Neue Aufgabe für Murat: Silikonfuge erneuern' });
 		expect(r.koerper.messages[0].role).toBe('system');
 		expect(r.koerper.messages[0].content).toContain('2026-10-17');
 		expect(r.koerper.messages[0].content).toContain('Samstag');

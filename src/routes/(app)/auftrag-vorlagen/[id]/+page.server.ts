@@ -24,7 +24,7 @@ export const actions: Actions = {
 			const name = daten.get('name') as string;
 			const beschreibung = daten.get('beschreibung') as string;
 
-			// To-dos mit Beschreibung und Stufen (Lautstärke/Schmutz)
+			// Aufgaben mit Beschreibung und Stufen (Lautstärke/Schmutz)
 			const todos = todosAusFormular(daten).map((t, i) => ({ ...t, sortierung: i }));
 
 			await aendereVorlage(betriebKontext(locals), params.id, {

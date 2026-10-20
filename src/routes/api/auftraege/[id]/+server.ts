@@ -27,7 +27,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	}
 };
 
-/** Löscht den Auftrag samt To-dos – nur im Status „Anfrage“ (sonst 409). */
+/** Löscht den Auftrag samt Aufgaben – nur im Status „Anfrage“ (sonst 409). */
 export const DELETE: RequestHandler = async ({ locals, params }) => {
 	try {
 		await darf(locals, 'auftraege', 'auftraege.bearbeiten');

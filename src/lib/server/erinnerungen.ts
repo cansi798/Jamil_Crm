@@ -6,10 +6,10 @@ import { ausTagUndUhrzeit, berlinTag, berlinUhrzeit, istTag, tagKurz } from '../
 import { erinnerungAusFeld, istPushEndpunkt, MAX_ERINNERUNGEN, MAX_MINUTEN_VORHER, vorlaufText } from '../erinnerungen';
 
 /**
- * Erinnerungen (Wunsch Jamil msg 2679) für To-dos und Termine: bis zu zwei je Person und Ziel, relativ („1 Stunde
+ * Erinnerungen (Wunsch Jamil msg 2679) für Aufgaben und Termine: bis zu zwei je Person und Ziel, relativ („1 Stunde
  * vorher“) oder fest („morgen um 8“). Ein Hintergrund-Dienst (jede Minute) stellt fällige Erinnerungen zu: in der App
  * (Glocke) und per Web-Push an alle Geräte der Person (VAPID). Vor dem Senden wird geprüft, ob die Person noch aktiv
- * ist, das Recht „erinnerungen.nutzen“ hat und das To-do bzw. den Termin sehen darf – sonst wird übersprungen.
+ * ist, das Recht „erinnerungen.nutzen“ hat und die Aufgabe bzw. den Termin sehen darf – sonst wird übersprungen.
  * E-Mail folgt, sobald die Mail-Anbindung steht (gleiche Schnittstelle wie beim Nachfassen).
  */
 
@@ -78,7 +78,7 @@ export async function setzeErinnerungen(
 	}
 	const zeilen = liste.map((x) => {
 		if ('minuten' in x) {
-			if (!faelligUm) throw new ApiFehler(400, 'Für „… vorher“ braucht das To-do ein Fälligkeitsdatum.');
+			if (!faelligUm) throw new ApiFehler(400, 'Für „… vorher“ braucht die Aufgabe ein Fälligkeitsdatum.');
 			return { minuten: x.minuten, zeitpunkt: new Date(faelligUm.getTime() - x.minuten * 60_000) };
 		}
 		return { minuten: null, zeitpunkt: x.zeitpunkt };
@@ -98,12 +98,12 @@ export async function setzeErinnerungen(
 	}
 }
 
-/** Zeitpunkt der Fälligkeit eines To-dos (ohne Uhrzeit 8:00 Uhr) oder null. */
+/** Zeitpunkt der Fälligkeit einer Aufgabe (ohne Uhrzeit 8:00 Uhr) oder null. */
 export const todoFaelligUm = (faellig: string | null, zeit: string | null) => (faellig ? ausTagUndUhrzeit(faellig, zeit ?? '08:00') : null);
 
 export type ErinnerungKurz = { id: string; minutenVorher: number | null; zeitpunkt: string; text: string };
 
-/** Offene Erinnerungen des Nutzers je Ziel (für die Anzeige am To-do/Termin). */
+/** Offene Erinnerungen des Nutzers je Ziel (für die Anzeige am Aufgabe/Termin). */
 export async function eigeneErinnerungen(k: Kontext, ziel: Ziel): Promise<ErinnerungKurz[]> {
 	return mitBetrieb(k, async (tx) => {
 		const z = await tx`
@@ -291,7 +291,7 @@ async function sendeZusatz(k: Kontext, n: PushNachricht): Promise<void> {
 
 /**
  * Fällige Erinnerungen zustellen. Je Erinnerung im Betrieb (RLS): Empfänger aktiv + Recht, Ziel sichtbar und offen
- * (To-do nicht erledigt) → als gesendet markieren, Text aus den aktuellen Daten; dann Push. Sonst „übersprungen“.
+ * (Aufgabe nicht erledigt) → als gesendet markieren, Text aus den aktuellen Daten; dann Push. Sonst „übersprungen“.
  */
 export async function stelleFaelligeZu(limit = 100): Promise<{ gesendet: number; uebersprungen: number }> {
 	const faellig = await systemAbfrage((sql) => sql`select * from app.erinnerungen_faellig(${limit})`);
@@ -342,7 +342,7 @@ async function inhalt(tx: TransactionSql, k: Kontext, r: Record<string, any>): P
 					or exists (select 1 from app.einsaetze e where e.auftrag_id = t.auftrag_id and e.betrieb_id = t.betrieb_id and e.benutzer_id = ${k.benutzerId}))`;
 		if (!t || t.erledigt_am) return null;
 		return {
-			titel: `To-do: ${t.titel}`.slice(0, 300),
+			titel: `Aufgabe: ${t.titel}`.slice(0, 300),
 			text: t.faellig ? `Fällig ${tagKurz(t.faellig)}${t.zeit ? ` ${t.zeit}` : ''}` : 'Erinnerung',
 			link: t.auftrag_id ? `/auftraege/${t.auftrag_id}` : '/todos'
 		};

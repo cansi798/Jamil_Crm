@@ -9,7 +9,7 @@ import { UUID } from '$lib/server/kunden';
 /**
  * Aufträge auflisten: `GET /api/auftraege?status=&kunde=&suche=&offen=1` – neueste zuerst, höchstens 100; `offen=1`
  * blendet abgerechnete aus (Auswahl beim Einplanen). Lesen: Modul
- * `auftraege` + `auftraege.alle_lesen` (alle) oder `auftraege.lesen` (nur eigene: mit Einsatz oder zugewiesenem To-do).
+ * `auftraege` + `auftraege.alle_lesen` (alle) oder `auftraege.lesen` (nur eigene: mit Einsatz oder zugewiesener Aufgabe).
  */
 export const GET: RequestHandler = async ({ locals, url }) => {
 	try {

@@ -11,7 +11,7 @@ import { berlinTag, istTag, tagPlus } from '../zeit';
 
 /**
  * Anlagen an Objekten (Wunsch Jamil, msgs 2503/2505; Migration 032): Stammdaten mit typabhängigen Zusatzfeldern,
- * Verlauf (Aufträge, To-dos, Störungen), Fotos/Dokumente und ein QR-Code mit zufälligem Kürzel (`qrToken`).
+ * Verlauf (Aufträge, Aufgaben, Störungen), Fotos/Dokumente und ein QR-Code mit zufälligem Kürzel (`qrToken`).
  *
  * Lesen: `kunden.lesen`, Schreiben: `kunden.bearbeiten` – geprüft von den Aufrufern. Fremde oder unbekannte Anlagen
  * sind immer ein 404. Der QR-Code ohne Anmeldung (`anlagePerQr`) liefert nur Typ und Kontakt des Betriebs.
@@ -78,7 +78,7 @@ export type AnlageWerte = {
 	notiz: string | null;
 };
 
-/** Garantie-Erinnerung: To-do so viele Tage vor Ablauf (nicht vor heute). */
+/** Garantie-Erinnerung: Aufgabe so viele Tage vor Ablauf (nicht vor heute). */
 export const GARANTIE_VORLAUF_TAGE = 30;
 export const GARANTIE_TITEL = 'Garantie endet:';
 
@@ -225,7 +225,7 @@ export async function holeAnlage(k: Kontext, id: string): Promise<Anlage> {
 }
 
 /**
- * Garantie-Erinnerung als To-do an der Anlage: offenes Erinnerungs-To-do ersetzen (fällig 30 Tage vor Ablauf, nicht
+ * Garantie-Erinnerung als Aufgabe an der Anlage: offenes Erinnerungs-Aufgabe ersetzen (fällig 30 Tage vor Ablauf, nicht
  * vor heute). Liegt das Ende in der Vergangenheit oder gibt es keins, bleibt nur das Entfernen.
  */
 async function setzeGarantieErinnerung(tx: TransactionSql, k: Kontext, anlageId: string, bezeichnung: string, garantieBis: string | null) {
@@ -291,7 +291,7 @@ export async function aendereAnlage(k: Kontext, id: string, e: Record<string, un
 	});
 }
 
-/** Löscht die Anlage samt Störungen und Dateien; Aufträge und To-dos bleiben (ohne Anlage). */
+/** Löscht die Anlage samt Störungen und Dateien; Aufträge und Aufgaben bleiben (ohne Anlage). */
 export async function loescheAnlage(k: Kontext, id: string): Promise<{ kundeId: string; objektId: string }> {
 	const aid = idOder404(id);
 	return mitBetrieb(k, async (tx) => {
@@ -305,7 +305,7 @@ export async function loescheAnlage(k: Kontext, id: string): Promise<{ kundeId: 
 }
 
 /**
- * Wartung planen: wiederkehrendes To-do an der Anlage nach ihrem Wartungsintervall (erster Termin `faellig`).
+ * Wartung planen: wiederkehrende Aufgabe an der Anlage nach ihrem Wartungsintervall (erster Termin `faellig`).
  * Ohne Intervall → 400; läuft schon eine aktive Wartungs-Serie → 409.
  */
 export async function planeWartung(k: Kontext, id: string, e: { faellig?: unknown; zustaendigId?: unknown }) {
@@ -343,7 +343,7 @@ export type AnlagenStoerung = {
 	angelegt: string;
 };
 
-/** Verlauf einer Anlage: Aufträge (nur sichtbare), To-dos (alle bzw. eigene) und Störungen, jeweils neueste zuerst. */
+/** Verlauf einer Anlage: Aufträge (nur sichtbare), Aufgaben (alle bzw. eigene) und Störungen, jeweils neueste zuerst. */
 export async function anlagenVerlauf(k: Kontext, id: string, sicht: Sicht, todoSicht: TodoSicht): Promise<AnlagenVerlauf> {
 	const aid = idOder404(id);
 	return mitBetrieb(k, async (tx) => {

@@ -56,7 +56,7 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 			}
 			zeit = { laufend: lauf, auftraege };
 		}
-		// Kachel „Heute“ (Wunsch Jamil msg 2647): Termine, To-dos, Nachfassen – Chef/Büro mit Personenwahl
+		// Kachel „Heute“ (Wunsch Jamil msg 2647): Termine, Aufgaben, Nachfassen – Chef/Büro mit Personenwahl
 		if (module.includes('auftraege')) {
 			personen = await planPersonen(k, nutzer);
 			const gewaehlt = url.searchParams.get('person');

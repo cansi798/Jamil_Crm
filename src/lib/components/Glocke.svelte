@@ -86,7 +86,7 @@
 			{#if liste === null}
 				<p class="gl-leer">Lädt …</p>
 			{:else if liste.length === 0}
-				<p class="gl-leer">Noch keine Erinnerungen. Beim Anlegen eines To-dos oder Termins „Erinnern“ wählen.</p>
+				<p class="gl-leer">Noch keine Erinnerungen. Beim Anlegen einer Aufgabe oder Termins „Erinnern“ wählen.</p>
 			{:else}
 				<ul>
 					{#each liste as e (e.id)}

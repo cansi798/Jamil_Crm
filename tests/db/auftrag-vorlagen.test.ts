@@ -29,7 +29,7 @@ function nutzerVon(id: string, betriebId: string | null, rechte: readonly string
 	return { id, betriebId, istAdmin, rechte: [...rechte], betriebStatus: 'aktiv' };
 }
 
-describe('Auftrags-To-do-Vorlagen', () => {
+describe('Auftrags-Aufgaben-Vorlagen', () => {
 	let db: TestDb;
 	let root: postgres.Sql;
 	let betriebA: string, betriebB: string;
@@ -73,7 +73,7 @@ describe('Auftrags-To-do-Vorlagen', () => {
 		await root`delete from app.auftrag_vorlagen`;
 	});
 
-	it('Vorlage mit To-dos anlegen und lesen', async () => {
+	it('Vorlage mit Aufgaben anlegen und lesen', async () => {
 		const erg = await alsApp(betriebA, chefAId, async (tx) => {
 			const [vorlage] = await tx`
 				insert into app.auftrag_vorlagen (betrieb_id, name, beschreibung)
@@ -95,7 +95,7 @@ describe('Auftrags-To-do-Vorlagen', () => {
 		expect(todos.map((t: any) => t.titel)).toEqual(['Filter wechseln', 'Brenner reinigen', 'Abgas messen']);
 	});
 
-	it('To-dos sind nach sortierung sortiert', async () => {
+	it('Aufgaben sind nach sortierung sortiert', async () => {
 		const erg = await alsApp(betriebA, chefAId, async (tx) => {
 			const [vorlage] = await tx`
 				insert into app.auftrag_vorlagen (betrieb_id, name) values (${betriebA}, 'Test') returning *`;
@@ -122,7 +122,7 @@ describe('Auftrags-To-do-Vorlagen', () => {
 		expect(sichtB).toHaveLength(0);
 	});
 
-	it('Vorlage löschen löscht auch To-dos (CASCADE)', async () => {
+	it('Vorlage löschen löscht auch Aufgaben (CASCADE)', async () => {
 		const erg = await alsApp(betriebA, chefAId, async (tx) => {
 			const [vorlage] = await tx`
 				insert into app.auftrag_vorlagen (betrieb_id, name) values (${betriebA}, 'Zu löschen') returning *`;
@@ -308,7 +308,7 @@ describe('Auftrags-To-do-Vorlagen', () => {
 			quelle = (await listeQuellen({ betriebId: betriebA, benutzerId: chefA.id }))[0].id;
 		});
 
-		it('Neu: To-dos aus dem Formular mit Beschreibung und in Reihenfolge; leere Zeilen fallen weg', async () => {
+		it('Neu: Aufgaben aus dem Formular mit Beschreibung und in Reihenfolge; leere Zeilen fallen weg', async () => {
 			const d = (await neuLoad({ ...ort(chefA), url: new URL('http://localhost/auftraege/neu') } as never)) as any;
 			expect(Array.isArray(d.vorlagen)).toBe(true);
 			const r = await aktion(() =>
@@ -334,7 +334,7 @@ describe('Auftrags-To-do-Vorlagen', () => {
 			]);
 		});
 
-		it('Neu: ungültiges To-do → 400 und KEIN Auftrag angelegt', async () => {
+		it('Neu: ungültige Aufgabe → 400 und KEIN Auftrag angelegt', async () => {
 			const r = await aktion(() =>
 				neuAktionen.anlegen({
 					...ort(chefA),
@@ -350,7 +350,7 @@ describe('Auftrags-To-do-Vorlagen', () => {
 			expect(await root`select 1 from app.auftraege where titel = 'Darf nicht entstehen'`).toHaveLength(0);
 		});
 
-		it('Bearbeiten: Vorlagen zur Auswahl; To-dos aus dem Formular kommen zu den vorhandenen dazu', async () => {
+		it('Bearbeiten: Vorlagen zur Auswahl; Aufgaben aus dem Formular kommen zu den vorhandenen dazu', async () => {
 			await legeVorlageAn({ betriebId: betriebA, benutzerId: chefAId }, { name: 'Heizung' });
 			const [{ id: auftrag }] = await root`
 				insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, 'Bestand', ${kundeA}) returning id`;
@@ -380,7 +380,7 @@ describe('Auftrags-To-do-Vorlagen', () => {
 			expect(a.titel).toBe('Bestand geändert');
 		});
 
-		it('Bearbeiten: ungültiges To-do → 400, Auftrag unverändert, keine To-dos', async () => {
+		it('Bearbeiten: ungültige Aufgabe → 400, Auftrag unverändert, keine Aufgaben', async () => {
 			const [{ id: auftrag }] = await root`
 				insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, 'Unverändert', ${kundeA}) returning id`;
 			const r = await aktion(() =>

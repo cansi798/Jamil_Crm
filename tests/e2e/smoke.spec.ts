@@ -87,8 +87,10 @@ test('Navigation: Einträge nach Recht (Aufträge, Plantafel), Tippziele ≥ 44 
 	await expect(nav.getByRole('link', { name: 'Start' })).toBeVisible();
 	await expect(nav.getByRole('link', { name: 'Kunden' })).toBeVisible();
 	await expect(nav.getByRole('link', { name: 'Aufträge' })).toBeVisible();
-	// Plantafel ist seit Stufe 1b ein Link (nicht mehr „bald verfügbar“)
-	await expect(nav.getByRole('link', { name: 'Plantafel' })).toBeVisible();
+	// Plantafel ist seit Stufe 1b ein Link (nicht mehr „bald verfügbar“); auf dem Handy liegt sie unter „Mehr“
+	// (unten nur die ersten 4 Hauptbereiche, msg 2815)
+	if (info.project.name === 'mobil') await expect(nav.getByRole('link', { name: 'Plantafel' })).toBeHidden();
+	else await expect(nav.getByRole('link', { name: 'Plantafel' })).toBeVisible();
 	await expect(nav.getByText('bald verfügbar')).toHaveCount(0);
 	// Büro hat weder „benutzer.verwalten“ noch „einstellungen“, ist kein Admin
 	await expect(nav.getByRole('link', { name: 'Benutzer' })).toHaveCount(0);

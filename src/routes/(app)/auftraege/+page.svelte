@@ -26,7 +26,7 @@
 		const q = p.toString();
 		return q ? `/auftraege?${q}` : '/auftraege';
 	};
-	const BEZUG = { zustaendig: 'zuständig', todo: 'eigenes To-do', termin: 'eigener Termin' } as const;
+	const BEZUG = { zustaendig: 'zuständig', todo: 'eigene Aufgabe', termin: 'eigener Termin' } as const;
 </script>
 
 <svelte:head>

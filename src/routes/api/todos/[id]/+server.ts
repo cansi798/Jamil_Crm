@@ -6,7 +6,7 @@ import { darf } from '$lib/server/tarif';
 import { aendereTodo, aendereTodoAls, holeTodo, loescheTodo } from '$lib/server/todos';
 import { todoSicht, todoSichtVon } from '$lib/server/todos';
 
-// Unsichtbare, fremde und unbekannte To-dos sind überall ein 404.
+// Unsichtbare, fremde und unbekannte Aufgaben sind überall ein 404.
 
 export const GET: RequestHandler = async ({ locals, params }) => {
 	try {
@@ -19,7 +19,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 /**
  * Ändern: mit `auftraege.bearbeiten` Titel, Zuständig, Fällig, erledigt; mit nur Leserecht darf der Zuständige sein
- * eigenes To-do abhaken bzw. öffnen (`{ erledigt: true|false }`) – jedes andere Feld → 403.
+ * eigene Aufgabe abhaken bzw. öffnen (`{ erledigt: true|false }`) – jedes andere Feld → 403.
  */
 export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	try {

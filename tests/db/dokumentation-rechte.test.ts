@@ -22,7 +22,7 @@ import { baueUmgebung, jsonAnfrage, testPng, UNBEKANNT, type Umgebung } from './
 describe('Dokumentation eines Auftrags: Rechte und Sichtbarkeit', () => {
 	let u: Umgebung;
 	let root: postgres.Sql;
-	let sichtbar: string; // Auftrag, in dem der Monteur ein To-do hat (für ihn sichtbar)
+	let sichtbar: string; // Auftrag, in dem der Monteur eine Aufgabe hat (für ihn sichtbar)
 	let datei: string, notiz: string, protokoll: string;
 	const kA = () => ({ betriebId: u.betriebA, benutzerId: u.ids.chefA });
 	const ohneAuftraege = (): Nutzer => ({ id: u.ids.monteurA, betriebId: u.betriebA, istAdmin: false, rechte: ['kunden.lesen'], betriebStatus: 'aktiv' });

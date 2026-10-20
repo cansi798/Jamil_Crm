@@ -26,7 +26,7 @@ import { darf } from '$lib/server/tarif';
 /**
  * Anlage mit Verlauf (Wünsche Jamil, msgs 2503/2505). Lesen und Störung melden: `kunden.lesen` (auch Monteure vor
  * Ort); Ändern, Dateien, Störung beheben, Löschen: `kunden.bearbeiten`; Wartung planen zusätzlich
- * `auftraege.bearbeiten` (legt To-dos an).
+ * `auftraege.bearbeiten` (legt Aufgaben an).
  */
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const k = await seitenZugriff(locals, 'kunden', 'kunden.lesen');

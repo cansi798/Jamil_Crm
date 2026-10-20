@@ -84,7 +84,7 @@
 				{/if}
 			</div>
 			<p class="plan-text">{data.plan.text}</p>
-			{#each [{ titel: 'Termine', liste: data.plan.termine }, { titel: 'To-dos', liste: data.plan.todos }, { titel: 'Nachfassen', liste: data.plan.nachfassen }] as ab (ab.titel)}
+			{#each [{ titel: 'Termine', liste: data.plan.termine }, { titel: 'Aufgaben', liste: data.plan.todos }, { titel: 'Nachfassen', liste: data.plan.nachfassen }] as ab (ab.titel)}
 				{#if ab.liste.length > 0}
 					<h3>{ab.titel}</h3>
 					<ul class="plan-liste">

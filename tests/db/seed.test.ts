@@ -66,7 +66,7 @@ describe('seed-dev', () => {
 		}
 	});
 
-	it('Aufträge, To-dos, Einsätze, Urlaub: zweiter Lauf legt nichts doppelt an; Nummern lückenlos 0001…0006', async () => {
+	it('Aufträge, Aufgaben, Einsätze, Urlaub: zweiter Lauf legt nichts doppelt an; Nummern lückenlos 0001…0006', async () => {
 		const zaehleStufe1b = async () => {
 			const [z] = await sql`
 				select

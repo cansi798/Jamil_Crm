@@ -27,7 +27,7 @@
 	let kiLaeuft = $state(false);
 
 	// Eingeklappt bis gebraucht (Wunsch Jamil, msg 2579): „Mitarbeiter zuweisen“ bleibt offen, solange man Häkchen
-	// setzt, und schließt mit „Fertig“; To-do, Termin und Angebot über das gemeinsame AddPanel (zu nach Speichern).
+	// setzt, und schließt mit „Fertig“; Aufgabe, Termin und Angebot über das gemeinsame AddPanel (zu nach Speichern).
 	let zuweisenOffen = $state(false);
 
 	// „Angebot hinzufügen“: ein Feld mit vier Wegen statt verstreuter Auswahlen und Knöpfe
@@ -407,12 +407,12 @@
 			{/each}
 			<div class="af-k k-todos">
 				<Karte>
-					{#snippet titel()}To-dos{/snippet}
+					{#snippet titel()}Aufgaben{/snippet}
 					{#if form?.todoFehler && !form?.todoWerte}
 						<p role="alert" class="kd-fehler">{form.fehler}</p>
 					{/if}
 					{#if data.darfBearbeiten}
-						<AddPanel label="To-do hinzufügen" offen={!!form?.todoWerte}>
+						<AddPanel label="Aufgabe hinzufügen" offen={!!form?.todoWerte}>
 							{#snippet children(schliessen)}
 								<TodoNeu
 									mitBelastung
@@ -433,7 +433,7 @@
 						darfBearbeiten={data.darfBearbeiten}
 						mitarbeiter={data.mitarbeiter}
 						aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen', serieBeenden: '?/todoSerieBeenden' }}
-						leer="Noch keine To-dos zu diesem Auftrag."
+						leer="Noch keine Aufgaben zu diesem Auftrag."
 					/>
 				</Karte>
 			</div>
@@ -561,7 +561,7 @@
 					<details class="kd-loeschen">
 						<summary>Auftrag löschen …</summary>
 						<form method="POST" action="?/loeschen" use:enhance class="kd-formular">
-							<p>Die Anfrage und ihre To-dos werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</p>
+							<p>Die Anfrage und ihre Aufgaben werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</p>
 							<button type="submit" class="knopf-gefahr">Endgültig löschen</button>
 						</form>
 					</details>

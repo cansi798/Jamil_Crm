@@ -5,7 +5,7 @@
 
 	/**
 	 * Eingeklapptes „Hinzufügen“-Formular (Wunsch Jamil msgs 2579–2583: „Nichts standardmäßig ausgeklappt“).
-	 * Zeigt nur einen Knopf („+ To-do hinzufügen“); Klick klappt das Formular inline auf, der erste Eingabe-
+	 * Zeigt nur einen Knopf („+ Aufgabe hinzufügen“); Klick klappt das Formular inline auf, der erste Eingabe-
 	 * bereich bekommt den Fokus. Zu geht es mit „Abbrechen“ (Snippet-Argument `schliessen`), mit Esc – und von
 	 * selbst nach erfolgreichem Speichern: Nach einem Absenden im Feld wartet das Feld auf die nächste
 	 * Antwort der Seite (neue Daten oder neues `form`). Enthält `form` einen Fehler (Schlüssel mit „fehler“),

@@ -4,7 +4,7 @@ import { hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 
 /**
- * Liste aller Auftrags-To-do-Vorlagen.
+ * Liste aller Auftrags-Aufgaben-Vorlagen.
  */
 export const load: PageServerLoad = async ({ locals }) => {
 	const k = await seitenZugriff(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);

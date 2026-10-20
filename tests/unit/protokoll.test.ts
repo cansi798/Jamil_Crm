@@ -36,7 +36,7 @@ describe('darfProtokollLesen (Ruling R19)', () => {
 		expect(darfProtokollLesen(nutzer(['benutzer.verwalten']), 'rollen')).toBe(false);
 	});
 
-	it('Aufträge und To-dos: auftraege.lesen oder auftraege.alle_lesen genügt', () => {
+	it('Aufträge und Aufgaben: auftraege.lesen oder auftraege.alle_lesen genügt', () => {
 		for (const tabelle of ['auftraege', 'todos'] as const) {
 			expect(darfProtokollLesen(nutzer(['auftraege.lesen']), tabelle), tabelle).toBe(true);
 			expect(darfProtokollLesen(nutzer(['auftraege.alle_lesen']), tabelle), tabelle).toBe(true);

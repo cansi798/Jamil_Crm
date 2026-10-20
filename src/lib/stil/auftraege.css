@@ -1,4 +1,4 @@
-/* Aufträge und To-dos – ergänzt kunden.css (gleiche Grundbausteine kd-*), mobil zuerst. */
+/* Aufträge und Aufgaben – ergänzt kunden.css (gleiche Grundbausteine kd-*), mobil zuerst. */
 
 /* Status-Reiter: auf dem Handy eine waagerecht wischbare Leiste (nur die Leiste scrollt, nie die Seite). */
 .af-reiter {
@@ -182,7 +182,7 @@
 	background: var(--m365-flaeche-hover);
 }
 
-/* To-dos: große Abhakflächen */
+/* Aufgaben: große Abhakflächen */
 .td-liste {
 	list-style: none;
 	margin: 0.75rem 0;
@@ -371,7 +371,7 @@
 	align-items: end;
 }
 
-/* „Alle / Meine“ (Aufträge, To-dos) – Pillen aus komponenten.css */
+/* „Alle / Meine“ (Aufträge, Aufgaben) – Pillen aus komponenten.css */
 .af-meine {
 	display: flex;
 	flex-wrap: wrap;

@@ -255,8 +255,8 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 			titel: text(200, 'Was zu tun ist'),
 			zustaendig: text(100, 'Mitarbeiter, der es erledigen soll'),
 			faellig: ZEIT,
-			auftrag: text(200, 'Auftrag bzw. Kunde, zu dem das To-do gehört'),
-			wiederholung: { type: 'string', enum: ['taeglich', 'woechentlich', 'monatlich', 'jaehrlich'], description: 'Nur bei wiederkehrenden To-dos („jede Woche“, „jährlich“)' },
+			auftrag: text(200, 'Auftrag bzw. Kunde, zu dem die Aufgabe gehört'),
+			wiederholung: { type: 'string', enum: ['taeglich', 'woechentlich', 'monatlich', 'jaehrlich'], description: 'Nur bei wiederkehrenden Aufgaben („jede Woche“, „jährlich“)' },
 			intervall: { type: 'integer', minimum: 1, maximum: 365, description: '„alle 2 Wochen“ = 2 (nur mit wiederholung)' },
 			erinnerungen: ERINNERUNGEN
 		},
@@ -347,7 +347,7 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 	},
 	todo_abhaken: {
 		type: 'object',
-		properties: { titel: text(200, 'Titel des To-dos wie gesprochen'), auftrag: text(200, 'Kunde oder Auftrag, falls genannt') },
+		properties: { titel: text(200, 'Titel der Aufgabe wie gesprochen'), auftrag: text(200, 'Kunde oder Auftrag, falls genannt') },
 		required: ['titel'],
 		additionalProperties: false
 	},
@@ -387,7 +387,7 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 			wer: text(100, 'Person (Vorname) – „ich/mich“ für sich selbst; leer = ich'),
 			zeitraum: { type: 'string', enum: ['heute', 'morgen', 'woche', 'datum'] },
 			datum: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
-			nur_ueberfaellig: { type: 'boolean', description: 'true bei „Welche To-dos sind überfällig?“' }
+			nur_ueberfaellig: { type: 'boolean', description: 'true bei „Welche Aufgaben sind überfällig?“' }
 		},
 		required: ['zeitraum'],
 		additionalProperties: false
@@ -475,13 +475,13 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	kunde_anlegen: 'Neuen Kunden anlegen.',
 	auftrag_anlegen: 'Neuen Auftrag anlegen, optional mit Startdatum und eingeplanten Mitarbeitern.',
-	todo_anlegen: 'Neues To-do (Aufgabe) anlegen, optional mit Zuständigem, Fälligkeit und Auftrag.',
+	todo_anlegen: 'Neue Aufgabe (Aufgabe) anlegen, optional mit Zuständigem, Fälligkeit und Auftrag.',
 	einsatz_anlegen: 'Termin/Einsatz von Mitarbeitern bei einem Kunden bzw. Auftrag einplanen.',
 	einsatz_verschieben: 'Bestehenden Termin/Einsatz auf einen anderen Tag oder eine andere Uhrzeit verschieben.',
 	angebot_entwurf: 'Angebotsentwurf für einen Auftrag aus gesprochenen Leistungen erstellen.',
 	mitarbeiter_zuweisen: 'Mitarbeiter einem Auftrag als Zuständige zuweisen.',
 	status_aendern: 'Status eines Auftrags ändern (Anfrage, Angebot, Beauftragt, In Arbeit, Abgenommen, Abgerechnet) oder „weiter“.',
-	todo_abhaken: 'Ein offenes To-do als erledigt abhaken.',
+	todo_abhaken: 'Ein offene Aufgabe als erledigt abhaken.',
 	anlage_anlegen: 'Eine Anlage (Wärmepumpe, Solar, Heizung, Klima, Lüftung, Wallbox, Gasspeicher …) beim Objekt eines Kunden anlegen.',
 	nachfassen_pausieren: 'Automatisches Nachfassen für ein Angebot pausieren oder fortsetzen.',
 	abfrage_auslastung:
@@ -502,7 +502,7 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',
 	quelle_setzen: 'Auftragsquelle (auch „Quelle“) eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',
 	abfrage_tagesplan:
-		'Frage nach dem Tagesplan beantworten: Termine und To-dos für eine Person (ich oder Name) heute, morgen, diese Woche oder ein Datum; auch „überfällige To-dos“.',
+		'Frage nach dem Tagesplan beantworten: Termine und Aufgaben für eine Person (ich oder Name) heute, morgen, diese Woche oder ein Datum; auch „überfällige Aufgaben“.',
 	protokoll_ausfuellen:
 		'Protokoll zu einem Auftrag: eine Protokoll-Vorlage starten („Protokoll Abdichtung für Auftrag Müller starten“ → vorlage) oder ein Baustellen-Protokoll (Abnahme, Regiebericht, Aufmaß, Mängelliste) ausfüllen (typ).',
 	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. andere Fragen, Rechnungen, Löschen).'

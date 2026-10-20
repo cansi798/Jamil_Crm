@@ -42,7 +42,8 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	expect(antwort?.headers()['x-robots-tag']).toMatch(/noindex/);
 	expect(antwort?.headers()['referrer-policy']).toBe('no-referrer');
 	await expect(kunde.getByRole('heading', { name: 'Ladenumbau Trockenbau' })).toBeVisible();
-	await expect(kunde.getByTestId('portal-status')).toBeVisible();
+	// Andere Tests legen weitere Aufträge beim selben Kunden an – nur die eigene Karte prüfen
+	await expect(kunde.getByLabel('Ladenumbau Trockenbau').getByTestId('portal-status')).toBeVisible();
 	await erwarteKeinQuerScrollen(kunde, viewport.width);
 	const annehmen = kunde.getByRole('button', { name: 'Angebot annehmen' });
 	if (info.project.name === 'desktop' && (await annehmen.isVisible())) {

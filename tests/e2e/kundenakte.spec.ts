@@ -3,7 +3,7 @@ import { anmelden, erwarteKeinQuerScrollen } from './hilfe';
 
 /**
  * Phase 1 der Wünsche von Jamil (19.10.2026): Kundenakte (Notizen, Dokumente, Platzhalter Kundenportal) und
- * Lautstärke/Schmutz an Auftrags-To-dos. Legt eigene Daten an und löscht sie am Ende wieder.
+ * Lautstärke/Schmutz an Auftrags-Aufgaben. Legt eigene Daten an und löscht sie am Ende wieder.
  */
 const BUERO = 'buero@bauwelt.test';
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n');
@@ -70,18 +70,18 @@ test('Kundenakte: Notiz schreiben, Dokument hochladen und herunterladen, lösche
 	}
 });
 
-test('Auftrags-To-do mit Lautstärke und Schmutz', async ({ page }, info) => {
+test('Auftrags-Aufgabe mit Lautstärke und Schmutz', async ({ page }, info) => {
 	await anmelden(page, BUERO);
 	const kunden = await api(page, 'GET', '/api/kunden');
 	const auftrag = await api(page, 'POST', '/api/auftraege', { titel: `E2E Belastung ${info.project.name} ${Date.now()}`, kundeId: kunden[0].id });
 	try {
 		await page.goto(`/auftraege/${auftrag.id}`);
-		await page.getByRole('button', { name: 'To-do hinzufügen' }).click();
+		await page.getByRole('button', { name: 'Aufgabe hinzufügen' }).click();
 		const f = page.locator('form.td-neu');
-		await f.getByLabel('Neues To-do').fill('Fliesen abschlagen');
+		await f.getByLabel('Neue Aufgabe').fill('Fliesen abschlagen');
 		await f.getByRole('radiogroup', { name: 'Lautstärke' }).getByText('hoch').click();
 		await f.getByRole('radiogroup', { name: 'Schmutz' }).getByText('mittel').click();
-		await f.getByRole('button', { name: 'To-do speichern' }).click();
+		await f.getByRole('button', { name: 'Aufgabe speichern' }).click();
 		// Liste: Zeile aufklappen zeigt Details und Bearbeiten
 		const zeile = page.locator('.tl-zeile', { hasText: 'Fliesen abschlagen' });
 		await zeile.locator('.tl-titel').click();

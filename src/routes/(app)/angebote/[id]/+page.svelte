@@ -474,7 +474,7 @@
 				<header>
 					<strong>Stufe {l.stufeNr} · nach {l.tage} Tagen</strong>
 					<span class="kd-info">
-						{new Date(l.angelegt).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}{#if l.todoId} · To-do {l.todoErledigt ? 'erledigt' : 'offen'}{l.zustaendigName ? ` (${l.zustaendigName})` : ''}{/if}{#if l.gesendetAm} · Mail gesendet {new Date(l.gesendetAm).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}{/if}
+						{new Date(l.angelegt).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}{#if l.todoId} · Aufgabe {l.todoErledigt ? 'erledigt' : 'offen'}{l.zustaendigName ? ` (${l.zustaendigName})` : ''}{/if}{#if l.gesendetAm} · Mail gesendet {new Date(l.gesendetAm).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' })}{/if}
 					</span>
 				</header>
 				{#if l.mailText && l.mailBetreff}

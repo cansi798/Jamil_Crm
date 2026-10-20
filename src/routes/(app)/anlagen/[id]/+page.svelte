@@ -107,7 +107,7 @@
 			<form method="POST" action="?/wartung" use:enhance class="kd-formular">
 				{#if fehlerVon('wartung')}<p role="alert" class="kd-fehler">{fehlerVon('wartung')}</p>{/if}
 				{#if form && 'aktion' in form && form.aktion === 'wartung' && 'gespeichert' in form}
-					<p role="status" class="kd-info">Wartung geplant – das To-do wiederholt sich {a.wartungText}.</p>
+					<p role="status" class="kd-info">Wartung geplant – die Aufgabe wiederholt sich {a.wartungText}.</p>
 				{/if}
 				<div class="kd-zwei an-zwei-spalten">
 					<label>Erste Wartung <input type="date" name="faellig" value={heute} required /></label>
@@ -116,7 +116,7 @@
 						<PersonWahl name="zustaendigId" personen={data.mitarbeiter} />
 					</div>
 				</div>
-				<button type="submit" class="kd-knopf hell">Wartung {a.wartungText} als To-do planen</button>
+				<button type="submit" class="kd-knopf hell">Wartung {a.wartungText} als Aufgabe planen</button>
 			</form>
 		</section>
 	{/if}
@@ -180,9 +180,9 @@
 			</ul>
 		{/if}
 
-		<h3>To-dos ({v.todos.length})</h3>
+		<h3>Aufgaben ({v.todos.length})</h3>
 		{#if v.todos.length === 0}
-			<p class="kd-info">Keine To-dos (Wartung, Garantie-Erinnerung).</p>
+			<p class="kd-info">Keine Aufgaben (Wartung, Garantie-Erinnerung).</p>
 		{:else}
 			<ul class="an-verlauf">
 				{#each v.todos as t (t.id)}
@@ -194,7 +194,7 @@
 					</li>
 				{/each}
 			</ul>
-			<p class="kd-info"><a href="/todos">Zu den To-dos</a></p>
+			<p class="kd-info"><a href="/todos">Zu den Aufgaben</a></p>
 		{/if}
 	</section>
 
@@ -239,7 +239,7 @@
 		<details class="kd-loeschen">
 			<summary>Anlage löschen …</summary>
 			<form method="POST" action="?/loeschen" use:enhance class="kd-formular">
-				<p>Die Anlage wird mit Störungen, Fotos und Dokumenten gelöscht. Aufträge und To-dos bleiben erhalten.</p>
+				<p>Die Anlage wird mit Störungen, Fotos und Dokumenten gelöscht. Aufträge und Aufgaben bleiben erhalten.</p>
 				<button type="submit" class="kd-knopf gefahr">Endgültig löschen</button>
 			</form>
 		</details>

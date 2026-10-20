@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
-	import { istAktiv } from '$lib/navigation';
+	import { istAktiv, MOBIL_HAUPT } from '$lib/navigation';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
 	import Mikrofon from '$lib/components/Mikrofon.svelte';
@@ -24,7 +24,27 @@
 		return alle.filter((e) => istAktiv(e.href!, pfad)).sort((a, b) => b.href!.length - a.href!.length)[0] ?? null;
 	});
 	const mitSuche = $derived((data.navigation?.haupt ?? []).some((e) => e.href === '/kunden'));
-	const mehrAktiv = $derived(pfad === '/mehr' || (data.navigation?.mehr ?? []).some((e) => istAktiv(e.href, pfad)));
+	const mehrAktiv = $derived(
+		pfad === '/mehr' || [...(data.navigation?.haupt ?? []).slice(MOBIL_HAUPT), ...(data.navigation?.mehr ?? [])].some((e) => istAktiv(e.href, pfad))
+	);
+	// Gruppen einklappbar; Zustand je Benutzer auf diesem Gerät (msg 2826). Die Gruppe der aktuellen Seite ist immer offen.
+	let zu = $state<Record<string, boolean>>({});
+	const schluessel = $derived(`crm-nav-zu:${data.benutzerId ?? ''}`);
+	$effect(() => {
+		try {
+			zu = JSON.parse(localStorage.getItem(schluessel) ?? '{}');
+		} catch {
+			zu = {};
+		}
+	});
+	function umschalten(id: string, offen: boolean) {
+		zu = { ...zu, [id]: !offen };
+		try {
+			localStorage.setItem(schluessel, JSON.stringify(zu));
+		} catch {
+			/* ohne Speicher bleibt es für diese Sitzung */
+		}
+	}
 </script>
 
 {#if data.navigation}
@@ -39,8 +59,8 @@
 				<span class="marke-text"><span class="marke-klein">Handwerk</span>CRM System</span>
 			</a>
 			<ul class="liste">
-				{#each data.navigation.haupt as e (e.name)}
-					<li>
+				{#each data.navigation.haupt as e, i (e.name)}
+					<li class:nur-breit-li={i >= MOBIL_HAUPT}>
 						{#if e.href}
 							<a href={e.href} class="eintrag" aria-current={istAktiv(e.href, pfad) ? 'page' : undefined}>
 								<NavSymbol symbol={e.symbol} />
@@ -64,19 +84,22 @@
 					</a>
 				</li>
 			</ul>
-			{#if data.navigation.mehr.length > 0}
-				<p class="gruppe nur-breit" aria-hidden="true">Weitere Bereiche</p>
-				<ul class="liste verwaltung nur-breit">
-					{#each data.navigation.mehr as e (e.name)}
-						<li>
-							<a href={e.href} class="eintrag" aria-current={istAktiv(e.href, pfad) ? 'page' : undefined}>
-								<NavSymbol symbol={e.symbol} />
-								<span class="text"><span class="name">{e.name}</span></span>
-							</a>
-						</li>
-					{/each}
-				</ul>
-			{/if}
+			{#each data.navigation.gruppen as g (g.id)}
+				{@const aktiv = g.eintraege.some((e) => istAktiv(e.href, pfad))}
+				<details class="nav-gruppe nur-breit" open={aktiv || !zu[g.id]} ontoggle={(ev) => umschalten(g.id, (ev.currentTarget as HTMLDetailsElement).open)}>
+					<summary class="gruppe">{g.titel}</summary>
+					<ul class="liste verwaltung">
+						{#each g.eintraege as e (e.name)}
+							<li>
+								<a href={e.href} class="eintrag" aria-current={istAktiv(e.href, pfad) ? 'page' : undefined}>
+									<NavSymbol symbol={e.symbol} />
+									<span class="text"><span class="name">{e.name}</span></span>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				</details>
+			{/each}
 			<form method="POST" action="/api/abmelden" onsubmit={() => loesche()} class="abmelden nur-breit">
 				<button type="submit" class="eintrag">
 					<NavSymbol symbol="abmelden" />
@@ -143,6 +166,10 @@
 	.liste > li {
 		flex: 1 1 0;
 		min-width: 0;
+	}
+	/* Am Handy nur die ersten Hauptbereiche unten, der Rest unter „Mehr“ */
+	.nur-breit-li {
+		display: none;
 	}
 	.eintrag {
 		display: flex;
@@ -322,6 +349,27 @@
 		}
 		.nur-schmal {
 			display: none;
+		}
+		.nav-gruppe summary {
+			cursor: pointer;
+			list-style: none;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.nav-gruppe summary::-webkit-details-marker {
+			display: none;
+		}
+		.nav-gruppe summary::after {
+			content: '▾';
+			font-size: 0.75rem;
+			transition: transform 150ms;
+		}
+		.nav-gruppe:not([open]) summary::after {
+			transform: rotate(-90deg);
+		}
+		.nur-breit-li {
+			display: list-item !important;
 		}
 		.nur-schmal-glocke,
 		.nur-schmal-zeit {

@@ -1,5 +1,5 @@
 /**
- * Spalten des To-do-Boards – ohne Svelte und ohne Serverbezug (testbar). „In Arbeit“ heißt (wie bisher): offen und
+ * Spalten des Aufgaben-Boards – ohne Svelte und ohne Serverbezug (testbar). „In Arbeit“ heißt (wie bisher): offen und
  * mit Fälligkeit; „Offen“: offen ohne Fälligkeit; „Erledigt“: abgehakt.
  */
 
@@ -15,7 +15,7 @@ export const todoSpalte = (t: { erledigt: boolean; faellig: string | null }): To
 	t.erledigt ? 'erledigt' : t.faellig ? 'in-arbeit' : 'offen';
 
 /**
- * Änderung (für PATCH /api/todos/[id]), die ein To-do in die Spalte `nach` bringt:
+ * Änderung (für PATCH /api/todos/[id]), die eine Aufgabe in die Spalte `nach` bringt:
  * Erledigt → nur abhaken (Fälligkeit bleibt); In Arbeit → offen, Fälligkeit bleibt oder wird heute;
  * Offen → offen ohne Fälligkeit.
  */

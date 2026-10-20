@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { anmelden } from './hilfe';
 import { tagPlus } from '../../src/lib/zeit';
 
-/** Erinnerungen (Jamil msgs 2679/2682): Glocke, To-do-Formular, Push-Seite, eigener Termin mit Erinnerung. */
+/** Erinnerungen (Jamil msgs 2679/2682): Glocke, Aufgaben-Formular, Push-Seite, eigener Termin mit Erinnerung. */
 const BUERO = 'buero@bauwelt.test';
 
 async function api(page: Page, methode: string, url: string, koerper?: unknown) {
@@ -17,7 +17,7 @@ async function api(page: Page, methode: string, url: string, koerper?: unknown) 
 	return r.text ? JSON.parse(r.text) : null;
 }
 
-test('Glocke, To-do mit „Erinnern“, Push-Seite', async ({ page }) => {
+test('Glocke, Aufgabe mit „Erinnern“, Push-Seite', async ({ page }) => {
 	await anmelden(page, BUERO);
 	await page.goto('/todos');
 	const glocke = page.getByRole('button', { name: /^Benachrichtigungen/ }).locator('visible=true').first();
@@ -26,7 +26,7 @@ test('Glocke, To-do mit „Erinnern“, Push-Seite', async ({ page }) => {
 	await page.keyboard.press('Escape');
 	await page.mouse.click(5, 300);
 
-	await page.getByRole('button', { name: /To-do hinzufügen|Neues To-do|\+ To-do/ }).first().click();
+	await page.getByRole('button', { name: /Aufgabe hinzufügen|Neue Aufgabe|\+ Aufgabe/ }).first().click();
 	await page.getByRole('button', { name: '🔔 Erinnern' }).click();
 	const gruppe = page.getByRole('group', { name: 'Erinnerungen' });
 	await expect(gruppe.getByLabel('🔔 Erinnern')).toHaveValue('1440');

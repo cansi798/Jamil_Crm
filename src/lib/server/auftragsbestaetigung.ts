@@ -12,7 +12,7 @@ import type { AngebotAngenommen } from './ereignisse';
  * Auftragsbestätigung (Jamil msg 2778): Sobald ein Angebot „angenommen“ ist – egal ob im Kundenportal, von Hand im
  * Büro oder per Sprache –, entsteht automatisch ein PDF aus den Angebotsdaten mit Titel „Auftragsbestätigung“ und
  * eigener Nummer (AB-JJJJ-NNNN), gespeichert am Auftrag und sofort im Kundenportal sichtbar. Versand über die
- * Mail-Schnittstelle (`mailVersand`); solange keine angebunden ist, steht sie „bereit zum Versand“ – mit To-do und
+ * Mail-Schnittstelle (`mailVersand`); solange keine angebunden ist, steht sie „bereit zum Versand“ – mit Aufgabe und
  * Glocke für den Zuständigen und den Knöpfen „PDF herunterladen“ / „In Mailprogramm öffnen“.
  * Schalter „Auftragsbestätigung automatisch“: je Betrieb (Kundenportal-Einstellungen), je Auftrag überschreibbar.
  */
@@ -62,7 +62,7 @@ async function naechsteNummer(tx: TransactionSql, k: Kontext): Promise<string> {
 	return `AB-${jahr}-${String(z.nr).padStart(4, '0')}`;
 }
 
-/** Wer bekommt To-do und Glocke? Der Auslöser (wenn angemeldet), sonst der erste Zuständige, sonst wer Angebote bearbeitet. */
+/** Wer bekommt Aufgabe und Glocke? Der Auslöser (wenn angemeldet), sonst der erste Zuständige, sonst wer Angebote bearbeitet. */
 export async function zustaendig(tx: TransactionSql, k: Kontext, benutzerId: string | null, auftragId: string | null): Promise<string | null> {
 	if (benutzerId) return benutzerId;
 	if (auftragId) {
@@ -134,7 +134,7 @@ export async function beiAngebotAngenommen(e: AngebotAngenommen): Promise<string
 			await tx`update app.auftragsbestaetigungen set versand_status = 'gesendet', versendet_am = now() where id = ${ab.id} and betrieb_id = ${k.betriebId}`;
 			return `Auftragsbestätigung ${nummer} erstellt und an ${kd.email} gesendet.`;
 		}
-		// Noch kein Mailversand: To-do + Glocke für den Zuständigen
+		// Noch kein Mailversand: Aufgabe + Glocke für den Zuständigen
 		const wer = await zustaendig(tx, k, e.benutzerId, e.auftragId);
 		const [t] = await tx`
 			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig)
@@ -167,7 +167,7 @@ export async function abPdf(k: Kontext, id: unknown): Promise<{ nummer: string; 
 	return { nummer: z.nummer, pdf: new Uint8Array(z.pdf), auftragId: z.auftrag_id };
 }
 
-/** Von Hand „gesendet“ (nach dem Mailprogramm); das To-do wird erledigt. */
+/** Von Hand „gesendet“ (nach dem Mailprogramm); die Aufgabe wird erledigt. */
 export async function markiereAbGesendet(k: Kontext, id: unknown): Promise<void> {
 	if (typeof id !== 'string' || !UUID.test(id)) throw new ApiFehler(404, 'Auftragsbestätigung nicht gefunden.');
 	await mitBetrieb(k, async (tx) => {

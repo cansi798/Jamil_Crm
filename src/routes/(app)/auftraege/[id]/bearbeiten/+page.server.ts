@@ -29,7 +29,7 @@ export const actions: Actions = {
 		const werte = formWerte(formData, AUFTRAG_FORM_FELDER);
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-			// Neue To-dos (z. B. aus einer Vorlage) kommen zu den vorhandenen dazu; erst prüfen, dann speichern
+			// Neue Aufgaben (z. B. aus einer Vorlage) kommen zu den vorhandenen dazu; erst prüfen, dann speichern
 			const todos = pruefeTodoListe(todosAusFormular(formData));
 			const sicht = sichtVon(locals.nutzer!);
 			await aendereAuftrag(betriebKontext(locals), params.id, { ...werte, ...zustaendigeAus(formData) }, sicht);

@@ -29,7 +29,7 @@ test('Nachfassen: Vorlage mit Vorschau und Rechnungs-Stufe anlegen und löschen'
 		const v = page.getByRole('list', { name: 'Mail-Vorlagen', exact: true }).locator('li', { hasText: name });
 		await expect(v).toBeVisible();
 
-		// Rechnungs-Stufe: Tag 10, To-do
+		// Rechnungs-Stufe: Tag 10, Aufgabe
 		const rechnungen = page.locator('.karte', { hasText: 'Rechnungen gibt es im CRM noch nicht' });
 		await rechnungen.getByRole('button', { name: 'Stufe hinzufügen' }).click();
 		const s = rechnungen.locator('form[action="?/stufe"]').last();

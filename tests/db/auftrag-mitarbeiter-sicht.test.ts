@@ -16,10 +16,10 @@ import { baueUmgebung, nutzerVon, type Umgebung } from './hilfe-1c';
 
 /**
  * Wünsche Jamil (msgs 2483–2500): Mitarbeiter je Auftrag direkt im Auftrag zuweisen, Felder ohne „Bearbeiten“ ändern,
- * „Meine Aufträge“ / „Meine To-dos“ (auch über die Zuständigkeit am Auftrag), Recht „Alle To-dos ansehen“, Filter,
+ * „Meine Aufträge“ / „Meine Aufgaben“ (auch über die Zuständigkeit am Auftrag), Recht „Alle Aufgaben ansehen“, Filter,
  * Stufen (gering/mittel/hoch) auch in Auftrags-Vorlagen.
  */
-describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
+describe('Mitarbeiter am Auftrag, Meine Aufträge/Aufgaben, Sicht', () => {
 	let u: Umgebung;
 	let root: postgres.Sql;
 	const kA = () => ({ betriebId: u.betriebA, benutzerId: u.ids.chefA });
@@ -93,9 +93,9 @@ describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
 		expect(verboten.status).toBe(403);
 	});
 
-	it('„Meine Aufträge“: zuständig, eigenes To-do oder eigener Termin – mit Grund; Chef kann umschalten', async () => {
+	it('„Meine Aufträge“: zuständig, eigene Aufgabe oder eigener Termin – mit Grund; Chef kann umschalten', async () => {
 		const zustaendig = await legeAuftragAn(kA(), { titel: 'Zuständig', kundeId: u.kundeA, zustaendige: [u.ids.monteurA] });
-		const mitTodo = await legeAuftragAn(kA(), { titel: 'Mit To-do', kundeId: u.kundeA });
+		const mitTodo = await legeAuftragAn(kA(), { titel: 'Mit Aufgabe', kundeId: u.kundeA });
 		await legeTodoAn(kA(), { titel: 'Silikon', auftragId: mitTodo.id, zustaendigId: u.ids.monteurA });
 		const fremd = await legeAuftragAn(kA(), { titel: 'Fremd', kundeId: u.kundeA });
 		const monteur = await listeAuftraege(kA(), sichtVon(u.monteurA), {});
@@ -113,7 +113,7 @@ describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
 		expect(meine.map((a) => a.titel)).toEqual(['Chef zuständig']);
 	});
 
-	it('„Meine To-dos“: direkt zugewiesene + alle To-dos aus Aufträgen, für die man zuständig ist (Quelle markiert)', async () => {
+	it('„Meine Aufgaben“: direkt zugewiesene + alle Aufgaben aus Aufträgen, für die man zuständig ist (Quelle markiert)', async () => {
 		const a = await legeAuftragAn(kA(), { titel: 'Wartung', kundeId: u.kundeA, zustaendige: [u.ids.monteurA] });
 		await legeTodoAn(kA(), { titel: 'Filter', auftragId: a.id });
 		await legeTodoAn(kA(), { titel: 'Direkt', zustaendigId: u.ids.monteurA });
@@ -128,7 +128,7 @@ describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
 		expect(d.todos.map((t: any) => t.titel).sort()).toEqual(['Direkt', 'Filter']);
 	});
 
-	it('Recht „Alle To-dos ansehen“: Chef/Büro alle (auch über Reiter), Monteur nur eigene – auch über die API-Sicht', async () => {
+	it('Recht „Alle Aufgaben ansehen“: Chef/Büro alle (auch über Reiter), Monteur nur eigene – auch über die API-Sicht', async () => {
 		await legeTodoAn(kA(), { titel: 'Büro-Aufgabe', zustaendigId: u.ids.bueroA });
 		await legeTodoAn(kA(), { titel: 'Monteur-Aufgabe', zustaendigId: u.ids.monteurA });
 		expect(VORLAGEN.chef).toContain('todos.alle_lesen');
@@ -139,10 +139,10 @@ describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
 			'Monteur-Aufgabe'
 		]);
 		expect((await listeTodos(kA(), todoSichtVon(u.monteurA), { nur: 'alle' })).map((t) => t.titel)).toEqual(['Monteur-Aufgabe']);
-		// Monteur mit dem zusätzlichen Recht sieht alle To-dos
+		// Monteur mit dem zusätzlichen Recht sieht alle Aufgaben
 		const monteurPlus = nutzerVon(u.ids.monteurA, u.betriebA, [...VORLAGEN.monteur, 'todos.alle_lesen']);
 		expect((await listeTodos(kA(), todoSichtVon(monteurPlus), { nur: 'alle' })).length).toBe(2);
-		// Auftrags-Recht allein reicht nicht mehr für alle To-dos
+		// Auftrags-Recht allein reicht nicht mehr für alle Aufgaben
 		const nurAuftraege = nutzerVon(u.ids.monteurA, u.betriebA, ['auftraege.alle_lesen']);
 		expect((await listeTodos(kA(), todoSichtVon(nurAuftraege), { nur: 'alle' })).map((t) => t.titel)).toEqual(['Monteur-Aufgabe']);
 		// Bestehende Rollen mit „Alle Aufträge“ bekamen das neue Recht per Migration 030
@@ -188,7 +188,7 @@ describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
 			['Bauschutt entsorgen', null, null, 2]
 		]);
 		const quelleA = (await listeQuellen(kA()))[0].id;
-		// Neuer Auftrag mit den To-dos der Vorlage (das Formular schickt die Stufen mit)
+		// Neuer Auftrag mit den Aufgaben der Vorlage (das Formular schickt die Stufen mit)
 		const n = await umleitung(() =>
 			neuAktionen.anlegen({
 				locals: { nutzer: u.chefA },

@@ -8,8 +8,8 @@ describe('Sprache: Erinnerungen und eigene Termine', () => {
 	const ki = new FakeKi();
 	const deute = (t: string) => ki.aktionAusText(t, kontext);
 
-	it('To-do mit Uhrzeit und zwei Erinnerungen', async () => {
-		expect(await deute('Erstelle To-do Material bestellen für Freitag 10 Uhr, erinnere mich einen Tag vorher und eine Stunde vorher')).toEqual({
+	it('Aufgabe mit Uhrzeit und zwei Erinnerungen', async () => {
+		expect(await deute('Erstelle Aufgabe Material bestellen für Freitag 10 Uhr, erinnere mich einen Tag vorher und eine Stunde vorher')).toEqual({
 			aktion: 'todo_anlegen',
 			daten: {
 				titel: 'Material bestellen',
@@ -30,7 +30,7 @@ describe('Sprache: Erinnerungen und eigene Termine', () => {
 		});
 	});
 
-	it('Kalendereintrag ohne Auftrag; „Erinnere mich an …“ bleibt ein To-do für mich', async () => {
+	it('Kalendereintrag ohne Auftrag; „Erinnere mich an …“ bleibt eine Aufgabe für mich', async () => {
 		expect(await deute('Kalendereintrag Zahnarzt Freitag 9 Uhr')).toEqual({
 			aktion: 'einsatz_anlegen',
 			daten: { eigener_titel: 'Zahnarzt', start: { tag: 'wochentag', wochentag: 'freitag', uhrzeit: '09:00' } }

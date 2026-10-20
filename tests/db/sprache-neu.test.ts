@@ -60,11 +60,11 @@ describe('Sprache – neue Aktionen', () => {
 		expect(m.koerper.karte.fehler).toMatch(/Berechtigung/);
 	});
 
-	it('Wiederkehrendes To-do anlegen und per Sprache abhaken (nächste Instanz entsteht)', async () => {
-		const r = await sagUndBestaetige(u.chefA, 'Neues To-do: Filter wechseln jede Woche');
-		expect(r.meldung).toMatch(/Wiederkehrendes To-do „Filter wechseln“ angelegt \(wöchentlich\)/);
-		const h = await sagUndBestaetige(u.chefA, 'Hake das To-do Filter wechseln ab');
-		expect(h.meldung).toBe('To-do „Filter wechseln“ erledigt');
+	it('Wiederkehrende Aufgabe anlegen und per Sprache abhaken (nächste Instanz entsteht)', async () => {
+		const r = await sagUndBestaetige(u.chefA, 'Neue Aufgabe: Filter wechseln jede Woche');
+		expect(r.meldung).toMatch(/Wiederkehrende Aufgabe „Filter wechseln“ angelegt \(wöchentlich\)/);
+		const h = await sagUndBestaetige(u.chefA, 'Hake die Aufgabe Filter wechseln ab');
+		expect(h.meldung).toBe('Aufgabe „Filter wechseln“ erledigt');
 		const t = await root`select erledigt_am is not null as erledigt from app.todos where titel = 'Filter wechseln' order by faellig`;
 		expect(t.map((x) => x.erledigt)).toEqual([true, false]);
 	});
@@ -99,7 +99,7 @@ describe('Sprache – neue Aktionen', () => {
 		const plan = await text(u.monteurA, 'Was hat Kolonne A diese Woche?');
 		expect(plan.koerper.karte.fehler).toBeNull();
 		expect(plan.koerper.karte.titel).toBe('Tagesplan diese Woche – Kolonne A');
-		const fremd = await text(u.nurAngeboteA, 'Was hat Kolonne A diese Woche?'); // kein Mitglied, ohne „Alle To-dos ansehen“
+		const fremd = await text(u.nurAngeboteA, 'Was hat Kolonne A diese Woche?'); // kein Mitglied, ohne „Alle Aufgaben ansehen“
 		expect(fremd.koerper.karte.fehler ?? '').toMatch(/eigenen Tagesplan|Berechtigung/);
 	});
 
@@ -108,7 +108,7 @@ describe('Sprache – neue Aktionen', () => {
 		const r = await text(u.monteurA, 'Was steht heute für mich an?');
 		expect(r.koerper.vorschlag).toBeNull();
 		expect(r.koerper.karte).toMatchObject({ aktion: 'abfrage_tagesplan', fehler: null });
-		const todos = r.koerper.karte.antwort.abschnitte.find((a: any) => a.titel === 'To-dos');
+		const todos = r.koerper.karte.antwort.abschnitte.find((a: any) => a.titel === 'Aufgaben');
 		expect(todos.eintraege.map((e: any) => e.titel)).toContain('Material holen');
 		expect(r.koerper.karte.antwort.vorlesen).toMatch(/^Du hast heute/);
 		// Monteur fragt nach dem Chef → nicht erlaubt

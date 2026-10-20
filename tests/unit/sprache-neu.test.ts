@@ -21,17 +21,18 @@ describe('Sprache: neue Aktionen (Ersatz-KI)', () => {
 		expect(await deute('Auftrag Badsanierung weiter')).toEqual({ aktion: 'status_aendern', daten: { auftrag: 'Badsanierung', status: 'weiter' } });
 	});
 
-	it('To-do abhaken', async () => {
+	it('Aufgabe abhaken', async () => {
+		expect(await deute('Hake die Aufgabe Material holen ab')).toEqual({ aktion: 'todo_abhaken', daten: { titel: 'Material holen' } });
 		expect(await deute('Hake das To-do Material holen ab')).toEqual({ aktion: 'todo_abhaken', daten: { titel: 'Material holen' } });
 		expect(await deute('Silikon besorgen ist erledigt')).toEqual({ aktion: 'todo_abhaken', daten: { titel: 'Silikon besorgen' } });
 	});
 
-	it('Wiederkehrendes To-do', async () => {
-		expect(await deute('Neues To-do: Filter wechseln alle 2 Wochen')).toMatchObject({
+	it('Wiederkehrende Aufgabe', async () => {
+		expect(await deute('Neue Aufgabe: Filter wechseln alle 2 Wochen')).toMatchObject({
 			aktion: 'todo_anlegen',
 			daten: { titel: 'Filter wechseln', wiederholung: 'woechentlich', intervall: 2 }
 		});
-		expect(await deute('To-do jährlich Heizung warten bei Müller')).toMatchObject({ aktion: 'todo_anlegen', daten: { wiederholung: 'jaehrlich' } });
+		expect(await deute('Aufgabe jährlich Heizung warten bei Müller')).toMatchObject({ aktion: 'todo_anlegen', daten: { wiederholung: 'jaehrlich' } });
 	});
 
 	it('Anlage anlegen mit Typ, Hersteller und Wartung', async () => {
@@ -50,6 +51,8 @@ describe('Sprache: neue Aktionen (Ersatz-KI)', () => {
 		expect(await deute('Was steht heute für mich an?')).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'heute' } });
 		expect(await deute('Was hat Sabine morgen?')).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'morgen', wer: 'Sabine' } });
 		expect(await deute('Was habe ich diese Woche?')).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'woche' } });
+		expect(await deute('Welche Aufgaben sind überfällig?')).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'heute', nur_ueberfaellig: true } });
+		// „To-do“ bleibt als Synonym verständlich (msg 2817)
 		expect(await deute('Welche To-dos sind überfällig?')).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'heute', nur_ueberfaellig: true } });
 	});
 

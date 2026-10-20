@@ -9,13 +9,13 @@ import { istRegel, naechsterTermin, pruefeRegel, regelText, type Regel } from '.
 import { erinnerungenAusEingabe, setzeErinnerungen, todoFaelligUm } from './erinnerungen';
 
 /**
- * To-dos (Modul `auftraege`): zu einem Auftrag oder allgemein, mit Zuständigem und Fälligkeit.
+ * Aufgaben (Modul `auftraege`): zu einem Auftrag oder allgemein, mit Zuständigem und Fälligkeit.
  *
- * Sichtbar sind mit `auftraege.alle_lesen` alle To-dos des Betriebs, sonst die eigenen (zuständig) und die in
- * sichtbaren Aufträgen (siehe `sichtbar` in auftraege.ts). Unsichtbare, fremde und unbekannte To-dos sind ein 404.
+ * Sichtbar sind mit `auftraege.alle_lesen` alle Aufgaben des Betriebs, sonst die eigenen (zuständig) und die in
+ * sichtbaren Aufträgen (siehe `sichtbar` in auftraege.ts). Unsichtbare, fremde und unbekannte Aufgaben sind ein 404.
  * Anlegen, Ändern und Löschen: `auftraege.bearbeiten` (prüft der Aufrufer) – und nur, was der Nutzer sieht (`Sicht`).
- * Ein To-do an einem unsichtbaren Auftrag lässt sich weder ändern (404) noch neu anlegen (400). Zusätzlich darf der Zuständige sein
- * eigenes To-do mit `auftraege.lesen` abhaken und wieder öffnen (`setzeErledigt`) – sonst nichts.
+ * Eine Aufgabe an einem unsichtbaren Auftrag lässt sich weder ändern (404) noch neu anlegen (400). Zusätzlich darf der Zuständige sein
+ * eigene Aufgabe mit `auftraege.lesen` abhaken und wieder öffnen (`setzeErledigt`) – sonst nichts.
  */
 
 export type Todo = {
@@ -37,7 +37,7 @@ export type Todo = {
 	erledigtAm: string | null;
 	/** Nur in Listen: dem Nutzer direkt zugewiesen (sonst über einen Auftrag, für den er zuständig ist). */
 	mirDirekt?: boolean;
-	/** Wiederkehrendes To-do: Serie mit Regel als Text („alle 2 Wochen“), sonst null. */
+	/** Wiederkehrende Aufgabe: Serie mit Regel als Text („alle 2 Wochen“), sonst null. */
 	serie: { id: string; text: string; aktiv: boolean } | null;
 	/** Anlage (Wartung, Garantie-Erinnerung), sonst null. */
 	anlage: { id: string; bezeichnung: string } | null;
@@ -70,10 +70,10 @@ export const TODO_FELDER = [
 const AENDERBAR = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'faelligZeit', 'lautstaerke', 'schmutz'] as const;
 
 export const MAX_TODOS = 200;
-/** Höchstens so viele To-dos auf einmal (z. B. aus einer Auftrags-Vorlage). */
+/** Höchstens so viele Aufgaben auf einmal (z. B. aus einer Auftrags-Vorlage). */
 export const MAX_TODOS_AUF_EINMAL = 50;
 
-const nichtGefunden = () => new ApiFehler(404, 'To-do nicht gefunden.');
+const nichtGefunden = () => new ApiFehler(404, 'Aufgabe nicht gefunden.');
 
 export const istTodoAuswahl = (w: unknown): w is TodoAuswahl =>
 	typeof w === 'string' && (TODO_AUSWAHL as readonly string[]).includes(w);
@@ -175,11 +175,11 @@ function zuTodo(z: Record<string, any>): Todo {
 	};
 }
 
-/** SQL-Bedingung „To-do für diese Sicht sichtbar“ (Aliasse t, a wie in VON). */
+/** SQL-Bedingung „Aufgabe für diese Sicht sichtbar“ (Aliasse t, a wie in VON). */
 /**
- * Sicht auf To-dos (Wunsch Jamil, msg 2499): `alle` = Recht „Alle To-dos ansehen“ (`todos.alle_lesen`), sonst die
- * eigenen – direkt zugewiesen oder in Aufträgen mit eigenem Bezug (zuständig, eigenes To-do, eigener Termin).
- * `auftraegeAlle` (Recht „Alle Aufträge ansehen“) gilt nur dafür, an welche Aufträge man To-dos hängen darf.
+ * Sicht auf Aufgaben (Wunsch Jamil, msg 2499): `alle` = Recht „Alle Aufgaben ansehen“ (`todos.alle_lesen`), sonst die
+ * eigenen – direkt zugewiesen oder in Aufträgen mit eigenem Bezug (zuständig, eigene Aufgabe, eigener Termin).
+ * `auftraegeAlle` (Recht „Alle Aufträge ansehen“) gilt nur dafür, an welche Aufträge man Aufgaben hängen darf.
  */
 export type TodoSicht = Sicht & { auftraegeAlle?: boolean };
 
@@ -191,13 +191,13 @@ export function todoSichtVon(nutzer: Nutzer): TodoSicht {
 	};
 }
 
-/** Lesen (Modul `auftraege` + Aufträge lesen) prüfen und die To-do-Sicht liefern. */
+/** Lesen (Modul `auftraege` + Aufträge lesen) prüfen und die Aufgaben-Sicht liefern. */
 export async function todoSicht(locals: { nutzer: Nutzer | null }): Promise<TodoSicht> {
 	await darfEines(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
 	return todoSichtVon(locals.nutzer!);
 }
 
-/** Aufträge, an die man To-dos hängen darf: alle (mit „Alle Aufträge ansehen“) oder die eigenen. */
+/** Aufträge, an die man Aufgaben hängen darf: alle (mit „Alle Aufträge ansehen“) oder die eigenen. */
 const auftragsSichtAus = (sicht: TodoSicht): Sicht => ({ alle: sicht.auftraegeAlle ?? sicht.alle, benutzerId: sicht.benutzerId });
 
 function todoSichtbar(tx: TransactionSql, sicht: Sicht) {
@@ -219,7 +219,7 @@ const pruefeId = (id: string) => {
 };
 
 /**
- * To-dos, offen vor erledigt, dann nach Fälligkeit (ohne Datum zuletzt), dann nach Anlage. `nur`: `meine` (mir
+ * Aufgaben, offen vor erledigt, dann nach Fälligkeit (ohne Datum zuletzt), dann nach Anlage. `nur`: `meine` (mir
  * zugewiesen), `offen` (nicht erledigt), `alle` (Standard) – jeweils innerhalb der Sicht.
  */
 export async function listeTodos(k: Kontext, sicht: Sicht, filter: TodoFilter): Promise<Todo[]> {
@@ -303,7 +303,7 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${faellig}, ${w.faelligZeit},
 				${w.lautstaerke}, ${w.schmutz}, ${serieId}, ${anlageId})
 			returning id`;
-		// Erinnerungen (Wunsch Jamil msg 2679) für den, der das To-do anlegt
+		// Erinnerungen (Wunsch Jamil msg 2679) für den, der die Aufgabe anlegt
 		if (erinnerungen && erinnerungen.length > 0) {
 			await setzeErinnerungen(tx, k, { todoId: z.id }, erinnerungen, todoFaelligUm(faellig, w.faelligZeit));
 		}
@@ -314,7 +314,7 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 export type NeuesTodo = { titel: string; beschreibung?: string | null; lautstaerke?: unknown; schmutz?: unknown };
 
 /**
- * Neue To-dos aus dem Auftrag-Formular (Felder `todo_<n>` und `todo_beschreibung_<n>`, n = 0, 1, …) in der
+ * Neue Aufgaben aus dem Auftrag-Formular (Felder `todo_<n>` und `todo_beschreibung_<n>`, n = 0, 1, …) in der
  * Reihenfolge von n. Ganz leere Zeilen fallen weg; eine Beschreibung ohne Titel bleibt drin (→ 400 beim Prüfen).
  */
 export function todosAusFormular(form: FormData): NeuesTodo[] {
@@ -339,31 +339,31 @@ export function todosAusFormular(form: FormData): NeuesTodo[] {
 }
 
 /**
- * Prüft eine Liste neuer To-dos (Titel Pflicht, Beschreibung ≤ 500, höchstens MAX_TODOS_AUF_EINMAL) – ohne Datenbank,
+ * Prüft eine Liste neuer Aufgaben (Titel Pflicht, Beschreibung ≤ 500, höchstens MAX_TODOS_AUF_EINMAL) – ohne Datenbank,
  * damit Aufrufer vor dem Anlegen eines Auftrags prüfen können und kein halber Auftrag entsteht.
  */
 export function pruefeTodoListe(
 	liste: readonly NeuesTodo[]
 ): { titel: string; beschreibung: string | null; lautstaerke: number | null; schmutz: number | null }[] {
 	if (liste.length > MAX_TODOS_AUF_EINMAL) {
-		throw new ApiFehler(400, `Höchstens ${MAX_TODOS_AUF_EINMAL} To-dos auf einmal.`);
+		throw new ApiFehler(400, `Höchstens ${MAX_TODOS_AUF_EINMAL} Aufgaben auf einmal.`);
 	}
 	return liste.map((t, i) => {
-		const titel = textFeld(t.titel, `To-do ${i + 1}: Titel`, 200);
-		if (titel === null) throw new ApiFehler(400, `To-do ${i + 1}: Bitte einen Titel eingeben.`);
+		const titel = textFeld(t.titel, `Aufgabe ${i + 1}: Titel`, 200);
+		if (titel === null) throw new ApiFehler(400, `Aufgabe ${i + 1}: Bitte einen Titel eingeben.`);
 		return {
 			titel,
-			beschreibung: textFeld(t.beschreibung, `To-do ${i + 1}: Beschreibung`, 500),
-			lautstaerke: stufeFeld(t.lautstaerke, `To-do ${i + 1}: Lautstärke`),
-			schmutz: stufeFeld(t.schmutz, `To-do ${i + 1}: Schmutz`)
+			beschreibung: textFeld(t.beschreibung, `Aufgabe ${i + 1}: Beschreibung`, 500),
+			lautstaerke: stufeFeld(t.lautstaerke, `Aufgabe ${i + 1}: Lautstärke`),
+			schmutz: stufeFeld(t.schmutz, `Aufgabe ${i + 1}: Schmutz`)
 		};
 	});
 }
 
 /**
- * Legt mehrere To-dos an einem Auftrag an (z. B. aus einer Auftrags-Vorlage) – alle oder keins, in der gegebenen
+ * Legt mehrere Aufgaben an einem Auftrag an (z. B. aus einer Auftrags-Vorlage) – alle oder keins, in der gegebenen
  * Reihenfolge (angelegt = clock_timestamp(), Migration 021). Ohne Zuständigen und Fälligkeit. Der Auftrag muss für
- * die Sicht sichtbar sein, sonst 400 (wie beim einzelnen To-do).
+ * die Sicht sichtbar sein, sonst 400 (wie beim einzelnen Aufgabe).
  */
 export async function legeTodosAn(
 	k: Kontext,
@@ -449,7 +449,7 @@ export async function setzeErledigt(k: Kontext, sicht: Sicht, id: string, erledi
 	pruefeId(id);
 	return mitBetrieb(k, async (tx) => {
 		const t = await ladeEines(tx, k, sicht, id);
-		if (t.zustaendigId !== k.benutzerId) throw new ApiFehler(403, 'Nur der Zuständige kann dieses To-do abhaken.');
+		if (t.zustaendigId !== k.benutzerId) throw new ApiFehler(403, 'Nur der Zuständige kann diese Aufgabe abhaken.');
 		await tx`
 			update app.todos set erledigt_am = ${erledigt ? tx`coalesce(erledigt_am, now())` : null}
 			where id = ${id} and betrieb_id = ${k.betriebId} and zustaendig_id = ${k.benutzerId}`;
@@ -467,10 +467,10 @@ function regelOder400(e: { regel: unknown; intervall: unknown; ende: unknown }, 
 }
 
 /**
- * Nach dem Abhaken eines Serien-To-dos (in derselben Transaktion): nächste Instanz anlegen – gleicher Auftrag,
+ * Nach dem Abhaken eines Serien-Aufgaben (in derselben Transaktion): nächste Instanz anlegen – gleicher Auftrag,
  * Zuständiger, Titel, Beschreibung, Stufen; Fälligkeit nach der Regel (nach heute). Nicht, wenn die Serie beendet ist,
  * das Ende überschritten wäre oder schon eine offene Instanz existiert (z. B. erneut geöffnet und wieder abgehakt).
- * Hinweis: Rechte für das neue To-do sind die des abgehakten (das Anlegen erfolgt im Namen des Betriebs).
+ * Hinweis: Rechte für das neue Aufgabe sind die des abgehakten (das Anlegen erfolgt im Namen des Betriebs).
  */
 async function naechsteInstanz(tx: TransactionSql, k: Kontext, todoId: string): Promise<void> {
 	const [t] = await tx`
@@ -497,12 +497,12 @@ async function naechsteInstanz(tx: TransactionSql, k: Kontext, todoId: string): 
 			${t.lautstaerke}, ${t.schmutz}, ${t.serie_id}, ${t.anlage_id})`;
 }
 
-/** Serie eines To-dos beenden (keine neuen Instanzen mehr; bestehende bleiben). Nicht sichtbar → 404. */
+/** Serie einer Aufgabe beenden (keine neuen Instanzen mehr; bestehende bleiben). Nicht sichtbar → 404. */
 export async function beendeSerie(k: Kontext, todoId: string, sicht: Sicht = ALLE(k)): Promise<Todo> {
 	pruefeId(todoId);
 	return mitBetrieb(k, async (tx) => {
 		const t = await ladeEines(tx, k, sicht, todoId);
-		if (!t.serie) throw new ApiFehler(400, 'Dieses To-do wiederholt sich nicht.');
+		if (!t.serie) throw new ApiFehler(400, 'Diese Aufgabe wiederholt sich nicht.');
 		await tx`update app.todo_serien set aktiv = false where id = ${t.serie.id} and betrieb_id = ${k.betriebId}`;
 		return ladeEines(tx, k, sicht, todoId);
 	});
@@ -521,8 +521,8 @@ export async function loescheTodo(k: Kontext, id: string, sicht: Sicht = ALLE(k)
 }
 
 /**
- * Ein To-do ändern mit den Rechten des Nutzers: Mit `auftraege.bearbeiten` alles (`aendereTodo`), sonst nur
- * `{ erledigt }` am eigenen To-do (`setzeErledigt`); jedes andere Feld → 403.
+ * Eine Aufgabe ändern mit den Rechten des Nutzers: Mit `auftraege.bearbeiten` alles (`aendereTodo`), sonst nur
+ * `{ erledigt }` am eigenen Aufgabe (`setzeErledigt`); jedes andere Feld → 403.
  */
 export async function aendereTodoAls(
 	k: Kontext,

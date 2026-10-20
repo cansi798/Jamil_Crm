@@ -112,7 +112,7 @@ export function faelligeStufe<T extends { id: string; tage: number }>(startTag: 
 	return faellig.at(-1) ?? null;
 }
 
-/** Vorschlag „Standard übernehmen“ (Jamils Beispiel msg 2636): Tag 3 Mail, Tag 7 Anruf, Tag 14 Mail + To-do für den Chef. */
+/** Vorschlag „Standard übernehmen“ (Jamils Beispiel msg 2636): Tag 3 Mail, Tag 7 Anruf, Tag 14 Mail + Aufgabe für den Chef. */
 export const STANDARD_VORLAGEN = [
 	{
 		schluessel: 'freundlich',

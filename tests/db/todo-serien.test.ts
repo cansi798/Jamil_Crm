@@ -6,8 +6,8 @@ import { actions as auftragAktionen } from '../../src/routes/(app)/auftraege/[id
 import { berlinTag, tagPlus } from '../../src/lib/zeit';
 import { baueUmgebung, type Umgebung } from './hilfe-1c';
 
-/** Wiederkehrende To-dos (Wunsch Jamil, msg 2501): Serie + Instanzen, nächste beim Abhaken. */
-describe('Wiederkehrende To-dos', () => {
+/** Wiederkehrende Aufgaben (Wunsch Jamil, msg 2501): Serie + Instanzen, nächste beim Abhaken. */
+describe('Wiederkehrende Aufgaben', () => {
 	let u: Umgebung;
 	let root: postgres.Sql;
 	const kA = () => ({ betriebId: u.betriebA, benutzerId: u.ids.chefA });
@@ -76,7 +76,7 @@ describe('Wiederkehrende To-dos', () => {
 		expect(await instanzen(t.serie!.id)).toHaveLength(1);
 	});
 
-	it('Serie beenden: bestehende To-dos bleiben, beim Abhaken entsteht keine neue', async () => {
+	it('Serie beenden: bestehende Aufgaben bleiben, beim Abhaken entsteht keine neue', async () => {
 		const t = await legeTodoAn(kA(), { titel: 'Jährlich', faellig: tagPlus(heute(), 3), wiederholung: 'jaehrlich' });
 		await beendeSerie(kA(), t.id);
 		const neu = (await listeTodos(kA(), todoSichtVon(u.chefA), { nur: 'alle' })).find((x) => x.id === t.id)!;
@@ -97,7 +97,7 @@ describe('Wiederkehrende To-dos', () => {
 		expect((await legeTodoAn(kA(), { titel: 'Einmalig', wiederholung: '' })).serie).toBeNull();
 	});
 
-	it('Auftragsseite: „+ To-do“ mit Wiederholung (z. B. Wartung) und Aktion „todoSerieBeenden“', async () => {
+	it('Auftragsseite: „+ Aufgabe“ mit Wiederholung (z. B. Wartung) und Aktion „todoSerieBeenden“', async () => {
 		const body = new URLSearchParams({ titel: 'Wartung Heizung', wiederholung: 'jaehrlich', intervall: '1', faellig: tagPlus(heute(), 30) });
 		expect(
 			await auftragAktionen.todoAnlegen({ locals: { nutzer: u.chefA }, params: { id: u.auftragA }, request: new Request('http://localhost/x', { method: 'POST', body }) } as never)

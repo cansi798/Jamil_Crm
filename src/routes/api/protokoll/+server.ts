@@ -13,7 +13,7 @@ import { holeTodo } from '$lib/server/todos';
  * Antwort `{ eintraege, naechsteVor }` – 50 Einträge, neueste zuerst; `naechsteVor` für die nächste Seite (sonst null).
  * Lesen darf, wer das Leserecht der Tabelle hat (siehe `PROTOKOLL_TABELLEN`) – bei Verwaltungstabellen auch mit
  * `einstellungen`. Tabellen eines Tarif-Moduls (kunden, objekte) verlangen immer ihr eigenes Recht (R19), und der
- * Betrieb muss das Modul haben (402, siehe `PROTOKOLL_MODULE`). Aufträge und To-dos: Wer nur seine eigenen Aufträge
+ * Betrieb muss das Modul haben (402, siehe `PROTOKOLL_MODULE`). Aufträge und Aufgaben: Wer nur seine eigenen Aufträge
  * sehen darf (`auftraege.lesen` ohne `auftraege.alle_lesen`), bekommt den Verlauf eines fremden nicht (404).
  * Ohne `preise.sehen` fehlen die Preisspalten (lohn_cent, material_cent, einzelpreis_cent) in vorher/nachher.
  */

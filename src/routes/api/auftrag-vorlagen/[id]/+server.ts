@@ -5,7 +5,7 @@ import { betriebKontext } from '$lib/server/rechte';
 import { darf, darfEines } from '$lib/server/tarif';
 import { holeVorlage, aendereVorlage, loescheVorlage } from '$lib/server/auftrag-vorlagen';
 
-/** Vorlage mit To-dos lesen: `GET /api/auftrag-vorlagen/[id]`. */
+/** Vorlage mit Aufgaben lesen: `GET /api/auftrag-vorlagen/[id]`. */
 export const GET: RequestHandler = async ({ locals, params }) => {
 	try {
 		await darfEines(locals, 'auftraege', ['auftraege.lesen', 'auftraege.alle_lesen']);

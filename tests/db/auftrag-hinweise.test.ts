@@ -48,7 +48,7 @@ describe('Auftrag: Angebot, Nachfassen, Auftragsquelle', () => {
 	});
 
 	it('ohne Angebot: keine Abzeichen; versendet → „verschickt“ + nächste Stufe; überfällig im Filter; nach Lauf nächste Stufe', async () => {
-		await uebernimmStandard(kA()); // Tag 3 Mail, Tag 7 To-do, Tag 14 Mail + To-do
+		await uebernimmStandard(kA()); // Tag 3 Mail, Tag 7 Aufgabe, Tag 14 Mail + Aufgabe
 		expect(await auftrag()).toMatchObject({ angebotInfo: null, nachfassenInfo: null });
 		const id = await versendet(5);
 		const a = await auftrag();
@@ -56,13 +56,13 @@ describe('Auftrag: Angebot, Nachfassen, Auftragsquelle', () => {
 		expect(a.nachfassenInfo).toEqual({ tag: tagPlus(heute, -2), pausiert: false }); // Tag 3 noch nicht gelaufen → überfällig
 		expect(await faellige()).toEqual([u.auftragA]);
 
-		await pruefeNachfassen(kA()); // Tag 3 läuft: To-do „Nachfass-Mail senden“ (heute) ist offen → heute fällig
+		await pruefeNachfassen(kA()); // Tag 3 läuft: Aufgabe „Nachfass-Mail senden“ (heute) ist offen → heute fällig
 		expect((await auftrag()).nachfassenInfo).toEqual({ tag: heute, pausiert: false });
 		await root`update app.todos set erledigt_am = now() where nachfass_id is not null`; // Mail gesendet
 		expect((await auftrag()).nachfassenInfo).toEqual({ tag: tagPlus(heute, 2), pausiert: false }); // nächste Stufe Tag 7
 		expect(await faellige()).toEqual([]);
 
-		// offenes Nachfass-To-do zählt: Tag 7 läuft mit To-do (fällig heute) → heute
+		// offenes Nachfass-Aufgabe zählt: Tag 7 läuft mit Aufgabe (fällig heute) → heute
 		await root`update app.angebote set versendet_am = now() - interval '7 days' where id = ${id}`;
 		await pruefeNachfassen(kA());
 		expect((await auftrag()).nachfassenInfo?.tag).toBe(heute);

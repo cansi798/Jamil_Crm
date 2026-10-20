@@ -22,7 +22,7 @@ import { berlinTag, tagPlus } from '../../src/lib/zeit';
 import { baueUmgebung, leereAngebote, type Umgebung } from './hilfe-1c';
 import { actions as seite, load as seitenLoad } from '../../src/routes/(app)/einstellungen/nachfassen/+page.server';
 
-/** Automatisches Nachfassen (Jamil msgs 2585, 2633, 2636): Stufen, Läufe mit To-do und fertigem Mailtext, Stopp. */
+/** Automatisches Nachfassen (Jamil msgs 2585, 2633, 2636): Stufen, Läufe mit Aufgabe und fertigem Mailtext, Stopp. */
 describe('Nachfassen', () => {
 	let u: Umgebung;
 	let root: postgres.Sql;
@@ -59,7 +59,7 @@ describe('Nachfassen', () => {
 		await leereAngebote(root);
 	});
 
-	it('Standard: Tag 3 Mail, Tag 7 Anruf, Tag 14 Mail + To-do; Rechnung/Angebot getrennt; doppelt → 409', async () => {
+	it('Standard: Tag 3 Mail, Tag 7 Anruf, Tag 14 Mail + Aufgabe; Rechnung/Angebot getrennt; doppelt → 409', async () => {
 		await uebernimmStandard(kA());
 		const s = await listeStufen(kA(), 'angebot');
 		expect(s.map((x) => [x.tage, x.todo, x.mail, x.zuweisung])).toEqual([
@@ -72,7 +72,7 @@ describe('Nachfassen', () => {
 		expect(await listeStufen(kB())).toEqual([]);
 	});
 
-	it('fällige Stufe → Lauf mit Mailtext (Platzhalter, Signatur) + To-do für den Zuständigen; nur einmal', async () => {
+	it('fällige Stufe → Lauf mit Mailtext (Platzhalter, Signatur) + Aufgabe für den Zuständigen; nur einmal', async () => {
 		await uebernimmStandard(kA());
 		await speichereSignatur(kA(), '<p>Viele Grüße<br>Bauwelt</p>');
 		await aendereAuftrag(kA(), u.auftragA, { zustaendige: [u.ids.monteurA] });
@@ -91,11 +91,11 @@ describe('Nachfassen', () => {
 		expect(await todos()).toEqual([
 			expect.objectContaining({ titel: expect.stringMatching(/^Nachfass-Mail senden: Angebot AN-.* \(.*\)$/), zustaendig_id: u.ids.monteurA, faellig: heute, erledigt: false })
 		]);
-		// Tag 7: Anruf-To-do mit Titelvorlage
+		// Tag 7: Anruf-Aufgabe mit Titelvorlage
 		await root`update app.angebote set versendet_am = now() - interval '8 days' where id = ${id}`;
 		expect(await pruefeNachfassen(kA())).toBe(1);
 		expect((await todos()).map((t) => t.titel)[1]).toMatch(/^Kunde anrufen: .* – Angebot AN-/);
-		// Als gesendet markieren erledigt das Mail-To-do
+		// Als gesendet markieren erledigt das Mail-Aufgabe
 		await expect(markiereGesendet(kA(), u.auftragA, l.id)).rejects.toMatchObject({ status: 404 }); // falsches Angebot
 		await markiereGesendet(kA(), id, l.id);
 		expect((await todos())[0].erledigt).toBe(true);
@@ -113,7 +113,7 @@ describe('Nachfassen', () => {
 		expect(await pruefeNachfassen(kA())).toBe(0);
 	});
 
-	it('Stopp: angenommen → keine neuen Stufen, offene Nachfass-To-dos erledigt; Pause; Kunde „kein Nachfassen“', async () => {
+	it('Stopp: angenommen → keine neuen Stufen, offene Nachfass-Aufgaben erledigt; Pause; Kunde „kein Nachfassen“', async () => {
 		await uebernimmStandard(kA());
 		const id = await versendet(4);
 		await pruefeNachfassen(kA());
@@ -137,7 +137,7 @@ describe('Nachfassen', () => {
 	it('Stufen prüfen: Aktion nötig, Mail braucht Vorlage, fest braucht Mitarbeiter; Vorlage in Gebrauch nicht löschbar; RLS', async () => {
 		const v = await speichereMailVorlage(kA(), null, { name: 'Test', betreff: 'Hallo {{kunde.name}}', html: '<p>Hi</p>' });
 		const basis = { art: 'angebot', tage: '5', todo: '', mail: '', zuweisung: 'zustaendig' };
-		await expect(speichereStufe(kA(), null, basis)).rejects.toThrow(/To-do anlegen/);
+		await expect(speichereStufe(kA(), null, basis)).rejects.toThrow(/Aufgabe anlegen/);
 		await expect(speichereStufe(kA(), null, { ...basis, mail: 'on' })).rejects.toThrow(/Mail-Vorlage/);
 		await expect(speichereStufe(kA(), null, { ...basis, todo: 'on', zuweisung: 'fest' })).rejects.toThrow(/Mitarbeiter/);
 		await expect(speichereStufe(kA(), null, { ...basis, todo: 'on', tage: '400' })).rejects.toThrow(/Nach Tagen/);

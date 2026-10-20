@@ -3,7 +3,7 @@ import { anmelden, erwarteKeinQuerScrollen } from './hilfe';
 
 /**
  * Sprachsteuerung im Browser (Stufe 1d) mit FakeKi (CRM_KI_ANBIETER=fake): Befehl tippen → Bestätigungskarte →
- * „Ja, speichern“. Als Büro (Rechte für Kunden, Aufträge, To-dos, Plantafel; ohne Pflicht-2FA – wie 1b/1c).
+ * „Ja, speichern“. Als Büro (Rechte für Kunden, Aufträge, Aufgaben, Plantafel; ohne Pflicht-2FA – wie 1b/1c).
  * Ohne Mikrofon-Freigabe (Chromium ohne Fake-Gerät) zeigt der Knopf die Karte „Kein Zugriff aufs Mikrofon“ mit
  * Texteingabe. Die Aufnahme mit Fake-Audiodatei steht in sprache-mikrofon.spec.ts.
  */
@@ -95,19 +95,19 @@ test.describe('Sprachsteuerung', () => {
 		await expect(dialog).toBeHidden();
 	});
 
-	test('„Neues To-do für Murat: Silikonfuge erneuern, bis Freitag“ → Karte → Ja → To-do erscheint', async ({ page }, info) => {
+	test('„Neue Aufgabe für Murat: Silikonfuge erneuern, bis Freitag“ → Karte → Ja → Aufgabe erscheint', async ({ page }, info) => {
 		await anmelden(page, BUERO);
 		const titel = `Silikonfuge erneuern ${info.project.name === 'mobil' ? 'Bad' : 'Küche'}`;
-		const dialog = await befehlTippen(page, `Neues To-do für Murat: ${titel}, bis Freitag`);
+		const dialog = await befehlTippen(page, `Neue Aufgabe für Murat: ${titel}, bis Freitag`);
 		const karte = dialog.getByRole('region', { name: 'Bestätigung' });
-		await expect(karte.getByRole('heading', { name: 'To-do anlegen' })).toBeVisible();
+		await expect(karte.getByRole('heading', { name: 'Aufgabe anlegen' })).toBeVisible();
 		await expect(karte).toContainText(titel);
 		await expect(karte).toContainText('Murat Öztürk');
 		await expect(karte).toContainText(/Freitag, \d{2}\.\d{2}\.\d{4}/);
 		await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 		await foto(page, 'bestaetigungskarte', info.project.name);
 		await karte.getByRole('button', { name: 'Ja, speichern' }).click();
-		await expect(dialog.getByRole('status')).toContainText(`To-do „${titel}“ angelegt`);
+		await expect(dialog.getByRole('status')).toContainText(`Aufgabe „${titel}“ angelegt`);
 		let id: string | null = null;
 		try {
 			await page.goto('/todos?nur=alle');

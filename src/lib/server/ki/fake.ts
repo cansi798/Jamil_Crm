@@ -276,8 +276,8 @@ function bereinige(text: string): string {
 }
 
 /**
- * „…, erinnere mich einen Tag und eine Stunde vorher“ / „…, erinnere mich morgen um 8“ am Ende eines To-dos oder
- * Termins (msgs 2679/2682) → Erinnerungen + Rest. „Erinnere mich an …“ (To-do für mich) bleibt unberührt.
+ * „…, erinnere mich einen Tag und eine Stunde vorher“ / „…, erinnere mich morgen um 8“ am Ende einer Aufgabe oder
+ * Termins (msgs 2679/2682) → Erinnerungen + Rest. „Erinnere mich an …“ (Aufgabe für mich) bleibt unberührt.
  */
 function erinnerungsKlausel(t: string, kontext: KiKontext): { rest: string; liste: Record<string, unknown>[] } | null {
 	const m = /[,;]?\s*\b(?:und\s+)?erinner\w*\s+mich\s+(.+)$/i.exec(t);
@@ -421,7 +421,7 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 	if (/\bauftrag/.test(l) && !/\b(?:neue[nrs]?|anlegen|lege|leg)\b/.test(l) && (/\bstatus\b|\bweiter\b/.test(l) || STATUS_WOERTER.some(([re]) => re.test(l)))) {
 		return status(t);
 	}
-	if (ANLAGE_WORT.test(l) && /\b(?:neue[nrs]?|anlegen|lege|leg|erfasse|aufnehmen|eintragen)\b/.test(l) && !/\btodo\b/.test(l)) return anlage(t);
+	if (ANLAGE_WORT.test(l) && /\b(?:neue[nrs]?|anlegen|lege|leg|erfasse|aufnehmen|eintragen)\b/.test(l) && !/\b(?:todo|aufgabe)\b/.test(l)) return anlage(t);
 	if (/\b(verschieb|verleg|umleg|schieb)/.test(l)) return verschieben(t, kontext);
 	if (/\btodo\b|\baufgabe\b|\berinner|\bsoll\b|\bmuss\b/.test(l)) return todo(t, kontext);
 	if (/\bangebot/.test(l)) return angebot(t);
@@ -483,7 +483,7 @@ function wiederholungAus(s: string): { regel: string; intervall: number; rest: s
 function istFrage(original: string, l: string): boolean {
 	return (
 		(/\?\s*$/.test(original) || /^(?:was|welche[rs]?|wie\s?viele|habe\s+ich|hab\s+ich|hat\s+\w+)\b/.test(l)) &&
-		/\b(an|steht|stehen|hat|habe|hab|termine?|todos?|überfällig|plan|vor|los)\b/.test(l)
+		/\b(an|steht|stehen|hat|habe|hab|termine?|todos?|aufgaben?|überfällig|plan|vor|los)\b/.test(l)
 	);
 }
 
@@ -735,7 +735,7 @@ function todo(t: string, kontext: KiKontext): { aktion: string; daten: Record<st
 		daten.auftrag = sauber(auftragsBezug[1]);
 		rest = rest.replace(auftragsBezug[0], ' ');
 	}
-	daten.titel = grossAnfang(sauber(rest.replace(/^\s*(?:neues|neue|ein|eine)\s+/i, ''))) || 'To-do';
+	daten.titel = grossAnfang(sauber(rest.replace(/^\s*(?:neues|neue|ein|eine)\s+/i, ''))) || 'Aufgabe';
 	return { aktion: 'todo_anlegen', daten };
 }
 

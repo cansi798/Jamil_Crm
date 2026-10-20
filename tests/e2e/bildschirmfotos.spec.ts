@@ -42,7 +42,7 @@ test.describe('Bildschirmfotos', () => {
 		await page.screenshot({ path: `${ORDNER}/admin-uebersicht-desktop.png`, fullPage: true });
 	});
 
-	test('Stufe 1b mobil: Start „heute“ (Monteur), Auftrag, To-dos, Plantafel (Büro)', async ({ page }, info) => {
+	test('Stufe 1b mobil: Start „heute“ (Monteur), Auftrag, Aufgaben, Plantafel (Büro)', async ({ page }, info) => {
 		test.skip(info.project.name !== 'mobil', 'mobil');
 		await anmelden(page, 'monteur@bauwelt.test');
 		await page.goto('/');
@@ -61,7 +61,7 @@ test.describe('Bildschirmfotos', () => {
 		await page.screenshot({ path: `${ORDNER}/1b-plantafel-mobil.png` });
 	});
 
-	test('Stufe 1b Desktop: Plantafel, Aufträge, Auftrag, To-dos, Abwesenheiten, Start „heute“', async ({ page }, info) => {
+	test('Stufe 1b Desktop: Plantafel, Aufträge, Auftrag, Aufgaben, Abwesenheiten, Start „heute“', async ({ page }, info) => {
 		test.skip(info.project.name !== 'desktop', 'desktop');
 		await anmelden(page, 'buero@bauwelt.test');
 		await page.goto('/plantafel');

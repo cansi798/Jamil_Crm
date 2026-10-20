@@ -50,7 +50,7 @@ const ki = (o: Partial<ConstructorParameters<typeof OpenAiKompatibelKi>[0]> = {}
 describe('OpenAiKompatibelKi – Aktion aus Text', () => {
 	it('tool_calls: richtige Adresse, Kopfzeilen, tool_choice auto, max_tokens, nur Text + Datum', async () => {
 		antworten.push({ koerper: toolAntwort('todo_anlegen', { titel: 'Silikonfuge erneuern', zustaendig: 'Murat' }) });
-		const a = await ki().aktionAusText('Neues To-do für Murat: Silikonfuge erneuern', KONTEXT);
+		const a = await ki().aktionAusText('Neue Aufgabe für Murat: Silikonfuge erneuern', KONTEXT);
 		expect(a).toEqual({ aktion: 'todo_anlegen', daten: { titel: 'Silikonfuge erneuern', zustaendig: 'Murat' } });
 		expect(anfragen).toHaveLength(1);
 		const r = anfragen[0];
@@ -66,7 +66,7 @@ describe('OpenAiKompatibelKi – Aktion aus Text', () => {
 		expect(r.koerper.messages[0].role).toBe('system');
 		expect(r.koerper.messages[0].content).toContain('2026-10-17');
 		expect(r.koerper.messages[0].content).toContain('genau EIN Werkzeug');
-		expect(r.koerper.messages.at(-1)).toEqual({ role: 'user', content: 'Neues To-do für Murat: Silikonfuge erneuern' });
+		expect(r.koerper.messages.at(-1)).toEqual({ role: 'user', content: 'Neue Aufgabe für Murat: Silikonfuge erneuern' });
 		expect(r.init.signal).toBeInstanceOf(AbortSignal);
 	});
 
@@ -86,7 +86,7 @@ describe('OpenAiKompatibelKi – Aktion aus Text', () => {
 
 	it('Fallback: JSON im Antworttext (auch in ```json```) statt Werkzeugaufruf', async () => {
 		antworten.push({ koerper: textAntwort('Hier die Aktion:\n```json\n{"aktion": "todo_anlegen", "daten": {"titel": "Fliesen bestellen"}}\n```') });
-		expect(await ki().aktionAusText('To-do Fliesen bestellen', KONTEXT)).toEqual({ aktion: 'todo_anlegen', daten: { titel: 'Fliesen bestellen' } });
+		expect(await ki().aktionAusText('Aufgabe Fliesen bestellen', KONTEXT)).toEqual({ aktion: 'todo_anlegen', daten: { titel: 'Fliesen bestellen' } });
 		antworten.push({ koerper: textAntwort('<think>hm {kein json}</think>{"name": "abfrage_tagesplan", "arguments": "{\\"zeitraum\\": \\"morgen\\"}"}') });
 		expect(await ki().aktionAusText('Was ist morgen?', KONTEXT)).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'morgen' } });
 		expect(anfragen).toHaveLength(2);
@@ -99,7 +99,7 @@ describe('OpenAiKompatibelKi – Aktion aus Text', () => {
 		);
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		try {
-			const a = await ki({ modellSchnell: 'mimo-v2.6-flash' }).aktionAusText('To-do x', KONTEXT);
+			const a = await ki({ modellSchnell: 'mimo-v2.6-flash' }).aktionAusText('Aufgabe x', KONTEXT);
 			expect(a).toEqual({ aktion: 'todo_anlegen', daten: { titel: 'x' } });
 		} finally {
 			warn.mockRestore();

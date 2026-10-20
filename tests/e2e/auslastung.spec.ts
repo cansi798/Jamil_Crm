@@ -25,7 +25,7 @@ test('Auslastung: aus der Plantafel, Monat blättern, Break-even; Start-Kachel f
 	if (info.project.name === 'mobil') await erwarteKeinQuerScrollen(page, 390);
 
 	await page.goto('/plantafel');
-	await page.getByRole('link', { name: 'Auslastung' }).click();
+	await page.getByRole('main').getByRole('link', { name: 'Auslastung' }).click();
 	await expect(page).toHaveURL(/\/plantafel\/auslastung$/);
 });
 

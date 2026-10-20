@@ -1,9 +1,9 @@
 /**
- * Wiederkehrende To-dos (Wunsch Jamil, msg 2501): Regel täglich / wöchentlich / monatlich / jährlich, „alle N“,
+ * Wiederkehrende Aufgaben (Wunsch Jamil, msg 2501): Regel täglich / wöchentlich / monatlich / jährlich, „alle N“,
  * optional Enddatum. Reine Datumsrechnung auf Kalendertagen (YYYY-MM-DD, ohne Uhrzeit/Zeitzone).
  *
  * Monatlich/jährlich rechnet immer vom Starttag der Serie aus (31.01. → 28.02. → 31.03. …), damit der Tag am
- * Monatsende nicht dauerhaft auf den 28. „wandert“. Wird ein To-do erst nach seinem Termin abgehakt, überspringt die
+ * Monatsende nicht dauerhaft auf den 28. „wandert“. Wird eine Aufgabe erst nach seinem Termin abgehakt, überspringt die
  * Serie verpasste Termine: Der nächste liegt nach `heute`.
  */
 
@@ -46,7 +46,7 @@ function terminNr(startTag: string, regel: Regel, intervall: number, n: number):
 }
 
 /**
- * Nächster Termin nach `letzter` (dem Termin des gerade abgehakten To-dos) – und nach `heute`, falls angegeben
+ * Nächster Termin nach `letzter` (dem Termin des gerade abgehakten Aufgaben) – und nach `heute`, falls angegeben
  * (verpasste Termine werden übersprungen).
  */
 export function naechsterTermin(

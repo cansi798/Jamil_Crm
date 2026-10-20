@@ -3,7 +3,7 @@
 	import type { KachelSpalte } from '$lib/kachel-board';
 
 	/**
-	 * Gemeinsames Kachel-Board (Aufträge, To-dos): Spalten nebeneinander ab 700 px, darunter Status-Reiter mit einer
+	 * Gemeinsames Kachel-Board (Aufträge, Aufgaben): Spalten nebeneinander ab 700 px, darunter Status-Reiter mit einer
 	 * Spalte. Ziehen und Ablegen mit Pointer Events (Maus, Stift, Finger; ab 700 px). Erlaubte Ziele werden beim Ziehen
 	 * hervorgehoben, gesperrte abgeblendet. Was beim Ablegen passiert, entscheidet die Seite (`onablegen`) – dort auch
 	 * die optimistische Anzeige und Rücknahme. Inhalt der Karten kommt als Snippet `karte`.

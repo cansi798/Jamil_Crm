@@ -56,7 +56,7 @@
 <main class="kd-seite nf-seite">
 	<h1>Automatisch nachfassen</h1>
 	<p class="kd-info">
-		Nach einer festen Zahl von Tagen legt das CRM ein To-do an und/oder bereitet eine Mail vor – fertig zum Kopieren oder zum Öffnen im
+		Nach einer festen Zahl von Tagen legt das CRM eine Aufgabe an und/oder bereitet eine Mail vor – fertig zum Kopieren oder zum Öffnen im
 		Mailprogramm. Es stoppt von selbst, sobald das Angebot angenommen oder abgelehnt ist. Pausieren geht am Angebot, „kein Nachfassen“ beim
 		Kunden. Automatisch versendet wird noch nichts (Mail-Anbindung offen).
 	</p>
@@ -70,7 +70,7 @@
 			{#if art === 'angebot' && stufenVon('angebot').length === 0}
 				<form method="POST" action="?/standard" use:enhance class="nf-standard">
 					{#if fehlerIn('standard')}<p role="alert" class="kd-fehler">{fehlerIn('standard')}</p>{/if}
-					<p class="kd-info">Vorschlag: Tag 3 freundliche Mail, Tag 7 „Kunde anrufen“, Tag 14 Erinnerungs-Mail und To-do für den Chef.</p>
+					<p class="kd-info">Vorschlag: Tag 3 freundliche Mail, Tag 7 „Kunde anrufen“, Tag 14 Erinnerungs-Mail und Aufgabe für den Chef.</p>
 					<button type="submit" class="kd-knopf hell">Vorschlag übernehmen</button>
 				</form>
 			{/if}
@@ -82,7 +82,7 @@
 								<span class="nf-nr">{i + 1}</span>
 								<span class="nf-tag">nach {s.tage} Tag{s.tage === 1 ? '' : 'en'}</span>
 								<span class="nf-was">
-									{#if s.mail}Mail „{vorlageName(s.mailVorlageId)}“{/if}{#if s.mail && s.todo}{' + '}{/if}{#if s.todo}To-do{s.todoTitel ? ` „${s.todoTitel}“` : ''}{/if}
+									{#if s.mail}Mail „{vorlageName(s.mailVorlageId)}“{/if}{#if s.mail && s.todo}{' + '}{/if}{#if s.todo}Aufgabe{s.todoTitel ? ` „${s.todoTitel}“` : ''}{/if}
 									<span class="kd-info"> · {wer(s)}{s.mahnstufe !== null ? ` · ${s.mahnstufe === 0 ? 'Zahlungserinnerung' : `Mahnstufe ${s.mahnstufe}`}` : ''}{s.aktiv ? '' : ' · aus'}</span>
 								</span>
 							</summary>
@@ -161,7 +161,7 @@
 				<input type="number" name="tage" min="0" max="365" required value={wert(b, 'tage', s ? String(s.tage) : '')} />
 			</label>
 			<label>
-				To-do fällig nach (Tagen)
+				Aufgabe fällig nach (Tagen)
 				<input type="number" name="faelligVersatz" min="0" max="60" value={wert(b, 'faelligVersatz', s ? String(s.faelligVersatz) : '0')} />
 			</label>
 			{#if art === 'rechnung'}
@@ -183,9 +183,9 @@
 					{#each data.vorlagen as v (v.id)}<option value={v.id} selected={wert(b, 'mailVorlageId', s?.mailVorlageId ?? '') === v.id}>{v.name}</option>{/each}
 				</Auswahl>
 			</label>
-			<label class="kd-haken"><input type="checkbox" name="todo" checked={wert(b, 'todo', s ? (s.todo ? 'on' : '') : 'on') !== ''} /><span>To-do anlegen</span></label>
+			<label class="kd-haken"><input type="checkbox" name="todo" checked={wert(b, 'todo', s ? (s.todo ? 'on' : '') : 'on') !== ''} /><span>Aufgabe anlegen</span></label>
 			<label>
-				To-do-Titel (Platzhalter erlaubt)
+				Aufgaben-Titel (Platzhalter erlaubt)
 				<input type="text" name="todoTitel" maxlength="300" value={wert(b, 'todoTitel', s?.todoTitel ?? '')} placeholder={'z. B. Kunde anrufen: {{kunde.name}} – Angebot {{angebot.nummer}}'} />
 			</label>
 		</div>

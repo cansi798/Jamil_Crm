@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			listeQuellen(k)
 		])
 	);
-	// Route „Termine heute“: eigene immer, andere nur mit „Alle To-dos ansehen“; Kolonne für Mitglieder oder alle
+	// Route „Termine heute“: eigene immer, andere nur mit „Alle Aufgaben ansehen“; Kolonne für Mitglieder oder alle
 	let route: { titel: string; stopps: Awaited<ReturnType<typeof termineAlsStopps>> } | null = null;
 	let routeFehler: string | null = null;
 	if (p.get('route') === 'heute') {

@@ -62,7 +62,7 @@ const formAnfrage = (felder: Record<string, string>) => {
 };
 const JAHR = berlinTag(new Date()).slice(0, 4);
 
-describe('Aufträge und To-dos', () => {
+describe('Aufträge und Aufgaben', () => {
 	let db: TestDb;
 	let root: postgres.Sql;
 	let betriebA: string, betriebB: string, betriebC: string;
@@ -222,7 +222,7 @@ describe('Aufträge und To-dos', () => {
 			).rejects.toMatchObject({ code: '42501' });
 		});
 
-		it('Betrieb B sieht und ändert keine Aufträge/To-dos von A (RLS)', async () => {
+		it('Betrieb B sieht und ändert keine Aufträge/Aufgaben von A (RLS)', async () => {
 			const a = await sqlAuftrag(betriebA, chefAId, kundeA);
 			await root`insert into app.todos (betrieb_id, auftrag_id, titel) values (${betriebA}, ${a.id}, 'Material bestellen')`;
 			const sicht = await alsApp(betriebB, chefBId, async (tx) => ({
@@ -302,7 +302,7 @@ describe('Aufträge und To-dos', () => {
 					tx`insert into app.todos (betrieb_id, titel, zustaendig_id) values (${betriebA}, 'x', ${chefBId})`
 				)
 			).rejects.toMatchObject({ code: '23503' });
-			// To-do an einem fremden Auftrag ebenso
+			// Aufgabe an einem fremden Auftrag ebenso
 			const b = await sqlAuftrag(betriebB, chefBId, kundeB);
 			await expect(
 				alsApp(betriebA, chefAId, (tx) =>
@@ -335,7 +335,7 @@ describe('Aufträge und To-dos', () => {
 			expect(z).toEqual({ objekt_id: null, betrieb_id: betriebA });
 		});
 
-		it('Auftrag löschen löscht seine To-dos (Kaskade)', async () => {
+		it('Auftrag löschen löscht seine Aufgaben (Kaskade)', async () => {
 			const a = await sqlAuftrag(betriebA, chefAId, kundeA);
 			await root`insert into app.todos (betrieb_id, auftrag_id, titel) values (${betriebA}, ${a.id}, 'x')`;
 			await alsApp(betriebA, chefAId, (tx) => tx`delete from app.auftraege where id = ${a.id}`);
@@ -450,20 +450,20 @@ describe('Aufträge und To-dos', () => {
 			expect(await loescheAuftrag(kA(), a.id).catch((x) => x.status)).toBe(404);
 		});
 
-		it('Monteur (nur auftraege.lesen): sieht nur Aufträge mit eigenem To-do; fremder Auftrag → 404', async () => {
-			const mit = await legeAuftragAn(kA(), { titel: 'Mit To-do', kundeId: kundeA });
+		it('Monteur (nur auftraege.lesen): sieht nur Aufträge mit eigenem Aufgabe; fremder Auftrag → 404', async () => {
+			const mit = await legeAuftragAn(kA(), { titel: 'Mit Aufgabe', kundeId: kundeA });
 			const ohne = await legeAuftragAn(kA(), { titel: 'Ohne', kundeId: kundeA });
 			const anderer = await legeAuftragAn(kA(), { titel: 'Kollege', kundeId: kundeA });
 			await seedTodo(betriebA, mit.id, monteurAId);
 			await seedTodo(betriebA, anderer.id, monteur2AId);
-			await seedTodo(betriebA, null, monteurAId); // allgemeines To-do macht keinen Auftrag sichtbar
+			await seedTodo(betriebA, null, monteurAId); // allgemeines Aufgabe macht keinen Auftrag sichtbar
 			const k = { betriebId: betriebA, benutzerId: monteurAId };
-			expect((await listeAuftraege(k, eigene(monteurAId), {})).map((a) => a.titel)).toEqual(['Mit To-do']);
-			expect((await holeAuftrag(k, eigene(monteurAId), mit.id)).titel).toBe('Mit To-do');
+			expect((await listeAuftraege(k, eigene(monteurAId), {})).map((a) => a.titel)).toEqual(['Mit Aufgabe']);
+			expect((await holeAuftrag(k, eigene(monteurAId), mit.id)).titel).toBe('Mit Aufgabe');
 			for (const id of [ohne.id, anderer.id, UNBEKANNT, 'kaputt']) {
 				expect(await holeAuftrag(k, eigene(monteurAId), id).catch((x) => x.status), id).toBe(404);
 			}
-			expect((await listeAuftraege(kA(), alle(), {})).map((a) => a.titel).sort()).toEqual(['Kollege', 'Mit To-do', 'Ohne']);
+			expect((await listeAuftraege(kA(), alle(), {})).map((a) => a.titel).sort()).toEqual(['Kollege', 'Mit Aufgabe', 'Ohne']);
 		});
 
 		it('Liste: Filter Status/Kunde, Suche über Nummer, Titel und Kundenname, neueste zuerst, höchstens 100', async () => {
