@@ -46,12 +46,12 @@
 
 	{#if data.alle}
 		<nav aria-label="Meine oder alle Aufträge" class="af-meine">
-			<a href={link({ meine: false })} class="pill" aria-current={!data.meine ? 'page' : undefined}>Alle</a>
-			<a href={link({ meine: true })} class="pill" aria-current={data.meine ? 'page' : undefined}>Meine</a>
+			<a href={link({ meine: false })} class="pill" class:aktiv={!data.meine} aria-current={!data.meine ? 'page' : undefined}>Alle</a>
+			<a href={link({ meine: true })} class="pill" class:aktiv={data.meine} aria-current={data.meine ? 'page' : undefined}>Meine</a>
 					</nav>
 				{/if}
 				<nav aria-label="Weitere Filter" class="af-meine">
-					<a href={link({ nachfassen: !data.nachfassenFaellig })} class="pill" aria-current={data.nachfassenFaellig ? 'page' : undefined}>↻ Nachfassen fällig</a>
+					<a href={link({ nachfassen: !data.nachfassenFaellig })} class="pill" class:aktiv={data.nachfassenFaellig} aria-current={data.nachfassenFaellig ? 'page' : undefined}>↻ Nachfassen fällig</a>
 				</nav>
 
 	{#if data.ansicht === 'liste'}

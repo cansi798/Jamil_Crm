@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
+	import KachelBoard from './KachelBoard.svelte';
+	import type { KachelSpalte } from '$lib/kachel-board';
+	import { todoSpalte, todoVerschiebung, TODO_SPALTEN, type TodoSpalte } from '$lib/todo-board';
 	import { tagDeutsch } from '$lib/zeit';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
 
@@ -22,15 +26,10 @@
 		erledigt: boolean;
 	};
 
-	type Spalte = {
-		id: string;
-		titel: string;
-		farbe: string;
-	};
-
 	/**
-	 * Kanban-Board im Microsoft-Planner-Stil. Drei Spalten: Offen, In Arbeit, Erledigt.
-	 * To-dos werden per Pointer-Events (Touch + Maus) zwischen den Spalten verschoben.
+	 * To-do-Board – gleiches Kachel-Board wie bei den Aufträgen (`KachelBoard`): Spalten Offen, In Arbeit, Erledigt.
+	 * Ziehen (ab 700 px) oder Menü „Status ▾“ verschiebt sofort (optimistisch) und speichert über die API; bei einem
+	 * Fehler geht die Karte zurück. „In Arbeit“ heißt wie bisher: offen mit Fälligkeit (beim Verschieben: heute).
 	 */
 	let {
 		todos,
@@ -55,360 +54,248 @@
 		leer?: string;
 	} = $props();
 
-	const spalten: Spalte[] = [
-		{ id: 'offen', titel: 'Offen', farbe: '#616161' },
-		{ id: 'in-arbeit', titel: 'In Arbeit', farbe: '#0078d4' },
-		{ id: 'erledigt', titel: 'Erledigt', farbe: '#107c10' }
-	];
+	// Lokaler Zustand (optimistisch); neue Daten vom Server ersetzen ihn
+	let liste = $derived(todos);
+	let meldung = $state('');
+	let fehler = $state(false);
+	let laeuft = $state<Set<string>>(new Set());
 
-	// To-dos den Spalten zuordnen
-	const spaltenTodos = $derived({
-		offen: todos.filter((t) => !t.erledigt && !t.faellig),
-		'in-arbeit': todos.filter((t) => !t.erledigt && t.faellig),
-		erledigt: todos.filter((t) => t.erledigt)
-	});
+	const spalten = $derived<KachelSpalte<Todo>[]>(
+		TODO_SPALTEN.map((s) => ({ ...s, karten: liste.filter((t) => todoSpalte(t) === s.id) }))
+	);
+	const SPALTEN_NAMEN = Object.fromEntries(TODO_SPALTEN.map((s) => [s.id, s.titel])) as Record<TodoSpalte, string>;
 
 	const ueberfaellig = (t: Todo) => !t.erledigt && t.faellig !== null && t.faellig < heute;
 
-	// ── Drag & Drop (Pointer Events: funktioniert auf Touch UND Maus) ──
-	let dragTodoId = $state<string | null>(null);
-	let dragOverSpalte = $state<string | null>(null);
-	let dragStartX = $state(0);
-	let dragStartY = $state(0);
-	let dragAktiv = $state(false);
-	let dragAktuellerSpalte = $state<string | null>(null);
-
-	const SCHWELLE = 8; // px, bevor Drag als Absicht gilt
-
-	function pointerDown(e: PointerEvent, todoId: string, spalteId: string) {
-		if (!darfBearbeiten) return;
-		if (e.button !== 0) return; // nur linke Maustaste / Touch
-		// In Formularfeldern und Knöpfen der Karte (z. B. „Bearbeiten“) nie ziehen
-		if ((e.target as Element).closest('input, select, textarea, button, summary, a, label, form')) return;
-		dragTodoId = todoId;
-		dragStartX = e.clientX;
-		dragStartY = e.clientY;
-		dragAktiv = false;
-		dragAktuellerSpalte = spalteId;
+	async function verschiebe(t: Todo, nach: TodoSpalte) {
+		if (!darfBearbeiten || laeuft.has(t.id) || todoSpalte(t) === nach) return;
+		const vorher = { faellig: t.faellig, erledigt: t.erledigt };
+		const aenderung = todoVerschiebung(t, nach, heute);
+		liste = liste.map((x) => (x.id === t.id ? { ...x, ...aenderung } : x));
+		laeuft = new Set([...laeuft, t.id]);
+		fehler = false;
+		meldung = `„${t.titel}“ wird nach „${SPALTEN_NAMEN[nach]}“ verschoben …`;
+		try {
+			const r = await fetch(`/api/todos/${t.id}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(aenderung)
+			});
+			const koerper = await r.json().catch(() => null);
+			if (!r.ok) throw new Error(koerper?.fehler ?? `Fehler ${r.status}`);
+			meldung = `„${t.titel}“ ist jetzt „${SPALTEN_NAMEN[nach]}“.`;
+			// Neu laden: z. B. legt das Abhaken eines wiederkehrenden To-dos das nächste an
+			await invalidateAll();
+		} catch (e) {
+			liste = liste.map((x) => (x.id === t.id ? { ...x, ...vorher } : x));
+			fehler = true;
+			meldung = `„${t.titel}“ konnte nicht verschoben werden: ${e instanceof Error ? e.message : 'unbekannter Fehler'}`;
+		} finally {
+			const neu = new Set(laeuft);
+			neu.delete(t.id);
+			laeuft = neu;
+		}
 	}
 
-	function pointerMove(e: PointerEvent) {
-		if (!dragTodoId) return;
-		const dx = Math.abs(e.clientX - dragStartX);
-		const dy = Math.abs(e.clientY - dragStartY);
-		if (!dragAktiv && (dx > SCHWELLE || dy > SCHWELLE)) {
-			dragAktiv = true;
-			// Pointer Capture, damit der Rest des Viewports nicht scrollt
-			(e.target as Element).setPointerCapture?.(e.pointerId);
-		}
-		if (!dragAktiv) return;
-
-		// Spalte unter dem Pointer finden
-		const unter = document.elementFromPoint(e.clientX, e.clientY);
-		const spalte = unter?.closest('.kanban-spalte');
-		dragOverSpalte = spalte?.getAttribute('data-spalte') ?? null;
-	}
-
-	function pointerUp(e: PointerEvent) {
-		if (!dragTodoId || !dragAktiv) {
-			dragTodoId = null;
-			dragAktiv = false;
-			dragOverSpalte = null;
-			return;
-		}
-		dragAktiv = false;
-		dragOverSpalte = null;
-
-		const todo = todos.find((t) => t.id === dragTodoId);
-		if (todo && dragAktuellerSpalte) {
-			// Zielspalte bestimmen (wo wurde losgelassen?)
-			const unter = document.elementFromPoint(e.clientX, e.clientY);
-			const zielSpalte = unter?.closest('.kanban-spalte')?.getAttribute('data-spalte') ?? dragAktuellerSpalte;
-
-			if (zielSpalte !== dragAktuellerSpalte) {
-				// Übergang: passende Aktion wählen
-				if (zielSpalte === 'erledigt') {
-					// → Erledigt: umschalten mit erledigt=true
-					absenden(aktionen.umschalten, { id: todo.id, erledigt: 'true' });
-				} else if (dragAktuellerSpalte === 'erledigt') {
-					// Erledigt → Offen/In Arbeit: erledigt=false + faellig anpassen
-					const neuesFaellig = zielSpalte === 'in-arbeit' ? heute : '';
-					absenden(aktionen.aendern, { id: todo.id, erledigt: 'false', faellig: neuesFaellig });
-				} else {
-					// Offen ↔ In Arbeit: nur faellig ändern (erledigt bleibt false)
-					const neuesFaellig = zielSpalte === 'in-arbeit' ? heute : '';
-					absenden(aktionen.aendern, { id: todo.id, faellig: neuesFaellig });
-				}
-			}
-		}
-
-		dragTodoId = null;
-		dragAktuellerSpalte = null;
-	}
-
-	function pointerCancel() {
-		dragTodoId = null;
-		dragAktiv = false;
-		dragOverSpalte = null;
-		dragAktuellerSpalte = null;
-	}
-
-	function absenden(aktion: string, felder: Record<string, string>) {
-		const form = document.createElement('form');
-		form.method = 'POST';
-		form.action = aktion;
-		for (const [name, wert] of Object.entries(felder)) {
-			const input = document.createElement('input');
-			input.type = 'hidden';
-			input.name = name;
-			input.value = wert;
-			form.appendChild(input);
-		}
-		document.body.appendChild(form);
-		form.submit();
+	function waehle(ev: Event, t: Todo, nach: TodoSpalte) {
+		(ev.currentTarget as HTMLElement).closest('details')?.removeAttribute('open');
+		void verschiebe(t, nach);
 	}
 </script>
 
-<svelte:window
-	onpointermove={pointerMove}
-	onpointerup={pointerUp}
-	onpointercancel={pointerCancel}
-/>
-
-<div class="kanban">
-	{#each spalten as spalte (spalte.id)}
-		<div
-			class="kanban-spalte"
-			class:drag-over={dragOverSpalte === spalte.id}
-			role="region"
-			aria-label={spalte.titel}
-			data-spalte={spalte.id}
-		>
-			<div class="spalte-kopf" style="--spalte-farbe: {spalte.farbe}">
-				<span class="spalte-indikator"></span>
-				<h3 class="spalte-titel">{spalte.titel}</h3>
-				<span class="spalte-anzahl">{spaltenTodos[spalte.id as keyof typeof spaltenTodos].length}</span>
-			</div>
-
-			<div class="spalte-inhalt" role="list">
-				{#each spaltenTodos[spalte.id as keyof typeof spaltenTodos] as todo (todo.id)}
-					{@const darfHaken = darfBearbeiten || todo.zustaendigId === benutzerId}
-					<div
-						class="kanban-karte"
-						class:ueberfaellig={ueberfaellig(todo)}
-						class:drag-aktiv={dragTodoId === todo.id && dragAktiv}
-						role="listitem"
-						onpointerdown={(e) => pointerDown(e, todo.id, spalte.id)}
-					>
-						<div class="karte-inhalt">
-							<p class="karte-titel">{todo.titel}</p>
-							{#if todo.beschreibung}
-								<p class="karte-beschreibung">{todo.beschreibung}</p>
-							{/if}
-							{#if todo.serie}
-								<p class="karte-serie" class:beendet={!todo.serie.aktiv}>
-									{todo.serie.aktiv ? `Wiederholt sich: ${todo.serie.text}` : 'Wiederholung beendet'}
-								</p>
-							{/if}
-							{#if todo.nachfassAngebotId}
-								<p class="karte-auftrag"><a href={`/angebote/${todo.nachfassAngebotId}#nachfassen`}>Mailtext im Angebot öffnen</a></p>
-							{/if}
-							{#if todo.lautstaerke || todo.schmutz}
-								<p class="karte-stufen">
-									{#if todo.lautstaerke}<span class={`stufe-${todo.lautstaerke}`}>Lautstärke: {stufeName(todo.lautstaerke)}</span>{/if}
-									{#if todo.schmutz}<span class={`stufe-${todo.schmutz}`}>Schmutz: {stufeName(todo.schmutz)}</span>{/if}
-								</p>
-							{/if}
-							{#if zeigeAuftrag && todo.auftragNummer}
-								<p class="karte-auftrag">
-									{todo.auftragNummer}{zeigeQuelle && todo.mirDirekt === false ? ' · über den Auftrag (du bist zuständig)' : ''}
-								</p>
-							{/if}
-							{#if darfBearbeiten}
-								<details class="karte-bearbeiten">
-									<summary>Bearbeiten</summary>
-									<form method="POST" action={aktionen.aendern} use:enhance class="karte-formular">
-										<input type="hidden" name="id" value={todo.id} />
-										<label>Titel <input type="text" name="titel" maxlength="200" required value={todo.titel} /></label>
-										<label>
-											Beschreibung
-											<textarea name="beschreibung" maxlength="500" rows="2">{todo.beschreibung ?? ''}</textarea>
-										</label>
-										<div class="karte-zwei">
-											<label>
-												Lautstärke
-												<select name="lautstaerke">
-													<option value="" selected={!todo.lautstaerke}>–</option>
-													{#each STUFEN as n (n)}<option value={String(n)} selected={todo.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
-												</select>
-											</label>
-											<label>
-												Schmutz
-												<select name="schmutz">
-													<option value="" selected={!todo.schmutz}>–</option>
-													{#each STUFEN as n (n)}<option value={String(n)} selected={todo.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
-												</select>
-											</label>
-										</div>
-										<button type="submit" class="kd-knopf">Speichern</button>
-									</form>
-									{#if todo.serie?.aktiv && aktionen.serieBeenden}
-										<form method="POST" action={aktionen.serieBeenden} use:enhance>
-											<input type="hidden" name="id" value={todo.id} />
-											<button type="submit" class="kd-knopf hell">Wiederholung beenden</button>
-										</form>
-									{/if}
-								</details>
-							{/if}
-							<div class="karte-meta">
-								{#if todo.zustaendigName}
-									<span class="karte-zustaendig">
-										<span class="avatar">{todo.zustaendigName.charAt(0)}</span>
-										{todo.zustaendigName}
-									</span>
-								{/if}
-								{#if todo.faellig}
-									<span class="karte-faellig" class:ueberfaellig={ueberfaellig(todo)}>
-										{tagDeutsch(todo.faellig)}{todo.faelligZeit ? ` ${todo.faelligZeit}` : ''}
-									</span>
-								{/if}
-							</div>
+{#snippet kachel(todo: Todo)}
+	{@const darfHaken = darfBearbeiten || todo.zustaendigId === benutzerId}
+	<div class="kanban-karte" class:ueberfaellig={ueberfaellig(todo)} class:laeuft={laeuft.has(todo.id)}>
+		<div class="karte-inhalt">
+			<div class="karte-kopf">
+				<p class="karte-titel">{todo.titel}</p>
+				{#if darfBearbeiten}
+					<details class="ab-menue">
+						<summary aria-label={`Status von „${todo.titel}“ ändern`}>Status ▾</summary>
+						<div class="ab-menue-liste">
+							{#each TODO_SPALTEN.filter((s) => s.id !== todoSpalte(todo)) as s (s.id)}
+								<button type="button" onclick={(ev) => waehle(ev, todo, s.id)} disabled={laeuft.has(todo.id)}>Nach „{s.titel}“</button>
+							{/each}
 						</div>
-						{#if darfHaken}
-							<form method="POST" action={aktionen.umschalten} use:enhance class="karte-haken">
-								<input type="hidden" name="id" value={todo.id} />
-								<input type="hidden" name="erledigt" value={todo.erledigt ? 'false' : 'true'} />
-								<button type="submit" class="haken-knopf" class:erledigt={todo.erledigt} aria-label={todo.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}>
-									{#if todo.erledigt}✓{/if}
-								</button>
-							</form>
-						{/if}
-					</div>
-				{:else}
-					<p class="spalte-leer">{leer}</p>
-				{/each}
+					</details>
+				{/if}
+			</div>
+			{#if todo.beschreibung}
+				<p class="karte-beschreibung">{todo.beschreibung}</p>
+			{/if}
+			{#if todo.serie}
+				<p class="karte-serie" class:beendet={!todo.serie.aktiv}>
+					{todo.serie.aktiv ? `Wiederholt sich: ${todo.serie.text}` : 'Wiederholung beendet'}
+				</p>
+			{/if}
+			{#if todo.nachfassAngebotId}
+				<p class="karte-auftrag"><a href={`/angebote/${todo.nachfassAngebotId}#nachfassen`} draggable="false">Mailtext im Angebot öffnen</a></p>
+			{/if}
+			{#if todo.lautstaerke || todo.schmutz}
+				<p class="karte-stufen">
+					{#if todo.lautstaerke}<span class={`stufe-${todo.lautstaerke}`}>Lautstärke: {stufeName(todo.lautstaerke)}</span>{/if}
+					{#if todo.schmutz}<span class={`stufe-${todo.schmutz}`}>Schmutz: {stufeName(todo.schmutz)}</span>{/if}
+				</p>
+			{/if}
+			{#if zeigeAuftrag && todo.auftragNummer}
+				<p class="karte-auftrag">
+					{#if todo.auftragId}<a href={`/auftraege/${todo.auftragId}`} draggable="false">{todo.auftragNummer}</a>{:else}{todo.auftragNummer}{/if}{zeigeQuelle && todo.mirDirekt === false ? ' · über den Auftrag (du bist zuständig)' : ''}
+				</p>
+			{/if}
+			{#if darfBearbeiten}
+				<details class="karte-bearbeiten">
+					<summary>Bearbeiten</summary>
+					<form method="POST" action={aktionen.aendern} use:enhance class="karte-formular">
+						<input type="hidden" name="id" value={todo.id} />
+						<label>Titel <input type="text" name="titel" maxlength="200" required value={todo.titel} /></label>
+						<label>
+							Beschreibung
+							<textarea name="beschreibung" maxlength="500" rows="2">{todo.beschreibung ?? ''}</textarea>
+						</label>
+						<div class="karte-zwei">
+							<label>
+								Lautstärke
+								<select name="lautstaerke">
+									<option value="" selected={!todo.lautstaerke}>–</option>
+									{#each STUFEN as n (n)}<option value={String(n)} selected={todo.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
+								</select>
+							</label>
+							<label>
+								Schmutz
+								<select name="schmutz">
+									<option value="" selected={!todo.schmutz}>–</option>
+									{#each STUFEN as n (n)}<option value={String(n)} selected={todo.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
+								</select>
+							</label>
+						</div>
+						<button type="submit" class="kd-knopf">Speichern</button>
+					</form>
+					{#if todo.serie?.aktiv && aktionen.serieBeenden}
+						<form method="POST" action={aktionen.serieBeenden} use:enhance>
+							<input type="hidden" name="id" value={todo.id} />
+							<button type="submit" class="kd-knopf hell">Wiederholung beenden</button>
+						</form>
+					{/if}
+				</details>
+			{/if}
+			<div class="karte-meta">
+				{#if todo.zustaendigName}
+					<span class="karte-zustaendig">
+						<span class="avatar">{todo.zustaendigName.charAt(0)}</span>
+						{todo.zustaendigName}
+					</span>
+				{/if}
+				{#if todo.faellig}
+					<span class="karte-faellig" class:ueberfaellig={ueberfaellig(todo)}>
+						{tagDeutsch(todo.faellig)}{todo.faelligZeit ? ` ${todo.faelligZeit}` : ''}
+					</span>
+				{/if}
 			</div>
 		</div>
-	{/each}
-</div>
+		{#if darfHaken}
+			<form method="POST" action={aktionen.umschalten} use:enhance class="karte-haken">
+				<input type="hidden" name="id" value={todo.id} />
+				<input type="hidden" name="erledigt" value={todo.erledigt ? 'false' : 'true'} />
+				<button type="submit" class="haken-knopf" class:erledigt={todo.erledigt} aria-label={todo.erledigt ? 'Als offen markieren' : 'Als erledigt markieren'}>
+					{#if todo.erledigt}✓{/if}
+				</button>
+			</form>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet geist(t: Todo)}
+	<strong>{t.titel}</strong>
+	{#if t.zustaendigName}<span class="karte-zustaendig">{t.zustaendigName}</span>{/if}
+{/snippet}
+
+<KachelBoard
+	{spalten}
+	ziehbar={() => darfBearbeiten}
+	onablegen={(t, _von, nach) => void verschiebe(t, nach as TodoSpalte)}
+	karte={kachel}
+	{geist}
+	{meldung}
+	{fehler}
+	{leer}
+	reiterLabel="Spalte wählen"
+/>
 
 <style>
-	/* Kanban im Microsoft-Planner-Stil */
-	.kanban {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 1rem;
-		padding: 0.5rem 0;
-		align-items: start;
-	}
-
-	@media (max-width: 768px) {
-		.kanban {
-			grid-template-columns: 1fr;
-		}
-	}
-
-	.kanban-spalte {
-		background: var(--m365-flaeche-hover);
-		border: none;
-		border-radius: var(--m365-radius-karte);
-		padding: 0.75rem;
-		min-height: 250px;
-		transition: background 150ms, outline 150ms;
-		outline: 2px solid transparent;
-		outline-offset: -2px;
-	}
-
-	.kanban-spalte.drag-over {
-		outline-color: var(--m365-primaer);
-		background: var(--m365-primaer-hell);
-	}
-
-	.spalte-kopf {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin-bottom: 0.5rem;
-		padding: 0.25rem 0.25rem 0.5rem;
-	}
-
-	.spalte-indikator {
-		display: none;
-	}
-
-	.spalte-titel {
-		margin: 0;
-		font-family: var(--m365-schrift);
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--m365-text);
-		flex: 1;
-	}
-
-	.spalte-anzahl {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 1.25rem;
-		height: 1.25rem;
-		padding: 0 0.375rem;
-		border-radius: var(--m365-radius-gross);
-		background: var(--m365-rand);
-		color: var(--m365-text-leise);
-		font-family: var(--m365-schrift);
-		font-size: 0.6875rem;
-		font-weight: 600;
-		line-height: 1;
-	}
-
-	.spalte-inhalt {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.spalte-leer {
-		margin: 0;
-		padding: 1.5rem 0.75rem;
-		text-align: center;
-		color: var(--m365-text-leicht);
-		font-family: var(--m365-schrift);
-		font-size: 0.8125rem;
-	}
-
-	/* Planner-Karte: weiß, Schatten, abgerundet */
 	.kanban-karte {
 		display: flex;
 		align-items: flex-start;
 		gap: 0.5rem;
-		padding: 0.75rem;
-		background: var(--m365-flaeche);
-		border: none;
-		border-radius: var(--m365-radius-karte);
-		box-shadow: var(--m365-schatten);
-		cursor: grab;
-		touch-action: manipulation;
-		user-select: none;
-		transition: box-shadow 150ms, transform 150ms;
 	}
-
-	.kanban-karte:hover {
-		box-shadow: var(--m365-schatten-hoch);
+	.kanban-karte.laeuft {
+		opacity: 0.7;
 	}
-
-	.kanban-karte:active {
-		cursor: grabbing;
-	}
-
-	.kanban-karte.drag-aktiv {
-		opacity: 0.8;
-		box-shadow: var(--m365-schatten-pop);
-		transform: scale(1.03);
-	}
-
 	.kanban-karte.ueberfaellig {
 		border-left: 3px solid var(--m365-fehler);
-		padding-left: calc(0.75rem - 3px);
+		margin-left: -0.7rem;
+		padding-left: calc(0.7rem - 3px);
+	}
+	.karte-kopf {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+	.karte-auftrag a {
+		color: var(--m365-primaer);
+	}
+	.ab-menue {
+		position: relative;
+		flex: none;
+	}
+	.ab-menue summary {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2rem;
+		padding: 0 0.5rem;
+		border-radius: var(--m365-radius);
+		font-size: 0.75rem;
+		color: var(--m365-primaer);
+		cursor: pointer;
+		list-style: none;
+	}
+	.ab-menue summary::-webkit-details-marker {
+		display: none;
+	}
+	.ab-menue summary:hover {
+		background: var(--m365-flaeche-hover);
+	}
+	/* Menü klappt in der Karte auf (nicht schwebend): lange Spalten scrollen in sich und würden es abschneiden */
+	.ab-menue[open] {
+		flex-basis: 100%;
+		text-align: right;
+	}
+	.ab-menue-liste {
+		margin-top: 0.25rem;
+		text-align: left;
+		display: grid;
+		min-width: 0;
+		padding: 0.25rem;
+		background: var(--m365-flaeche);
+		border-radius: var(--m365-radius-karte);
+		box-shadow: var(--m365-schatten-hoch);
+	}
+	.ab-menue-liste button {
+		min-height: var(--tippziel, 44px);
+		padding: 0 0.75rem;
+		border: 0;
+		border-radius: var(--m365-radius);
+		background: transparent;
+		color: var(--m365-text);
+		font: inherit;
+		font-size: 0.8125rem;
+		text-align: left;
+		cursor: pointer;
+	}
+	.ab-menue-liste button:hover,
+	.ab-menue-liste button:focus-visible {
+		background: var(--m365-primaer-hell);
 	}
 
 	.karte-inhalt {

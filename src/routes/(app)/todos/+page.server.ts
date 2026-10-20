@@ -7,7 +7,7 @@ import { UUID } from '$lib/server/kunden';
 import { berlinTag } from '$lib/zeit';
 
 /**
- * To-dos mit Reitern „Meine“ / „Offen“ / „Alle“ (die beiden letzten nur mit `auftraege.alle_lesen`). Überfällig ist,
+ * To-dos als Board oder Liste (wie Aufträge) mit Reitern „Meine“ / „Offen“ / „Alle“ (die beiden letzten nur mit `auftraege.alle_lesen`). Überfällig ist,
  * was vor dem heutigen Tag (Berlin) fällig und noch offen ist.
  */
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -18,6 +18,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const reiter: TodoAuswahl[] = sicht.alle ? ['meine', 'offen', 'alle'] : ['meine'];
 	const roh = url.searchParams.get('nur');
 	const nur = reiter.find((r) => r === roh) ?? 'meine';
+	// Ansicht wie bei den Aufträgen: Board (Standard) oder Liste (`?ansicht=liste`)
+	const ansicht = url.searchParams.get('ansicht') === 'liste' ? 'liste' : 'board';
 	const darfBearbeiten = hatRecht(nutzer, 'auftraege.bearbeiten');
 	// Filter „zugewiesen an“ und „Status“ (kombinierbar mit den Reitern)
 	const person = url.searchParams.get('person') ?? '';
@@ -31,6 +33,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		])
 	);
 	return {
+		ansicht,
 		nur,
 		reiter,
 		filter: { person: zustaendigId ?? '', status: status ?? '' },

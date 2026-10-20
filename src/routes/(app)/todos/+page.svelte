@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TodoKanban from '$lib/components/TodoKanban.svelte';
+	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import type { ActionData, PageData } from './$types';
@@ -12,6 +13,20 @@
 		offen: 'Keine offenen To-dos.',
 		alle: 'Noch keine To-dos angelegt.'
 	} as const;
+
+	/** Link mit Ansicht, Reiter und Filtern (leere Werte entfallen) – wie auf der Auftragsseite. */
+	const link = (o: { ansicht?: 'board' | 'liste'; nur?: string } = {}) => {
+		const ansicht = o.ansicht ?? data.ansicht;
+		const nur = o.nur ?? data.nur;
+		const p = new URLSearchParams();
+		if (ansicht === 'liste') p.set('ansicht', 'liste');
+		if (nur !== 'meine') p.set('nur', nur);
+		if (data.filter.person) p.set('person', data.filter.person);
+		if (data.filter.status) p.set('status', data.filter.status);
+		const q = p.toString();
+		return q ? `/todos?${q}` : '/todos';
+	};
+	const aktionen = { umschalten: '?/umschalten', aendern: '?/aendern', loeschen: '?/loeschen', serieBeenden: '?/serieBeenden' };
 </script>
 
 <svelte:head>
@@ -20,24 +35,25 @@
 
 <main class="kd-seite breit">
 	<header class="seiten-kopf">
-		<h1>To-dos</h1>
+		<h1>{data.nur === 'meine' ? 'Meine To-dos' : 'To-dos'}</h1>
+		<div class="af-werkzeuge">
+			<nav class="af-ansicht" aria-label="Ansicht">
+				<a href={link({ ansicht: 'board' })} aria-current={data.ansicht === 'board' ? 'page' : undefined}>Board</a>
+				<a href={link({ ansicht: 'liste' })} aria-current={data.ansicht === 'liste' ? 'page' : undefined}>Liste</a>
+			</nav>
+		</div>
 	</header>
 
 	{#if data.reiter.length > 1}
-		<nav aria-label="Auswahl">
-			<ul class="pills">
-				{#each data.reiter as r (r)}
-					<li>
-						<a href={r === 'meine' ? '/todos' : `/todos?nur=${r}`} class="pill" class:aktiv={data.nur === r} aria-current={data.nur === r ? 'page' : undefined}>
-							{NAMEN[r]}
-						</a>
-					</li>
-				{/each}
-			</ul>
+		<nav aria-label="Meine oder alle To-dos" class="af-meine">
+			{#each data.reiter as r (r)}
+				<a href={link({ nur: r })} class="pill" class:aktiv={data.nur === r} aria-current={data.nur === r ? 'page' : undefined}>{NAMEN[r]}</a>
+			{/each}
 		</nav>
 	{/if}
 
 	<form method="GET" class="td-filter" aria-label="To-dos filtern">
+		{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
 		{#if data.nur !== 'meine'}<input type="hidden" name="nur" value={data.nur} />{/if}
 		{#if data.mitarbeiter.length > 0}
 			<label>
@@ -78,16 +94,28 @@
 		</AddPanel>
 	{/if}
 
-	<TodoKanban
-		zeigeQuelle={data.nur === 'meine'}
-		todos={data.todos}
-		heute={data.heute}
-		benutzerId={data.benutzerId}
-		darfBearbeiten={data.darfBearbeiten}
-		mitarbeiter={data.mitarbeiter}
-		aktionen={{ umschalten: '?/umschalten', aendern: '?/aendern', loeschen: '?/loeschen', serieBeenden: '?/serieBeenden' }}
-		leer={LEER[data.nur]}
-	/>
+	{#if data.ansicht === 'liste'}
+		<TodoListe
+			todos={data.todos}
+			heute={data.heute}
+			benutzerId={data.benutzerId}
+			darfBearbeiten={data.darfBearbeiten}
+			mitarbeiter={data.mitarbeiter}
+			{aktionen}
+			leer={LEER[data.nur]}
+		/>
+	{:else}
+		<TodoKanban
+			zeigeQuelle={data.nur === 'meine'}
+			todos={data.todos}
+			heute={data.heute}
+			benutzerId={data.benutzerId}
+			darfBearbeiten={data.darfBearbeiten}
+			mitarbeiter={data.mitarbeiter}
+			{aktionen}
+			leer={LEER[data.nur]}
+		/>
+	{/if}
 </main>
 
 <style>
@@ -105,13 +133,5 @@
 	}
 	.td-filter select {
 		min-height: var(--tippziel, 44px);
-	}
-	.pills {
-		display: flex;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-		list-style: none;
-		margin: 0;
-		padding: 0;
 	}
 </style>
