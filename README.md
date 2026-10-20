@@ -67,6 +67,9 @@ Werte gehören in `.env` (nicht committen, Vorlage: `.env.example`) oder in die 
   `https://crm.beispiel.de`; Vorschau: `http://127.0.0.1:8300`.
 - `NODE_ENV`: `production` im Betrieb. Dann schreibt der Seed nie Daten.
 - `HOST`, `PORT`: Adresse des Node-Servers (Vorschau: `0.0.0.0` und `3000`).
+- `NEXTCLOUD_*` (optional): Anbindung an eine Nextcloud (Anmeldung, Kalender, Kontakte, Dateien, Talk). Ohne
+  `NEXTCLOUD_URL` ist sie aus. Aufbau und Bedrohungsmodell: `docs/nextcloud-anbindung.md`; Einrichtung:
+  `installation/ANLEITUNG.md`, Abschnitt „Mit Nextcloud verbinden“.
 
 **Wer liest `.env`?** Nur die Skripte: `npm run migrate`, `seed:dev`, `admin:anlegen`, die Datenbank-Tests und
 `start-vorschau.sh`. Die gebaute Anwendung (`node build`, `src/lib/server/db.ts`) liest **keine** `.env`-Datei,

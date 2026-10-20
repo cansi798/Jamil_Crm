@@ -12,6 +12,7 @@ import {
 	VORSITZUNG_COOKIE
 } from '$lib/server/auth/vorsitzung';
 import { testAnmelden, testEmail, testmodusAktiv } from '$lib/server/auth/testmodus';
+import { nextcloud } from '$lib/server/nextcloud/konfig';
 
 /** Eine einzige Meldung für alle Fehlgründe, damit nicht erkennbar ist, ob die E-Mail existiert. */
 const FALSCH = 'E-Mail oder Passwort ist falsch.';
@@ -26,7 +27,15 @@ const ZU_VIELE_CODES =
 const HINWEISE: Record<string, string> = {
 	abgelaufen: 'Die Anmeldung ist abgelaufen. Bitte erneut anmelden.',
 	gesperrt: ZU_VIELE_CODES,
-	eingerichtet: 'Ihr Konto ist eingerichtet. Bitte melden Sie sich jetzt an.'
+	eingerichtet: 'Ihr Konto ist eingerichtet. Bitte melden Sie sich jetzt an.',
+	// „Mit Nextcloud anmelden“ (optional, siehe src/lib/server/nextcloud)
+	'nextcloud-unbekannt':
+		'Ihr Nextcloud-Konto ist mit keinem CRM-Benutzer verknüpft. Bitte wenden Sie sich an die Person, die bei Ihnen die Benutzer verwaltet.',
+	'nextcloud-verweigert': 'Die Anmeldung über Nextcloud ist für dieses Konto nicht möglich.',
+	'nextcloud-abgelaufen': 'Die Anmeldung über Nextcloud ist abgelaufen. Bitte erneut versuchen.',
+	'nextcloud-abgebrochen': 'Die Anmeldung über Nextcloud wurde abgebrochen.',
+	'nextcloud-zu-oft': ZU_OFT,
+	'nextcloud-fehler': 'Die Anmeldung über Nextcloud hat nicht geklappt. Bitte später erneut versuchen oder mit E-Mail und Passwort anmelden.'
 };
 
 /**
@@ -39,7 +48,7 @@ dummyHash.catch(() => {}); // Fehler tauchen beim Await in der Aktion auf, nicht
 export const load: PageServerLoad = ({ locals, url }) => {
 	if (locals.nutzer) redirect(303, '/');
 	const hinweis = url.searchParams.get('hinweis') ?? '';
-	return { hinweis: Object.hasOwn(HINWEISE, hinweis) ? HINWEISE[hinweis] : null, testmodus: testmodusAktiv() };
+	return { hinweis: Object.hasOwn(HINWEISE, hinweis) ? HINWEISE[hinweis] : null, testmodus: testmodusAktiv(), nextcloud: !!nextcloud()?.anmeldung };
 };
 
 export const actions: Actions = {

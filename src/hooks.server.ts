@@ -10,19 +10,30 @@ import { schliesseDb } from '$lib/server/db';
 import { istAdminPfad, nichtGefundenAntwort, nurLesenAntwort } from '$lib/server/sperren';
 import { mitSicherheitsKopfzeilen } from '$lib/server/sicherheit';
 import { pruefeSchriften } from '$lib/server/pdf/angebot-pdf';
-import { starteErinnerungsDienst, stoppeErinnerungsDienst } from '$lib/server/erinnerungen';
+import { registriereKanal, starteErinnerungsDienst, stoppeErinnerungsDienst } from '$lib/server/erinnerungen';
+import { nextcloud } from '$lib/server/nextcloud/konfig';
+import { nextcloudKanal } from '$lib/server/nextcloud/melden';
+import { starteNextcloudDienst, stoppeNextcloudDienst } from '$lib/server/nextcloud/abgleich';
 
 /** Beim Start: Schriften fürs Angebots-PDF müssen da sein – sonst startet der Server nicht (lauter Fehler statt 500 später). */
 export const init: ServerInit = () => {
 	pruefeSchriften();
 	// Erinnerungen (Wunsch Jamil msg 2679): jede Minute fällige zustellen (App-Glocke + Web-Push)
 	if (!process.env.VITEST && process.env.CRM_ERINNERUNGEN !== 'aus') starteErinnerungsDienst();
+	// Nextcloud-Anbindung (optional, nur mit NEXTCLOUD_URL): Konfiguration beim Start prüfen (Fehler = Start bricht ab),
+	// Talk als weiterer Zustellweg für Erinnerungen, Abgleich Kalender/Kontakte/Dateien im Hintergrund.
+	const nc = nextcloud();
+	if (nc) {
+		if (nc.talk) registriereKanal(nextcloudKanal);
+		if (!process.env.VITEST) starteNextcloudDienst();
+	}
 };
 
 // adapter-node meldet das geordnete Beenden (SIGTERM/SIGINT) mit diesem Ereignis, nachdem der Server keine Anfragen
 // mehr annimmt. Dann die Datenbank-Pools schließen – offene Verbindungen hielten den Prozess sonst am Leben.
 process.on('sveltekit:shutdown', () => {
 	stoppeErinnerungsDienst();
+	stoppeNextcloudDienst();
 	void schliesseDb();
 });
 

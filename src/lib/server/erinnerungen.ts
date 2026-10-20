@@ -267,6 +267,26 @@ export async function sendePush(k: Kontext, n: PushNachricht): Promise<number> {
 	return ok;
 }
 
+// ——— Weitere Zustellwege (optional, z. B. Nextcloud Talk) ———
+
+/** Ein zusätzlicher Zustellweg neben Glocke und Web-Push. Fehler eines Wegs halten die anderen nicht auf. */
+export type ErinnerungsKanal = { name: string; sende: (k: Kontext, n: PushNachricht) => Promise<void> };
+const kanaele: ErinnerungsKanal[] = [];
+/** Zustellweg anmelden (beim Start, z. B. Nextcloud). Gleicher Name ersetzt den alten. */
+export function registriereKanal(kanal: ErinnerungsKanal): void {
+	const i = kanaele.findIndex((x) => x.name === kanal.name);
+	if (i >= 0) kanaele.splice(i, 1);
+	kanaele.push(kanal);
+}
+/** Nur Tests. */
+export const entferneKanaele = () => kanaele.splice(0, kanaele.length);
+
+async function sendeZusatz(k: Kontext, n: PushNachricht): Promise<void> {
+	for (const kanal of kanaele) {
+		await kanal.sende(k, n).catch((e) => console.error(`Erinnerung über ${kanal.name}:`, (e as Error).message));
+	}
+}
+
 // ——— Zustellung (Hintergrund-Dienst) ———
 
 /**
@@ -299,6 +319,7 @@ export async function stelleFaelligeZu(limit = 100): Promise<{ gesendet: number;
 			}
 			gesendet++;
 			await sendePush(k, n).catch((e) => console.error('Web-Push:', e));
+			await sendeZusatz(k, n);
 		} catch (e) {
 			console.error('Erinnerung zustellen fehlgeschlagen:', e);
 		}

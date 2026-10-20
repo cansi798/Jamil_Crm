@@ -37,7 +37,8 @@ export type Navigation = {
 
 type NavNutzer = { istAdmin: boolean; betriebId: string | null; rechte: readonly string[] };
 
-export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Navigation {
+/** `extras.nextcloud`: Nextcloud-Anbindung ist auf diesem Server eingerichtet (NEXTCLOUD_URL). */
+export function baueNavigation(nutzer: NavNutzer, module: readonly string[], extras: { nextcloud?: boolean } = {}): Navigation {
 	const hat = (recht: string) => nutzer.rechte.includes(recht);
 	const haupt: NavEintrag[] = [{ name: 'Start', href: '/', symbol: 'start' }];
 	const mehr: NavEintrag[] = [];
@@ -88,6 +89,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		}
 		if (hat('benutzer.verwalten')) {
 			mehr.push({ name: 'Benutzer', href: '/einstellungen/benutzer', symbol: 'benutzer' });
+			// Nextcloud-Anbindung (optional): Konten verknüpfen, Abgleich-Status
+			if (extras.nextcloud) mehr.push({ name: 'Nextcloud', href: '/einstellungen/nextcloud', symbol: 'benutzer' });
 		}
 		if (hat('einstellungen')) {
 			mehr.push({ name: 'Rollen', href: '/einstellungen/rollen', symbol: 'rollen' });

@@ -422,10 +422,210 @@ Wichtige Einträge:
   OpenStreetMap (für kleine Betriebe gedacht); bei vielen Nutzern einen eigenen Kachel-Server oder einen Anbieter
   mit Schlüssel eintragen (Beispiel in `.env.beispiel`).
 - `CRM_SICHERUNG_TAGE` – wie lange Sicherungen aufbewahrt werden
+- `NEXTCLOUD_…` – Verbindung zu einer Nextcloud (optional, siehe „Mit Nextcloud verbinden“)
 
 &nbsp;
 
 Die `.env` enthält Passwörter: **nie weitergeben, nie ins Git hochladen.**
+
+&nbsp;
+
+---
+
+&nbsp;
+
+## Mit Nextcloud verbinden
+
+&nbsp;
+
+Das CRM bleibt ein eigenes Programm mit eigener Anmeldung. Wer eine Nextcloud hat, kann beides verbinden. Jeder Teil
+ist einzeln abschaltbar. Ohne diese Einstellungen ändert sich am CRM nichts.
+
+&nbsp;
+
+| Teil | Was man davon hat |
+| --- | --- |
+| Mit Nextcloud anmelden | Knopf auf der Anmeldeseite. Wer in Nextcloud angemeldet ist, ist mit einem Klick im CRM. |
+| CRM-Kachel in Nextcloud | Menüpunkt „CRM“ oben in Nextcloud (nur für die Gruppen, die das CRM nutzen). |
+| Kalender | Termine und Einsätze jeder Person erscheinen in ihrem Nextcloud-Kalender „CRM – Einsätze“. |
+| Kontakte | Alle Kunden stehen im Nextcloud-Adressbuch „CRM Kunden“. |
+| Dateien | Fotos, fertige Protokolle und versendete Angebote liegen in Nextcloud unter `CRM/Kunden/<Kunde>/<Auftrag>/`. |
+| Talk | Erinnerungen kommen zusätzlich als Talk-Nachricht aufs Handy. |
+
+&nbsp;
+
+Alles läuft nur **vom CRM zur Nextcloud**. Was man in Nextcloud an diesen Kalendern, Kontakten oder Dateien ändert,
+geht nicht ins CRM zurück. Beim nächsten Abgleich (alle 5 Minuten) wird es wieder überschrieben.
+
+&nbsp;
+
+### Schritt A: In der Nextcloud vorbereiten (Nextcloud-Admin)
+
+&nbsp;
+
+Die Befehle laufen auf dem Nextcloud-Server. Beim offiziellen Docker-Abbild beginnen sie mit
+`docker exec -u www-data <nextcloud-container> php occ …`.
+
+&nbsp;
+
+**1. Technik-Konto anlegen.** Das ist ein ganz normales Konto **ohne** Admin-Rechte, mit dem das CRM überträgt:
+
+```sh
+occ group:add "CRM-Technik"
+OC_PASS='ein-langes-zufälliges-passwort' occ user:add --password-from-env --display-name="CRM (Technik)" --group="CRM-Technik" crm-technik
+occ user:auth-tokens:add crm-technik        # zeigt das App-Passwort EINMAL an → aufschreiben
+```
+
+&nbsp;
+
+Mit dem App-Passwort meldet sich das CRM an. Es kann jederzeit unter „Persönliche Einstellungen → Sicherheit“ des
+Kontos widerrufen werden. Ist in Nextcloud die Zwei-Faktor-Anmeldung Pflicht, gilt das für das App-Passwort nicht.
+
+&nbsp;
+
+**2. Gruppenordner „CRM“** (nur für „Dateien“; App „Team folders“ bzw. „Gruppenordner“). So landen die Dateien nicht
+in einem persönlichen Ordner, sondern in einem gemeinsamen Ordner des Teams:
+
+```sh
+occ app:install groupfolders                 # falls noch nicht da
+occ groupfolders:create CRM                  # gibt die Nummer des Ordners aus, z. B. 7
+occ groupfolders:group 7 CRM-Technik read write delete
+occ groupfolders:group 7 Team read           # das Team darf lesen (oder: read write delete)
+```
+
+&nbsp;
+
+**3. „Mit Nextcloud anmelden“ einrichten** (App „OIDC Identity Provider“):
+
+```sh
+occ app:install oidc
+occ oidc:create "CRM" "https://crm.ihre-firma.de/anmelden/nextcloud/rueckruf" --type=confidential --allowed_scopes="openid profile email"
+```
+
+&nbsp;
+
+Der Befehl zeigt `client_id` und `client_secret` an → aufschreiben. Soll die erste Anmeldung Personen automatisch
+über die E-Mail verknüpfen (Schritt C) und tragen Admins die E-Mail-Adressen in Nextcloud selbst ein, zusätzlich:
+
+```sh
+echo yes | occ config:app:set oidc overwrite_email_verified --value=true
+```
+
+&nbsp;
+
+Sonst meldet Nextcloud die E-Mail als „nicht bestätigt“, und Personen müssen von Hand verknüpft werden. Die Adresse muss genau zur Adresse des CRM passen
+(`CRM_ORIGIN` plus `/anmelden/nextcloud/rueckruf`). Danach in Nextcloud unter **Verwaltung → Sicherheit → OpenID
+Connect** beim Eintrag „CRM“ die erlaubten Gruppen eintragen (z. B. nur „Team“). Alle anderen bekommen dann
+„Zugriff verboten“.
+
+&nbsp;
+
+**4. CRM-Kachel** (App „Externe Seiten“, `occ app:install external`): In Nextcloud unter **Verwaltung → Externe
+Seiten** einen Eintrag anlegen:
+
+- Name: `CRM`
+- Adresse: `https://crm.ihre-firma.de`
+- Gruppen: nur die Gruppen, die das CRM nutzen (z. B. „Team“, nicht Gäste oder Externe)
+- Symbol: eigenes Symbol hochladen (z. B. `static/icons/icon-192.png` aus dem CRM-Paket)
+- Haken bei **„In neuem Tab öffnen“** setzen
+
+&nbsp;
+
+Warum ein neuer Tab? Das CRM lässt sich aus Sicherheitsgründen nicht in andere Seiten einbetten (Schutz vor
+untergeschobenen Klicks). Außerdem würde der Browser die Anmeldung in einem eingebetteten Fenster einer anderen
+Adresse nicht behalten.
+
+&nbsp;
+
+### Schritt B: Im CRM eintragen
+
+&nbsp;
+
+In `installation/.env` den Abschnitt „Nextcloud“ ausfüllen (Erklärungen stehen dort), zum Beispiel:
+
+```sh
+NEXTCLOUD_URL=https://cloud.ihre-firma.de
+NEXTCLOUD_ANMELDUNG=ja
+NEXTCLOUD_OIDC_CLIENT_ID=…            # aus Schritt A3
+NEXTCLOUD_OIDC_CLIENT_SECRET=…        # aus Schritt A3
+NEXTCLOUD_2FA_VERTRAUEN=ja            # nur wenn in Nextcloud 2FA für alle Pflicht ist (siehe unten)
+NEXTCLOUD_TECHNIK_BENUTZER=crm-technik
+NEXTCLOUD_TECHNIK_APP_TOKEN=…         # aus Schritt A1
+NEXTCLOUD_KALENDER=ja
+NEXTCLOUD_KONTAKTE=ja
+NEXTCLOUD_KONTAKTE_GRUPPE=Team
+NEXTCLOUD_DATEIEN=ja
+NEXTCLOUD_TALK=ja
+```
+
+&nbsp;
+
+Dann `./3-starten.sh`. Stimmt etwas an den Einträgen nicht, startet das CRM nicht und `./8-status-und-logs.sh` zeigt,
+welcher Eintrag fehlt.
+
+&nbsp;
+
+### Schritt C: Personen verknüpfen
+
+&nbsp;
+
+Im CRM unter **Mehr → Nextcloud** (sichtbar mit dem Recht „Benutzer verwalten“) steht bei jeder Person ein Feld für
+ihren **Nextcloud-Benutzernamen**. Eintragen, speichern – fertig. Haben CRM und Nextcloud dieselbe E-Mail-Adresse und
+meldet Nextcloud sie als bestätigt (siehe Schritt A3), passiert das bei der ersten Anmeldung über Nextcloud automatisch.
+
+&nbsp;
+
+Wichtig:
+
+- Über Nextcloud entstehen **nie neue CRM-Benutzer**. Die Person muss im CRM schon angelegt sein (Einladung).
+- Plattform-Admins melden sich immer mit E-Mail, Passwort und Code an, nie über Nextcloud.
+- Die normale Anmeldung mit E-Mail und Passwort bleibt immer möglich (z. B. wenn die Nextcloud nicht erreichbar ist).
+
+&nbsp;
+
+### Zwei-Faktor-Anmeldung und Nextcloud
+
+&nbsp;
+
+- **Empfohlen:** In Nextcloud die Zwei-Faktor-Anmeldung für alle CRM-Nutzer erzwingen (Verwaltung → Sicherheit) und
+  `NEXTCLOUD_2FA_VERTRAUEN=ja` setzen. Dann prüft Nextcloud den zweiten Faktor, und das CRM fragt nicht doppelt.
+- **Sonst** (`NEXTCLOUD_2FA_VERTRAUEN=nein`, Standard): Wer im CRM einen Bestätigungscode braucht (Chef, alle mit
+  eingerichteter App), gibt ihn nach der Nextcloud-Anmeldung zusätzlich im CRM ein.
+
+&nbsp;
+
+### Was in der Nextcloud zu sehen ist
+
+&nbsp;
+
+- **Kalender:** Jede verknüpfte Person bekommt den Kalender „CRM – Einsätze (Name)“ geteilt, nur zum Lesen.
+  Übertragen werden die Termine der letzten 30 Tage und des nächsten Jahres.
+- **Kontakte:** Das Adressbuch „CRM Kunden“ wird mit der Gruppe aus `NEXTCLOUD_KONTAKTE_GRUPPE` geteilt, nur zum Lesen.
+- **Dateien:** Fotos und fertige Protokolle der Aufträge sowie versendete und angenommene Angebote (PDF). Wird im CRM
+  etwas gelöscht, verschwindet es auch in Nextcloud. Je Durchlauf werden höchstens 50 Dateien hochgeladen; der Rest
+  folgt im nächsten Durchlauf.
+- **Talk:** Das Technik-Konto schreibt der Person eine Nachricht, sobald eine Erinnerung fällig ist.
+
+&nbsp;
+
+Unter **Mehr → Nextcloud** steht, wann zuletzt abgeglichen wurde und ob es Fehler gab. Mit dem Recht
+„Einstellungen“ gibt es dort auch den Knopf „Jetzt abgleichen“.
+
+&nbsp;
+
+### Sicherheit
+
+&nbsp;
+
+- Zugangsdaten stehen nur in `installation/.env` (nur für root lesbar). Sie stehen nie in der Datenbank, in
+  Sicherungen der Datenbank oder in Protokollen. Die Sicherung (`6-sicherung-erstellen.sh`) enthält die `.env` –
+  also Sicherungen genauso vorsichtig aufbewahren.
+- Das Technik-Konto hat keine Admin-Rechte. Es schreibt nur in eigene Kalender und Adressbücher (die es teilt) und in
+  den Ordner „CRM“. In persönliche Kalender, Kontakte oder Dateien anderer schreibt es nie.
+- Bei „Mit Nextcloud anmelden“ prüft das CRM alles selbst: Herkunft (state), Einmalwert (nonce), PKCE und die
+  Unterschrift der Nextcloud. Zu viele Versuche von einer Adresse werden 15 Minuten gesperrt.
+- Abschalten: den Eintrag in `.env` auf `nein` setzen (oder `NEXTCLOUD_URL` leeren) und `./3-starten.sh`. In
+  Nextcloud zusätzlich das App-Passwort des Technik-Kontos widerrufen und den OIDC-Client „CRM“ löschen.
 
 &nbsp;
 

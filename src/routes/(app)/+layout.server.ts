@@ -5,6 +5,7 @@ import { moduleDesBetriebs } from '$lib/server/tarif';
 import { pruefeNachfassenGedrosselt } from '$lib/server/nachfassen';
 import { hatRecht } from '$lib/server/rechte';
 import { benachrichtigungen } from '$lib/server/erinnerungen';
+import { nextcloud } from '$lib/server/nextcloud/konfig';
 
 /** Einzige Seite der App, die ohne volle Sitzung erreichbar ist: Einrichtung der Zwei-Faktor-Anmeldung (Vor-Sitzung). */
 const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
@@ -31,5 +32,5 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	// Erinnerungen (Wunsch Jamil msg 2679): Glocke mit Zahl der ungelesenen Benachrichtigungen
 	const erinnern = !!nutzer.betriebId && hatRecht(nutzer, 'erinnerungen.nutzen');
 	const ungelesen = nutzer.betriebId ? (await benachrichtigungen({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }, 1)).ungelesen : 0;
-	return { navigation: baueNavigation(nutzer, module), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen };
+	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen };
 };

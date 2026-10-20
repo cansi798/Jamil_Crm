@@ -41,6 +41,30 @@ Variablen kommen als `ADDRESS_HEADER`/`XFF_DEPTH`/`CRM_BUCHUNG_EINBETTEN` in der
 unbekannter Buchungslink → 404, Sicherung + Wiederherstellung ok, `9-deinstallieren.sh --ja` hat alles entfernt.
 Vorschau-Container unberührt.
 
+## Probelauf 20.10.2026 (Nextcloud-Anbindung, Migration 070)
+
+Paket mit Migration 070 und den neuen `NEXTCLOUD_…`-Variablen, unbeaufsichtigt installiert (Projekt `crm-nctest`,
+App-Port 18310, ohne Profile, `CRM_ORIGIN=http://localhost:18310`). **Ohne** Nextcloud-Einträge: Installation,
+Migrationen, `/api/gesundheit` und Anmeldeseite unverändert (kein Nextcloud-Knopf). Danach gegen eine
+**Wegwerf-Nextcloud** getestet (offizielles Abbild `nextcloud:apache`, 35.0.2, eigenes Compose-Projekt, eigenes Netz,
+eigenes Volume, Port 127.0.0.1:18800; Apps `oidc`, `groupfolders`, `spreed` aus dem App-Store; Technik-Konto ohne
+Admin-Rechte mit App-Passwort; Gruppenordner „CRM“; OIDC-Client wie in ANLEITUNG Schritt A3). Die Produktiv-Nextcloud
+wurde nicht angefasst.
+
+| Prüfung | Ergebnis |
+| --- | --- |
+| „Mit Nextcloud anmelden“ im Browser (Playwright): Nextcloud-Login → Zustimmung → zurück, ID-Token geprüft, Startseite | ✔ |
+| Erste Anmeldung verknüpft über bestätigte E-Mail (`overwrite_email_verified`), ohne Bestätigung → „nicht verknüpft“ | ✔ |
+| Kalender „CRM – Einsätze (Max Muster)“ beim Nutzer, nur lesend geteilt; Termin mit Kunde, Ort, Auftragsnummer | ✔ |
+| Adressbuch „CRM Kunden“ für Gruppe Team mit dem Kunden (FN, ORG, ADR, EMAIL, TEL) | ✔ |
+| Foto im Gruppenordner `CRM/Kunden/Bäckerei Krümel/A-2026-0001/`; versendetes Angebot als PDF daneben | ✔ |
+| Erinnerung fällig → Talk-Nachricht vom Technik-Konto an die Person | ✔ |
+| Sicherung + Wiederherstellung (Verknüpfung kommt zurück), `9-deinstallieren.sh --ja`, Wegwerf-Nextcloud gelöscht | ✔ |
+
+Dabei gefunden und behoben: `getClientAddress()` warf ohne Proxy-Kopfzeile (direkter Aufruf) → jetzt wie die
+Online-Buchung über `ipVon`; Nextcloud liefert die E-Mail im Code-Flow nur über `userinfo` → wird dort abgefragt
+(nur wenn `sub` passt).
+
 ## So wiederholen (für Entwickler)
 
 ```sh

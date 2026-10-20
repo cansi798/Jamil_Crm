@@ -57,6 +57,10 @@
 			{/if}
 			<button type="submit" class="anmelde-knopf">Anmelden</button>
 		</form>
+		{#if data.nextcloud}
+			<div class="oder" aria-hidden="true"><span>oder</span></div>
+			<a class="nextcloud-knopf" href="/anmelden/nextcloud" data-sveltekit-reload>Mit Nextcloud anmelden</a>
+		{/if}
 		<p class="design">Design by Jamil Iqbal</p>
 	</div>
 </main>
@@ -189,6 +193,37 @@
 	}
 	.mit-passwort label {
 		margin-top: 0.5rem;
+	}
+
+	/* „Mit Nextcloud anmelden“ (optional) */
+	.oder {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin: 1.25rem 0 1rem;
+		font-size: 0.8125rem;
+		color: var(--m365-text-leise);
+	}
+	.oder::before,
+	.oder::after {
+		content: '';
+		flex: 1;
+		border-top: 1px solid var(--m365-rand, #d1d1d1);
+	}
+	.nextcloud-knopf {
+		display: block;
+		text-align: center;
+		padding: 0.65rem 1rem;
+		border: 1px solid var(--m365-primaer);
+		border-radius: var(--m365-radius);
+		color: var(--m365-primaer);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.nextcloud-knopf:hover,
+	.nextcloud-knopf:focus-visible {
+		background: var(--m365-primaer);
+		color: #fff;
 	}
 
 	/* Wunsch Can 16.10.2026 */
