@@ -72,6 +72,7 @@ describe('Sprache: neue Aktionen (Ersatz-KI)', () => {
 			daten: { titel: 'Badsanierung', kunde: { name: 'Müller' }, quelle: 'Hornbach' }
 		});
 		expect(await deute('Setze die Quelle vom Auftrag Müller auf Empfehlung')).toEqual({ aktion: 'quelle_setzen', daten: { auftrag: 'Müller', quelle: 'Empfehlung' } });
+		expect(await deute('Setze die Auftragsquelle vom Auftrag Müller auf Hornbach')).toEqual({ aktion: 'quelle_setzen', daten: { auftrag: 'Müller', quelle: 'Hornbach' } });
 		expect(await deute('Auftrag Schulz kam über die Website')).toEqual({ aktion: 'quelle_setzen', daten: { auftrag: 'Schulz', quelle: 'Website' } });
 	});
 

@@ -13,9 +13,11 @@ import {
 	speichereSignatur,
 	speichereStufe,
 	uebernimmStandard,
-	listeStufen
+	listeStufen,
+	vorschauBeispiele
 } from '../../src/lib/server/nachfassen';
 import { aendereAuftrag } from '../../src/lib/server/auftraege';
+import { BEISPIEL_WERTE } from '../../src/lib/nachfassen';
 import { berlinTag, tagPlus } from '../../src/lib/zeit';
 import { baueUmgebung, leereAngebote, type Umgebung } from './hilfe-1c';
 import { actions as seite, load as seitenLoad } from '../../src/routes/(app)/einstellungen/nachfassen/+page.server';
@@ -163,6 +165,20 @@ describe('Nachfassen', () => {
 		expect(d.vorlagen).toHaveLength(2);
 		expect(d.signatur).toBe('<p>Gruß</p>');
 		expect(d.rollen.map((r: any) => r.name)).toContain('Chef');
+	});
+
+	it('Vorschau-Beispiele (msg 2670): Beispieldaten + letzte Angebote; Betrag nur mit „Preise sehen“; Seite liefert sie', async () => {
+		const id = await versendet(2);
+		const mit = await vorschauBeispiele(kA(), true);
+		expect(mit[0]).toMatchObject({ id: 'beispiel', werte: { 'kunde.name': 'Familie Müller' } });
+		const echt = mit.find((b) => b.id === id)!;
+		expect(echt.name).toMatch(/^AN-\d{4}-\d{4} · Hans Müller$/);
+		expect(echt.werte).toMatchObject({ 'kunde.anrede': expect.stringMatching(/Müller/), betrag: expect.stringMatching(/^1\.190,00/) });
+		const ohne = await vorschauBeispiele(kA(), false);
+		expect(ohne.find((b) => b.id === id)!.werte.betrag).toBe(BEISPIEL_WERTE.betrag);
+		expect((await vorschauBeispiele(kB(), true)).map((b) => b.id)).not.toContain(id); // RLS
+		const d = (await seitenLoad({ locals: { nutzer: u.chefA } } as never)) as any;
+		expect(d.beispiele.map((b: any) => b.id)).toContain(id);
 	});
 
 	it('versendet_am wird beim Versand gesetzt', async () => {

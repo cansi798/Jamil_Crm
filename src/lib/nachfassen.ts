@@ -138,3 +138,34 @@ export const STANDARD_STUFEN = [
 	{ tage: 7, todo: true, mail: false, vorlage: null, todoTitel: 'Kunde anrufen: {{kunde.name}} – Angebot {{angebot.nummer}}', zuweisung: 'zustaendig' },
 	{ tage: 14, todo: true, mail: true, vorlage: 'erinnerung', todoTitel: 'Angebot {{angebot.nummer}} ({{kunde.name}}) noch offen – nachhaken', zuweisung: 'rolle' }
 ] as const;
+
+// ——— Vorschau (Wunsch Jamil msg 2670) ———
+
+export type MailBeispiel = { id: string; name: string; werte: Record<string, string> };
+
+/** Fertige Mail wie beim Versand: Platzhalter gefüllt (im HTML maskiert), Signatur eingesetzt. */
+export function fertigeMail(
+	v: { betreff: string; html: string; text: string | null },
+	werte: Record<string, string>,
+	signatur: string | null
+): { betreff: string; html: string; text: string } {
+	const html = mitSignatur(fuelle(v.html, werte, true), signatur);
+	const text = v.text?.trim()
+		? mitSignatur(fuelle(v.text, werte, false), signatur ? htmlZuText(signatur) : null)
+		: htmlZuText(html);
+	return { betreff: fuelle(v.betreff, werte, false), html, text };
+}
+
+/**
+ * HTML-Dokument für die Vorschau im abgeschotteten iframe (`sandbox` ohne Skripte, `srcdoc`): Schrift und Ränder wie in
+ * einem üblichen Mailprogramm; ein CSP-Meta verbietet zusätzlich Skripte, Formulare und Nachladen außer Bildern.
+ */
+export function vorschauDokument(html: string): string {
+	return (
+		'<!doctype html><html lang="de"><head><meta charset="utf-8">' +
+		`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'">` +
+		'<meta name="viewport" content="width=device-width,initial-scale=1">' +
+		'<style>body{margin:16px;font:15px/1.6 Arial,Helvetica,sans-serif;color:#1c1f23;background:#fff;overflow-wrap:anywhere}img{max-width:100%;height:auto}a{color:#0f6cbd}</style>' +
+		`</head><body>${html}</body></html>`
+	);
+}

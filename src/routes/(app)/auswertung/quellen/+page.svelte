@@ -50,11 +50,11 @@
 </script>
 
 <svelte:head>
-	<title>Auswertung Quellen</title>
+	<title>Auswertung Auftragsquellen</title>
 </svelte:head>
 
 <main class="kd-seite breit qa-seite">
-	<h1>Auswertung nach Quelle</h1>
+	<h1>Auswertung nach Auftragsquelle</h1>
 	<p class="kd-info">
 		Aufträge und Angebote, die im Zeitraum angelegt wurden. Umsatz = Summe der angenommenen Angebote (netto) – Rechnungen gibt es im CRM noch
 		nicht. Ø Auftragswert = Umsatz je Auftrag mit angenommenem Angebot.
@@ -71,7 +71,7 @@
 
 	<section class="qa-balken" aria-label="Diagramm">
 		<div class="qa-balken-kopf">
-			<h2>{balken === 'umsatzCent' ? 'Umsatz' : 'Aufträge'} je Quelle</h2>
+			<h2>{balken === 'umsatzCent' ? 'Umsatz' : 'Aufträge'} je Auftragsquelle</h2>
 			{#if data.mitPreisen}
 				<div role="group" aria-label="Diagramm zeigt">
 					<button type="button" class="kd-knopf hell klein" aria-pressed={balken === 'umsatzCent'} onclick={() => (balken = 'umsatzCent')}>Umsatz</button>
@@ -95,7 +95,7 @@
 		<table class="qa-tabelle">
 			<thead>
 				<tr>
-					{#each [['name', 'Quelle'], ['auftraege', 'Aufträge'], ['angebote', 'Angebote'], ['angenommen', 'Angenommen'], ['quoteProzent', 'Annahmequote'], ...(data.mitPreisen ? [['umsatzCent', 'Umsatz'], ['durchschnittCent', 'Ø Auftragswert']] : [])] as [s, t] (s)}
+					{#each [['name', 'Auftragsquelle'], ['auftraege', 'Aufträge'], ['angebote', 'Angebote'], ['angenommen', 'Angenommen'], ['quoteProzent', 'Annahmequote'], ...(data.mitPreisen ? [['umsatzCent', 'Umsatz'], ['durchschnittCent', 'Ø Auftragswert']] : [])] as [s, t] (s)}
 						<th scope="col" aria-sort={aria(s as Spalte)}>
 							<button type="button" onclick={() => sortiere(s as Spalte)}>{t}{pfeil(s as Spalte)}</button>
 						</th>

@@ -2,6 +2,8 @@
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import AddPanel from '$lib/components/AddPanel.svelte';
+	import AuftragsquelleEtikett from '$lib/components/AuftragsquelleEtikett.svelte';
+	import { standardFarbe } from '$lib/farben';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -10,25 +12,28 @@
 </script>
 
 <svelte:head>
-	<title>Quellen</title>
+	<title>Auftragsquellen</title>
 </svelte:head>
 
 <main class="kd-seite">
 	<h1>Auftragsquellen</h1>
 	<p class="kd-info">
-		Woher kommen eure Aufträge? Bei jedem neuen Auftrag wird die Quelle gewählt; die <a href="/auswertung/quellen">Auswertung</a> zeigt, was
-		jede Quelle bringt. Eine Quelle, die schon an Aufträgen hängt, wird beim Löschen nur ausgeschaltet.
+		Woher kommen eure Aufträge? Bei jedem neuen Auftrag wird die Auftragsquelle gewählt; die <a href="/auswertung/quellen">Auswertung</a> zeigt, was
+		jede Auftragsquelle bringt. Die Farbe erscheint als Etikett auf den Auftragskarten und in der Liste. Eine Auftragsquelle, die schon an
+		Aufträgen hängt, wird beim Löschen nur ausgeschaltet.
 	</p>
 	{#if form && 'ergebnis' in form && form.ergebnis === 'deaktiviert'}
-		<p class="kt-hinweis" role="status">Die Quelle hängt an Aufträgen und wurde deshalb nur ausgeschaltet.</p>
+		<p class="kt-hinweis" role="status">Die Auftragsquelle hängt an Aufträgen und wurde deshalb nur ausgeschaltet.</p>
 	{/if}
 
-	<ol class="qu-liste" aria-label="Quellen">
+	<ol class="qu-liste" aria-label="Auftragsquellen">
 		{#each data.quellen as q, i (q.id)}
 			<li class:aus={!q.aktiv}>
 				<form method="POST" action="?/speichern" use:enhance={ohneReset} class="qu-zeile">
 					<input type="hidden" name="id" value={q.id} />
+					<input type="color" name="farbe" value={q.farbe} class="qu-farbe" aria-label={`Farbe ${q.name}`} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
 					<input type="text" name="name" value={q.name} maxlength="100" required aria-label={`Name ${q.name}`} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
+					<AuftragsquelleEtikett name={q.name} farbe={q.farbe} />
 					<label class="kd-haken">
 						<input type="checkbox" name="aktiv" value="true" checked={q.aktiv} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
 						<span>aktiv</span>
@@ -52,11 +57,12 @@
 		{/each}
 	</ol>
 
-	<AddPanel label="Quelle hinzufügen" offen={!!fehlerIn('neu')}>
+	<AddPanel label="Auftragsquelle hinzufügen" offen={!!fehlerIn('neu')}>
 		{#snippet children(schliessen)}
 			<form method="POST" action="?/speichern" use:enhance class="kd-formular">
 				{#if fehlerIn('neu')}<p role="alert" class="kd-fehler">{fehlerIn('neu')}</p>{/if}
 				<label>Name <input type="text" name="name" maxlength="100" required placeholder="z. B. Instagram" /></label>
+				<label class="qu-farbwahl">Farbe <input type="color" name="farbe" value={standardFarbe('', data.quellen.length)} class="qu-farbe" /></label>
 				<div class="qu-knoepfe">
 					<button type="submit" class="kd-knopf">Hinzufügen</button>
 					<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
@@ -99,8 +105,20 @@
 		width: auto !important;
 		flex: 1 1 10rem;
 	}
+	.qu-farbe {
+		width: 2.75rem !important;
+		min-width: 2.75rem;
+		height: 2.25rem;
+		padding: 0.1rem !important;
+		cursor: pointer;
+	}
+	.qu-farbwahl {
+		display: flex !important;
+		align-items: center;
+		gap: 0.5rem;
+	}
 	.qu-knoepfe,
-	.qu-knoepfe form {
+		.qu-knoepfe form {
 		display: flex;
 		gap: 0.35rem;
 	}

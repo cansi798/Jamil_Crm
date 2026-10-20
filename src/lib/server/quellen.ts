@@ -2,6 +2,7 @@ import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { textFeld, UUID } from './kunden';
 import { berlinTag, istTag, tagPlus } from '../zeit';
+import { istFarbe, standardFarbe } from '../farben';
 
 /**
  * Auftragsquellen (Wunsch Jamil msg 2593): Website, Hornbach, Obi, Empfehlung, … – zentral gepflegt (Einstellungen →
@@ -9,11 +10,11 @@ import { berlinTag, istTag, tagPlus } from '../zeit';
  * (Chef/Admin, mit Beträgen nur mit „Preise sehen“).
  */
 
-export type Quelle = { id: string; name: string; aktiv: boolean; sortierung: number; auftraege: number };
+export type Quelle = { id: string; name: string; aktiv: boolean; sortierung: number; farbe: string; auftraege: number };
 
 export const START_QUELLEN = ['Website', 'Hornbach', 'Obi', 'Empfehlung', 'Zeitung', 'MyHammer', 'Telefon', 'Sonstiges'];
 
-const nichtGefunden = () => new ApiFehler(404, 'Quelle nicht gefunden.');
+const nichtGefunden = () => new ApiFehler(404, 'Auftragsquelle nicht gefunden.');
 const pruefeId = (id: unknown) => {
 	if (typeof id !== 'string' || !UUID.test(id.trim())) throw nichtGefunden();
 	return id.trim().toLowerCase();
@@ -24,7 +25,8 @@ async function startlisteFallsLeer(tx: TransactionSql, k: Kontext): Promise<void
 	if (da) return;
 	let nr = 1;
 	for (const name of START_QUELLEN) {
-		await tx`insert into app.auftrag_quellen (betrieb_id, name, sortierung) values (${k.betriebId}, ${name}, ${nr++}) on conflict do nothing`;
+		await tx`insert into app.auftrag_quellen (betrieb_id, name, sortierung, farbe) values (${k.betriebId}, ${name}, ${nr}, ${standardFarbe(name, nr - 1)}) on conflict do nothing`;
+		nr++;
 	}
 }
 
@@ -32,12 +34,12 @@ export async function listeQuellen(k: Kontext, nurAktive = false): Promise<Quell
 	return mitBetrieb(k, async (tx) => {
 		await startlisteFallsLeer(tx, k);
 		const z = await tx`
-			select q.id, q.name, q.aktiv, q.sortierung,
+			select q.id, q.name, q.aktiv, q.sortierung, q.farbe,
 				(select count(*)::int from app.auftraege a where a.quelle_id = q.id and a.betrieb_id = q.betrieb_id) as auftraege
 			from app.auftrag_quellen q
 			where q.betrieb_id = ${k.betriebId} ${nurAktive ? tx`and q.aktiv` : tx``}
 			order by q.sortierung, public.unaccent(lower(q.name)), q.id`;
-		return z.map((r) => ({ id: r.id, name: r.name, aktiv: r.aktiv, sortierung: r.sortierung, auftraege: r.auftraege }));
+		return z.map((r) => ({ id: r.id, name: r.name, aktiv: r.aktiv, sortierung: r.sortierung, farbe: r.farbe, auftraege: r.auftraege }));
 	});
 }
 
@@ -46,16 +48,19 @@ export async function speichereQuelle(k: Kontext, id: unknown, e: Record<string,
 	if (!name) throw new ApiFehler(400, 'Name: Bitte einen Namen eingeben.');
 	const aktiv = e.aktiv === undefined || e.aktiv === '' ? true : e.aktiv === true || e.aktiv === 'true' || e.aktiv === 'on';
 	const bisher = id === null || id === undefined || id === '' ? null : pruefeId(id);
+	const farbeRoh = e.farbe === undefined || e.farbe === null || e.farbe === '' ? null : e.farbe;
+	if (farbeRoh !== null && !istFarbe(farbeRoh)) throw new ApiFehler(400, 'Farbe: bitte eine Farbe wählen.');
+	const farbe = farbeRoh === null ? null : (farbeRoh as string).toLowerCase();
 	await mitBetrieb(k, async (tx) => {
 		const [gleich] = await tx`
 			select 1 from app.auftrag_quellen where betrieb_id = ${k.betriebId} and lower(btrim(name)) = lower(${name}) and id is distinct from ${bisher}::uuid`;
-		if (gleich) throw new ApiFehler(409, `Es gibt schon eine Quelle „${name}“.`);
+		if (gleich) throw new ApiFehler(409, `Es gibt schon eine Auftragsquelle „${name}“.`);
 		if (!bisher) {
 			const [{ n }] = await tx`select coalesce(max(sortierung), 0)::int + 1 as n from app.auftrag_quellen where betrieb_id = ${k.betriebId}`;
-			await tx`insert into app.auftrag_quellen (betrieb_id, name, aktiv, sortierung) values (${k.betriebId}, ${name}, ${aktiv}, ${n})`;
+			await tx`insert into app.auftrag_quellen (betrieb_id, name, aktiv, sortierung, farbe) values (${k.betriebId}, ${name}, ${aktiv}, ${n}, ${farbe ?? standardFarbe(name, n - 1)})`;
 			return;
 		}
-		const z = await tx`update app.auftrag_quellen set name = ${name}, aktiv = ${aktiv} where id = ${bisher} and betrieb_id = ${k.betriebId} returning id`;
+		const z = await tx`update app.auftrag_quellen set name = ${name}, aktiv = ${aktiv}, farbe = coalesce(${farbe}, farbe) where id = ${bisher} and betrieb_id = ${k.betriebId} returning id`;
 		if (z.length === 0) throw nichtGefunden();
 	});
 }
@@ -135,7 +140,7 @@ export async function auswertung(k: Kontext, von: string, bis: string): Promise<
 				(select coalesce(sum(an.netto), 0) from an where an.quelle_id is not distinct from q.id and an.status = 'angenommen')::bigint as umsatz,
 				(select count(distinct an.auftrag_id) from an where an.quelle_id is not distinct from q.id and an.status = 'angenommen')::int as auftraege_mit_umsatz
 			from (select id, name, sortierung from app.auftrag_quellen where betrieb_id = ${k.betriebId}
-				union all select null::uuid, 'Ohne Quelle', 100000) q
+				union all select null::uuid, 'Ohne Auftragsquelle', 100000) q
 			order by q.sortierung, q.name`;
 		return z
 			.map((r) => ({

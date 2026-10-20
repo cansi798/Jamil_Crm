@@ -43,7 +43,7 @@ export const actions: Actions = {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 			// Quelle ist bei neuen Aufträgen Pflicht (msg 2593), sobald der Betrieb Quellen hat
 			if (!werte.quelleId && (await listeQuellen(betriebKontext(locals), true)).length > 0) {
-				throw new ApiFehler(400, 'Bitte eine Quelle wählen (woher kam der Auftrag?).');
+				throw new ApiFehler(400, 'Bitte eine Auftragsquelle wählen (woher kam der Auftrag?).');
 			}
 			// To-dos (z. B. aus einer Vorlage) zuerst prüfen – ein ungültiges To-do soll keinen halben Auftrag hinterlassen
 			const todos = pruefeTodoListe(todosAusFormular(formData));

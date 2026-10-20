@@ -263,11 +263,13 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 		return { aktion: 'abfrage_auslastung', daten: { ...(wer ? { wer } : {}), ...(monat ? { monat } : {}) } };
 	}
 	if (istFrage(text, l)) return abfrage(t, kontext);
+	if (/\bnachfass/.test(l) && /\b(wo|wer|welche[nrs]?|was|muss|müssen|fällig|faellig|steht|stehen|anstehend\w*)\b/.test(l) && !/\b(pausier\w*|stopp\w*|anhalten|fortsetz\w*|aufnehm\w*)\b/.test(l))
+		return { aktion: 'abfrage_nachfassen', daten: {} };
 	if (/\bnachfass/.test(l)) return nachfassen(t);
 	if (/\b(?:hake|hak|abhaken|abgehakt)\b|\b(?:ist|sind|als)\s+(?:jetzt\s+)?(?:erledigt|abgehakt)\b|\berledigt\s*$/.test(l) && !/\b(?:soll|muss|bis)\b/.test(l)) {
 		return abhaken(t);
 	}
-	if (/\bauftrag/.test(l) && (/\bquelle\b/.test(l) || /\b(?:kam|kommt)\s+(?:über|von|via)\b/.test(l)) && !/\b(?:neue[nrs]?|anlegen|lege|leg)\b/.test(l)) {
+	if (/\bauftrag/.test(l) && (/\b(?:auftrags)?quelle\b/.test(l) || /\b(?:kam|kommt)\s+(?:über|von|via)\b/.test(l)) && !/\b(?:neue[nrs]?|anlegen|lege|leg)\b/.test(l)) {
 		return quelleSetzen(t);
 	}
 	if (/\bauftrag/.test(l) && /\b(?:weise|zuweisen|zuteilen|zuordnen|ordne)\b|\bteile?\b.*\bzu\s*$/.test(l)) return zuweisen(t);
@@ -404,7 +406,7 @@ function zuweisen(t: string): { aktion: string; daten: Record<string, unknown> }
 /** „über Hornbach“, „Quelle Website“, „kam über eine Empfehlung“ → Quellen-Name; sonst null. */
 function quelleAus(t: string): { quelle: string; rest: string } | null {
 	const m =
-		/\bquelle\s*(?:ist|war|:)?\s+(?:die\s+|der\s+|das\s+)?([A-ZÄÖÜa-zäöüß][\wäöüß-]+)/i.exec(t) ??
+		/\b(?:auftrags)?quelle\s*(?:ist|war|:)?\s+(?:die\s+|der\s+|das\s+)?([A-ZÄÖÜa-zäöüß][\wäöüß-]+)/i.exec(t) ??
 		/\b(?:kam|kommt|kamen)\s+(?:über|von|via)\s+(?:die\s+|den\s+|das\s+|eine\s+|einen\s+)?([A-ZÄÖÜa-zäöüß][\wäöüß-]+)/i.exec(t) ??
 		/\b(?:über|via)\s+(?:die\s+|den\s+|eine\s+)?(Website|Webseite|Hornbach|Obi|Empfehlung|Zeitung|MyHammer|Telefon)\b/i.exec(t);
 	if (!m) return null;
@@ -416,7 +418,7 @@ function quelleAus(t: string): { quelle: string; rest: string } | null {
 function quelleSetzen(t: string): { aktion: string; daten: Record<string, unknown> } {
 	const auf = /\bauf\s+(?:die\s+|den\s+)?([A-ZÄÖÜa-zäöüß][\wäöüß-]+)\s*$/i.exec(t);
 	const q = auf ? { quelle: auf[1][0].toUpperCase() + auf[1].slice(1) } : quelleAus(t);
-	const a = /\bauftrag(?:s)?\s+(.+?)(?=\s+(?:auf|kam|kommt|ist|hat|setzen|quelle)\b|$)/i.exec(t);
+	const a = /\bauftrag(?:s)?\s+(.+?)(?=\s+(?:auf|kam|kommt|ist|hat|setzen|quelle|auftragsquelle)\b|$)/i.exec(t);
 	return { aktion: 'quelle_setzen', daten: { auftrag: a ? sauber(a[1]) : '?', quelle: q?.quelle ?? '?' } };
 }
 

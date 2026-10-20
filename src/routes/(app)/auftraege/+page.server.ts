@@ -30,9 +30,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const quellen = await listeQuellen(k);
 	const rohQuelle = url.searchParams.get('quelle') ?? '';
 	const quelle = rohQuelle === 'ohne' || (UUID.test(rohQuelle) && quellen.some((q) => q.id === rohQuelle)) ? rohQuelle : null;
+	// Filter „Nachfassen fällig“ (Wunsch Jamil msg 2674): ?nachfassen=faellig
+	const nachfassenFaellig = url.searchParams.get('nachfassen') === 'faellig';
 	const gemeinsam = {
 		quellen: quellen.map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv })),
 		quelle,
+		nachfassenFaellig,
 		ansicht,
 		status,
 		suche,
@@ -42,11 +45,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	} as const;
 	if (ansicht === 'liste') {
 		const auftraege = await alsSeitenFehler(() =>
-			listeAuftraege(k, sicht, { status: status ?? undefined, suche, meine, quelleId: quelle ?? undefined })
+			listeAuftraege(k, sicht, { status: status ?? undefined, suche, meine, quelleId: quelle ?? undefined, nachfassenFaellig })
 		);
 		return { ...gemeinsam, auftraege, board: null, maxTreffer: MAX_AUFTRAEGE, mitPreisen: false };
 	}
 	const mitPreisen = hatRecht(nutzer, 'preise.sehen') && (await moduleDesBetriebs(k)).includes('angebote');
-	const board = await alsSeitenFehler(() => ladeBoard(k, sicht, { suche, meine, mitPreisen, quelleId: quelle ?? undefined }));
+	const board = await alsSeitenFehler(() => ladeBoard(k, sicht, { suche, meine, mitPreisen, quelleId: quelle ?? undefined, nachfassenFaellig }));
 	return { ...gemeinsam, auftraege: [], board, maxTreffer: MAX_JE_SPALTE, mitPreisen };
 };

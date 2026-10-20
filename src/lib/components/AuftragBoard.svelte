@@ -10,6 +10,8 @@
 		type BoardSpalte
 	} from '$lib/auftrag-board';
 	import { euro } from '$lib/geld';
+	import AuftragHinweise from './AuftragHinweise.svelte';
+	import type { AngebotInfo, NachfassenInfo } from '$lib/auftrag-hinweise';
 	import { berlinTag, berlinUhrzeit, tagKurz } from '$lib/zeit';
 
 	type Karte = {
@@ -25,7 +27,11 @@
 		naechsterTermin: string | null;
 		angebotNettoCent: number | null;
 		angebotStatus: string | null;
-	};
+			quelleName: string | null;
+			quelleFarbe: string | null;
+			angebotInfo: AngebotInfo | null;
+			nachfassenInfo: NachfassenInfo | null;
+		};
 
 	/**
 	 * Auftrags-Board (Kacheln je Status, Microsoft-Planner-Stil). Ab 700 px Breite: alle Spalten nebeneinander, Kacheln
@@ -244,6 +250,7 @@
 						</div>
 						<a href={`/auftraege/${k.id}`} class="ab-titel" draggable="false" onclick={klick}>{k.titel}</a>
 						<p class="ab-kunde">{k.kundeName}{k.kundeArt === 'einmal' ? ' (Einmal-Kunde)' : ''}</p>
+						<AuftragHinweise quelleName={k.quelleName} quelleFarbe={k.quelleFarbe} angebotInfo={k.angebotInfo} nachfassenInfo={k.nachfassenInfo} />
 						{#if k.objektBezeichnung || adresse}
 							<p class="ab-ort" title={k.adresse ?? undefined}>
 								{k.objektBezeichnung ? `${k.objektBezeichnung}${adresse ? ' · ' : ''}` : ''}{adresse ?? ''}

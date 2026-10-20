@@ -2,13 +2,14 @@
 	import { terminKurz } from '$lib/einsatz-art';
 	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
 	import AuftragBoard from '$lib/components/AuftragBoard.svelte';
+	import AuftragHinweise from '$lib/components/AuftragHinweise.svelte';
 	import { STATUS, STATUS_NAMEN } from '$lib/auftrag-status';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	/** Link mit Ansicht, Status (nur Liste), „Meine“ und Suche (leere Werte entfallen). */
-	const link = (o: { ansicht?: 'board' | 'liste'; status?: string | null; meine?: boolean } = {}) => {
+	const link = (o: { ansicht?: 'board' | 'liste'; status?: string | null; meine?: boolean; nachfassen?: boolean } = {}) => {
 		const ansicht = o.ansicht ?? data.ansicht;
 		const status = o.status === undefined ? data.status : o.status;
 		const meine = o.meine ?? data.meine;
@@ -18,6 +19,7 @@
 		if (data.suche) p.set('suche', data.suche);
 		if (meine) p.set('meine', '1');
 		if (data.quelle) p.set('quelle', data.quelle);
+		if (o.nachfassen ?? data.nachfassenFaellig) p.set('nachfassen', 'faellig');
 		const q = p.toString();
 		return q ? `/auftraege?${q}` : '/auftraege';
 	};
@@ -46,8 +48,11 @@
 		<nav aria-label="Meine oder alle Aufträge" class="af-meine">
 			<a href={link({ meine: false })} class="pill" aria-current={!data.meine ? 'page' : undefined}>Alle</a>
 			<a href={link({ meine: true })} class="pill" aria-current={data.meine ? 'page' : undefined}>Meine</a>
-		</nav>
-	{/if}
+					</nav>
+				{/if}
+				<nav aria-label="Weitere Filter" class="af-meine">
+					<a href={link({ nachfassen: !data.nachfassenFaellig })} class="pill" aria-current={data.nachfassenFaellig ? 'page' : undefined}>↻ Nachfassen fällig</a>
+				</nav>
 
 	{#if data.ansicht === 'liste'}
 		<nav aria-label="Status">
@@ -66,10 +71,11 @@
 		{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
 		{#if data.ansicht === 'liste' && data.status}<input type="hidden" name="status" value={data.status} />{/if}
 		{#if data.meine}<input type="hidden" name="meine" value="1" />{/if}
-		<select name="quelle" aria-label="Quelle" class="af-quelle-filter" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-			<option value="" selected={!data.quelle}>Alle Quellen</option>
+		{#if data.nachfassenFaellig}<input type="hidden" name="nachfassen" value="faellig" />{/if}
+		<select name="quelle" aria-label="Auftragsquelle" class="af-quelle-filter" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+			<option value="" selected={!data.quelle}>Alle Auftragsquellen</option>
 			{#each data.quellen as q (q.id)}<option value={q.id} selected={data.quelle === q.id}>{q.name}{q.aktiv ? '' : ' (aus)'}</option>{/each}
-			<option value="ohne" selected={data.quelle === 'ohne'}>Ohne Quelle</option>
+			<option value="ohne" selected={data.quelle === 'ohne'}>Ohne Auftragsquelle</option>
 		</select>
 		<input
 			type="search"
@@ -90,7 +96,7 @@
 		<AuftragBoard spalten={data.board.spalten} darfBearbeiten={data.darfBearbeiten} mitPreisen={data.mitPreisen} />
 		{#if data.board.spalten.every((s) => s.anzahl === 0)}
 			<p class="kd-leer">
-				{data.suche ? 'Keine Aufträge gefunden.' : data.alle && !data.meine ? 'Noch keine Aufträge angelegt.' : 'Ihnen sind noch keine Aufträge zugeordnet.'}
+				{data.nachfassenFaellig ? 'Kein Nachfassen fällig.' : data.suche || data.quelle ? 'Keine Aufträge gefunden.' : data.alle && !data.meine ? 'Noch keine Aufträge angelegt.' : 'Ihnen sind noch keine Aufträge zugeordnet.'}
 			</p>
 		{/if}
 	{:else}
@@ -103,6 +109,7 @@
 							<span class={`af-status s-${a.status}`}>{STATUS_NAMEN[a.status]}</span>
 						</span>
 						<span class="kd-info">{a.nummer} · {a.kundeName}</span>
+						<AuftragHinweise quelleName={a.quelleName} quelleFarbe={a.quelleFarbe} angebotInfo={a.angebotInfo} nachfassenInfo={a.nachfassenInfo} />
 						{#if a.kommenderTermin}
 							<span class="kd-info">Nächster Termin: {terminKurz(a.kommenderTermin)}</span>
 						{/if}
@@ -125,7 +132,7 @@
 				</li>
 			{:else}
 				<li class="kd-leer">
-					{data.suche || data.status ? 'Keine Aufträge gefunden.' : data.alle && !data.meine ? 'Noch keine Aufträge angelegt.' : 'Ihnen sind noch keine Aufträge zugeordnet.'}
+					{data.nachfassenFaellig ? 'Kein Nachfassen fällig.' : data.suche || data.status || data.quelle ? 'Keine Aufträge gefunden.' : data.alle && !data.meine ? 'Noch keine Aufträge angelegt.' : 'Ihnen sind noch keine Aufträge zugeordnet.'}
 				</li>
 			{/each}
 		</ul>

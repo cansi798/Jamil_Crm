@@ -189,6 +189,7 @@ async function ausfuehrenJe(
 		case 'route_heute':
 		case 'abfrage_auslastung':
 		case 'abfrage_monatsgewinn':
+		case 'abfrage_nachfassen':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
 		case 'protokoll_ausfuellen': {
 			if (w.formular) {
@@ -236,7 +237,7 @@ async function neueAktionen(k: { betriebId: string; benutzerId: string }, nutzer
 		case 'quelle_setzen': {
 			const { aendereAuftrag } = await import('../auftraege');
 			const a = await aendereAuftrag(k, w.auftragId, { quelleId: w.quelleId }, sichtVon(nutzer));
-			return { status: 200, meldung: `Quelle von ${a.nummer}: ${a.quelleName}`, link: `/auftraege/${a.id}`, warnungen: [] };
+			return { status: 200, meldung: `Auftragsquelle von ${a.nummer}: ${a.quelleName}`, link: `/auftraege/${a.id}`, warnungen: [] };
 		}
 		case 'nachfassen_pausieren': {
 			const { setzeNachfassenPausiert } = await import('../nachfassen');

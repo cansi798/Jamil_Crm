@@ -93,8 +93,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 			if (module.includes('angebote')) mehr.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
 			// Auftragsquellen und ihre Auswertung (Wunsch Jamil msg 2593)
 			if (module.includes('auftraege')) {
-				mehr.push({ name: 'Quellen', href: '/einstellungen/quellen', symbol: 'auftraege' });
-				mehr.push({ name: 'Auswertung Quellen', href: '/auswertung/quellen', symbol: 'auftraege' });
+				mehr.push({ name: 'Auftragsquellen', href: '/einstellungen/quellen', symbol: 'auftraege' });
+				mehr.push({ name: 'Auswertung Auftragsquellen', href: '/auswertung/quellen', symbol: 'auftraege' });
 			}
 		}
 	} else if (nutzer.istAdmin) {

@@ -128,7 +128,7 @@ export async function warteAufGeokodierung(): Promise<void> {
 function pruefeFilter(f: KartenFilter): void {
 	if (f.status) for (const s of f.status) if (!istStatus(s)) throw new ApiFehler(400, 'Unbekannter Status.');
 	for (const id of [f.benutzerId, f.kolonneId]) if (id !== undefined && !UUID.test(id)) throw new ApiFehler(400, 'Ungültige Auswahl.');
-	if (f.quelleId !== undefined && f.quelleId !== 'ohne' && !UUID.test(f.quelleId)) throw new ApiFehler(400, 'Ungültige Quelle.');
+	if (f.quelleId !== undefined && f.quelleId !== 'ohne' && !UUID.test(f.quelleId)) throw new ApiFehler(400, 'Ungültige Auftragsquelle.');
 	for (const t of [f.von, f.bis]) if (t !== undefined && !istTag(t)) throw new ApiFehler(400, 'Ungültiges Datum.');
 }
 

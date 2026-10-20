@@ -699,12 +699,12 @@ async function quelleAufloesen(bau: Bau, k: Kontext, gesprochen: string): Promis
 	bau.werte.quelleId = null;
 	if (treffer.length === 1) {
 		bau.werte.quelleId = treffer[0].id;
-		bau.zeilen.push({ label: 'Quelle', wert: treffer[0].name });
+		bau.zeilen.push({ label: 'Auftragsquelle', wert: treffer[0].name });
 	} else if (treffer.length > 1) {
-		bau.auswahl.push({ feld: 'quelle', frage: 'Welche Quelle?', optionen: treffer.map((q) => ({ id: q.id, label: q.name })) });
-		bau.zeilen.push({ label: 'Quelle', wert: `${gesprochen} (bitte wählen)` });
+		bau.auswahl.push({ feld: 'quelle', frage: 'Welche Auftragsquelle?', optionen: treffer.map((q) => ({ id: q.id, label: q.name })) });
+		bau.zeilen.push({ label: 'Auftragsquelle', wert: `${gesprochen} (bitte wählen)` });
 	} else {
-		bau.warnungen.push(`Quelle „${gesprochen}“ gibt es nicht (Einstellungen → Quellen) – bitte am Auftrag wählen.`);
+		bau.warnungen.push(`Auftragsquelle „${gesprochen}“ gibt es nicht (Einstellungen → Auftragsquellen) – bitte am Auftrag wählen.`);
 	}
 }
 
@@ -712,7 +712,7 @@ async function quelleSetzen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { a
 	const bau = neuerBau();
 	await auftragAufloesen(bau, k, nutzer, d.auftrag, false);
 	await quelleAufloesen(bau, k, d.quelle);
-	if (!bau.werte.quelleId && bau.auswahl.every((a) => a.feld !== 'quelle')) bau.fehlt.push(`Quelle „${d.quelle}“ nicht gefunden.`);
+	if (!bau.werte.quelleId && bau.auswahl.every((a) => a.feld !== 'quelle')) bau.fehlt.push(`Auftragsquelle „${d.quelle}“ nicht gefunden.`);
 	return bau;
 }
 
@@ -747,10 +747,11 @@ const TITEL: Record<AktionsName, string> = {
 	anlage_anlegen: 'Anlage anlegen',
 	nachfassen_pausieren: 'Nachfassen',
 	abfrage_tagesplan: 'Tagesplan',
-	quelle_setzen: 'Quelle setzen',
+	quelle_setzen: 'Auftragsquelle setzen',
 	route_heute: 'Route für heute',
 	abfrage_auslastung: 'Auslastung',
-	abfrage_monatsgewinn: 'Gewinn diesen Monat'
+	abfrage_monatsgewinn: 'Gewinn diesen Monat',
+	abfrage_nachfassen: 'Nachfassen fällig'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -793,7 +794,7 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 export async function loeseAuf(
 	k: Kontext,
 	nutzer: Nutzer,
-	aktion: Exclude<KiAktion, { aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' }>,
+	aktion: Exclude<KiAktion, { aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' }>,
 	jetzt: Date
 ): Promise<Vorschau> {
 	let bau: Bau;

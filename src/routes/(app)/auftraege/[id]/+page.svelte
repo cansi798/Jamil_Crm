@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import Karte from '$lib/components/Karte.svelte';
 	import StatusKette from '$lib/components/StatusKette.svelte';
+	import AuftragHinweise from '$lib/components/AuftragHinweise.svelte';
 	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
@@ -61,6 +62,7 @@
 		<div>
 			<h1>{a.titel}</h1>
 			<p class="seiten-meta">{a.nummer}{a.kundeName ? ` · ${a.kundeName}` : ''}</p>
+			<AuftragHinweise quelleName={a.quelleName} quelleFarbe={a.quelleFarbe} angebotInfo={a.angebotInfo} nachfassenInfo={a.nachfassenInfo} />
 		</div>
 		<div class="seiten-aktionen">
 			{#if data.darfBearbeiten}
@@ -119,11 +121,11 @@
 						</div>
 						{#if a.quelleId || data.quellen.length > 0}
 							<div>
-								<dt>Quelle</dt>
+								<dt>Auftragsquelle</dt>
 								<dd>
 									{#if data.darfBearbeiten && data.quellen.length > 0}
 										<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
-											<select name="quelleId" aria-label="Quelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+											<select name="quelleId" aria-label="Auftragsquelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
 												<option value="" selected={!a.quelleId}>– keine –</option>
 												{#each data.quellen.filter((q) => q.aktiv || q.id === a.quelleId) as q (q.id)}
 													<option value={q.id} selected={q.id === a.quelleId}>{q.name}</option>

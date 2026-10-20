@@ -17,7 +17,8 @@ import {
 	speichereStufe,
 	STUFEN_FELDER,
 	uebernimmStandard,
-	VORLAGE_FELDER
+	VORLAGE_FELDER,
+	vorschauBeispiele
 } from '$lib/server/nachfassen';
 
 /** Einstellungen → Nachfassen (Jamil msgs 2585, 2633, 2636): Stufen je Art, Mail-Vorlagen, Signatur – nur „Einstellungen“. */
@@ -25,14 +26,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.nutzer) redirect(303, '/anmelden');
 	if (!hatRecht(locals.nutzer, 'einstellungen') || !locals.nutzer.betriebId) error(403, 'Keine Berechtigung');
 	const k = betriebKontext(locals);
-	const [stufen, vorlagen, signatur, mitarbeiter, rollen] = await Promise.all([
+	const [stufen, vorlagen, signatur, mitarbeiter, rollen, beispiele] = await Promise.all([
 		listeStufen(k),
 		listeMailVorlagen(k),
 		holeSignatur(k),
 		aktiveMitarbeiter(k),
-		rollenAuswahl(k)
+		rollenAuswahl(k),
+		vorschauBeispiele(k, hatRecht(locals.nutzer, 'preise.sehen'))
 	]);
-	return { stufen, vorlagen, signatur, mitarbeiter, rollen };
+	return { stufen, vorlagen, signatur, mitarbeiter, rollen, beispiele };
 };
 
 async function ausfuehren(locals: App.Locals, bereich: string, werte: Record<string, string>, fn: () => Promise<unknown>) {

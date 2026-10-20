@@ -286,7 +286,7 @@
 
 	{#if quellen.length > 0}
 		<label>
-			Quelle{quellePflicht ? ' *' : ''} <span class="kd-info">(woher kam der Auftrag?)</span>
+			Auftragsquelle{quellePflicht ? ' *' : ''} <span class="kd-info">(woher kam der Auftrag?)</span>
 			<select name="quelleId" required={quellePflicht}>
 				<option value="" selected={!werte.quelleId}>{quellePflicht ? '– bitte wählen –' : '– keine –'}</option>
 				{#each quellen.filter((q) => q.aktiv || q.id === werte.quelleId) as q (q.id)}

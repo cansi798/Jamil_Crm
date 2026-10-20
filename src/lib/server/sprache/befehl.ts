@@ -11,7 +11,8 @@ import { dieserMonat, ladeAuslastung, monatText } from '../auslastung';
 import { gewinnSatz, monatPlus, stundenText } from '../../auslastung';
 import { euro } from '../../geld';
 import { firmenStart, termineAlsStopps } from '../karte';
-import { sichtVon } from '../auftraege';
+import { listeAuftraege, sichtVon } from '../auftraege';
+import { nachfassenAbzeichen } from '../../auftrag-hinweise';
 import { googleRouteLink } from '../../route';
 import { rechteHinweis } from './rechte';
 import { signiere } from './vorschlag';
@@ -25,8 +26,8 @@ import { signiere } from './vorschlag';
 export const MAX_BEFEHL_ZEICHEN = 2000;
 export const UNBEKANNT_HINWEIS =
 	'Ich kann Kunden, Aufträge, To-dos (auch wiederkehrende), Termine und Anlagen anlegen, Termine verschieben, Mitarbeiter zuweisen, ' +
-	'den Auftragsstatus und die Quelle ändern, To-dos abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht, ' +
-	'wie die Auslastung ist und wie viel Gewinn diesen Monat verplant ist.';
+	'den Auftragsstatus und die Auftragsquelle ändern, To-dos abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht, ' +
+	'wie die Auslastung ist, wie viel Gewinn diesen Monat verplant ist und wo Nachfassen fällig ist.';
 
 async function beantworteRoute(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, wer: string | undefined): Promise<Karte> {
 	const karte = (titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
@@ -179,6 +180,40 @@ async function beantworteMonatsgewinn(k: { betriebId: string; benutzerId: string
 	});
 }
 
+/** „Wo muss ich nachfassen?“ (Wunsch Jamil msg 2674): Aufträge mit Nachfassen heute oder überfällig (nicht pausiert). */
+async function beantworteNachfassen(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, jetzt: Date): Promise<Karte> {
+	const heute = berlinTag(jetzt);
+	const liste = await listeAuftraege(k, sichtVon(nutzer), { nachfassenFaellig: true });
+	const link = '/auftraege?ansicht=liste&nachfassen=faellig';
+	const eintraege = liste.map((a) => ({
+		zeit: nachfassenAbzeichen(a.nachfassenInfo, heute)?.text.replace('Nachfassen: ', '') ?? '',
+		titel: `${a.nummer} ${a.titel} – ${a.kundeName}`,
+		ort: null,
+		link: `/auftraege/${a.id}`,
+		ueberfaellig: !!a.nachfassenInfo && a.nachfassenInfo.tag < heute
+	}));
+	const vorlesen =
+		liste.length === 0
+			? 'Heute ist kein Nachfassen fällig.'
+			: `Nachfassen fällig bei ${liste.length} Auftr${liste.length === 1 ? 'ag' : 'ägen'}: ${liste.map((a) => a.kundeName).slice(0, 5).join(', ')}${liste.length > 5 ? ' und weiteren' : ''}.`;
+	return {
+		aktion: 'abfrage_nachfassen',
+		titel: 'Nachfassen fällig',
+		zeilen: [],
+		auswahl: [],
+		warnungen: [],
+		fehler: null,
+		aendern: null,
+		antwort: {
+			abschnitte: [
+				{ titel: 'Aufträge', eintraege },
+				{ titel: 'Öffnen', eintraege: [{ zeit: '', titel: 'Liste „Nachfassen fällig“ öffnen', ort: null, link, ueberfaellig: false }] }
+			],
+			vorlesen
+		}
+	};
+}
+
 /** Frage „Was steht heute an?“ beantworten (nur lesend, ohne Bestätigung). */
 async function beantworteTagesplan(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, d: TagesplanDaten, jetzt: Date): Promise<Karte> {
 	const karte = (titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
@@ -254,6 +289,9 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	// Auslastung und Gewinn des Monats (Wunsch Jamil msg 2476, Punkte 4 und 5)
 	if (aktion.aktion === 'abfrage_auslastung') {
 		return { text, vorschlag: null, karte: await beantworteAuslastung(k, nutzer, aktion.daten, jetzt) };
+	}
+	if (aktion.aktion === 'abfrage_nachfassen') {
+		return { text, vorschlag: null, karte: await beantworteNachfassen(k, nutzer, jetzt) };
 	}
 	if (aktion.aktion === 'abfrage_monatsgewinn') {
 		return { text, vorschlag: null, karte: await beantworteMonatsgewinn(k, aktion.daten, jetzt) };

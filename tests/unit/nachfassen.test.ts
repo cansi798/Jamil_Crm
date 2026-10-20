@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fuelle, htmlZuText, mailtoLink, mitSignatur, faelligeStufe, BEISPIEL_WERTE } from '../../src/lib/nachfassen';
+import { fuelle, htmlZuText, mailtoLink, mitSignatur, faelligeStufe, fertigeMail, vorschauDokument, BEISPIEL_WERTE } from '../../src/lib/nachfassen';
 
 describe('Nachfassen: Vorlagen', () => {
 	it('Platzhalter füllen; im HTML werden Werte maskiert; unbekannte bleiben leer', () => {
@@ -47,5 +47,26 @@ describe('Nachfassen: welche Stufe ist fällig?', () => {
 		// lange nicht geprüft: nur die letzte fällige, nicht alle auf einmal
 		expect(faelligeStufe('2026-09-01', '2026-10-20', stufen, [])?.id).toBe('c');
 		expect(faelligeStufe('2026-09-01', '2026-10-20', stufen, ['c'])).toBeNull();
+	});
+});
+
+describe('Nachfassen: Vorschau (msg 2670)', () => {
+	it('fertige Mail wie beim Versand: Betreff, HTML mit Signatur, Klartext automatisch oder eigene Fassung', () => {
+		const v = { betreff: 'Angebot {{angebot.nummer}}', html: '<p>{{kunde.anrede}},</p><p>Gruß</p>', text: null };
+		const m = fertigeMail(v, BEISPIEL_WERTE, '<p>Ihr <b>Team</b></p>');
+		expect(m.betreff).toBe('Angebot AN-2026-0042');
+		expect(m.html).toBe('<p>Sehr geehrte Familie Müller,</p><p>Gruß</p>\n<p>Ihr <b>Team</b></p>');
+		expect(m.text).toBe('Sehr geehrte Familie Müller,\n\nGruß\n\nIhr Team');
+		const eigen = fertigeMail({ ...v, text: 'Hallo {{kunde.name}}' }, BEISPIEL_WERTE, '<p>Ihr Team</p>');
+		expect(eigen.text).toBe('Hallo Familie Müller\nIhr Team');
+		expect(fertigeMail({ ...v, text: '   ' }, BEISPIEL_WERTE, null).text).toBe('Sehr geehrte Familie Müller,\n\nGruß');
+	});
+
+	it('Vorschau-Dokument: CSP ohne Skripte, Werte maskiert', () => {
+		const d = vorschauDokument(fertigeMail({ betreff: '', html: '<p>{{kunde.name}}</p>', text: null }, { 'kunde.name': '<script>x</script>' }, null).html);
+		expect(d).toMatch(/^<!doctype html>/);
+		expect(d).toContain(`content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'"`);
+		expect(d).toContain('<p>&lt;script&gt;x&lt;/script&gt;</p>');
+		expect(d).not.toContain('<script>');
 	});
 });

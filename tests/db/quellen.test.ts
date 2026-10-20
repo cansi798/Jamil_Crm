@@ -62,7 +62,7 @@ describe('Auftragsquellen', () => {
 			request: new Request('http://localhost/x', { method: 'POST', body: new URLSearchParams({ titel: 'Q-2', kundeId: u.kundeA }) })
 		} as never)) as any;
 		expect(ohne.status).toBe(400);
-		expect(ohne.data.fehler).toMatch(/Quelle/);
+		expect(ohne.data.fehler).toMatch(/Auftragsquelle/);
 		expect(await loescheQuelle(kA(), hornbach.id)).toBe('deaktiviert');
 		await speichereQuelle(kA(), hornbach.id, { name: 'Hornbach', aktiv: 'true' });
 	});
@@ -90,7 +90,7 @@ describe('Auftragsquellen', () => {
 			umsatzCent: 100000,
 			durchschnittCent: 100000
 		});
-		expect(z.find((r) => r.name === 'Ohne Quelle')!.auftraege).toBeGreaterThanOrEqual(1);
+		expect(z.find((r) => r.name === 'Ohne Auftragsquelle')!.auftraege).toBeGreaterThanOrEqual(1);
 		await expect(auswertung(kA(), heute, '2000-01-01')).rejects.toMatchObject({ status: 400 });
 		const url = new URL(`http://localhost/auswertung/quellen?von=${heute}&bis=${heute}`);
 		const chef = (await auswertungLoad({ locals: { nutzer: u.chefA }, url } as never)) as any;
@@ -108,10 +108,10 @@ describe('Auftragsquellen', () => {
 			return { karte: k.koerper.karte, meldung: a.koerper.meldung as string };
 		};
 		const r = await sag('Neuer Auftrag Q-Dach bei Müller, kam über Hornbach');
-		expect(r.karte.zeilen).toContainEqual({ label: 'Quelle', wert: 'Hornbach' });
+		expect(r.karte.zeilen).toContainEqual({ label: 'Auftragsquelle', wert: 'Hornbach' });
 		const [neu] = await root`select q.name from app.auftraege a join app.auftrag_quellen q on q.id = a.quelle_id where a.titel = 'Q-Dach'`;
 		expect(neu.name).toBe('Hornbach');
 		const s = await sag('Setze die Quelle vom Auftrag Q-Dach auf Empfehlung');
-		expect(s.meldung).toMatch(/Quelle von A-.*: Empfehlung/);
+		expect(s.meldung).toMatch(/Auftragsquelle von A-.*: Empfehlung/);
 	});
 });

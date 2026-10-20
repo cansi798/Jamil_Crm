@@ -3,11 +3,8 @@
 	import '$lib/stil/kunden.css';
 	import Karte from '$lib/components/Karte.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
+	import MailVorschau from '$lib/components/MailVorschau.svelte';
 	import {
-		BEISPIEL_WERTE,
-		fuelle,
-		htmlZuText,
-		mitSignatur,
 		NACHFASS_ART_NAMEN,
 		NACHFASS_ARTEN,
 		PLATZHALTER,
@@ -36,19 +33,18 @@
 				: 'Zuständiger des Auftrags';
 	const stufenVon = (art: NachfassArt) => data.stufen.filter((s) => s.art === art);
 
-	// Vorschau mit Beispieldaten (im abgeschotteten iframe, ohne Skripte)
+	// Live-Vorschau (Wunsch Jamil msg 2670): Entwürfe je Vorlage (Betreff, HTML, Klartext) und Signatur
 	let signatur = $state('');
 	$effect.pre(() => {
 		signatur = data.signatur ?? '';
 	});
-	const vorschau = (html: string) =>
-		`<!doctype html><meta charset="utf-8"><body style="font:15px/1.6 system-ui,sans-serif;margin:12px;color:#1c1f23">${mitSignatur(
-			fuelle(html, BEISPIEL_WERTE, true),
-			signatur || null
-		)}</body>`;
-	let neuHtml = $state('<p>{{kunde.anrede}},</p>\n<p>…</p>\n<p>Mit freundlichen Grüßen</p>\n{{signatur}}');
-	let entwuerfe = $state<Record<string, string>>({});
-	const html = (id: string, gespeichert: string) => entwuerfe[id] ?? gespeichert;
+	const neuHtml = '<p>{{kunde.anrede}},</p>\n<p>…</p>\n<p>Mit freundlichen Grüßen</p>\n{{signatur}}';
+	type Entwurf = { betreff?: string; html?: string; text?: string };
+	let entwuerfe = $state<Record<string, Entwurf>>({});
+	const setze = (id: string, feld: keyof Entwurf, w: string) => (entwuerfe = { ...entwuerfe, [id]: { ...entwuerfe[id], [feld]: w } });
+	const aktuell = (id: string, feld: keyof Entwurf, gespeichert: string) => entwuerfe[id]?.[feld] ?? gespeichert;
+	// Beispiel-Mail für die Signatur-Vorschau: erste Vorlage, sonst ein kurzer Text
+	const signaturMail = $derived(data.vorlagen[0] ?? { betreff: 'Ihr Angebot {{angebot.nummer}}', html: '<p>{{kunde.anrede}},</p><p>vielen Dank für Ihre Anfrage.</p><p>Mit freundlichen Grüßen</p>', text: null });
 </script>
 
 <svelte:head>
@@ -135,17 +131,17 @@
 
 	<Karte>
 		{#snippet titel()}Firmensignatur{/snippet}
-		<form method="POST" action="?/signatur" use:enhance={ohneReset} class="kd-formular">
-			{#if fehlerIn('signatur')}<p role="alert" class="kd-fehler">{fehlerIn('signatur')}</p>{/if}
-			<label>
-				Signatur (HTML) – wird in jede Mail eingesetzt
-				<textarea name="signatur" rows="5" maxlength="20000" bind:value={signatur} placeholder="<p>Viele Grüße<br>Ihr Team von …</p>"></textarea>
-			</label>
-			<div class="nf-vorschau">
-				<span class="kd-info">Vorschau</span>
-				<iframe title="Vorschau Signatur" sandbox="" srcdoc={vorschau('{{signatur}}')}></iframe>
+		<form method="POST" action="?/signatur" use:enhance={ohneReset} class="kd-formular nf-editor">
+			<div class="nf-eingabe">
+				{#if fehlerIn('signatur')}<p role="alert" class="kd-fehler">{fehlerIn('signatur')}</p>{/if}
+				<label>
+					Signatur (HTML) – wird in jede Mail eingesetzt
+					<textarea name="signatur" rows="10" maxlength="20000" bind:value={signatur} placeholder="<p>Viele Grüße<br>Ihr Team von …</p>"></textarea>
+				</label>
+				<p class="kd-info">Rechts: eine Beispiel-Mail{data.vorlagen[0] ? ` („${data.vorlagen[0].name}“)` : ''} mit dieser Signatur – so sieht sie der Kunde.</p>
+				<button type="submit" class="kd-knopf">Signatur speichern</button>
 			</div>
-			<button type="submit" class="kd-knopf">Signatur speichern</button>
+			<MailVorschau titel="Vorschau Signatur" html={signaturMail.html} betreff={signaturMail.betreff} text={signaturMail.text} {signatur} beispiele={data.beispiele} />
 		</form>
 	</Karte>
 </main>
@@ -227,46 +223,58 @@
 {#snippet vorlageFormular(id: string | null, name: string, betreff: string, start: string, text: string, schliessen?: () => void)}
 	{@const b = id ? `vorlage-${id}` : 'vorlage-neu'}
 	{@const schluessel = id ?? 'neu'}
-	<form method="POST" action="?/vorlage" use:enhance={ohneReset} class="kd-formular nf-formular">
-		{#if fehlerIn(b)}<p role="alert" class="kd-fehler">{fehlerIn(b)}</p>{/if}
-		{#if id}<input type="hidden" name="id" value={id} />{/if}
-		<div class="nf-raster">
+	{@const jetztBetreff = aktuell(schluessel, 'betreff', wert(b, 'betreff', betreff))}
+	{@const jetztHtml = aktuell(schluessel, 'html', wert(b, 'html', start))}
+	{@const jetztText = aktuell(schluessel, 'text', wert(b, 'text', text))}
+	<form method="POST" action="?/vorlage" use:enhance={ohneReset} class="kd-formular nf-formular nf-editor">
+		<div class="nf-eingabe">
+			{#if fehlerIn(b)}<p role="alert" class="kd-fehler">{fehlerIn(b)}</p>{/if}
+			{#if id}<input type="hidden" name="id" value={id} />{/if}
 			<label>Name <input type="text" name="name" maxlength="200" required value={wert(b, 'name', name)} /></label>
-			<label>Betreff <input type="text" name="betreff" maxlength="300" required value={wert(b, 'betreff', betreff)} /></label>
+			<label>
+				Betreff
+				<input type="text" name="betreff" maxlength="300" required value={jetztBetreff} oninput={(ev) => setze(schluessel, 'betreff', ev.currentTarget.value)} />
+			</label>
+			<label>
+				Text (HTML)
+				<textarea name="html" rows="12" maxlength="50000" required value={jetztHtml} oninput={(ev) => setze(schluessel, 'html', ev.currentTarget.value)}></textarea>
+			</label>
+			<label>
+				Eigene Klartext-Fassung (optional – sonst automatisch aus dem HTML)
+				<textarea name="text" rows="3" maxlength="50000" value={jetztText} oninput={(ev) => setze(schluessel, 'text', ev.currentTarget.value)}></textarea>
+			</label>
+			<div class="nf-knoepfe">
+				<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Vorlage anlegen'}</button>
+				{#if schliessen}<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>{/if}
+			</div>
 		</div>
-		<label>
-			Text (HTML)
-			<textarea
-				name="html"
-				rows="8"
-				maxlength="50000"
-				required
-				value={html(schluessel, wert(b, 'html', start))}
-				oninput={(ev) => (entwuerfe = { ...entwuerfe, [schluessel]: ev.currentTarget.value })}
-			></textarea>
-		</label>
-		<div class="nf-vorschau">
-			<span class="kd-info">Vorschau mit Beispieldaten</span>
-			<iframe title={`Vorschau ${name || 'neue Vorlage'}`} sandbox="" srcdoc={vorschau(html(schluessel, wert(b, 'html', start)))}></iframe>
-			<details>
-				<summary class="kd-info">Klartext-Fassung (automatisch)</summary>
-				<pre>{htmlZuText(mitSignatur(fuelle(html(schluessel, wert(b, 'html', start)), BEISPIEL_WERTE, true), signatur || null))}</pre>
-			</details>
-		</div>
-		<label>
-			Eigene Klartext-Fassung (optional)
-			<textarea name="text" rows="3" maxlength="50000" value={wert(b, 'text', text)}></textarea>
-		</label>
-		<div class="nf-knoepfe">
-			<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Vorlage anlegen'}</button>
-			{#if schliessen}<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>{/if}
-		</div>
+		<MailVorschau titel={`Vorschau ${name || 'neue Vorlage'}`} html={jetztHtml} betreff={jetztBetreff} text={jetztText} {signatur} beispiele={data.beispiele} />
 	</form>
 {/snippet}
 
 <style>
 	.nf-seite {
-		max-width: 64rem;
+		max-width: 80rem;
+	}
+	/* Bearbeiten links, Live-Vorschau rechts; schmal untereinander */
+	.nf-editor {
+		display: grid;
+		gap: 1rem;
+		align-items: start;
+	}
+	@media (min-width: 64rem) {
+		.nf-editor {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+		}
+	}
+	.nf-eingabe {
+		display: grid;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+	.nf-eingabe textarea {
+		font-family: ui-monospace, Menlo, Consolas, monospace;
+		font-size: 0.8125rem;
 	}
 	.nf-stufen {
 		list-style: none;
@@ -349,23 +357,6 @@
 	}
 	.nf-standard p {
 		margin: 0;
-	}
-	.nf-vorschau {
-		display: grid;
-		gap: 0.3rem;
-	}
-	.nf-vorschau iframe {
-		width: 100%;
-		min-height: 11rem;
-		border: 1px solid var(--m365-rand);
-		border-radius: var(--m365-radius);
-		background: #fff;
-	}
-	.nf-vorschau pre {
-		white-space: pre-wrap;
-		font: inherit;
-		font-size: 0.875rem;
-		margin: 0.4rem 0 0;
 	}
 	.nf-platzhalter {
 		margin-bottom: 0.75rem;

@@ -29,11 +29,12 @@ export const AKTIONEN = [
 	'quelle_setzen',
 	'route_heute',
 	'abfrage_auslastung',
-	'abfrage_monatsgewinn'
+	'abfrage_monatsgewinn',
+	'abfrage_nachfassen'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
-export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn'] as const;
+export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt';
@@ -119,6 +120,7 @@ export type KiAktion =
 	| { aktion: 'route_heute'; daten: { wer?: string } }
 	| { aktion: 'abfrage_auslastung'; daten: { wer?: string; monat?: MonatRelativ } }
 	| { aktion: 'abfrage_monatsgewinn'; daten: { monat?: MonatRelativ } }
+	| { aktion: 'abfrage_nachfassen'; daten: Record<string, never> }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -344,7 +346,7 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 	},
 	quelle_setzen: {
 		type: 'object',
-		properties: { auftrag: text(200, 'Kunde oder Auftrag'), quelle: text(100, 'Quelle, z. B. Hornbach, Website, Empfehlung') },
+		properties: { auftrag: text(200, 'Kunde oder Auftrag'), quelle: text(100, 'Auftragsquelle (auch nur „Quelle“ gesagt), z. B. Hornbach, Website, Empfehlung') },
 		required: ['auftrag', 'quelle'],
 		additionalProperties: false
 	},
@@ -366,6 +368,7 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		properties: { monat: { type: 'string', enum: [...MONATE_RELATIV] } },
 		additionalProperties: false
 	},
+	abfrage_nachfassen: { type: 'object', properties: {}, additionalProperties: false },
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -385,8 +388,9 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 		'Frage nach der Auslastung beantworten: verplante und freie Stunden je Mitarbeiter (oder alle) in diesem, letzten oder nächsten Monat („Wie ist die Auslastung?“, „Wie ausgelastet ist Murat im November?“ → monat dieser/naechster nach Bezug).',
 	abfrage_monatsgewinn:
 		'Frage nach Gewinn/Break-even des Monats beantworten („Wie viel Gewinn haben wir diesen Monat verplant?“, „Haben wir den Break-even erreicht?“).',
+	abfrage_nachfassen: 'Frage beantworten, bei welchen Aufträgen/Angeboten das Nachfassen heute fällig oder überfällig ist („Wo muss ich nachfassen?“).',
 	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',
-	quelle_setzen: 'Quelle eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',
+	quelle_setzen: 'Auftragsquelle (auch „Quelle“) eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',
 	abfrage_tagesplan:
 		'Frage nach dem Tagesplan beantworten: Termine und To-dos für eine Person (ich oder Name) heute, morgen, diese Woche oder ein Datum; auch „überfällige To-dos“.',
 	protokoll_ausfuellen:

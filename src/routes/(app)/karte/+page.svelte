@@ -199,11 +199,11 @@
 				<label>Termine von <input type="date" name="von" value={data.filter.von ?? ''} /></label>
 				<label>bis <input type="date" name="bis" value={data.filter.bis ?? ''} /></label>
 				<label>
-					Quelle
+					Auftragsquelle
 					<select name="quelle">
 						<option value="">alle</option>
 						{#each data.quellen as q (q.id)}<option value={q.id} selected={data.filter.quelleId === q.id}>{q.name}</option>{/each}
-						<option value="ohne" selected={data.filter.quelleId === 'ohne'}>ohne Quelle</option>
+						<option value="ohne" selected={data.filter.quelleId === 'ohne'}>ohne Auftragsquelle</option>
 					</select>
 				</label>
 			</div>

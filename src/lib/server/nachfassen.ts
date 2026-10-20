@@ -7,6 +7,8 @@ import { euro } from '../geld';
 import { berlinTag, tagDeutsch, tagPlus } from '../zeit';
 import {
 	faelligeStufe,
+	BEISPIEL_WERTE,
+	fertigeMail,
 	fuelle,
 	htmlZuText,
 	mitSignatur,
@@ -14,6 +16,7 @@ import {
 	STANDARD_STUFEN,
 	STANDARD_VORLAGEN,
 	ZUWEISUNGEN,
+	type MailBeispiel,
 	type NachfassArt,
 	type Zuweisung
 } from '../nachfassen';
@@ -333,6 +336,35 @@ async function werteFuer(k: Kontext, angebotId: string, versendetTag: string, he
 	};
 }
 
+/**
+ * Beispieldaten für die Vorschau der Mail-Vorlagen (Wunsch Jamil msg 2670): feste Beispielwerte (mit Name und Telefon
+ * des Betriebs) und die letzten Angebote des Betriebs zum Auswählen. Ohne „Preise sehen“ bleibt der Betrag ein Beispiel.
+ */
+export async function vorschauBeispiele(k: Kontext, mitPreisen: boolean, heute = berlinTag(new Date())): Promise<MailBeispiel[]> {
+	const p = await holeProfil(k);
+	const firma = {
+		...(p.firmenname ? { 'firma.name': p.firmenname } : {}),
+		...(p.telefon ? { 'firma.telefon': p.telefon } : {})
+	};
+	const liste: MailBeispiel[] = [{ id: 'beispiel', name: 'Beispieldaten (Familie Müller)', werte: { ...BEISPIEL_WERTE, ...firma } }];
+	const zeilen = await mitBetrieb(k, (tx) => tx`
+		select an.id, an.nummer, to_char(coalesce(an.versendet_am, an.angelegt) at time zone 'Europe/Berlin', 'YYYY-MM-DD') as versendet_tag,
+			coalesce(an.kunde_id, a.kunde_id) as kunde_id, k.art as kunde_art, k.anrede as kunde_anrede, k.vorname as kunde_vorname,
+			k.nachname as kunde_nachname, k.email as kunde_email, a.einmal_name, a.einmal_email
+		from app.angebote an
+		left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
+		left join app.kunden k on k.id = coalesce(an.kunde_id, a.kunde_id) and k.betrieb_id = an.betrieb_id
+		where an.betrieb_id = ${k.betriebId}
+		order by an.angelegt desc
+		limit 15`);
+	for (const z of zeilen) {
+		const { werte } = await werteFuer(k, z.id, z.versendet_tag, heute, z);
+		if (!mitPreisen) werte.betrag = BEISPIEL_WERTE.betrag;
+		liste.push({ id: z.id, name: `${werte['angebot.nummer']} · ${werte['kunde.name'] || 'ohne Kunde'}`, werte });
+	}
+	return liste;
+}
+
 /** Zuständigen für das To-do bestimmen (null, wenn niemand passt). */
 async function zustaendigFuer(tx: TransactionSql, k: Kontext, s: NachfassStufe, auftragId: string | null): Promise<string | null> {
 	if (s.zuweisung === 'fest' && s.benutzerId) {
@@ -389,9 +421,10 @@ export async function pruefeNachfassen(k: Kontext, heute = berlinTag(new Date())
 		if (!s) continue;
 		const { werte, an, auftragId } = await werteFuer(k, z.id, z.versendet_tag, heute, z);
 		const vorlage = s.mail ? vorlagen.find((v) => v.id === s.mailVorlageId) : undefined;
-		const html = vorlage ? mitSignatur(fuelle(vorlage.html, werte, true), signatur) : null;
-		const text = vorlage ? (vorlage.text ? mitSignatur(fuelle(vorlage.text, werte, false), signatur ? htmlZuText(signatur) : null) : htmlZuText(html!)) : null;
-		const betreff = vorlage ? fuelle(vorlage.betreff, werte, false) : null;
+		const mail = vorlage ? fertigeMail(vorlage, werte, signatur) : null;
+		const html = mail?.html ?? null;
+		const text = mail?.text ?? null;
+		const betreff = mail?.betreff ?? null;
 		const nr = stufen.findIndex((x) => x.id === s.id) + 1;
 		const titel = fuelle(
 			s.todo && s.todoTitel

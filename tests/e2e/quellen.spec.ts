@@ -9,14 +9,14 @@ test('Quellen: Einstellungen, Filter, Auswertung mit Tabelle und Diagramm', asyn
 	await expect(page).not.toHaveURL(/\/anmelden/);
 
 	await page.goto('/einstellungen/quellen');
-	await expect(page.getByRole('list', { name: 'Quellen' }).getByRole('textbox', { name: 'Name Hornbach' })).toHaveValue('Hornbach');
+	await expect(page.getByRole('list', { name: 'Auftragsquellen' }).getByRole('textbox', { name: 'Name Hornbach' })).toHaveValue('Hornbach');
 
 	await page.goto('/auftraege?ansicht=liste');
-	await page.getByRole('combobox', { name: 'Quelle' }).selectOption({ label: 'Hornbach' });
+	await page.getByRole('combobox', { name: 'Auftragsquelle' }).selectOption({ label: 'Hornbach' });
 	await expect(page).toHaveURL(/[?&]quelle=[0-9a-f-]{36}/);
 
 	await page.goto('/auswertung/quellen');
-	await expect(page.getByRole('heading', { name: 'Auswertung nach Quelle' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Auswertung nach Auftragsquelle' })).toBeVisible();
 	await expect(page.getByRole('region', { name: 'Diagramm' })).toContainText('Website');
 	const tabelle = page.locator('table.qa-tabelle');
 	await expect(tabelle).toContainText('Annahmequote');

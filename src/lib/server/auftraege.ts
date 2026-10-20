@@ -52,6 +52,7 @@ export type Auftrag = {
 	/** Woher kam der Auftrag (Website, Hornbach, …) – Wunsch Jamil msg 2593. */
 	quelleId: string | null;
 	quelleName: string | null;
+	quelleFarbe: string | null;
 	/** Einsatzort: Adresse des Objekts, sonst die Adresse des Kunden (Standard), sonst null. */
 	adresse: string | null;
 	adresseVonObjekt: boolean;
@@ -65,6 +66,10 @@ export type Auftrag = {
 	geplantAb: string | null;
 	/** Nächster anstehender Termin (Einsatz, der noch nicht vorbei ist) – ersetzt „Geplant ab“ (Wunsch Jamil). */
 	kommenderTermin: { beginn: string; art: string } | null;
+	/** Abzeichen „Angebot verschickt 18.10.“ / „angenommen“ / „abgelehnt“ (Wunsch Jamil msg 2674). */
+	angebotInfo: { status: 'versendet' | 'angenommen' | 'abgelehnt'; tag: string } | null;
+	/** Nächstes Nachfassen (Tag in Berlin) und ob pausiert. */
+	nachfassenInfo: { tag: string; pausiert: boolean } | null;
 	angelegt: string;
 	geaendert: string;
 };
@@ -86,7 +91,7 @@ export type AuftragWerte = {
 
 /** `offen`: ohne abgerechnete Aufträge (z. B. Auswahl beim Einplanen). */
 /** `meine`: nur Aufträge mit Bezug zum Nutzer (zuständig, eigenes To-do oder eigener Termin) – auch für Chefs. */
-export type AuftragFilter = { status?: AuftragStatus; kundeId?: string; suche?: string; offen?: boolean; meine?: boolean; quelleId?: string };
+export type AuftragFilter = { status?: AuftragStatus; kundeId?: string; suche?: string; offen?: boolean; meine?: boolean; quelleId?: string; nachfassenFaellig?: boolean };
 
 export const MAX_AUFTRAEGE = 100;
 export const MAX_ZUSTAENDIGE = 20;
@@ -152,7 +157,7 @@ export function pruefeAuftragEingabe(e: Record<string, unknown>): AuftragWerte {
 	if (objektId !== null && kundeId === null) throw new ApiFehler(400, 'Ein Objekt gibt es nur mit einem Kunden aus der Kundendatenbank.');
 	const anlageId = idFeld(e.anlageId, 'Die Anlage ist ungültig.');
 	if (anlageId !== null && objektId === null) throw new ApiFehler(400, 'Eine Anlage gibt es nur mit einem Objekt.');
-	const quelleId = idFeld(e.quelleId, 'Die Quelle ist ungültig.');
+	const quelleId = idFeld(e.quelleId, 'Die Auftragsquelle ist ungültig.');
 	const beschreibung = textFeld(e.beschreibung, 'Beschreibung', 4000);
 	let geplantAb: string | null = null;
 	if (e.geplantAb !== undefined && e.geplantAb !== null && e.geplantAb !== '') {
@@ -190,8 +195,42 @@ export function sichtbar(tx: TransactionSql, sicht: Sicht) {
 	)`;
 }
 
+/**
+ * Nächstes Nachfassen eines Auftrags (Wunsch Jamil msg 2674): neuestes versendetes Angebot (Kunde nicht „kein
+ * Nachfassen“) → frühestes von (offenes Nachfass-To-do, nächste noch nicht gelaufene aktive Stufe = Versandtag + Tage).
+ * Liefert Tag (Berlin) und ob pausiert – oder null.
+ */
+const NACHFASSEN_SQL = `(select json_build_object('tag', to_char(n.tag, 'YYYY-MM-DD'), 'pausiert', n.pausiert) from (
+		select ag.nachfassen_pausiert as pausiert, least(
+			(select min(t.faellig) from app.todos t
+				join app.nachfass_laeufe l on l.id = t.nachfass_id and l.betrieb_id = t.betrieb_id
+				where l.angebot_id = ag.id and l.betrieb_id = ag.betrieb_id and t.erledigt_am is null),
+			(select (ag.versendet_am at time zone 'Europe/Berlin')::date + min(s.tage)
+				from app.nachfass_stufen s
+				where s.betrieb_id = ag.betrieb_id and s.art = 'angebot' and s.aktiv
+					and s.tage > coalesce((select max(l2.tage) from app.nachfass_laeufe l2
+						where l2.angebot_id = ag.id and l2.betrieb_id = ag.betrieb_id), -1))
+		) as tag
+		from app.angebote ag
+		left join app.kunden kn on kn.id = coalesce(ag.kunde_id, a.kunde_id) and kn.betrieb_id = ag.betrieb_id
+		where ag.auftrag_id = a.id and ag.betrieb_id = a.betrieb_id and ag.status = 'versendet' and ag.versendet_am is not null
+			and not coalesce(kn.kein_nachfassen, false)
+		order by ag.versendet_am desc, ag.id limit 1
+	) n where n.tag is not null)`;
+
+/** Maßgebliches Angebot für das Abzeichen: angenommen vor versendet vor abgelehnt (Entwürfe nicht), mit Tag. */
+const ANGEBOT_SQL = `(select json_build_object('status', ag.status, 'tag',
+		to_char((case when ag.status = 'versendet' then coalesce(ag.versendet_am, ag.geaendert) else ag.geaendert end) at time zone 'Europe/Berlin', 'YYYY-MM-DD'))
+		from app.angebote ag
+		where ag.auftrag_id = a.id and ag.betrieb_id = a.betrieb_id and ag.status in ('angenommen', 'versendet', 'abgelehnt')
+		order by case ag.status when 'angenommen' then 0 when 'versendet' then 1 else 2 end, ag.angelegt desc limit 1)`;
+
+/** Filter „Nachfassen fällig“: nächstes Nachfassen heute oder überfällig, nicht pausiert. */
+export const NACHFASSEN_FAELLIG_SQL = `exists (select 1 from json_to_record(${NACHFASSEN_SQL}) as nf(tag date, pausiert boolean)
+	where nf.tag <= (now() at time zone 'Europe/Berlin')::date and not nf.pausiert)`;
+
 export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anlage_id, an.bezeichnung as anlage_bezeichnung,
-	a.quelle_id, qu.name as quelle_name, a.status, a.beschreibung,
+	a.quelle_id, qu.name as quelle_name, qu.farbe as quelle_farbe, a.status, a.beschreibung,
 	to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab, a.angelegt, a.geaendert,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
@@ -202,7 +241,9 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anla
 		where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id) as zustaendige,
 	(select json_build_object('beginn', e.beginn, 'art', e.art) from app.einsaetze e
 		where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id and e.ende >= now()
-		order by e.beginn, e.id limit 1) as kommender_termin`;
+		order by e.beginn, e.id limit 1) as kommender_termin,
+	${ANGEBOT_SQL} as angebot_info,
+	${NACHFASSEN_SQL} as nachfassen_info`;
 
 export const VON = `app.auftraege a
 	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
@@ -211,6 +252,7 @@ export const VON = `app.auftraege a
 	left join app.auftrag_quellen qu on qu.id = a.quelle_id and qu.betrieb_id = a.betrieb_id`;
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
+const json = (w: unknown) => (typeof w === 'string' ? JSON.parse(w) : (w ?? null));
 
 const adresseAus = (strasse: string | null, plz: string | null, ort: string | null) =>
 	[strasse, [plz, ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null;
@@ -254,6 +296,7 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 		anlageBezeichnung: z.anlage_bezeichnung ?? null,
 		quelleId: z.quelle_id ?? null,
 		quelleName: z.quelle_name ?? null,
+		quelleFarbe: z.quelle_farbe ?? null,
 		adresse: ortAus(z),
 		adresseVonObjekt: objektAdresse !== null,
 		zustaendige: typeof z.zustaendige === 'string' ? JSON.parse(z.zustaendige) : (z.zustaendige ?? []),
@@ -264,6 +307,8 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 			const t = typeof z.kommender_termin === 'string' ? JSON.parse(z.kommender_termin) : z.kommender_termin;
 			return t ? { beginn: iso(t.beginn), art: t.art } : null;
 		})(),
+		angebotInfo: json(z.angebot_info),
+		nachfassenInfo: json(z.nachfassen_info),
 		angelegt: iso(z.angelegt),
 		geaendert: iso(z.geaendert)
 	};
@@ -285,7 +330,7 @@ export async function listeAuftraege(k: Kontext, sicht: Sicht, filter: AuftragFi
 	const muster = sucheWoerter(filter.suche).map(likeMuster);
 	if (filter.status !== undefined) pruefeStatus(filter.status);
 	if (filter.kundeId !== undefined && !UUID.test(filter.kundeId)) throw new ApiFehler(400, 'Ungültiger Kunde.');
-	if (filter.quelleId !== undefined && filter.quelleId !== 'ohne' && !UUID.test(filter.quelleId)) throw new ApiFehler(400, 'Ungültige Quelle.');
+	if (filter.quelleId !== undefined && filter.quelleId !== 'ohne' && !UUID.test(filter.quelleId)) throw new ApiFehler(400, 'Ungültige Auftragsquelle.');
 	return mitBetrieb(k, async (tx) => {
 		const ich = sicht.benutzerId;
 		const z = await tx`
@@ -304,6 +349,7 @@ export async function listeAuftraege(k: Kontext, sicht: Sicht, filter: AuftragFi
 				${filter.kundeId ? tx`and a.kunde_id = ${filter.kundeId}` : tx``}
 				${filter.quelleId ? (filter.quelleId === 'ohne' ? tx`and a.quelle_id is null` : tx`and a.quelle_id = ${filter.quelleId}`) : tx``}
 				${filter.offen ? tx`and a.status <> 'abgerechnet'` : tx``}
+				${filter.nachfassenFaellig ? tx`and ${tx.unsafe(NACHFASSEN_FAELLIG_SQL)}` : tx``}
 				and not exists (
 					select 1 from unnest(${muster}::text[]) as s(m)
 					where not (
@@ -353,7 +399,7 @@ async function pruefeBezuege(tx: TransactionSql, k: Kontext, w: AuftragWerte): P
 	}
 	if (w.quelleId !== null) {
 		const [q] = await tx`select 1 from app.auftrag_quellen where id = ${w.quelleId} and betrieb_id = ${k.betriebId}`;
-		if (!q) throw new ApiFehler(400, 'Die Quelle wurde nicht gefunden.');
+		if (!q) throw new ApiFehler(400, 'Die Auftragsquelle wurde nicht gefunden.');
 	}
 	if (w.anlageId !== null) {
 		const [anlage] = await tx`
