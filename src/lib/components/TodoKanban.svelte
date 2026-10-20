@@ -107,8 +107,8 @@
 	{@const darfHaken = darfBearbeiten || todo.zustaendigId === benutzerId}
 	<div class="kanban-karte" class:ueberfaellig={ueberfaellig(todo)} class:laeuft={laeuft.has(todo.id)}>
 		<div class="karte-inhalt">
-			<div class="karte-kopf">
-				<p class="karte-titel">{todo.titel}</p>
+			<div class="td-kopf">
+				<p class="td-titel">{todo.titel}</p>
 				{#if darfBearbeiten}
 					<details class="ab-menue">
 						<summary aria-label={`Status von „${todo.titel}“ ändern`}>Status ▾</summary>
@@ -235,7 +235,7 @@
 		margin-left: -0.7rem;
 		padding-left: calc(0.7rem - 3px);
 	}
-	.karte-kopf {
+	.td-kopf {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: flex-start;
@@ -303,10 +303,10 @@
 		min-width: 0;
 	}
 
-	.karte-titel {
+	.td-titel {
 		margin: 0 0 0.25rem;
 		font-family: var(--m365-schrift);
-		font-size: 0.8125rem;
+		font-size: 0.875rem;
 		font-weight: 600;
 		color: var(--m365-text);
 		line-height: 1.3;
