@@ -6,6 +6,8 @@ import { hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { moduleDesBetriebs } from '$lib/server/tarif';
 import { istStatus } from '$lib/auftrag-status';
+import { listeQuellen } from '$lib/server/quellen';
+import { UUID } from '$lib/server/kunden';
 
 /**
  * Aufträge als Board (Standard: Kacheln je Status, verschiebbar) oder als Liste (`?ansicht=liste`, mit Status-Reitern
@@ -24,7 +26,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// wer alle sieht (Chef/Büro), kann umschalten (`?meine=1`)
 	const meine = url.searchParams.get('meine') === '1';
 	const sicht = sichtVon(nutzer);
+	// Filter Quelle (Wunsch Jamil msg 2593): ?quelle=<id> oder ?quelle=ohne
+	const quellen = await listeQuellen(k);
+	const rohQuelle = url.searchParams.get('quelle') ?? '';
+	const quelle = rohQuelle === 'ohne' || (UUID.test(rohQuelle) && quellen.some((q) => q.id === rohQuelle)) ? rohQuelle : null;
 	const gemeinsam = {
+		quellen: quellen.map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv })),
+		quelle,
 		ansicht,
 		status,
 		suche,
@@ -34,11 +42,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	} as const;
 	if (ansicht === 'liste') {
 		const auftraege = await alsSeitenFehler(() =>
-			listeAuftraege(k, sicht, { status: status ?? undefined, suche, meine })
+			listeAuftraege(k, sicht, { status: status ?? undefined, suche, meine, quelleId: quelle ?? undefined })
 		);
 		return { ...gemeinsam, auftraege, board: null, maxTreffer: MAX_AUFTRAEGE, mitPreisen: false };
 	}
 	const mitPreisen = hatRecht(nutzer, 'preise.sehen') && (await moduleDesBetriebs(k)).includes('angebote');
-	const board = await alsSeitenFehler(() => ladeBoard(k, sicht, { suche, meine, mitPreisen }));
+	const board = await alsSeitenFehler(() => ladeBoard(k, sicht, { suche, meine, mitPreisen, quelleId: quelle ?? undefined }));
 	return { ...gemeinsam, auftraege: [], board, maxTreffer: MAX_JE_SPALTE, mitPreisen };
 };

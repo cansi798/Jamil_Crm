@@ -51,6 +51,7 @@ test('Objekt mit Kundenadresse vorbelegt; Auftrag zeigt Objekt und Adresse über
 		await page.goto(`/auftraege/neu?kunde=${kunde.id}`);
 		await expect(page.locator('select[name="objektId"] option:checked')).toHaveText(/Ferienhaus/);
 		await page.locator('input[name="titel"]').fill('E2E Dach');
+		await page.locator('select[name="quelleId"]').selectOption({ label: 'Website' }); // Quelle ist Pflicht (msg 2593)
 		await page.getByRole('button', { name: 'Auftrag anlegen' }).click();
 		await page.waitForURL(/\/auftraege\/[0-9a-f-]{36}$/);
 		auftragId = page.url().split('/').pop()!;

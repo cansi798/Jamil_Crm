@@ -18,7 +18,8 @@
 			kundeId: a.kundeId ?? '',
 			objektId: a.objektId ?? '',
 			beschreibung: a.beschreibung ?? '',
-			geplantAb: a.geplantAb ?? ''
+			geplantAb: a.geplantAb ?? '',
+			quelleId: a.quelleId ?? ''
 		}
 	) as Record<string, string>;
 	const auswahl = $derived(form?.auswahl ?? { kunde: data.kunde, objekte: data.objekte });
@@ -32,6 +33,7 @@
 	<a href={`/auftraege/${a.id}`} class="kd-zurueck">← {a.nummer}</a>
 	<h1>Auftrag bearbeiten</h1>
 	<AuftragFormular
+		quellen={data.quellen}
 		aktion="?/speichern"
 		{werte}
 		kunde={auswahl.kunde}

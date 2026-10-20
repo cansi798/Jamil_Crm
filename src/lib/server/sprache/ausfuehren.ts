@@ -45,6 +45,7 @@ export function wendeAuswahlAn(werte: Record<string, any>, offen: Auswahl[], aus
 		else if (a.feld === 'todo') w.todoId = id;
 		else if (a.feld === 'objekt') w.objektId = id;
 		else if (a.feld === 'angebot') w.angebotId = id;
+		else if (a.feld === 'quelle') w.quelleId = id;
 		else throw new ApiFehler(400, 'Ungültige Auswahl.');
 	}
 	return w;
@@ -111,7 +112,8 @@ async function ausfuehrenJe(
 				kundeId: w.kundeId,
 				objektId: w.objektId ?? null,
 				beschreibung: w.beschreibung ?? null,
-				geplantAb: w.geplantAb ?? null
+				geplantAb: w.geplantAb ?? null,
+				quelleId: w.quelleId ?? null
 			});
 			const einsaetze: Einsatz[] = [];
 			for (const e of (w.einsaetze ?? []) as { benutzerId: string; beginn: string; ende: string }[]) {
@@ -181,6 +183,7 @@ async function ausfuehrenJe(
 		case 'todo_abhaken':
 		case 'anlage_anlegen':
 		case 'nachfassen_pausieren':
+		case 'quelle_setzen':
 			return neueAktionen(k, nutzer, aktion, w);
 		case 'abfrage_tagesplan':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
@@ -226,6 +229,11 @@ async function neueAktionen(k: { betriebId: string; benutzerId: string }, nutzer
 			const { legeAnlageAn } = await import('../anlagen');
 			const an = await legeAnlageAn(k, w.kundeId, w.objektId, w.anlage);
 			return { status: 201, meldung: `Anlage „${an.bezeichnung}“ angelegt`, link: `/anlagen/${an.id}`, warnungen: [] };
+		}
+		case 'quelle_setzen': {
+			const { aendereAuftrag } = await import('../auftraege');
+			const a = await aendereAuftrag(k, w.auftragId, { quelleId: w.quelleId }, sichtVon(nutzer));
+			return { status: 200, meldung: `Quelle von ${a.nummer}: ${a.quelleName}`, link: `/auftraege/${a.id}`, warnungen: [] };
 		}
 		case 'nachfassen_pausieren': {
 			const { setzeNachfassenPausiert } = await import('../nachfassen');

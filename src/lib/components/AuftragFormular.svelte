@@ -23,6 +23,8 @@
 		mitarbeiter = [],
 		zustaendige = [],
 		anlage = null,
+		quellen = [],
+		quellePflicht = false,
 		fehler = null,
 		knopf,
 		abbrechen
@@ -40,6 +42,9 @@
 		zustaendige?: string[];
 		/** Neuer Auftrag von einer Anlage aus („+ Auftrag zu dieser Anlage“) – gilt, solange ihr Objekt gewählt ist. */
 		anlage?: { id: string; bezeichnung: string; typName: string; objektId: string } | null;
+		/** Auftragsquellen (Wunsch Jamil msg 2593); bei neuen Aufträgen Pflicht. */
+		quellen?: { id: string; name: string; aktiv: boolean }[];
+		quellePflicht?: boolean;
 		fehler?: string | null;
 		knopf: string;
 		abbrechen: string;
@@ -279,6 +284,17 @@
 		</fieldset>
 	{/if}
 
+	{#if quellen.length > 0}
+		<label>
+			Quelle{quellePflicht ? ' *' : ''} <span class="kd-info">(woher kam der Auftrag?)</span>
+			<select name="quelleId" required={quellePflicht}>
+				<option value="" selected={!werte.quelleId}>{quellePflicht ? '– bitte wählen –' : '– keine –'}</option>
+				{#each quellen.filter((q) => q.aktiv || q.id === werte.quelleId) as q (q.id)}
+					<option value={q.id} selected={werte.quelleId === q.id}>{q.name}</option>
+				{/each}
+			</select>
+		</label>
+	{/if}
 	<label>
 		Titel *
 		<input type="text" name="titel" maxlength="200" required value={werte.titel ?? ''} placeholder="z. B. Badsanierung" />

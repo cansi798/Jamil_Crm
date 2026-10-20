@@ -7,6 +7,7 @@ import { aktiveMitarbeiter, legeTodosAn, pruefeTodoListe, todosAusFormular } fro
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, formWerte, seitenZugriff } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
+import { listeQuellen } from '$lib/server/quellen';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'auftraege', 'auftraege.bearbeiten');
@@ -17,7 +18,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		...(await ladeKundenAuswahl(k, auftrag.kundeId)),
 		kundenSuche: hatRecht(nutzer, 'kunden.lesen'),
 		vorlagen: await listeVorlagen(k),
-		mitarbeiter: await aktiveMitarbeiter(k)
+		mitarbeiter: await aktiveMitarbeiter(k),
+		quellen: (await listeQuellen(k)).map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv }))
 	};
 };
 

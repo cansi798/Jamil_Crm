@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { listeQuellen } from '../../src/lib/server/quellen';
 import { frischeTestDb, type TestDb } from './setup';
 import { initDb, mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { VORLAGEN } from '../../src/lib/server/rechte';
@@ -280,9 +281,11 @@ describe('Auftrags-To-do-Vorlagen', () => {
 	describe('Auftrag-Formular (Neu und Bearbeiten)', () => {
 		let kundeA: string;
 		const ort = (nutzer: Nutzer) => ({ locals: { nutzer } });
+		let quelle = '';
 		const formAnfrage = (felder: [string, string][]) => {
 			const body = new URLSearchParams();
 			for (const [k, v] of felder) body.append(k, v);
+			if (!body.has('quelleId')) body.append('quelleId', quelle);
 			return new Request('http://localhost/auftraege/neu', { method: 'POST', body });
 		};
 		/** Führt eine Formular-Aktion aus; eine Umleitung (redirect) kommt als { umleitung } zurück. */
@@ -302,6 +305,7 @@ describe('Auftrags-To-do-Vorlagen', () => {
 		beforeAll(async () => {
 			[{ id: kundeA }] = await root`
 				insert into app.kunden (betrieb_id, art, nachname) values (${betriebA}, 'privat', 'Vorlagenkunde') returning id`;
+			quelle = (await listeQuellen({ betriebId: betriebA, benutzerId: chefA.id }))[0].id;
 		});
 
 		it('Neu: To-dos aus dem Formular mit Beschreibung und in Reihenfolge; leere Zeilen fallen weg', async () => {

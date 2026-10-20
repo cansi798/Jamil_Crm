@@ -238,6 +238,7 @@ async function auftragAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, {
 		});
 		bau.zeilen.push({ label: 'Kunde', wert: `${ohneAnrede(d.kunde.name)} (bitte wählen)` });
 	}
+	if (d.quelle) await quelleAufloesen(bau, k, d.quelle);
 	if (d.objekt) {
 		bau.warnungen.push(`Objekt „${d.objekt}“ bitte nach dem Speichern am Auftrag wählen.`);
 		bau.werte.beschreibung = [bau.werte.beschreibung, `Objekt: ${d.objekt}`].filter(Boolean).join('\n');
@@ -688,6 +689,33 @@ async function nachfassenPausieren(k: Kontext, nutzer: Nutzer, d: Extract<KiAkti
 	return bau;
 }
 
+/** Gesprochene Quelle → aktive Quelle des Betriebs (genau, sonst Anfang des Namens); keine → Hinweis. */
+async function quelleAufloesen(bau: Bau, k: Kontext, gesprochen: string): Promise<void> {
+	const { listeQuellen } = await import('../quellen');
+	const alle = await listeQuellen(k, true);
+	const g = normal(gesprochen.replace(/^(?:die|der|das|über|via)\s+/i, ''));
+	const t = alle.filter((q) => normal(q.name) === g);
+	const treffer = t.length > 0 ? t : alle.filter((q) => normal(q.name).startsWith(g) || g.startsWith(normal(q.name)));
+	bau.werte.quelleId = null;
+	if (treffer.length === 1) {
+		bau.werte.quelleId = treffer[0].id;
+		bau.zeilen.push({ label: 'Quelle', wert: treffer[0].name });
+	} else if (treffer.length > 1) {
+		bau.auswahl.push({ feld: 'quelle', frage: 'Welche Quelle?', optionen: treffer.map((q) => ({ id: q.id, label: q.name })) });
+		bau.zeilen.push({ label: 'Quelle', wert: `${gesprochen} (bitte wählen)` });
+	} else {
+		bau.warnungen.push(`Quelle „${gesprochen}“ gibt es nicht (Einstellungen → Quellen) – bitte am Auftrag wählen.`);
+	}
+}
+
+async function quelleSetzen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'quelle_setzen' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	await auftragAufloesen(bau, k, nutzer, d.auftrag, false);
+	await quelleAufloesen(bau, k, d.quelle);
+	if (!bau.werte.quelleId && bau.auswahl.every((a) => a.feld !== 'quelle')) bau.fehlt.push(`Quelle „${d.quelle}“ nicht gefunden.`);
+	return bau;
+}
+
 /** Für die Frage „Was hat Sabine morgen?“: Person (ich/Name) auflösen. */
 export async function personAufloesen(
 	k: Kontext,
@@ -718,7 +746,8 @@ const TITEL: Record<AktionsName, string> = {
 	todo_abhaken: 'To-do abhaken',
 	anlage_anlegen: 'Anlage anlegen',
 	nachfassen_pausieren: 'Nachfassen',
-	abfrage_tagesplan: 'Tagesplan'
+	abfrage_tagesplan: 'Tagesplan',
+	quelle_setzen: 'Quelle setzen'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -744,6 +773,7 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 		case 'protokoll_ausfuellen':
 		case 'mitarbeiter_zuweisen':
 		case 'status_aendern':
+		case 'quelle_setzen':
 			return werte.auftragId ? `/auftraege/${werte.auftragId}` : '/auftraege';
 		case 'todo_abhaken':
 			return '/todos';
@@ -801,6 +831,9 @@ export async function loeseAuf(
 				break;
 			case 'nachfassen_pausieren':
 				bau = await nachfassenPausieren(k, nutzer, aktion.daten);
+				break;
+			case 'quelle_setzen':
+				bau = await quelleSetzen(k, nutzer, aktion.daten);
 				break;
 		}
 	} catch (e) {

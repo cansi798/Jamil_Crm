@@ -17,6 +17,7 @@
 		if (ansicht === 'liste' && status) p.set('status', status);
 		if (data.suche) p.set('suche', data.suche);
 		if (meine) p.set('meine', '1');
+		if (data.quelle) p.set('quelle', data.quelle);
 		const q = p.toString();
 		return q ? `/auftraege?${q}` : '/auftraege';
 	};
@@ -61,10 +62,15 @@
 		</nav>
 	{/if}
 
-	<form method="GET" role="search" class="kd-suche">
+	<form method="GET" role="search" class="kd-suche af-suche">
 		{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
 		{#if data.ansicht === 'liste' && data.status}<input type="hidden" name="status" value={data.status} />{/if}
 		{#if data.meine}<input type="hidden" name="meine" value="1" />{/if}
+		<select name="quelle" aria-label="Quelle" class="af-quelle-filter" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+			<option value="" selected={!data.quelle}>Alle Quellen</option>
+			{#each data.quellen as q (q.id)}<option value={q.id} selected={data.quelle === q.id}>{q.name}{q.aktiv ? '' : ' (aus)'}</option>{/each}
+			<option value="ohne" selected={data.quelle === 'ohne'}>Ohne Quelle</option>
+		</select>
 		<input
 			type="search"
 			name="suche"
@@ -131,6 +137,22 @@
 </main>
 
 <style>
+	.af-suche {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+	}
+	@media (max-width: 30rem) {
+		.af-suche {
+			grid-template-columns: minmax(0, 1fr) auto;
+		}
+		.af-suche .af-quelle-filter {
+			grid-column: 1 / -1;
+			max-width: none;
+		}
+	}
+	.af-quelle-filter {
+		width: auto !important;
+		max-width: 12rem;
+	}
 	.af-meine {
 		display: flex;
 		gap: 0.4rem;

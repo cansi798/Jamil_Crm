@@ -117,6 +117,23 @@
 								{/if}
 							</dd>
 						</div>
+						{#if a.quelleId || data.quellen.length > 0}
+							<div>
+								<dt>Quelle</dt>
+								<dd>
+									{#if data.darfBearbeiten && data.quellen.length > 0}
+										<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
+											<select name="quelleId" aria-label="Quelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+												<option value="" selected={!a.quelleId}>– keine –</option>
+												{#each data.quellen.filter((q) => q.aktiv || q.id === a.quelleId) as q (q.id)}
+													<option value={q.id} selected={q.id === a.quelleId}>{q.name}</option>
+												{/each}
+											</select>
+										</form>
+									{:else}{a.quelleName ?? '–'}{/if}
+								</dd>
+							</div>
+						{/if}
 						<div>
 							<dt>Nächster Termin</dt>
 							<dd>

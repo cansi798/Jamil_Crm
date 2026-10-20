@@ -8,6 +8,8 @@ import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { formWerte, seitenZugriff, vorbelegung } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
 import { holeAnlage } from '$lib/server/anlagen';
+import { listeQuellen } from '$lib/server/quellen';
+import { ApiFehler } from '$lib/server/fehler';
 
 /** Neuer Auftrag; mit `?kunde=<id>` (Link vom Kunden) ist der Kunde samt seinen Objekten schon gewählt. */
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -25,6 +27,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		kundenSuche: hatRecht(locals.nutzer!, 'kunden.lesen'),
 		vorlagen,
 		mitarbeiter: await aktiveMitarbeiter(k),
+		quellen: (await listeQuellen(k, true)).map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv })),
 		// Titel/Start/Beschreibung vorbelegt (z. B. „Ändern“ auf der Bestätigungskarte der Sprachsteuerung)
 		vorbelegt: vorbelegung(url, ['titel', 'geplantAb', 'beschreibung', 'objektId'])
 	};
@@ -38,6 +41,10 @@ export const actions: Actions = {
 		let id: string;
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			// Quelle ist bei neuen Aufträgen Pflicht (msg 2593), sobald der Betrieb Quellen hat
+			if (!werte.quelleId && (await listeQuellen(betriebKontext(locals), true)).length > 0) {
+				throw new ApiFehler(400, 'Bitte eine Quelle wählen (woher kam der Auftrag?).');
+			}
 			// To-dos (z. B. aus einer Vorlage) zuerst prüfen – ein ungültiges To-do soll keinen halben Auftrag hinterlassen
 			const todos = pruefeTodoListe(todosAusFormular(formData));
 			const anlageId = formData.get('anlageId');

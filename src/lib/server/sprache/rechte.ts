@@ -51,6 +51,7 @@ export async function pruefeAktionsRechte(
 			return darfEines(locals, 'protokolle', ['protokolle.ausfuellen', 'protokolle.bearbeiten']);
 		case 'mitarbeiter_zuweisen':
 		case 'status_aendern':
+		case 'quelle_setzen':
 			return darf(locals, 'auftraege', 'auftraege.bearbeiten');
 		case 'todo_abhaken':
 		case 'abfrage_tagesplan':

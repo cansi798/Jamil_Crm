@@ -19,7 +19,7 @@ import { signiere } from './vorschlag';
 export const MAX_BEFEHL_ZEICHEN = 2000;
 export const UNBEKANNT_HINWEIS =
 	'Ich kann Kunden, Aufträge, To-dos (auch wiederkehrende), Termine und Anlagen anlegen, Termine verschieben, Mitarbeiter zuweisen, ' +
-	'den Auftragsstatus ändern, To-dos abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht.';
+	'den Auftragsstatus und die Quelle ändern, To-dos abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht.';
 
 /** Frage „Was steht heute an?“ beantworten (nur lesend, ohne Bestätigung). */
 async function beantworteTagesplan(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, d: TagesplanDaten, jetzt: Date): Promise<Karte> {

@@ -253,6 +253,9 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 	if (/\b(?:hake|hak|abhaken|abgehakt)\b|\b(?:ist|sind|als)\s+(?:jetzt\s+)?(?:erledigt|abgehakt)\b|\berledigt\s*$/.test(l) && !/\b(?:soll|muss|bis)\b/.test(l)) {
 		return abhaken(t);
 	}
+	if (/\bauftrag/.test(l) && (/\bquelle\b/.test(l) || /\b(?:kam|kommt)\s+(?:über|von|via)\b/.test(l)) && !/\b(?:neue[nrs]?|anlegen|lege|leg)\b/.test(l)) {
+		return quelleSetzen(t);
+	}
 	if (/\bauftrag/.test(l) && /\b(?:weise|zuweisen|zuteilen|zuordnen|ordne)\b|\bteile?\b.*\bzu\s*$/.test(l)) return zuweisen(t);
 	if (/\bauftrag/.test(l) && !/\b(?:neue[nrs]?|anlegen|lege|leg)\b/.test(l) && (/\bstatus\b|\bweiter\b/.test(l) || STATUS_WOERTER.some(([re]) => re.test(l)))) {
 		return status(t);
@@ -384,6 +387,25 @@ function zuweisen(t: string): { aktion: string; daten: Record<string, unknown> }
 	return { aktion: 'mitarbeiter_zuweisen', daten: { auftrag, mitarbeiter: namen.length ? namen : ['?'] } };
 }
 
+/** „über Hornbach“, „Quelle Website“, „kam über eine Empfehlung“ → Quellen-Name; sonst null. */
+function quelleAus(t: string): { quelle: string; rest: string } | null {
+	const m =
+		/\bquelle\s*(?:ist|war|:)?\s+(?:die\s+|der\s+|das\s+)?([A-ZÄÖÜa-zäöüß][\wäöüß-]+)/i.exec(t) ??
+		/\b(?:kam|kommt|kamen)\s+(?:über|von|via)\s+(?:die\s+|den\s+|das\s+|eine\s+|einen\s+)?([A-ZÄÖÜa-zäöüß][\wäöüß-]+)/i.exec(t) ??
+		/\b(?:über|via)\s+(?:die\s+|den\s+|eine\s+)?(Website|Webseite|Hornbach|Obi|Empfehlung|Zeitung|MyHammer|Telefon)\b/i.exec(t);
+	if (!m) return null;
+	const roh = m[1];
+	const quelle = /^webseite$/i.test(roh) ? 'Website' : roh[0].toUpperCase() + roh.slice(1);
+	return { quelle, rest: t.replace(m[0], ' ') };
+}
+
+function quelleSetzen(t: string): { aktion: string; daten: Record<string, unknown> } {
+	const auf = /\bauf\s+(?:die\s+|den\s+)?([A-ZÄÖÜa-zäöüß][\wäöüß-]+)\s*$/i.exec(t);
+	const q = auf ? { quelle: auf[1][0].toUpperCase() + auf[1].slice(1) } : quelleAus(t);
+	const a = /\bauftrag(?:s)?\s+(.+?)(?=\s+(?:auf|kam|kommt|ist|hat|setzen|quelle)\b|$)/i.exec(t);
+	return { aktion: 'quelle_setzen', daten: { auftrag: a ? sauber(a[1]) : '?', quelle: q?.quelle ?? '?' } };
+}
+
 function status(t: string): { aktion: string; daten: Record<string, unknown> } {
 	const l = t.toLowerCase();
 	let ziel = 'weiter';
@@ -469,6 +491,11 @@ function kunde(t: string): { aktion: string; daten: Record<string, unknown> } {
 function auftrag(t: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
 	const daten: Record<string, unknown> = {};
 	let rest = t.replace(/^.*?\b(?:neue[nrs]?\s+)?auftrag\b\s*(?:anlegen|an)?\s*[:,]?/i, ' ');
+	const q = quelleAus(rest);
+	if (q) {
+		daten.quelle = q.quelle;
+		rest = q.rest;
+	}
 	const start = zeitangabe(rest, kontext);
 	if (start) daten.start = start;
 	const uhrzeiten = findeUhrzeiten(rest);

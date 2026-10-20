@@ -66,6 +66,15 @@ describe('Sprache: neue Aktionen (Ersatz-KI)', () => {
 		expect(await deute('Was hat Kolonne A diese Woche?')).toEqual({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'woche', wer: 'Kolonne A' } });
 	});
 
+	it('Quelle: beim Anlegen und nachträglich', async () => {
+		expect(await deute('Neuer Auftrag Badsanierung bei Müller, kam über Hornbach')).toMatchObject({
+			aktion: 'auftrag_anlegen',
+			daten: { titel: 'Badsanierung', kunde: { name: 'Müller' }, quelle: 'Hornbach' }
+		});
+		expect(await deute('Setze die Quelle vom Auftrag Müller auf Empfehlung')).toEqual({ aktion: 'quelle_setzen', daten: { auftrag: 'Müller', quelle: 'Empfehlung' } });
+		expect(await deute('Auftrag Schulz kam über die Website')).toEqual({ aktion: 'quelle_setzen', daten: { auftrag: 'Schulz', quelle: 'Website' } });
+	});
+
 	it('Schemas: Status nur aus der Liste, Anlage-Typ geprüft', () => {
 		expect(() => pruefeAktion({ aktion: 'status_aendern', daten: { auftrag: 'x', status: 'fertig' } })).toThrow();
 		expect(() => pruefeAktion({ aktion: 'anlage_anlegen', daten: { kunde: { name: 'x' }, typ: 'atom' } })).toThrow();

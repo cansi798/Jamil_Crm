@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { listeQuellen } from '../../src/lib/server/quellen';
 import { schliesseDb } from '../../src/lib/server/db';
 import { holeAuftrag, legeAuftragAn, listeAuftraege, sichtVon } from '../../src/lib/server/auftraege';
 import { legeTodoAn, listeTodos, todoSichtVon } from '../../src/lib/server/todos';
@@ -186,12 +187,14 @@ describe('Mitarbeiter am Auftrag, Meine Aufträge/To-dos, Sicht', () => {
 			['Fliesen abschlagen', 'Staubschutz aufbauen', 3, 3],
 			['Bauschutt entsorgen', null, null, 2]
 		]);
+		const quelleA = (await listeQuellen(kA()))[0].id;
 		// Neuer Auftrag mit den To-dos der Vorlage (das Formular schickt die Stufen mit)
 		const n = await umleitung(() =>
 			neuAktionen.anlegen({
 				locals: { nutzer: u.chefA },
 				request: form([
 					['kundeId', u.kundeA],
+					['quelleId', quelleA],
 					['titel', 'Bad mit Vorlage'],
 					['todo_0', 'Fliesen abschlagen'],
 					['todo_beschreibung_0', 'Staubschutz aufbauen'],

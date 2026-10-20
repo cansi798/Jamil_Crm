@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { listeQuellen } from '../../src/lib/server/quellen';
 import { frischeTestDb, type TestDb } from './setup';
 import { leereAngebote } from './hilfe-1c';
 import { initDb, mitBetrieb, schliesseDb } from '../../src/lib/server/db';
@@ -688,7 +689,14 @@ describe('Aufträge und To-dos', () => {
 			await expect(
 				neuAktionen.anlegen({
 					...ort(chefA),
-					request: formAnfrage({ titel: 'Neu', kundeId: kundeA, objektId: objektA, beschreibung: '', geplantAb: '' })
+					request: formAnfrage({
+						titel: 'Neu',
+						kundeId: kundeA,
+						objektId: objektA,
+						beschreibung: '',
+						geplantAb: '',
+						quelleId: (await listeQuellen({ betriebId: betriebA, benutzerId: chefA.id }))[0].id
+					})
 				} as never)
 			).rejects.toMatchObject({ status: 303 });
 			const [z] = await root`select id, objekt_id, geplant_ab from app.auftraege where titel = 'Neu'`;

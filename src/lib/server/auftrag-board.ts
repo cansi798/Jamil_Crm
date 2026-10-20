@@ -26,7 +26,7 @@ export type Board = {
 };
 
 /** `meine`: nur Aufträge mit Bezug zum Nutzer (zuständig, eigenes To-do oder eigener Termin) – wie in der Liste. */
-export type BoardOptionen = { suche?: string; meine?: boolean; mitPreisen: boolean };
+export type BoardOptionen = { suche?: string; meine?: boolean; mitPreisen: boolean; /** UUID oder „ohne“ */ quelleId?: string };
 
 export async function ladeBoard(k: Kontext, sicht: Sicht, opt: BoardOptionen): Promise<Board> {
 	const muster = sucheWoerter(opt.suche).map(likeMuster);
@@ -42,6 +42,7 @@ export async function ladeBoard(k: Kontext, sicht: Sicht, opt: BoardOptionen): P
 				where a.betrieb_id = ${k.betriebId}
 					and ${sichtbar(tx, sicht)}
 					${opt.meine ? tx`and ${sichtbar(tx, { alle: false, benutzerId: sicht.benutzerId })}` : tx``}
+					${opt.quelleId ? (opt.quelleId === 'ohne' ? tx`and a.quelle_id is null` : tx`and a.quelle_id = ${opt.quelleId}`) : tx``}
 					and not exists (
 						select 1 from unnest(${muster}::text[]) as s(m)
 						where not (

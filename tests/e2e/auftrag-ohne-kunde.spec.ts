@@ -23,6 +23,7 @@ test('Neuer Auftrag mit Einmal-Kunde → Auftragsakte → in Kundendatenbank üb
 		await page.locator('input[name="einmalPlz"]').fill('22846');
 		await page.locator('input[name="einmalOrt"]').fill('Norderstedt');
 		await page.locator('input[name="titel"]').fill('E2E Rohrbruch');
+		await page.locator('select[name="quelleId"]').selectOption({ label: 'Website' }); // Quelle ist Pflicht (msg 2593)
 		await page.getByRole('button', { name: 'Auftrag anlegen' }).click();
 		await page.waitForURL(/\/auftraege\/[0-9a-f-]{36}$/);
 		auftraege.push(page.url().split('/').pop()!);
@@ -37,6 +38,7 @@ test('Neuer Auftrag mit Einmal-Kunde → Auftragsakte → in Kundendatenbank üb
 		await page.goto('/auftraege/neu');
 		await page.getByRole('radio', { name: 'Ohne Kunde' }).check();
 		await page.locator('input[name="titel"]').fill('E2E Lager aufräumen');
+		await page.locator('select[name="quelleId"]').selectOption({ label: 'Website' }); // Quelle ist Pflicht (msg 2593)
 		await page.getByRole('button', { name: 'Auftrag anlegen' }).click();
 		await page.waitForURL(/\/auftraege\/[0-9a-f-]{36}$/);
 		auftraege.push(page.url().split('/').pop()!);

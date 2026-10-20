@@ -18,6 +18,7 @@ import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
 import { anlagenAuswahl } from '$lib/server/anlagen';
 import { holeKolonne, listeKolonnen } from '$lib/server/kolonnen';
+import { listeQuellen } from '$lib/server/quellen';
 import { verlaufZeile } from '$lib/verlauf';
 import { ausTagUndUhrzeit, berlinTag, istTag } from '$lib/zeit';
 import { holeKunde } from '$lib/server/kunden';
@@ -89,6 +90,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			objekte: darfBearbeiten && auftrag.kundeId ? (await ladeKundenAuswahl(k, auftrag.kundeId)).objekte : [],
 			// Anlagen des Objekts für die Auswahl „Anlage“ (Wunsch Jamil, msg 2505)
 			anlagen: darfBearbeiten ? await anlagenAuswahl(k, auftrag.objektId) : [],
+			quellen: darfBearbeiten ? (await listeQuellen(k)).map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv })) : [],
 			// Kolonne zuweisen (Wunsch Jamil msg 2510): alle Mitglieder werden Zuständige
 			kolonnen: darfBearbeiten && (await hatModul(k.betriebId, 'plantafel')) ? (await listeKolonnen(k, true)).map((x) => ({ id: x.id, name: x.name, mitglieder: x.mitglieder })) : [],
 			// Einmal-Kunde → Kundendatenbank: Aufträge bearbeiten UND Kunden bearbeiten
@@ -144,7 +146,7 @@ export const actions: Actions = {
 	aendern: async ({ locals, params, request }) => {
 		const f = await request.formData();
 		const e: Record<string, unknown> = { ...zustaendigeAus(f) };
-		for (const feld of ['objektId', 'anlageId', 'beschreibung', 'titel']) if (f.has(feld)) e[feld] = text(f, feld);
+		for (const feld of ['objektId', 'anlageId', 'quelleId', 'beschreibung', 'titel']) if (f.has(feld)) e[feld] = text(f, feld);
 		try {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 			await aendereAuftrag(betriebKontext(locals), params.id, e, sichtVon(locals.nutzer!));

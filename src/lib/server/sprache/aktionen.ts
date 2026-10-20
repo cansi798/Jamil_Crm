@@ -21,7 +21,8 @@ export const AKTIONEN = [
 	'todo_abhaken',
 	'anlage_anlegen',
 	'nachfassen_pausieren',
-	'abfrage_tagesplan'
+	'abfrage_tagesplan',
+	'quelle_setzen'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
@@ -60,7 +61,9 @@ export type AuftragDaten = {
 	start?: Zeitangabe;
 	ende_uhrzeit?: string;
 	mitarbeiter?: string[];
+	quelle?: string;
 };
+export type QuelleDaten = { auftrag: string; quelle: string };
 export type Regel = 'taeglich' | 'woechentlich' | 'monatlich' | 'jaehrlich';
 export type TodoDaten = { titel: string; zustaendig?: string; faellig?: Zeitangabe; auftrag?: string; wiederholung?: Regel; intervall?: number };
 export type ZuweisenDaten = { auftrag: string; mitarbeiter: string[] };
@@ -105,6 +108,7 @@ export type KiAktion =
 	| { aktion: 'anlage_anlegen'; daten: AnlageDaten }
 	| { aktion: 'nachfassen_pausieren'; daten: NachfassenDaten }
 	| { aktion: 'abfrage_tagesplan'; daten: TagesplanDaten }
+	| { aktion: 'quelle_setzen'; daten: QuelleDaten }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -182,7 +186,8 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 			beschreibung: text(2000, 'Weitere Angaben zur Arbeit'),
 			start: ZEIT,
 			ende_uhrzeit: UHRZEIT,
-			mitarbeiter: { type: 'array', items: text(100, 'Vorname des Mitarbeiters'), minItems: 1, maxItems: 10 }
+			mitarbeiter: { type: 'array', items: text(100, 'Vorname des Mitarbeiters'), minItems: 1, maxItems: 10 },
+			quelle: text(100, 'Woher der Auftrag kam, z. B. Website, Hornbach, Empfehlung – nur wenn genannt')
 		},
 		required: ['titel', 'kunde'],
 		additionalProperties: false
@@ -327,6 +332,12 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		required: ['zeitraum'],
 		additionalProperties: false
 	},
+	quelle_setzen: {
+		type: 'object',
+		properties: { auftrag: text(200, 'Kunde oder Auftrag'), quelle: text(100, 'Quelle, z. B. Hornbach, Website, Empfehlung') },
+		required: ['auftrag', 'quelle'],
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -342,6 +353,7 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	todo_abhaken: 'Ein offenes To-do als erledigt abhaken.',
 	anlage_anlegen: 'Eine Anlage (Wärmepumpe, Solar, Heizung, Klima, Lüftung, Wallbox, Gasspeicher …) beim Objekt eines Kunden anlegen.',
 	nachfassen_pausieren: 'Automatisches Nachfassen für ein Angebot pausieren oder fortsetzen.',
+	quelle_setzen: 'Quelle eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',
 	abfrage_tagesplan:
 		'Frage nach dem Tagesplan beantworten: Termine und To-dos für eine Person (ich oder Name) heute, morgen, diese Woche oder ein Datum; auch „überfällige To-dos“.',
 	protokoll_ausfuellen:

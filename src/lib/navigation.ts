@@ -89,6 +89,11 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 			mehr.push({ name: 'Briefkopf', href: '/einstellungen/briefkopf', symbol: 'briefkopf' });
 			// Automatisches Nachfassen (Angebote/Rechnungen): Stufen, Mail-Vorlagen, Signatur – Chef/Admin
 			if (module.includes('angebote')) mehr.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
+			// Auftragsquellen und ihre Auswertung (Wunsch Jamil msg 2593)
+			if (module.includes('auftraege')) {
+				mehr.push({ name: 'Quellen', href: '/einstellungen/quellen', symbol: 'auftraege' });
+				mehr.push({ name: 'Auswertung Quellen', href: '/auswertung/quellen', symbol: 'auftraege' });
+			}
 		}
 	} else if (nutzer.istAdmin) {
 		mehr.push({ name: 'Plattform-Verwaltung', href: '/admin', symbol: 'admin' });

@@ -24,6 +24,8 @@
 		mitarbeiter={data.mitarbeiter}
 		zustaendige={form?.zustaendige ?? []}
 		anlage={data.anlage}
+		quellen={data.quellen}
+		quellePflicht
 		vorlagen={data.vorlagen}
 		fehler={form?.fehler ?? null}
 		knopf="Auftrag anlegen"

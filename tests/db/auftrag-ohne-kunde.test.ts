@@ -1,5 +1,6 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { listeQuellen } from '../../src/lib/server/quellen';
 import { schliesseDb } from '../../src/lib/server/db';
 import { aendereAuftrag, holeAuftrag, legeAuftragAn, listeAuftraege, sichtVon, uebernimmEinmalKunde } from '../../src/lib/server/auftraege';
 import { einsaetzeZumAuftrag, legeEinsatzAn } from '../../src/lib/server/plantafel';
@@ -102,7 +103,7 @@ describe('Aufträge ohne Kunden / mit Einmal-Kunden', () => {
 	});
 
 	it('Seiten: „Neuer Auftrag“ mit Einmal-Kunde; Auftragsseite ohne Kunden-Hinweise; Übernehmen nur mit „Kunden bearbeiten“', async () => {
-		const body = new URLSearchParams({ titel: 'Formular Einmal', ...EINMAL });
+		const body = new URLSearchParams({ titel: 'Formular Einmal', ...EINMAL, quelleId: (await listeQuellen(kA()))[0].id });
 		let ort = '';
 		try {
 			await neuAktionen.anlegen({ locals: { nutzer: u.chefA }, request: new Request('http://localhost/x', { method: 'POST', body }) } as never);
