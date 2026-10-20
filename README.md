@@ -218,8 +218,8 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Begrenzung je IP/Link (im Speicher; hinter einem Proxy `ADDRESS_HEADER`/`XFF_DEPTH` setzen), Honigtopf-Feld,
     signierter Zeitstempel (mindestens 3 s). Einbetten nur auf den Domains aus Einstellungen → Online-Buchung bzw.
     `CRM_BUCHUNG_EINBETTEN` (CSP `frame-ancestors` je Seite, `X-Frame-Options` entfällt dort). Recht `buchung.verwalten`.
-16. Zeiterfassung (Modul `zeiterfassung`, Migration 080): `zeiten.erfassen` (eigene Zeiten und Material) und
-    `zeiten.verwalten` (alle sehen, korrigieren, freigeben, Tätigkeiten ohne Auftrag pflegen). Je Person läuft höchstens
+16. Zeiterfassung (Modul `zeiterfassung`, Migration 080): `zeiterfassung.nutzen` (eigene Zeiten und Material) und
+    `zeiterfassung.alle_sehen` (alle sehen, korrigieren, freigeben); jede Zeit gehört zu einem Auftrag. Je Person läuft höchstens
     ein Abschnitt (eindeutiger Teilindex), Abschnitte einer Person überschneiden sich nie (Ausschluss-Bedingung).
     Nachträge, Korrekturen und Löschungen verlangen einen Grund und stehen mit alt/neu im Änderungsprotokoll (Verlauf
     des Auftrags). Nach der Freigabe ändert nur noch Chef/Büro. Kilometer: OSRM über `CRM_ROUTEN_URL` (nur zwei
@@ -235,6 +235,10 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 18. Ereignis `angebotAngenommen` (`src/lib/server/ereignisse.ts`): jede Annahme (Portal, Büro, Sprache) erzeugt die
     Auftragsbestätigung (PDF, AB-JJJJ-NNNN; abschaltbar je Betrieb und Auftrag) – Versand über `MailVersand`, sonst
     „bereit zum Versand“ mit To-do und Glocke. Weitere Anbindungen (z. B. Lexware) hängen sich mit `abonniere` an.
+19. Foto-Aufmaß (Modul `ki_angebote`, Migration 083): Der Nutzer gibt Wand-/Bodenfläche, Höhe und Objekte ein, die
+    KI (MiMo über `bildAuswertung`) schätzt nur abgeleitete Mengen und Katalogpositionen. An die KI gehen nur Fotos,
+    Zahlen, Katalog-Bezeichnungen (ohne Preise) und frühere Beispiele als Zahlen; gespeichert werden keine Fotos.
+    Lernen: `app.aufmass_schaetzungen` (KI-Werte, übernommene Werte, Ist-Verbrauch) → Kalibrierfaktoren und Beispiele.
 
 ## Installation auf einem eigenen Server
 

@@ -58,15 +58,11 @@ const BILD_BEISPIELE: Record<string, unknown> = {
 		]
 	},
 	foto_aufmass: {
-		raum: 'Badezimmer',
-		flaechen: [
-			{ bezeichnung: 'Boden', art: 'boden', laenge_m: 2.5, breite_m: 2, flaeche_m2: 5 },
-			{ bezeichnung: 'Wand mit Tür', art: 'wand', laenge_m: 2.5, breite_m: 2.5, flaeche_m2: 4.65 }
-		],
-		mengen: [{ bezeichnung: 'Sockelleiste', menge: 9, einheit: 'lfm' }],
-		positionen: [],
+		mengen: { abdichtung_m2: 9.5, dichtband_lfm: 14, silikon_lfm: 16, sockel_lfm: 8.5, kantenschutz_lfm: 3, fliesenkleber_kg: 120, fugenmoertel_kg: 15 },
+		positionen: [{ schluessel: 'K1', menge: 6 }],
 		konfidenz: 0.55,
-		annahmen: ['Türhöhe 2,00 m als Maßstab', 'Raumhöhe ca. 2,50 m geschätzt']
+		annahmen: ['Dusche bodengleich, zwei Wände im Spritzbereich', 'Raum etwa rechteckig'],
+		erkannt: 'Bad mit Dusche, WC und Waschtisch'
 	}
 };
 

@@ -72,6 +72,7 @@
 			{#if data.darfBearbeiten}
 				<a href={`/auftraege/${a.id}/bearbeiten`} class="kd-knopf hell">Auftrag bearbeiten</a>
 			{/if}
+			{#if data.darfKiEntwurf}<a href={`/auftraege/${a.id}/foto-aufmass`} class="kd-knopf hell">Foto-Aufmaß</a>{/if}
 			<a href={`/auftraege/${a.id}/dokumentation`} class="kd-knopf">Dokumentation</a>
 		</div>
 	</header>
