@@ -210,7 +210,14 @@ async function ausfuehrenJe(
 		case 'abfrage_monatsgewinn':
 		case 'abfrage_nachfassen':
 		case 'kalender_zeigen':
+		case 'buchungslink_zeigen':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
+		case 'dienst_anlegen': {
+			const { legeDienstAn } = await import('../buchung');
+			const ids = (w.mitarbeiterIds as (string | null)[]).filter((x): x is string => !!x);
+			const d = await legeDienstAn(k, { name: w.dienst?.name, dauerMin: w.dienst?.dauerMin, modus: ids.length === 1 ? 'fest' : 'beliebig' }, ids);
+			return { status: 201, meldung: `Dienst „${d.name}“ angelegt`, link: `/einstellungen/online-buchung/${d.id}`, warnungen: [] };
+		}
 		case 'protokoll_ausfuellen': {
 			if (w.formular) {
 				// Frei gestaltete Vorlage: Protokoll starten und den Assistenten öffnen

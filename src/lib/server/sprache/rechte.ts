@@ -19,6 +19,7 @@ import type { AktionsName } from './aktionen';
  * - Nachfassen pausieren: wie Angebote (`angebote.bearbeiten` + `preise.sehen`)
  * - Auslastung abfragen (nur lesend): wie die Seite Auslastung – Modul `plantafel` + `plantafel.bearbeiten` oder
  *   „Alle Aufträge ansehen“; Gewinn/Break-even zusätzlich „Preise sehen“
+ * - Online-Buchung (Dienst anlegen, Buchungslink zeigen): Module `auftraege` + `plantafel`, Recht `buchung.verwalten`
  * - Tagesplan abfragen (nur lesend): Modul `auftraege` und irgendein Auftragsrecht; andere Personen nur mit
  *   „Alle To-dos ansehen“ (geprüft beim Beantworten)
  */
@@ -74,6 +75,10 @@ export async function pruefeAktionsRechte(
 		case 'nachfassen_pausieren':
 			await angeboteZugriff(locals);
 			return;
+		case 'dienst_anlegen':
+		case 'buchungslink_zeigen':
+			await darf(locals, 'auftraege', 'buchung.verwalten');
+			return pruefeModul(locals, 'plantafel');
 	}
 }
 

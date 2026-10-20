@@ -9,6 +9,9 @@
  * - `fehlendeFelder` / `schrittFrei`: Sperre für „Weiter“ – alle sichtbaren Pflichtfelder des Schritts müssen erfüllt
  *   sein (z. B. „Foto der Abdichtung“ mit mindestens einem Foto).
  * - `bereinigeAntworten`: Antworten aus dem Browser auf bekannte Felder und passende Typen beschränken.
+ *
+ * Gemeinsam genutzt von den Protokoll-Vorlagen und den Fragen der Online-Buchung (`src/lib/buchung.ts`: ein Schritt,
+ * nur Feldtypen aus `FRAGE_TYPEN`, Prüfung mit `pruefeSchema(…, { typen, maxSeiten: 1, leerErlaubt: true })`).
  */
 
 export const FELD_TYPEN = [
@@ -183,10 +186,20 @@ export function opsFuer(typ: FeldTyp): BedingungOp[] {
  * Prüft eine Vorlage (aus Baukasten oder Datenbank) und liefert eine bereinigte Kopie. Wirft `SchemaFehler` mit einer
  * deutschen Meldung, die der Baukasten anzeigt.
  */
-export function pruefeSchema(roh: unknown): Schema {
+export type SchemaOptionen = {
+	/** erlaubte Feldtypen (Standard: alle) */
+	typen?: readonly FeldTyp[];
+	/** höchstens so viele Seiten (Standard: GRENZEN.seiten) */
+	maxSeiten?: number;
+	/** ohne Seiten bzw. Felder gültig (z. B. Dienst ohne eigene Fragen) */
+	leerErlaubt?: boolean;
+};
+
+export function pruefeSchema(roh: unknown, opts: SchemaOptionen = {}): Schema {
+	const maxSeiten = Math.min(opts.maxSeiten ?? GRENZEN.seiten, GRENZEN.seiten);
 	if (!istObjekt(roh) || !Array.isArray(roh.seiten)) throw new SchemaFehler('Die Vorlage hat keine Seiten.');
-	if (roh.seiten.length === 0) throw new SchemaFehler('Die Vorlage braucht mindestens eine Seite.');
-	if (roh.seiten.length > GRENZEN.seiten) throw new SchemaFehler(`Höchstens ${GRENZEN.seiten} Seiten.`);
+	if (roh.seiten.length === 0 && !opts.leerErlaubt) throw new SchemaFehler('Die Vorlage braucht mindestens eine Seite.');
+	if (roh.seiten.length > maxSeiten) throw new SchemaFehler(maxSeiten === 1 ? 'Nur ein Schritt möglich.' : `Höchstens ${maxSeiten} Seiten.`);
 	const ids = new Set<string>();
 	const frueher = new Map<string, Feld>();
 	const eindeutig = (id: unknown, was: string): string => {
@@ -199,7 +212,7 @@ export function pruefeSchema(roh: unknown): Schema {
 	const seiten: Seite[] = roh.seiten.map((s, si) => {
 		const wo = `Seite ${si + 1}`;
 		if (!istObjekt(s) || !Array.isArray(s.abschnitte)) throw new SchemaFehler(`${wo}: ungültig.`);
-		if (s.abschnitte.length === 0) throw new SchemaFehler(`${wo}: braucht mindestens einen Abschnitt.`);
+		if (s.abschnitte.length === 0 && !opts.leerErlaubt) throw new SchemaFehler(`${wo}: braucht mindestens einen Abschnitt.`);
 		if (s.abschnitte.length > GRENZEN.abschnitte) throw new SchemaFehler(`${wo}: höchstens ${GRENZEN.abschnitte} Abschnitte.`);
 		const seite: Seite = {
 			id: eindeutig(s.id, wo),
@@ -216,7 +229,7 @@ export function pruefeSchema(roh: unknown): Schema {
 			abschnitt.felder = a.felder.map((f, fi) => {
 				anzahl++;
 				if (anzahl > GRENZEN.felder) throw new SchemaFehler(`Höchstens ${GRENZEN.felder} Felder je Vorlage.`);
-				const feld = pruefeFeld(f, `${woA}, Feld ${fi + 1}`, eindeutig, frueher);
+				const feld = pruefeFeld(f, `${woA}, Feld ${fi + 1}`, eindeutig, frueher, opts.typen);
 				// Bedingungen dürfen sich auf frühere Felder derselben Seite beziehen: gleich verfügbar machen
 				frueher.set(feld.id, feld);
 				return feld;
@@ -232,10 +245,11 @@ function pruefeFeld(
 	f: unknown,
 	wo: string,
 	eindeutig: (id: unknown, was: string) => string,
-	frueher: Map<string, Feld>
+	frueher: Map<string, Feld>,
+	typen: readonly FeldTyp[] = FELD_TYPEN
 ): Feld {
 	if (!istObjekt(f)) throw new SchemaFehler(`${wo}: ungültig.`);
-	if (typeof f.typ !== 'string' || !(FELD_TYPEN as readonly string[]).includes(f.typ)) throw new SchemaFehler(`${wo}: unbekannter Feldtyp.`);
+	if (typeof f.typ !== 'string' || !(typen as readonly string[]).includes(f.typ)) throw new SchemaFehler(`${wo}: unbekannter Feldtyp.`);
 	const typ = f.typ as FeldTyp;
 	const label = text(f.label, `${wo}: Beschriftung`, GRENZEN.label, true)!;
 	const feld: Feld = { id: eindeutig(f.id, wo), typ, label };

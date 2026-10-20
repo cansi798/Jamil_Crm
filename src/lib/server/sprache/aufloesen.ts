@@ -38,7 +38,7 @@ export type Karte = {
 	/** Link zum normalen Formular, so weit wie möglich vorausgefüllt („Ändern“). */
 	aendern: string | null;
 	/** Nur bei Fragen (nur lesend): Antwort als Liste mit Links und Text zum Vorlesen. */
-	antwort?: { oeffnen?: string; abschnitte: { titel: string; eintraege: { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean }[] }[]; vorlesen: string };
+	antwort?: { oeffnen?: string; kopieren?: string; abschnitte: { titel: string; eintraege: { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean }[] }[]; vorlesen: string };
 };
 
 /** Ausführbare Werte je Aktion (IDs aufgelöst, Zeitpunkte als ISO). `null` an einer Stelle = offene Auswahl. */
@@ -796,6 +796,30 @@ async function quelleSetzen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { a
 	return bau;
 }
 
+/** „Neuer Dienst Besichtigungstermin 60 Minuten für Murat“ (Online-Buchung, msgs 2684/2686). */
+async function dienstAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'dienst_anlegen' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	const name = d.name.replace(/^(?:neue[nrs]?\s+)?dienst\s+/i, '').trim();
+	const dauer = d.dauer_minuten ?? 60;
+	bau.werte.dienst = { name: name.charAt(0).toUpperCase() + name.slice(1), dauerMin: dauer };
+	bau.zeilen.push({ label: 'Dienst', wert: bau.werte.dienst.name });
+	bau.zeilen.push({ label: 'Dauer', wert: `${dauer} Minuten${d.dauer_minuten ? '' : ' (Standard)'}` });
+	const namen = d.mitarbeiter ?? [];
+	if (namen.length > 0) {
+		const alle = await aktiveMitarbeiter(k);
+		bau.werte.mitarbeiterIds = mitarbeiterAufloesen(bau, alle, namen, nutzer.id);
+		bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, bau.werte.mitarbeiterIds, namen) });
+		bau.werte.modus = namen.length === 1 ? 'fest' : 'beliebig';
+		bau.zeilen.push({ label: 'Gebucht wird', wert: namen.length === 1 ? 'nur dieser Mitarbeiter' : 'abwechselnd ein freier Mitarbeiter' });
+	} else {
+		bau.werte.mitarbeiterIds = [];
+		bau.werte.modus = 'beliebig';
+		bau.warnungen.push('Noch ohne Mitarbeiter – bitte danach in Einstellungen → Online-Buchung zuordnen.');
+	}
+	bau.warnungen.push('Arbeitszeiten und Fragen danach in Einstellungen → Online-Buchung einstellen.');
+	return bau;
+}
+
 /** Für die Frage „Was hat Sabine morgen?“: Person (ich/Name) auflösen. */
 export async function personAufloesen(
 	k: Kontext,
@@ -832,7 +856,9 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_auslastung: 'Auslastung',
 	abfrage_monatsgewinn: 'Gewinn diesen Monat',
 	abfrage_nachfassen: 'Nachfassen fällig',
-	kalender_zeigen: 'Kalender'
+	kalender_zeigen: 'Kalender',
+	dienst_anlegen: 'Dienst anlegen (Online-Buchung)',
+	buchungslink_zeigen: 'Buchungslink'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -866,6 +892,8 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 			return werte.kundeId && werte.objektId ? `/kunden/${werte.kundeId}/objekte/${werte.objektId}` : werte.kundeId ? `/kunden/${werte.kundeId}` : '/kunden';
 		case 'nachfassen_pausieren':
 			return werte.angebotId ? `/angebote/${werte.angebotId}#nachfassen` : '/angebote';
+		case 'dienst_anlegen':
+			return '/einstellungen/online-buchung';
 		default:
 			return '/';
 	}
@@ -875,7 +903,10 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 export async function loeseAuf(
 	k: Kontext,
 	nutzer: Nutzer,
-	aktion: Exclude<KiAktion, { aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' }>,
+	aktion: Exclude<
+		KiAktion,
+		{ aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' }
+	>,
 	jetzt: Date
 ): Promise<Vorschau> {
 	let bau: Bau;
@@ -919,6 +950,9 @@ export async function loeseAuf(
 				break;
 			case 'quelle_setzen':
 				bau = await quelleSetzen(k, nutzer, aktion.daten);
+				break;
+			case 'dienst_anlegen':
+				bau = await dienstAnlegen(k, nutzer, aktion.daten);
 				break;
 		}
 	} catch (e) {

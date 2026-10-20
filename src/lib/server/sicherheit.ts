@@ -28,10 +28,35 @@ function setze(kopf: Headers): void {
 	}
 }
 
-/** Ergänzt die Grundschutz-Kopfzeilen. Sind die Kopfzeilen unveränderlich, wird die Antwort kopiert. */
-export function mitSicherheitsKopfzeilen(antwort: Response): Response {
+const URSPRUNG = /^https:\/\/(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(:[0-9]{1,5})?$/;
+
+/**
+ * Einbetten erlauben (nur Online-Buchung, Wunsch Jamil msgs 2684/2686): `frame-ancestors` der CSP wird auf die eigene
+ * Seite plus die erlaubten Ursprünge gesetzt, `X-Frame-Options` entfällt (kennt keine Liste; moderne Browser nehmen die
+ * CSP). Nur streng geprüfte https-Ursprünge kommen in die Kopfzeile (keine Kopfzeilen-Injektion).
+ */
+function erlaubeEinbetten(kopf: Headers, urspruenge: string[]): void {
+	const liste = [...new Set(urspruenge.filter((u) => URSPRUNG.test(u)))];
+	kopf.delete('x-frame-options');
+	for (const name of ['content-security-policy', 'content-security-policy-report-only']) {
+		const csp = kopf.get(name);
+		if (!csp) continue;
+		const quellen = ["'self'", ...liste].join(' ');
+		kopf.set(name, /frame-ancestors[^;]*/.test(csp) ? csp.replace(/frame-ancestors[^;]*/, `frame-ancestors ${quellen}`) : `${csp}; frame-ancestors ${quellen}`);
+	}
+}
+
+/**
+ * Ergänzt die Grundschutz-Kopfzeilen. Sind die Kopfzeilen unveränderlich, wird die Antwort kopiert. `einbetten`
+ * (nur Seiten der Online-Buchung): Ursprünge, die die Seite in einem iframe zeigen dürfen.
+ */
+export function mitSicherheitsKopfzeilen(antwort: Response, einbetten?: string[]): Response {
+	const anwenden = (kopf: Headers) => {
+		setze(kopf);
+		if (einbetten) erlaubeEinbetten(kopf, einbetten);
+	};
 	try {
-		setze(antwort.headers);
+		anwenden(antwort.headers);
 		return antwort;
 	} catch {
 		const kopie = new Response(antwort.body, {
@@ -39,7 +64,7 @@ export function mitSicherheitsKopfzeilen(antwort: Response): Response {
 			statusText: antwort.statusText,
 			headers: new Headers(antwort.headers)
 		});
-		setze(kopie.headers);
+		anwenden(kopie.headers);
 		return kopie;
 	}
 }

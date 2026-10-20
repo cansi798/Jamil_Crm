@@ -205,6 +205,17 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     `Permissions-Policy`, die Kamera, Mikrofon, Standort, Bezahlen und USB abschaltet. Statische Dateien
     (`/_app/…`, Symbole) liefert `adapter-node` ohne diese Kopfzeilen aus. HSTS gehört in den Reverse-Proxy (nicht gesetzt).
 
+15. Online-Buchung (öffentlich, ohne Anmeldung): `/buchen/<Token>` und `/buchung/<Verwaltungs-Token>`. Ein Token wird
+    nur über SECURITY-DEFINER-Funktionen für `crm_auth` in Betrieb/Link bzw. Buchung aufgelöst
+    (`app.buchung_link_aufloesen`, `app.buchung_verwaltung_aufloesen`); alles Weitere läuft als `crm_app` mit RLS im
+    Kontext genau dieses Betriebs, ohne Benutzer (`mitBetriebOeffentlich`, Protokoll-Quelle `online-buchung`). Nach
+    außen gehen nur Betrieb (Name, Kontakt, Logo, Farbe), Dienst und freie Anfangszeiten – Mitarbeiter höchstens mit
+    Vornamen. Vom Verwaltungs-Token steht nur der SHA-256 in der Datenbank. Doppelbuchung: Sperre je Betrieb
+    (`pg_advisory_xact_lock`) plus Ausschluss-Bedingung (`btree_gist`) auf `app.buchungen`. Spam-Schutz:
+    Begrenzung je IP/Link (im Speicher; hinter einem Proxy `ADDRESS_HEADER`/`XFF_DEPTH` setzen), Honigtopf-Feld,
+    signierter Zeitstempel (mindestens 3 s). Einbetten nur auf den Domains aus Einstellungen → Online-Buchung bzw.
+    `CRM_BUCHUNG_EINBETTEN` (CSP `frame-ancestors` je Seite, `X-Frame-Options` entfällt dort). Recht `buchung.verwalten`.
+
 ## Installation auf einem eigenen Server
 
 Der Ordner `installation/` enthält alles, um das CRM auf einem frischen Ubuntu/Debian-Server zu betreiben

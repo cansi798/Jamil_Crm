@@ -82,6 +82,10 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		if (module.includes('protokolle') && hat('protokolle.vorlagen_bearbeiten')) {
 			mehr.push({ name: 'Protokoll-Vorlagen', href: '/einstellungen/protokoll-vorlagen', symbol: 'angebote' });
 		}
+		// Online-Buchung (Wunsch Jamil msgs 2684/2686): Dienste, Buchungslinks, Arbeitszeiten
+		if (module.includes('auftraege') && module.includes('plantafel') && hat('buchung.verwalten')) {
+			mehr.push({ name: 'Online-Buchung', href: '/einstellungen/online-buchung', symbol: 'plantafel' });
+		}
 		if (hat('benutzer.verwalten')) {
 			mehr.push({ name: 'Benutzer', href: '/einstellungen/benutzer', symbol: 'benutzer' });
 		}

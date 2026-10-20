@@ -172,6 +172,38 @@
 				</Karte>
 			</div>
 
+			{#each data.buchungen as bu (bu.id)}
+				<div class="af-k k-buchung">
+					<Karte>
+						{#snippet titel()}Online-Buchung{/snippet}
+						<div class="af-buchung" data-testid="online-buchung">
+							<p>
+								<strong>{bu.dienstName}</strong> · {tagKurz(berlinTag(new Date(bu.beginn)))} {berlinUhrzeit(new Date(bu.beginn))}–{berlinUhrzeit(new Date(bu.ende))}
+								· {bu.mitarbeiterName}
+								{#if bu.status === 'storniert'}<span class="badge badge-rot">vom Kunden abgesagt</span>{/if}
+							</p>
+							<dl class="kd-daten">
+								<div><dt>Gebucht von</dt><dd>{bu.kontakt.name}</dd></div>
+								{#if bu.kontakt.telefon}<div><dt>Telefon</dt><dd><a href={`tel:${bu.kontakt.telefon.replace(/[^0-9+]/g, '')}`}>{bu.kontakt.telefon}</a></dd></div>{/if}
+								{#if bu.kontakt.email}<div><dt>E-Mail</dt><dd><a href={`mailto:${bu.kontakt.email}`}>{bu.kontakt.email}</a></dd></div>{/if}
+								{#if bu.kontakt.adresse}<div><dt>Adresse</dt><dd>{bu.kontakt.adresse}</dd></div>{/if}
+								{#each bu.antworten as an (an.id)}
+									<div>
+										<dt>{an.label}</dt>
+										<dd class="af-antwort">
+											{#if an.fotos.length > 0}
+												<span class="af-buchung-fotos">
+													{#each an.fotos as f, i (f)}<a href={`/api/dateien/${f}`} target="_blank" rel="noopener"><img src={`/api/dateien/${f}`} alt={`${an.label} – Foto ${i + 1}`} loading="lazy" /></a>{/each}
+												</span>
+											{:else}{an.text}{/if}
+										</dd>
+									</div>
+								{/each}
+							</dl>
+						</div>
+					</Karte>
+				</div>
+			{/each}
 			<div class="af-k k-todos">
 				<Karte>
 					{#snippet titel()}To-dos{/snippet}
@@ -579,6 +611,24 @@
 </main>
 
 <style>
+	.af-buchung p {
+		margin: 0 0 0.5rem;
+		line-height: 1.6;
+	}
+	.af-antwort {
+		white-space: pre-line;
+	}
+	.af-buchung-fotos {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+	}
+	.af-buchung-fotos img {
+		width: 5rem;
+		height: 5rem;
+		object-fit: cover;
+		border-radius: var(--ui-radius);
+	}
 	.af-protokoll-start {
 		display: flex;
 		flex-wrap: wrap;
@@ -604,6 +654,7 @@
 	}
 	/* Schmal: Ort und Mitarbeiter früh (Monteur unterwegs), dann Arbeit */
 	.k-stamm { order: 1; }
+	.k-buchung { order: 1; }
 	.k-ort { order: 2; }
 	.k-mitarbeiter { order: 3; }
 	.k-todos { order: 4; }

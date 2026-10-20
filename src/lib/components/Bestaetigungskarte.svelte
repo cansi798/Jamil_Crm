@@ -21,6 +21,8 @@
 			oeffnen?: string;
 			abschnitte: { titel: string; eintraege: { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean }[] }[];
 			vorlesen: string;
+			/** Text zum Kopieren (z. B. Buchungslink der Online-Buchung) */
+			kopieren?: string;
 		};
 	};
 
@@ -66,6 +68,17 @@
 	$effect(() => () => {
 		if (kannVorlesen) window.speechSynthesis.cancel();
 	});
+
+	let kopiert = $state(false);
+	async function kopiere(t: string) {
+		try {
+			await navigator.clipboard.writeText(t);
+			kopiert = true;
+			setTimeout(() => (kopiert = false), 2500);
+		} catch {
+			kopiert = false;
+		}
+	}
 </script>
 
 <section class="bk" aria-label="Bestätigung">
@@ -87,6 +100,12 @@
 
 	{#if karte.antwort}
 		<p class="bk-antwort-text">{karte.antwort.vorlesen}</p>
+		{#if karte.antwort.kopieren}
+			<div class="bk-kopieren">
+				<input type="text" readonly value={karte.antwort.kopieren} aria-label="Zum Kopieren" onfocus={(e) => e.currentTarget.select()} />
+				<button type="button" class="knopf bk-ja" onclick={() => kopiere(karte.antwort!.kopieren!)}>{kopiert ? 'Kopiert ✓' : 'Kopieren'}</button>
+			</div>
+		{/if}
 		{#each karte.antwort.abschnitte as ab (ab.titel)}
 			<section class="bk-abschnitt" aria-label={ab.titel}>
 				<h3>{ab.titel} ({ab.eintraege.length})</h3>
@@ -160,6 +179,17 @@
 </section>
 
 <style>
+	.bk-kopieren {
+		display: flex;
+		gap: 0.5rem;
+		margin: 0 0 0.75rem;
+	}
+	.bk-kopieren input {
+		flex: 1;
+		min-width: 0;
+		font-family: ui-monospace, monospace;
+		font-size: 0.8rem;
+	}
 	.bk {
 		display: flex;
 		flex-direction: column;

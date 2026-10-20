@@ -15,7 +15,7 @@ describe('Farben der Auftragsquellen', () => {
 		expect(standardFarbe(' website ')).toBe('#0f6cbd');
 		expect(standardFarbe('Instagram', 3)).toBe(FARB_PALETTE[3]);
 		expect(standardFarbe('Instagram', FARB_PALETTE.length + 1)).toBe(FARB_PALETTE[1]);
-		expect(new Set(Object.values(STANDARD_QUELLEN_FARBEN)).size).toBe(8);
+		expect(new Set(Object.values(STANDARD_QUELLEN_FARBEN)).size).toBe(9);
 	});
 	it('Schrift: weiß auf dunklen, dunkel auf hellen Farben; alle Vorgaben lesbar mit weiß oder dunkel', () => {
 		expect(schriftAuf('#0f6cbd')).toBe('#ffffff');

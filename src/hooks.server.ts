@@ -34,7 +34,9 @@ const LESEND = new Set(['GET', 'HEAD']);
  * sondern wechselt das Konto bzw. richtet ein neues ein; die Annahme berührt nur das neue Konto).
  */
 const IMMER_ERLAUBT = (pfad: string) =>
-	pfad === '/api/abmelden' || pfad === '/anmelden' || pfad.startsWith('/anmelden/') || pfad.startsWith('/einladung/');
+	pfad === '/api/abmelden' || pfad === '/anmelden' || pfad.startsWith('/anmelden/') || pfad.startsWith('/einladung/') ||
+	// Online-Buchung: öffentlich, ohne Bezug zur Sitzung (wer bucht, handelt als Gast)
+	pfad.startsWith('/buchen/') || pfad.startsWith('/buchung/');
 
 /**
  * Liest das Sitzungs-Cookie und setzt `locals.nutzer` (oder `null`). Hat die Datenbank die Sitzung verlängert
@@ -79,4 +81,8 @@ const pruefeZugang: Handle = async ({ event, resolve }) => {
  * Jede Antwort – auch Weiterleitungen und die Sperr-Antworten oben – bekommt die Grundschutz-Kopfzeilen
  * (`sicherheit.ts`); die Content-Security-Policy der Seiten setzt SvelteKit selbst (`kit.csp` in `svelte.config.js`).
  */
-export const handle: Handle = async (eingabe) => mitSicherheitsKopfzeilen(await pruefeZugang(eingabe));
+export const handle: Handle = async (eingabe) => {
+	const antwort = await pruefeZugang(eingabe);
+	// Online-Buchung: die Seite (load) legt fest, wo sie eingebettet werden darf (CSP frame-ancestors)
+	return mitSicherheitsKopfzeilen(antwort, eingabe.event.locals.einbettenErlaubt);
+};

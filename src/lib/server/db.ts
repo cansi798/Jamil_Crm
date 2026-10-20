@@ -169,6 +169,16 @@ export async function mitBetrieb<T>(k: Kontext, fn: (sql: TransactionSql) => Pro
 	return inTransaktion(hole().app, kontext, fn);
 }
 
+/**
+ * Öffentliche Online-Buchung (ohne Anmeldung): als `crm_app` im Kontext genau EINES Betriebs, aber ohne Benutzer –
+ * RLS gilt wie sonst, das Änderungsprotokoll trägt keinen Benutzer und die Quelle „online-buchung“. Den Betrieb liefert
+ * vorher eine SECURITY-DEFINER-Funktion aus dem nicht erratbaren Token (`app.buchung_link_aufloesen`); nur dafür
+ * verwenden.
+ */
+export async function mitBetriebOeffentlich<T>(betriebId: string, fn: (sql: TransactionSql) => Promise<T>): Promise<T> {
+	return inTransaktion(hole().app, { 'app.betrieb_id': nichtLeer(betriebId, 'betriebId'), 'app.quelle': 'online-buchung' }, fn);
+}
+
 /** Erlaubte Herkunftsangaben fürs Änderungsprotokoll (`app.aenderungen.quelle`): Oberfläche, Sprachsteuerung, KI-Entwurf. */
 export type Quelle = 'oberflaeche' | 'sprache' | 'ki';
 

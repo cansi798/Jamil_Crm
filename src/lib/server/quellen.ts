@@ -12,7 +12,10 @@ import { istFarbe, standardFarbe } from '../farben';
 
 export type Quelle = { id: string; name: string; aktiv: boolean; sortierung: number; farbe: string; auftraege: number };
 
-export const START_QUELLEN = ['Website', 'Hornbach', 'Obi', 'Empfehlung', 'Zeitung', 'MyHammer', 'Telefon', 'Sonstiges'];
+export const START_QUELLEN = ['Website', 'Hornbach', 'Obi', 'Empfehlung', 'Zeitung', 'MyHammer', 'Telefon', 'Online-Buchung', 'Sonstiges'];
+
+/** Quelle für Aufträge aus der Online-Buchung (Wunsch Jamil msgs 2684/2686), falls am Link/Dienst keine gewählt ist. */
+export const ONLINE_QUELLE = 'Online-Buchung';
 
 const nichtGefunden = () => new ApiFehler(404, 'Auftragsquelle nicht gefunden.');
 const pruefeId = (id: unknown) => {
@@ -20,7 +23,7 @@ const pruefeId = (id: unknown) => {
 	return id.trim().toLowerCase();
 };
 
-async function startlisteFallsLeer(tx: TransactionSql, k: Kontext): Promise<void> {
+export async function startlisteFallsLeer(tx: TransactionSql, k: Pick<Kontext, 'betriebId'>): Promise<void> {
 	const [da] = await tx`select 1 from app.auftrag_quellen where betrieb_id = ${k.betriebId} limit 1`;
 	if (da) return;
 	let nr = 1;

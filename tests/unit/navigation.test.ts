@@ -32,7 +32,7 @@ describe('baueNavigation', () => {
 	it('Chef: Haupt Start, Kunden, Aufträge, Plantafel, Angebote; „Mehr“ mit To-dos, Vorlagen, Abwesenheiten, Katalog, Benutzer, Rollen, Briefkopf', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Plantafel', 'Angebote']);
-		expect(namen(nav.mehr)).toEqual(['To-dos', 'Karte', 'Auftrags-Vorlagen', 'Abwesenheiten', 'Katalog', 'Angebots-Vorlagen', 'Kalkulation', 'Protokoll-Vorlagen', 'Benutzer', 'Rollen', 'Briefkopf', 'Nachfassen', 'Auftragsquellen', 'Auswertung Auftragsquellen']);
+		expect(namen(nav.mehr)).toEqual(['To-dos', 'Karte', 'Auftrags-Vorlagen', 'Abwesenheiten', 'Katalog', 'Angebots-Vorlagen', 'Kalkulation', 'Protokoll-Vorlagen', 'Online-Buchung', 'Benutzer', 'Rollen', 'Briefkopf', 'Nachfassen', 'Auftragsquellen', 'Auswertung Auftragsquellen']);
 		expect(nav.mehr).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ name: 'Benutzer', href: '/einstellungen/benutzer' }),

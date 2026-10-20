@@ -33,6 +33,7 @@ import { hatModul } from '$lib/server/tarif';
 import { entwirfAngebot } from '$lib/server/ki/angebot-entwurf';
 import { listeProtokolle, listeVorlagen, protokollVerlauf, starteProtokoll } from '$lib/server/protokoll-formulare';
 import { protokollRechte, zugriffAusfuellen } from '$lib/server/protokoll-zugriff';
+import { buchungenZumAuftrag } from '$lib/server/buchung';
 
 /**
  * Auftrag mit Statuskette, Einsätzen, To-dos, Angeboten und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404.
@@ -63,10 +64,12 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		]);
 		// Protokolle (frei gestaltbare Formulare, Wunsch Jamil msg 2649): Liste, „Protokoll starten“, Einträge im Verlauf
 		const pr = await protokollRechte(nutzer);
-		const [protokolle, protokollVorlagen, protokollEintraege] = await Promise.all([
+		const [protokolle, protokollVorlagen, protokollEintraege, buchungen] = await Promise.all([
 			pr.lesen ? listeProtokolle(k, { auftragId: auftrag.id }) : Promise.resolve(null),
 			pr.ausfuellen ? listeVorlagen(k) : Promise.resolve([]),
-			pr.lesen ? protokollVerlauf(k, auftrag.id) : Promise.resolve([])
+			pr.lesen ? protokollVerlauf(k, auftrag.id) : Promise.resolve([]),
+			// Online-Buchung (msgs 2684/2686): Angaben und Antworten des Kunden – wer den Auftrag sieht, sieht sie
+			buchungenZumAuftrag(k, auftrag.id)
 		]);
 		const verlauf = [
 			...protokoll.eintraege.map((e) => ({ iso: e.zeit, zeile: verlaufZeile(e) })),
@@ -74,6 +77,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		].sort((x, y) => (x.iso < y.iso ? 1 : x.iso > y.iso ? -1 : 0));
 		return {
 			auftrag,
+			buchungen,
 			protokolle,
 			protokollVorlagen: protokollVorlagen.map((v) => ({ id: v.id, name: v.name })),
 			darfProtokollStarten: pr.ausfuellen,

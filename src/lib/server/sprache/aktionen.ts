@@ -31,11 +31,13 @@ export const AKTIONEN = [
 	'abfrage_auslastung',
 	'abfrage_monatsgewinn',
 	'abfrage_nachfassen',
-	'kalender_zeigen'
+	'kalender_zeigen',
+	'dienst_anlegen',
+	'buchungslink_zeigen'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
-export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen', 'kalender_zeigen'] as const;
+export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen', 'kalender_zeigen', 'buchungslink_zeigen'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt';
@@ -115,6 +117,9 @@ export type ProtokollDaten = {
 	inhalt?: { bemerkung?: string; maengel?: string; positionen?: string[] };
 };
 
+/** Online-Buchung (Wunsch Jamil msgs 2684/2686): „Neuer Dienst Besichtigungstermin 60 Minuten für Murat“ */
+export type DienstDaten = { name: string; dauer_minuten?: number; mitarbeiter?: string[] };
+
 export type KiAktion =
 	| { aktion: 'kunde_anlegen'; daten: KundeDaten }
 	| { aktion: 'auftrag_anlegen'; daten: AuftragDaten }
@@ -135,6 +140,8 @@ export type KiAktion =
 	| { aktion: 'abfrage_monatsgewinn'; daten: { monat?: MonatRelativ } }
 	| { aktion: 'abfrage_nachfassen'; daten: Record<string, never> }
 	| { aktion: 'kalender_zeigen'; daten: { wer?: string; monat?: string; ansicht?: 'monat' | 'woche' | 'tag' } }
+	| { aktion: 'dienst_anlegen'; daten: DienstDaten }
+	| { aktion: 'buchungslink_zeigen'; daten: { dienst?: string } }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -408,6 +415,21 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		},
 		additionalProperties: false
 	},
+	dienst_anlegen: {
+		type: 'object',
+		properties: {
+			name: text(100, 'Name des Dienstes (Terminart) wie gesprochen, z. B. „Besichtigungstermin“, „Vor-Ort-Termin“'),
+			dauer_minuten: { type: 'integer', minimum: 5, maximum: 720, description: 'Dauer in Minuten („eine Stunde“ = 60)' },
+			mitarbeiter: { type: 'array', maxItems: 20, items: text(100, 'Vorname'), description: 'zuständige Mitarbeiter (Vornamen)' }
+		},
+		required: ['name'],
+		additionalProperties: false
+	},
+	buchungslink_zeigen: {
+		type: 'object',
+		properties: { dienst: text(100, 'Name des Dienstes, z. B. „Besichtigung“ – leer = alle') },
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -429,6 +451,9 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 		'Frage nach Gewinn/Break-even des Monats beantworten („Wie viel Gewinn haben wir diesen Monat verplant?“, „Haben wir den Break-even erreicht?“).',
 	kalender_zeigen:
 		'Kalender (Plantafel) öffnen, gefiltert nach Mitarbeiter oder Kolonne und Monat („Zeig mir den Kalender von Kolonne 3 im November“).',
+	dienst_anlegen:
+		'Neuen Dienst (Terminart) für die Online-Buchung anlegen, mit Dauer und zuständigen Mitarbeitern („Neuer Dienst Besichtigungstermin 60 Minuten für Murat“).',
+	buchungslink_zeigen: 'Buchungslink (Online-Buchung) eines Dienstes zeigen bzw. kopieren („Buchungslink für Besichtigung“).',
 	abfrage_nachfassen: 'Frage beantworten, bei welchen Aufträgen/Angeboten das Nachfassen heute fällig oder überfällig ist („Wo muss ich nachfassen?“).',
 	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',
 	quelle_setzen: 'Auftragsquelle (auch „Quelle“) eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',

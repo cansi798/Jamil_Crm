@@ -11,7 +11,8 @@ export const STANDARD_QUELLEN_FARBEN: Record<string, string> = {
 	zeitung: '#605e5c',
 	myhammer: '#8764b8',
 	telefon: '#038387',
-	sonstiges: '#8a8886'
+	sonstiges: '#8a8886',
+	'online-buchung': '#c239b3'
 };
 
 /** Weitere Farben für neue Einträge (der Reihe nach). */
@@ -40,4 +41,32 @@ export function schriftAuf(hex: string): '#ffffff' | '#1c1f23' {
 	const zuWeiss = 1.05 / (l + 0.05);
 	const zuDunkel = (l + 0.05) / (leuchtdichte('#1c1f23') + 0.05);
 	return zuWeiss >= zuDunkel ? '#ffffff' : '#1c1f23';
+}
+
+/**
+ * Akzentfarbe, auf der weiße Schrift gut lesbar ist (Knöpfe der Online-Buchungsseite in der Hausfarbe): zu helle
+ * Farben werden schrittweise abgedunkelt.
+ */
+export function akzentLesbar(hex: string | null | undefined, ersatz = '#0f6cbd'): string {
+	let f = istFarbe(hex) ? hex.toLowerCase() : ersatz;
+	for (let i = 0; i < 12 && schriftAuf(f) !== '#ffffff'; i++) {
+		f =
+			'#' +
+			[1, 3, 5]
+				.map((p) => Math.round(parseInt(f.slice(p, p + 2), 16) * 0.88).toString(16).padStart(2, '0'))
+				.join('');
+	}
+	return f;
+}
+
+/** Farbe mit Weiß gemischt (Anteil 0–1 der Farbe) – für zarte Flächen. */
+export function aufgehellt(hex: string, anteil: number): string {
+	const f = istFarbe(hex) ? hex : '#0f6cbd';
+	return '#' + [1, 3, 5].map((p) => Math.round(parseInt(f.slice(p, p + 2), 16) * anteil + 255 * (1 - anteil)).toString(16).padStart(2, '0')).join('');
+}
+
+/** Farbe abgedunkelt (Faktor 0–1). */
+export function abgedunkelt(hex: string, faktor: number): string {
+	const f = istFarbe(hex) ? hex : '#0f6cbd';
+	return '#' + [1, 3, 5].map((p) => Math.round(parseInt(f.slice(p, p + 2), 16) * faktor).toString(16).padStart(2, '0')).join('');
 }

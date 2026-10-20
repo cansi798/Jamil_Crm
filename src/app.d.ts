@@ -15,6 +15,11 @@ declare global {
 		// interface Error {}
 		interface Locals {
 			nutzer: Nutzer | null;
+			/**
+			 * Nur Seiten der Online-Buchung (/buchen, /buchung): Ursprünge, die die Seite einbetten dürfen
+			 * (CSP frame-ancestors). Gesetzt im load der Seite, ausgewertet in hooks.server.ts.
+			 */
+			einbettenErlaubt?: string[];
 		}
 		// interface PageData {}
 		// interface PageState {}

@@ -218,6 +218,41 @@ async function beantworteKalender(
 	});
 }
 
+/**
+ * „Buchungslink für Besichtigung“ (Online-Buchung, msgs 2684/2686): zeigt den Link des Dienstes (alle Mitarbeiter) zum
+ * Kopieren und Öffnen; ohne Namen alle aktiven Dienste.
+ */
+async function beantworteBuchungslink(k: { betriebId: string; benutzerId: string }, d: { dienst?: string }): Promise<Karte> {
+	const { listeDienste } = await import('../buchung');
+	const basis = (process.env.ORIGIN ?? '').replace(/\/$/, '');
+	const norm = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\b(termin|termine|dienst)\b/g, ' ').replace(/\s+/g, ' ').trim();
+	const alle = (await listeDienste(k)).filter((x) => x.aktiv);
+	const g = d.dienst ? norm(d.dienst) : '';
+	const genau = alle.filter((x) => norm(x.name) === g);
+	const treffer = !g ? alle : genau.length > 0 ? genau : alle.filter((x) => norm(x.name).includes(g) || g.includes(norm(x.name)));
+	const karte = (titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
+		aktion: 'buchungslink_zeigen', titel, zeilen: [], auswahl: [], warnungen: [], fehler, aendern: '/einstellungen/online-buchung', ...(antwort ? { antwort } : {})
+	});
+	if (treffer.length === 0) return karte('Buchungslink', d.dienst ? `Keinen aktiven Dienst „${d.dienst}“ gefunden.` : 'Es gibt noch keinen aktiven Dienst.');
+	const linkVon = (x: (typeof alle)[number]) => {
+		const l = x.links.find((y) => !y.benutzerId && y.aktiv) ?? x.links.find((y) => y.aktiv);
+		return l ? `${basis}/buchen/${l.token}` : null;
+	};
+	const eintraege = treffer.flatMap((x) => {
+		const url = linkVon(x);
+		return url ? [{ zeit: '', titel: `${x.name} – Buchungsseite öffnen`, ort: url, link: url, ueberfaellig: false }] : [];
+	});
+	const erster = linkVon(treffer[0]);
+	return karte(treffer.length === 1 ? `Buchungslink „${treffer[0].name}“` : 'Buchungslinks', null, {
+		abschnitte: [
+			{ titel: 'Links', eintraege },
+			{ titel: 'Einstellungen', eintraege: treffer.map((x) => ({ zeit: '', titel: `${x.name} bearbeiten (Einbett-Code)`, ort: null, link: `/einstellungen/online-buchung/${x.id}`, ueberfaellig: false })) }
+		],
+		...(treffer.length === 1 && erster ? { kopieren: erster } : {}),
+		vorlesen: treffer.length === 1 ? `Hier ist der Buchungslink für ${treffer[0].name}. Tippe auf Kopieren.` : `Ich habe ${treffer.length} Buchungslinks gefunden.`
+	});
+}
+
 /** „Wo muss ich nachfassen?“ (Wunsch Jamil msg 2674): Aufträge mit Nachfassen heute oder überfällig (nicht pausiert). */
 async function beantworteNachfassen(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, jetzt: Date): Promise<Karte> {
 	const heute = berlinTag(jetzt);
@@ -330,6 +365,9 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	// Auslastung und Gewinn des Monats (Wunsch Jamil msg 2476, Punkte 4 und 5)
 	if (aktion.aktion === 'abfrage_auslastung') {
 		return { text, vorschlag: null, karte: await beantworteAuslastung(k, nutzer, aktion.daten, jetzt) };
+	}
+	if (aktion.aktion === 'buchungslink_zeigen') {
+		return { text, vorschlag: null, karte: await beantworteBuchungslink(k, aktion.daten) };
 	}
 	if (aktion.aktion === 'kalender_zeigen') {
 		return { text, vorschlag: null, karte: await beantworteKalender(k, nutzer, aktion.daten, jetzt) };

@@ -91,6 +91,10 @@ services:
       KARTE_KACHEL_URL: ${KARTE_KACHEL_URL:-}
       KARTE_KONTAKT: ${KARTE_KONTAKT:-}
       KARTE_ATTRIBUTION: ${KARTE_ATTRIBUTION:-}
+      CRM_BUCHUNG_EINBETTEN: ${CRM_BUCHUNG_EINBETTEN:-}
+      # adapter-node: Besucher-IP aus dem Kopf des Webservers (Spam-Schutz der Online-Buchung)
+      ADDRESS_HEADER: ${CRM_ADRESS_KOPF-X-Forwarded-For}
+      XFF_DEPTH: ${CRM_ADRESS_TIEFE-1}
     ports:
       # Standard: nur lokal erreichbar (Caddy leitet weiter). Ohne Caddy: CRM_APP_BIND=0.0.0.0 setzen.
       - "${CRM_APP_BIND:-127.0.0.1}:${CRM_APP_PORT:-3000}:3000"

@@ -291,6 +291,31 @@ function eigenerTermin(t: string, kontext: KiKontext): { aktion: string; daten: 
 	};
 }
 
+/** „Neuer Dienst Besichtigungstermin 60 Minuten für Murat (und Ali)“ → dienst_anlegen */
+function dienstAnlegen(t: string): { aktion: string; daten: Record<string, unknown> } {
+	let rest = t.replace(/^.*?\b(?:neue[nrs]?\s+dienst|dienst\s+(?:anlegen|erstellen|hinzufügen))\b\s*[:,]?\s*/i, '');
+	const fuer = /\s+(?:für|fuer|mit)\s+(.+)$/i.exec(rest);
+	const mitarbeiter = fuer ? fuer[1].split(/\s*,\s*|\s+und\s+/).map(sauber).filter((n) => n && istNamensWort(n)) : [];
+	if (fuer) rest = rest.slice(0, fuer.index);
+	let dauer: number | undefined;
+	const min = new RegExp(`\\b(\\d{1,3}|${ZAHLWORT})\\s*(?:min(?:uten)?\\b|minütig)`, 'i').exec(rest);
+	const std = new RegExp(`\\b(\\d{1,2}(?:[,.]5)?|eine|einer|ein|zwei|drei|vier)\\s*(?:stunden?|std\\.?)\\b`, 'i').exec(rest);
+	const halb = /\b(?:eineinhalb|anderthalb)\s+stunden?\b/i.exec(rest);
+	if (min) dauer = zahl(min[1]) ?? undefined;
+	else if (halb) dauer = 90;
+	else if (std) {
+		const h = zahl(std[1].replace(/^(eine|einer)$/i, 'ein'));
+		if (h !== null) dauer = Math.round(h * 60);
+	}
+	const name = grossAnfang(
+		sauber(rest.replace(min?.[0] ?? '\u0000', ' ').replace(std?.[0] ?? '\u0000', ' ').replace(halb?.[0] ?? '\u0000', ' ').replace(/\b(?:mit|von|à|a|je|dauer|lang)\b/gi, ' '))
+	);
+	return {
+		aktion: 'dienst_anlegen',
+		daten: { name: name || 'Termin', ...(dauer && dauer >= 5 && dauer <= 720 ? { dauer_minuten: dauer } : {}), ...(mitarbeiter.length > 0 ? { mitarbeiter } : {}) }
+	};
+}
+
 export function deute(text: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
 	const t = bereinige(text);
 	const l = t.toLowerCase();
@@ -301,6 +326,13 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 		return r;
 	}
 	if (/\b(kalendereintrag|eintrag\s+im\s+kalender|eigene[nrs]?\s+termin|privat\w*\s+termin)\b/.test(l)) return eigenerTermin(t, kontext);
+	// Online-Buchung (msgs 2684/2686): „Buchungslink für Besichtigung“, „Neuer Dienst Besichtigungstermin 60 Minuten für Murat“
+	if (/\bbuchungs-?links?\b|\blink\b.*\b(buchung|buchen)\b/.test(l)) {
+		const m = /\b(?:für|fuer|zu[mr]?|von)\s+(?:den\s+|die\s+|das\s+)?(?:dienst\s+)?(.+)$/i.exec(t);
+		const dienst = m ? sauber(m[1]).replace(/^(?:dienst)\s+/i, '') : '';
+		return { aktion: 'buchungslink_zeigen', daten: dienst ? { dienst } : {} };
+	}
+	if (/\b(neue[nrs]?\s+dienst|dienst\s+(anlegen|erstellen|hinzufügen))\b/.test(l)) return dienstAnlegen(t);
 	if (/\broute\b/.test(l)) {
 		const kolonne = /\bkolonne\s+([A-ZÄÖÜ0-9][\wäöüß-]*)/i.exec(t);
 		const person = /\b(?:von|für|fuer)\s+(?!heute|mich|morgen)([A-ZÄÖÜ][\wäöüß-]+)/.exec(t);

@@ -69,6 +69,10 @@
 			<label>E-Mail <input type="email" name="email" maxlength="200" value={werte.email ?? ''} /></label>
 		</div>
 		<label>Internetseite <input type="text" name="web" maxlength="200" value={werte.web ?? ''} /></label>
+		<label class="bk-farbe">
+			Hausfarbe (Online-Buchungsseite)
+			<input type="color" name="farbe" value={werte.farbe || '#0f6cbd'} />
+		</label>
 		<div class="kd-zwei">
 			<label>Steuernummer <input type="text" name="steuernummer" maxlength="50" value={werte.steuernummer ?? ''} /></label>
 			<label>USt-IdNr. <input type="text" name="ustId" maxlength="20" value={werte.ustId ?? ''} /></label>
@@ -86,6 +90,12 @@
 </main>
 
 <style>
+	.bk-farbe input {
+		width: 4rem !important;
+		height: 2.5rem;
+		padding: 0.15rem !important;
+		cursor: pointer;
+	}
 	.bk-logo {
 		display: flex;
 		align-items: center;

@@ -23,6 +23,8 @@ export type Profil = {
 	bic: string | null;
 	bank: string | null;
 	fusszeile: string | null;
+	/** Hausfarbe (#rrggbb), z. B. für die Online-Buchungsseite */
+	farbe: string | null;
 	hatLogo: boolean;
 	logoTyp: string | null;
 	/** Zeitpunkt des letzten Logo-Wechsels (für Cache-Brecher in der Oberfläche). */
@@ -43,7 +45,8 @@ const FELDER = {
 	iban: ['iban', 'IBAN', 42],
 	bic: ['bic', 'BIC', 11],
 	bank: ['bank', 'Bank', 200],
-	fusszeile: ['fusszeile', 'Fußzeile', 500]
+	fusszeile: ['fusszeile', 'Fußzeile', 500],
+	farbe: ['farbe', 'Farbe', 7]
 } as const;
 
 export type ProfilFeld = keyof typeof FELDER;
@@ -71,12 +74,13 @@ const LEER: Profil = {
 	bic: null,
 	bank: null,
 	fusszeile: null,
+	farbe: null,
 	hatLogo: false,
 	logoTyp: null,
 	logoGeaendert: null
 };
 
-const AUSWAHL = `firmenname, strasse, plz, ort, telefon, email, web, steuernummer, ust_id, iban, bic, bank, fusszeile,
+const AUSWAHL = `firmenname, strasse, plz, ort, telefon, email, web, steuernummer, ust_id, iban, bic, bank, fusszeile, farbe,
 	logo is not null as hat_logo, logo_typ, logo_geaendert`;
 
 function zuProfil(z: Record<string, any> | undefined): Profil {
@@ -95,6 +99,7 @@ function zuProfil(z: Record<string, any> | undefined): Profil {
 		bic: z.bic,
 		bank: z.bank,
 		fusszeile: z.fusszeile,
+		farbe: z.farbe ?? null,
 		hatLogo: z.hat_logo === true,
 		logoTyp: z.logo_typ,
 		logoGeaendert: z.logo_geaendert ? new Date(z.logo_geaendert).toISOString() : null
@@ -126,6 +131,10 @@ export function pruefeProfilEingabe(e: Record<string, unknown>): Record<string, 
 		if (w !== null && feld === 'bic') {
 			w = w.replace(/\s+/g, '').toUpperCase();
 			if (!BIC.test(w)) throw new ApiFehler(400, 'Bitte eine gültige BIC eingeben (8 oder 11 Zeichen).');
+		}
+		if (w !== null && feld === 'farbe') {
+			w = w.toLowerCase();
+			if (!/^#[0-9a-f]{6}$/.test(w)) throw new ApiFehler(400, 'Bitte eine Farbe wählen.');
 		}
 		werte[spalte] = w;
 	}

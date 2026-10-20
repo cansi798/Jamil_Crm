@@ -29,6 +29,7 @@ describe('Rechte und Vorlagen', () => {
 			'protokolle.ausfuellen',
 			'protokolle.vorlagen_bearbeiten',
 			'erinnerungen.nutzen',
+			'buchung.verwalten',
 			'benutzer.verwalten',
 			'einstellungen'
 		]);
@@ -44,10 +45,11 @@ describe('Rechte und Vorlagen', () => {
 		expect([...VORLAGEN.chef].sort()).toEqual(Object.keys(RECHTE).sort());
 	});
 
-	it('Vorlage buero hat alle außer einstellungen und benutzer.verwalten', () => {
+	it('Vorlage buero hat alle außer einstellungen, benutzer.verwalten und buchung.verwalten', () => {
 		expect(VORLAGEN.buero).not.toContain('einstellungen');
 		expect(VORLAGEN.buero).not.toContain('benutzer.verwalten');
-		expect(VORLAGEN.buero).toHaveLength(Object.keys(RECHTE).length - 2);
+		expect(VORLAGEN.buero).not.toContain('buchung.verwalten');
+		expect(VORLAGEN.buero).toHaveLength(Object.keys(RECHTE).length - 3);
 		for (const r of VORLAGEN.buero) expect(Object.keys(RECHTE)).toContain(r);
 	});
 

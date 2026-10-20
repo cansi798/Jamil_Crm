@@ -18,6 +18,7 @@ export const RECHTE = {
 	'protokolle.ausfuellen': 'Protokolle ausfüllen (Formulare)',
 	'protokolle.vorlagen_bearbeiten': 'Protokoll-Vorlagen gestalten',
 	'erinnerungen.nutzen': 'Erinnerungen für To-dos und Termine nutzen',
+	'buchung.verwalten': 'Online-Buchung verwalten (Dienste, Buchungslinks)',
 	'benutzer.verwalten': 'Benutzer verwalten',
 	einstellungen: 'Einstellungen verwalten'
 } as const;
@@ -32,7 +33,8 @@ export const istRecht = (wert: unknown): wert is Recht =>
 /** Startpunkte für neue Rollen; eine Vorlage wird beim Anlegen kopiert und kann danach frei geändert werden. */
 export const VORLAGEN = {
 	chef: ALLE_RECHTE,
-	buero: ALLE_RECHTE.filter((r) => r !== 'einstellungen' && r !== 'benutzer.verwalten'),
+	// Online-Buchung (Wunsch Jamil msgs 2684/2686) standardmäßig nur der Chef; in „Rollen“ vergebbar
+	buero: ALLE_RECHTE.filter((r) => r !== 'einstellungen' && r !== 'benutzer.verwalten' && r !== 'buchung.verwalten'),
 	monteur: ['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen', 'erinnerungen.nutzen']
 } as const satisfies Record<string, readonly Recht[]>;
 
