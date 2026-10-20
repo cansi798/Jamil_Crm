@@ -32,6 +32,15 @@ Neues Paket mit Migrationen 056/057 und neuer Abhängigkeit `web-push`, unbeaufs
 (`CRM_VAPID_OEFFENTLICH`/`CRM_VAPID_PRIVAT`, von web-push akzeptiert), Migrationen liefen, `/api/gesundheit` ok,
 Sicherung + Wiederherstellung ok, `9-deinstallieren.sh --ja` hat alles entfernt. Vorschau-Container unberührt.
 
+## Probelauf 20.10.2026 (Online-Buchung, Migration 060)
+
+Neues Paket mit Migration 060 (legt die Datenbank-Erweiterung `btree_gist` an – im Image `postgres:16-alpine`
+enthalten) und den neuen Variablen `CRM_BUCHUNG_EINBETTEN`, `CRM_ADRESS_KOPF`, `CRM_ADRESS_TIEFE`, unbeaufsichtigt
+installiert (Projekt `crm-installtest`, App-Port 18300, ohne Profile): alle Migrationen bis 060 angewendet, die
+Variablen kommen als `ADDRESS_HEADER`/`XFF_DEPTH`/`CRM_BUCHUNG_EINBETTEN` in der App an, `/api/gesundheit` ok,
+unbekannter Buchungslink → 404, Sicherung + Wiederherstellung ok, `9-deinstallieren.sh --ja` hat alles entfernt.
+Vorschau-Container unberührt.
+
 ## So wiederholen (für Entwickler)
 
 ```sh
