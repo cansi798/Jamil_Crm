@@ -159,10 +159,28 @@ describe('OpenAiKompatibelKi – Aktion aus Text', () => {
 		}
 	});
 
-	it('Schlüssel nie in JSON des Objekts; Standard-Timeout 30 s', () => {
+	it('Schlüssel nie in JSON des Objekts; Standard-Timeout 30 s (Entwurf 90 s)', () => {
 		const k = ki();
 		expect(JSON.stringify(k)).not.toContain(SCHLUESSEL);
 		expect(k.timeoutMs).toBe(30_000);
+		expect(k.entwurfTimeoutMs).toBe(90_000);
+	});
+
+	it('Zeitlimit beim Lesen der Antwort → 503 (nicht „ungültig“), ohne zweiten Versuch', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => {
+				anfragen.push({ url: '', init: {}, koerper: null });
+				return { ok: true, status: 200, json: async () => Promise.reject(new DOMException('zu langsam', 'TimeoutError')) } as unknown as Response;
+			})
+		);
+		try {
+			await expect(ki().aktionAusText('x', KONTEXT)).rejects.toMatchObject({ status: 503 });
+			expect(anfragen).toHaveLength(1);
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });
 
@@ -182,6 +200,15 @@ describe('OpenAiKompatibelKi – Angebotsentwurf', () => {
 		const alles = JSON.stringify(r);
 		expect(alles).toContain('Wandfliesen verlegen');
 		expect(alles).not.toMatch(/cent|preis\b|€/i);
+	});
+
+	it('ohneNachdenken=entwurf: thinking disabled nur beim Entwurf, nicht beim Sprachbefehl', async () => {
+		antworten.push({ koerper: toolAntwort('angebot_positionen', { positionen: [] }) }, { koerper: toolAntwort('unbekannt', {}) });
+		const k = ki({ ohneNachdenken: 'entwurf' });
+		await k.angebotsEntwurf({ text: 'Fliesen', katalog });
+		await k.aktionAusText('x', KONTEXT);
+		expect(anfragen[0].koerper.thinking).toEqual({ type: 'disabled' });
+		expect(anfragen[1].koerper.thinking).toBeUndefined();
 	});
 
 	it('Foto als image_url-Data-URI (OpenAI-Format) an das Foto-Modell', async () => {
@@ -240,6 +267,8 @@ describe('Auswahl openai-kompatibel', () => {
 		expect(o.modellSchnell).toBe('mimo-v2.6-flash');
 		expect(o.fotoModell).toBe('mimo-v2.6-pro'); // alte Mistral-Vorgabe wird ignoriert
 		expect(o.ohneNachdenken).toBe(true);
+		const e = waehleAnbieter({ CRM_KI_ANBIETER: 'openai-kompatibel', CRM_KI_URL: URL_BASIS, CRM_KI_KEY: 'k', CRM_KI_MODELL: 'm', CRM_KI_OHNE_NACHDENKEN: 'Entwurf' }) as OpenAiKompatibelKi;
+		expect(e.ohneNachdenken).toBe('entwurf');
 		const m = waehleAnbieter({ CRM_KI_ANBIETER: 'mistral', CRM_MISTRAL_KEY: 'abc', CRM_KI_MODELL: '' }) as MistralKi;
 		expect(m).toBeInstanceOf(MistralKi);
 		expect(m.modell).toBe('mistral-small-latest');

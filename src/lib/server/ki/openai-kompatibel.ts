@@ -19,7 +19,8 @@ import { systemAktion, systemEntwurf } from './anweisungen';
  * - kommt kein Werkzeugaufruf, wird JSON aus dem Antworttext gelesen (`{"aktion": …, "daten": …}`, auch in ```json```),
  * - Antwort wird streng gegen das Aktions-Schema geprüft; ist sie ungültig (oder leer, z. B. `finish_reason=length`),
  *   gibt es genau eine zweite Anfrage mit Hinweis auf den Fehler (dann mit dem Hauptmodell) – danach 502,
- * - `max_tokens` großzügig (Nachdenken verbraucht Tokens), Zeitlimit je Anfrage, eine Wiederholung bei 429/5xx.
+ * - `max_tokens` großzügig (Nachdenken verbraucht Tokens), Zeitlimit je Anfrage (Sprachbefehl 30 s, Angebotsentwurf
+ *   90 s – mit Foto denkt das Modell deutlich länger), eine Wiederholung bei 429/5xx.
  *
  * Datensparsamkeit wie bei Mistral (siehe anbieter.ts): nur Befehlstext, Datum, Schema, ggf. Katalog ohne Preise und
  * Foto. Der Schlüssel steht in keinem serialisierten Feld und nie in Meldungen oder Logs.
@@ -35,9 +36,17 @@ export type OpenAiKompatibelOptionen = {
 	modellSchnell?: string;
 	/** Optional: eigenes Modell für Fotos (Standard: Hauptmodell). */
 	fotoModell?: string;
-	/** true → `thinking: {type: "disabled"}` mitschicken (MiMo; schneller, andere Anbieter ignorieren es ggf. nicht). */
-	ohneNachdenken?: boolean;
+	/**
+	 * `thinking: {type: "disabled"}` mitschicken (MiMo: schneller, kaum Einbußen beim Entwurf). true = immer,
+	 * 'entwurf' = nur beim Angebotsentwurf (dort dauert Nachdenken 10–60 s), false = nie. Nur für Anbieter, die das
+	 * Feld kennen.
+	 */
+	ohneNachdenken?: boolean | 'entwurf';
+	/** Zeitlimit je Anfrage für Sprachbefehle (Standard 30 s). */
 	timeoutMs?: number;
+	/** Zeitlimit je Anfrage für Angebotsentwürfe (Standard 90 s). */
+	entwurfTimeoutMs?: number;
+	/** Token-Obergrenze für Sprachbefehle (Standard 4096) bzw. Entwürfe (doppelt). */
 	maxTokens?: number;
 	/** Pause vor der Wiederholung bei 429/5xx. */
 	wartezeitMs?: number;
@@ -145,8 +154,9 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 	readonly modellSchnell: string;
 	readonly fotoModell: string;
 	readonly timeoutMs: number;
+	readonly entwurfTimeoutMs: number;
 	readonly maxTokens: number;
-	readonly ohneNachdenken: boolean;
+	readonly ohneNachdenken: boolean | 'entwurf';
 	readonly #url: string;
 	readonly #schluessel: string;
 	readonly #wartezeitMs: number;
@@ -160,8 +170,9 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 		this.modell = o.modell.trim();
 		this.modellSchnell = o.modellSchnell?.trim() || this.modell;
 		this.fotoModell = o.fotoModell?.trim() || this.modell;
-		this.ohneNachdenken = o.ohneNachdenken === true;
+		this.ohneNachdenken = o.ohneNachdenken === true || o.ohneNachdenken === 'entwurf' ? o.ohneNachdenken : false;
 		this.timeoutMs = o.timeoutMs ?? 30_000;
+		this.entwurfTimeoutMs = o.entwurfTimeoutMs ?? 90_000;
 		this.maxTokens = o.maxTokens ?? 4096;
 		this.#wartezeitMs = o.wartezeitMs ?? 800;
 	}
@@ -171,7 +182,7 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 		return { name: this.name, modell: this.modell, modellSchnell: this.modellSchnell };
 	}
 
-	async #anfrage(koerper: Record<string, unknown>): Promise<Record<string, any>> {
+	async #anfrage(koerper: Record<string, unknown>, timeoutMs: number): Promise<Record<string, any>> {
 		for (let versuch = 1; versuch <= 2; versuch++) {
 			let antwort: Response;
 			try {
@@ -183,7 +194,7 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 						accept: 'application/json'
 					},
 					body: JSON.stringify(koerper),
-					signal: AbortSignal.timeout(this.timeoutMs)
+					signal: AbortSignal.timeout(timeoutMs)
 				});
 			} catch (e) {
 				// Zeitüberschreitung oder Netzfehler: keine Wiederholung (sonst sehr lange Wartezeit)
@@ -193,7 +204,13 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 			if (antwort.ok) {
 				try {
 					return (await antwort.json()) as Record<string, any>;
-				} catch {
+				} catch (e) {
+					// Zeitlimit beim Lesen der Antwort (Modell denkt zu lange) ist „nicht erreichbar“, kein ungültiges JSON
+					const name = (e as Error)?.name;
+					if (name === 'TimeoutError' || name === 'AbortError') {
+						console.warn('KI (openai-kompatibel): Zeitlimit beim Lesen der Antwort');
+						throw new ApiFehler(503, NICHT_ERREICHBAR);
+					}
 					throw new ApiFehler(502, UNGUELTIG);
 				}
 			}
@@ -211,22 +228,25 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 	 * Hauptmodell und bekommt die eigene (ungültige) Antwort samt Grund zurück.
 	 */
 	async #mitKorrektur<T>(
-		modelle: [string, string],
+		art: { modelle: [string, string]; timeoutMs: number; maxTokens: number; ohneNachdenken: boolean },
 		nachrichten: Nachricht[],
 		tools: unknown[],
 		auswerten: (antwort: Record<string, any>) => T
 	): Promise<T> {
 		let verlauf = nachrichten;
 		for (let versuch = 0; versuch < 2; versuch++) {
-			const antwort = await this.#anfrage({
-				model: modelle[versuch],
-				temperature: 0,
-				max_tokens: this.maxTokens,
-				messages: verlauf,
-				tools,
-				tool_choice: 'auto',
-				...(this.ohneNachdenken ? { thinking: { type: 'disabled' } } : {})
-			});
+			const antwort = await this.#anfrage(
+				{
+					model: art.modelle[versuch],
+					temperature: 0,
+					max_tokens: art.maxTokens,
+					messages: verlauf,
+					tools,
+					tool_choice: 'auto',
+					...(art.ohneNachdenken ? { thinking: { type: 'disabled' } } : {})
+				},
+				art.timeoutMs
+			);
 			try {
 				return auswerten(antwort);
 			} catch (e) {
@@ -250,7 +270,12 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 
 	async aktionAusText(text: string, kontext: KiKontext): Promise<KiAktion> {
 		return this.#mitKorrektur(
-			[this.modellSchnell, this.modell],
+			{
+				modelle: [this.modellSchnell, this.modell],
+				timeoutMs: this.timeoutMs,
+				maxTokens: this.maxTokens,
+				ohneNachdenken: this.ohneNachdenken === true
+			},
 			[
 				{ role: 'system', content: systemAktion(kontext) + HINWEIS_WERKZEUG },
 				{ role: 'user', content: text }
@@ -276,7 +301,12 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 		const modell = e.foto ? this.fotoModell : this.modell;
 		const name = ENTWURF_WERKZEUG.function.name;
 		return this.#mitKorrektur(
-			[modell, modell],
+			{
+				modelle: [modell, modell],
+				timeoutMs: this.entwurfTimeoutMs,
+				maxTokens: this.maxTokens * 2,
+				ohneNachdenken: this.ohneNachdenken !== false
+			},
 			[
 				{ role: 'system', content: systemEntwurf(e.katalog) + HINWEIS_ENTWURF },
 				{ role: 'user', content: nutzer }

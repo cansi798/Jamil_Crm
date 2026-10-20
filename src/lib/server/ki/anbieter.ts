@@ -38,7 +38,7 @@ export function kiKontext(jetzt = new Date()): KiKontext {
  * - `CRM_KI_ANBIETER=mistral` UND Schlüssel in `CRM_MISTRAL_KEY` → Mistral (Modell `CRM_KI_MODELL`, Standard
  *   `mistral-small-latest`),
  * - `CRM_KI_ANBIETER=openai-kompatibel` UND `CRM_KI_URL`, `CRM_KI_KEY`, `CRM_KI_MODELL` → OpenAI-kompatible API
- *   (optional `CRM_KI_MODELL_SCHNELL` für Sprachbefehle, `CRM_KI_MODELL_FOTO`, `CRM_KI_OHNE_NACHDENKEN=ja`),
+ *   (optional `CRM_KI_MODELL_SCHNELL` für Sprachbefehle, `CRM_KI_MODELL_FOTO`, `CRM_KI_OHNE_NACHDENKEN=ja|entwurf`),
  * - sonst immer `FakeKi`.
  */
 export function waehleAnbieter(env: Record<string, string | undefined> = process.env): KiAnbieter {
@@ -64,12 +64,19 @@ export function waehleAnbieter(env: Record<string, string | undefined> = process
 				modellSchnell: env.CRM_KI_MODELL_SCHNELL?.trim() || undefined,
 				// Alte Vorgabe aus Mistral-Zeiten (pixtral…) gilt hier nicht → dann Hauptmodell
 				fotoModell: /^pixtral/i.test(env.CRM_KI_MODELL_FOTO ?? '') ? undefined : env.CRM_KI_MODELL_FOTO?.trim() || undefined,
-				ohneNachdenken: /^(ja|1|true)$/i.test((env.CRM_KI_OHNE_NACHDENKEN ?? '').trim())
+				ohneNachdenken: ohneNachdenken(env.CRM_KI_OHNE_NACHDENKEN)
 			});
 		}
 		console.warn('KI: openai-kompatibel gewählt, aber CRM_KI_URL, CRM_KI_KEY oder CRM_KI_MODELL fehlt – nutze die Test-KI.');
 	}
 	return new FakeKi();
+}
+
+/** `CRM_KI_OHNE_NACHDENKEN`: ja → immer, entwurf → nur beim Angebotsentwurf, sonst nie. */
+function ohneNachdenken(w: string | undefined): boolean | 'entwurf' {
+	const v = (w ?? '').trim().toLowerCase();
+	if (v === 'entwurf') return 'entwurf';
+	return /^(ja|1|true)$/.test(v);
 }
 
 let ersatz: KiAnbieter | null = null;
