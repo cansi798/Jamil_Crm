@@ -37,6 +37,9 @@ export function systemAktion(k: KiKontext): string {
 		'- „Wie viel Gewinn haben wir diesen Monat verplant?“, „Break-even erreicht?“: abfrage_monatsgewinn (monat dieser|letzter|naechster).',
 		'- Fragen wie „Was steht heute für mich an?“, „Was hat Sabine morgen?“, „Was habe ich diese Woche?“, „Welche To-dos sind überfällig?“:',
 		'  abfrage_tagesplan (wer leer = ich; zeitraum heute|morgen|woche|datum; nur_ueberfaellig=true bei überfällig).',
+		'- „Wie lief der Auftrag Müller?“, „Nachkalkulation Müller“: abfrage_nachkalkulation; „Welche Aufträge machen Verlust?“: abfrage_verlust.',
+		'- „Kundenportal für Müller“, „Portal-Link Müller“: portallink_zeigen; „Foto-Aufmaß für Müller“: foto_aufmass.',
+		'- Zeiterfassung (Start/Pause/Fertig, Fahrt, Material) geht nur über die Knöpfe – dafür unbekannt aufrufen.',
 		'- Wenn keine Aktion passt (andere Fragen, Rechnungen, Löschen, …), rufe unbekannt auf.'
 	].join('\n');
 }

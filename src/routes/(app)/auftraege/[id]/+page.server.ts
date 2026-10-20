@@ -34,6 +34,20 @@ import { entwirfAngebot } from '$lib/server/ki/angebot-entwurf';
 import { listeProtokolle, listeVorlagen, protokollVerlauf, starteProtokoll } from '$lib/server/protokoll-formulare';
 import { protokollRechte, zugriffAusfuellen } from '$lib/server/protokoll-zugriff';
 import { buchungenZumAuftrag } from '$lib/server/buchung';
+import { laufend, zeitenZumAuftrag, zeitVerlauf, zeitZugriff, type ZeitZugriff } from '$lib/server/zeiterfassung';
+import { materialHinzufuegen, materialLoeschen, materialStand, materialWieGeplant, setzeMaterialMenge } from '$lib/server/material';
+import { lieferscheinAuslesen } from '$lib/server/ki/lieferschein';
+import { nachkalkulationAuftrag } from '$lib/server/nachkalkulation';
+
+/** Zeiterfassung nur mit Modul und Recht – sonst `null` (Bereich ausgeblendet). */
+async function zeitOderNull(locals: { nutzer: Nutzer | null }): Promise<ZeitZugriff | null> {
+	try {
+		return await zeitZugriff(locals);
+	} catch (e) {
+		if (e instanceof ApiFehler && (e.status === 402 || e.status === 403)) return null;
+		throw e;
+	}
+}
 
 /**
  * Auftrag mit Statuskette, Einsätzen, To-dos, Angeboten und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404.
@@ -71,12 +85,27 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			// Online-Buchung (msgs 2684/2686): Angaben und Antworten des Kunden – wer den Auftrag sieht, sieht sie
 			buchungenZumAuftrag(k, auftrag.id)
 		]);
+		// Zeiterfassung (Wunsch Jamil msgs 2770–2774): Knöpfe, Summen, Material; Korrekturen im Verlauf
+		const zg = await zeitOderNull(locals);
+		const [zeitLaufend, zeitSumme, material, zeitEintraege] = zg
+			? await Promise.all([laufend(k, nutzer.id), zeitenZumAuftrag(zg, auftrag.id), materialStand(zg, auftrag.id), zeitVerlauf(zg, auftrag.id)])
+			: [null, null, null, []];
 		const verlauf = [
 			...protokoll.eintraege.map((e) => ({ iso: e.zeit, zeile: verlaufZeile(e) })),
-			...protokollEintraege
+			...protokollEintraege,
+			...zeitEintraege
 		].sort((x, y) => (x.iso < y.iso ? 1 : x.iso > y.iso ? -1 : 0));
+		// Nachkalkulation (Plan/Ist, Ampel): Chef/Büro mit „Preise sehen“ und „Alle Aufträge ansehen“
+		const nachkalkulation =
+			preise && hatRecht(nutzer, 'auftraege.alle_lesen') && (await hatModul(k.betriebId, 'zeiterfassung'))
+				? await nachkalkulationAuftrag(k, auftrag.id)
+				: null;
 		return {
 			auftrag,
+			nachkalkulation,
+			zeit: zg ? { laufend: zeitLaufend, summe: zeitSumme!, verwalten: zg.verwalten } : null,
+			material,
+			preiseSehen: preise,
 			buchungen,
 			protokolle,
 			protokollVorlagen: protokollVorlagen.map((v) => ({ id: v.id, name: v.name })),
@@ -224,6 +253,78 @@ export const actions: Actions = {
 			return alsFormFehler(e, { protokollFehler: meldung });
 		}
 		redirect(303, `/protokolle/${id}`);
+	},
+	/** Material „wie geplant“: alle geplanten Positionen mit der geplanten Menge übernehmen. */
+	materialWieGeplant: async ({ locals, params }) => {
+		try {
+			const n = await materialWieGeplant(await zeitZugriff(locals), params.id);
+			return { materialMeldung: n > 0 ? `${n} Position${n === 1 ? '' : 'en'} wie geplant übernommen.` : 'Alles war schon übernommen.' };
+		} catch (e) {
+			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Ist-Menge (mehr/weniger als geplant) bzw. Menge einer Zusatzzeile ändern. */
+	materialMenge: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await setzeMaterialMenge(await zeitZugriff(locals), params.id, {
+				id: text(f, 'id') || undefined,
+				positionId: text(f, 'positionId') || undefined,
+				menge: text(f, 'menge'),
+				preis: f.has('preis') ? text(f, 'preis') : undefined
+			});
+			return { materialMeldung: 'Gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	materialNeu: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await materialHinzufuegen(await zeitZugriff(locals), params.id, [
+				{ bezeichnung: text(f, 'bezeichnung'), einheit: text(f, 'einheit'), menge: text(f, 'menge'), preis: text(f, 'preis') }
+			]);
+			return { materialMeldung: 'Material hinzugefügt.' };
+		} catch (e) {
+			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	materialLoeschen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await materialLoeschen(await zeitZugriff(locals), params.id, text(f, 'id'));
+			return { materialMeldung: 'Entfernt.' };
+		} catch (e) {
+			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Lieferschein-Foto → KI liest Positionen (nur das Foto geht an die KI); Ergebnis zum Prüfen, noch nicht gespeichert. */
+	lieferschein: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const datei = f.get('foto');
+			const foto = datei instanceof File && datei.size > 0 ? new Uint8Array(await datei.arrayBuffer()) : null;
+			const positionen = await lieferscheinAuslesen(await zeitZugriff(locals), params.id, foto, f.get('zustimmung') === 'ja');
+			return { lieferschein: positionen };
+		} catch (e) {
+			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Geprüfte Lieferschein-Positionen übernehmen (nur angehakte Zeilen). */
+	lieferscheinUebernehmen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const zeilen = [];
+			for (let i = 0; i < 60; i++) {
+				if (!f.has(`bezeichnung_${i}`)) break;
+				if (f.get(`nehmen_${i}`) !== 'ja') continue;
+				zeilen.push({ bezeichnung: text(f, `bezeichnung_${i}`), menge: text(f, `menge_${i}`), einheit: text(f, `einheit_${i}`), preis: text(f, `preis_${i}`) });
+			}
+			const n = await materialHinzufuegen(await zeitZugriff(locals), params.id, zeilen, 'lieferschein');
+			return { materialMeldung: `${n} Position${n === 1 ? '' : 'en'} vom Lieferschein übernommen.` };
+		} catch (e) {
+			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
 	},
 	todoAnlegen: todo.anlegen,
 	todoUmschalten: todo.umschalten,

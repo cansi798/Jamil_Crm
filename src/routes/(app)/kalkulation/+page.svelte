@@ -31,7 +31,9 @@
 		standardStundenTag: zahl(b.standardStundenTag),
 		risikoProzent: zahl(b.risikoProzent),
 		gewinnProzent: zahl(b.gewinnProzent),
-		aktuellerSatz: b.aktuellerSatzCent === null ? '' : centAlsEingabe(b.aktuellerSatzCent)
+		aktuellerSatz: b.aktuellerSatzCent === null ? '' : centAlsEingabe(b.aktuellerSatzCent),
+		kmSatz: b.kmSatzCent == null ? '' : centAlsEingabe(b.kmSatzCent),
+		jahresKm: b.jahresKm == null ? '' : String(b.jahresKm)
 	});
 	const kostenFelder = (z: KostenZeile) => ({
 		name: z.name,
@@ -203,6 +205,14 @@
 				<label>
 					Aktueller Stundensatz (€, optional)
 					<input type="text" inputmode="decimal" name="aktuellerSatz" value={wert('firma', 'aktuellerSatz', firmaFelder.aktuellerSatz)} />
+				</label>
+				<label>
+					Kosten je gefahrenem km (€, für die Nachkalkulation)
+					<input type="text" inputmode="decimal" name="kmSatz" placeholder="z. B. 0,45" value={wert('firma', 'kmSatz', firmaFelder.kmSatz)} />
+				</label>
+				<label>
+					oder: gefahrene km pro Jahr (km-Satz = Fahrzeugkosten ÷ km)
+					<input type="text" inputmode="numeric" name="jahresKm" placeholder="z. B. 40000" value={wert('firma', 'jahresKm', firmaFelder.jahresKm)} />
 				</label>
 			</div>
 			<button type="submit" class="kd-knopf">Speichern</button>

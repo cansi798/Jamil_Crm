@@ -7,7 +7,7 @@ import {
 	type Wochentag,
 	type Zeitangabe
 } from '../sprache/aktionen';
-import type { EntwurfEingabe, KiAnbieter, KiKontext } from './anbieter';
+import type { BildAnfrage, EntwurfEingabe, KiAnbieter, KiKontext } from './anbieter';
 import { erinnerungsTeile, vorlaufAusText } from '../../erinnerungen';
 
 /**
@@ -35,7 +35,40 @@ export class FakeKi implements KiAnbieter {
 		this.letzterEntwurf = eingabe;
 		return pruefeEntwurf(entwirf(eingabe));
 	}
+
+	/** Letzte Bild-Anfrage (für Tests: „nur Fotos, keine Kundendaten“). */
+	letzteBildAnfrage: BildAnfrage<unknown> | null = null;
+	/** Tests können die Antwort je Werkzeug vorgeben. */
+	bildAntworten: Record<string, unknown> = {};
+
+	async bildAuswertung<T>(a: BildAnfrage<T>): Promise<T> {
+		this.aufrufe++;
+		this.letzteBildAnfrage = a as BildAnfrage<unknown>;
+		const name = a.werkzeug.function.name;
+		return a.pruefe(Object.hasOwn(this.bildAntworten, name) ? this.bildAntworten[name] : (BILD_BEISPIELE[name] ?? {}));
+	}
 }
+
+/** Feste Beispielantworten der Test-KI für Bild-Werkzeuge (ohne Netz). */
+const BILD_BEISPIELE: Record<string, unknown> = {
+	lieferschein_positionen: {
+		positionen: [
+			{ bezeichnung: 'Fliesenkleber flex 25 kg', menge: 4, einheit: 'Sack', einzelpreis: 18.9, unsicher: false },
+			{ bezeichnung: 'Silikon sanitär weiß', menge: 3, einheit: 'Stk', unsicher: true }
+		]
+	},
+	foto_aufmass: {
+		raum: 'Badezimmer',
+		flaechen: [
+			{ bezeichnung: 'Boden', art: 'boden', laenge_m: 2.5, breite_m: 2, flaeche_m2: 5 },
+			{ bezeichnung: 'Wand mit Tür', art: 'wand', laenge_m: 2.5, breite_m: 2.5, flaeche_m2: 4.65 }
+		],
+		mengen: [{ bezeichnung: 'Sockelleiste', menge: 9, einheit: 'lfm' }],
+		positionen: [],
+		konfidenz: 0.55,
+		annahmen: ['Türhöhe 2,00 m als Maßstab', 'Raumhöhe ca. 2,50 m geschätzt']
+	}
+};
 
 // ---------------------------------------------------------------------------------------------------------------
 // Zahlen und Zeiten
@@ -327,6 +360,24 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 	}
 	if (/\b(kalendereintrag|eintrag\s+im\s+kalender|eigene[nrs]?\s+termin|privat\w*\s+termin)\b/.test(l)) return eigenerTermin(t, kontext);
 	// Online-Buchung (msgs 2684/2686): „Buchungslink für Besichtigung“, „Neuer Dienst Besichtigungstermin 60 Minuten für Murat“
+	// Nachkalkulation, Kundenportal, Foto-Aufmaß (Jamil msgs 2770–2774)
+	const auftragAus = (re: RegExp) => {
+		const m = re.exec(t);
+		return m ? sauber(m[1]).replace(/^(?:dem|den|der|die|das|auftrag|kunde|kunden|bei|für|fuer)\s+/gi, '').replace(/[?.!]+$/, '') : '';
+	};
+	if (/\bverlust\b/.test(l) && /\bauftr[aä]g/.test(l)) return { aktion: 'abfrage_verlust', daten: {} };
+	if (/\bnachkalkulation\b|\bwie\s+(?:lief|läuft|war|ist)\s+(?:es\s+)?(?:beim?\s+|der\s+|den\s+)?auftrag\b/.test(l)) {
+		const auftrag = auftragAus(/\b(?:auftrags?|nachkalkulation(?:\s+(?:für|fuer|von|zu))?)\s+(.+)$/i);
+		if (auftrag) return { aktion: 'abfrage_nachkalkulation', daten: { auftrag: auftrag.replace(/\s+(?:gelaufen|gewesen)$/i, '') } };
+	}
+	if (/\b(?:kunden-?)?portal/.test(l)) {
+		const auftrag = auftragAus(/\b(?:für|fuer|von|zu[mr]?)\s+(.+)$/i);
+		if (auftrag) return { aktion: 'portallink_zeigen', daten: { auftrag } };
+	}
+	if (/\bfoto-?\s?aufma(?:ß|ss)/.test(l)) {
+		const auftrag = auftragAus(/\b(?:für|fuer|von|zu[mr]?|bei)\s+(.+)$/i);
+		if (auftrag) return { aktion: 'foto_aufmass', daten: { auftrag } };
+	}
 	if (/\bbuchungs-?links?\b|\blink\b.*\b(buchung|buchen)\b/.test(l)) {
 		const m = /\b(?:für|fuer|zu[mr]?|von)\s+(?:den\s+|die\s+|das\s+)?(?:dienst\s+)?(.+)$/i.exec(t);
 		const dienst = m ? sauber(m[1]).replace(/^(?:dienst)\s+/i, '') : '';

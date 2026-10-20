@@ -25,6 +25,9 @@ class FesteKi implements KiAnbieter {
 		this.eingabe = e;
 		return pruefeEntwurf(this.antwort);
 	}
+	async bildAuswertung<T>(): Promise<T> {
+		throw new Error('nicht benutzt');
+	}
 }
 
 const formAnfrage = (felder: Record<string, string | Blob>) => {

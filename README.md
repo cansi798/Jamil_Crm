@@ -218,6 +218,13 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Begrenzung je IP/Link (im Speicher; hinter einem Proxy `ADDRESS_HEADER`/`XFF_DEPTH` setzen), Honigtopf-Feld,
     signierter Zeitstempel (mindestens 3 s). Einbetten nur auf den Domains aus Einstellungen → Online-Buchung bzw.
     `CRM_BUCHUNG_EINBETTEN` (CSP `frame-ancestors` je Seite, `X-Frame-Options` entfällt dort). Recht `buchung.verwalten`.
+16. Zeiterfassung (Modul `zeiterfassung`, Migration 080): `zeiten.erfassen` (eigene Zeiten und Material) und
+    `zeiten.verwalten` (alle sehen, korrigieren, freigeben, Tätigkeiten ohne Auftrag pflegen). Je Person läuft höchstens
+    ein Abschnitt (eindeutiger Teilindex), Abschnitte einer Person überschneiden sich nie (Ausschluss-Bedingung).
+    Nachträge, Korrekturen und Löschungen verlangen einen Grund und stehen mit alt/neu im Änderungsprotokoll (Verlauf
+    des Auftrags). Nach der Freigabe ändert nur noch Chef/Büro. Kilometer: OSRM über `CRM_ROUTEN_URL` (nur zwei
+    Koordinaten), sonst Luftlinie × `CRM_ROUTEN_FAKTOR` (Standard 1,3) – kein GPS, kein Standort. Lieferschein-Fotos
+    gehen nur als Bild an die KI (keine Kundendaten); Materialpreise nur mit „Preise sehen“ und nie im Protokoll.
 
 ## Installation auf einem eigenen Server
 

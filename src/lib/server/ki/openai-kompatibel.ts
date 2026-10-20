@@ -7,7 +7,7 @@ import {
 	type KiAktion,
 	type KiEntwurf
 } from '../sprache/aktionen';
-import type { EntwurfEingabe, KiAnbieter, KiKontext } from './anbieter';
+import type { BildAnfrage, EntwurfEingabe, KiAnbieter, KiKontext } from './anbieter';
 import { systemAktion, systemEntwurf } from './anweisungen';
 
 /**
@@ -316,6 +316,37 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 				const w = werkzeugAusAntwort(antwort, name);
 				if (w.name !== name) throw new UngueltigeAntwort(`falsches Werkzeug ${w.name.slice(0, 40)}`);
 				return pruefeEntwurf(w.args);
+			}
+		);
+	}
+
+	async bildAuswertung<T>(a: BildAnfrage<T>): Promise<T> {
+		const name = a.werkzeug.function.name;
+		const inhalt = [
+			{ type: 'text', text: a.text },
+			...a.bilder.map((b) => ({ type: 'image_url', image_url: { url: `data:${b.typ};base64,${Buffer.from(b.bytes).toString('base64')}` } }))
+		];
+		const hinweis = [
+			'',
+			`Antwortformat: Rufe genau einmal das Werkzeug ${name} auf und schreibe keinen weiteren Text.`,
+			'Falls du kein Werkzeug aufrufen kannst, antworte ausschließlich mit JSON, das genau den Parametern des Werkzeugs entspricht.'
+		].join('\n');
+		return this.#mitKorrektur(
+			{
+				modelle: [this.fotoModell, this.fotoModell],
+				timeoutMs: this.entwurfTimeoutMs,
+				maxTokens: this.maxTokens * 2,
+				ohneNachdenken: this.ohneNachdenken !== false
+			},
+			[
+				{ role: 'system', content: a.system + hinweis },
+				{ role: 'user', content: inhalt }
+			],
+			[a.werkzeug],
+			(antwort) => {
+				const w = werkzeugAusAntwort(antwort, name);
+				if (w.name !== name) throw new UngueltigeAntwort(`falsches Werkzeug ${w.name.slice(0, 40)}`);
+				return a.pruefe(w.args);
 			}
 		);
 	}

@@ -6,6 +6,7 @@
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
 	import Mikrofon from '$lib/components/Mikrofon.svelte';
 	import Glocke from '$lib/components/Glocke.svelte';
+	import LaufendeZeit from '$lib/components/zeit/LaufendeZeit.svelte';
 	import { loesche, merkeNutzer, nutzerKennung } from '$lib/heute-kopie';
 	import type { LayoutData } from './$types';
 
@@ -96,8 +97,10 @@
 						<input type="search" name="suche" placeholder="Schnellsuche: Kunden …" aria-label="Schnellsuche Kunden" autocomplete="off" enterkeyhint="search" />
 					</form>
 				{/if}
+				{#if data.laufendeZeit}<LaufendeZeit laufend={data.laufendeZeit} />{/if}
 				{#if data.erinnern}<div class="kopf-glocke"><Glocke start={data.ungelesen} /></div>{/if}
 			</header>
+			{#if data.laufendeZeit}<div class="nur-schmal-zeit"><LaufendeZeit laufend={data.laufendeZeit} schmal /></div>{/if}
 			{#if data.erinnern}<div class="nur-schmal-glocke"><Glocke start={data.ungelesen} schmal /></div>{/if}
 			<NurLesenHinweis form={page.form} />
 			{@render children()}
@@ -113,6 +116,11 @@
 {/if}
 
 <style>
+	.nur-schmal-zeit {
+		position: sticky;
+		top: 0;
+		z-index: 5;
+	}
 	/* Mobil: Bottom-Tab-Bar (wie M365-App auf dem Handy) */
 	.hauptnav {
 		position: fixed;
@@ -302,7 +310,8 @@
 		.nur-schmal {
 			display: none;
 		}
-		.nur-schmal-glocke {
+		.nur-schmal-glocke,
+		.nur-schmal-zeit {
 			display: none;
 		}
 		.kopf-glocke {

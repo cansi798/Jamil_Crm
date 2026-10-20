@@ -6,6 +6,7 @@ import { pruefeNachfassenGedrosselt } from '$lib/server/nachfassen';
 import { hatRecht } from '$lib/server/rechte';
 import { benachrichtigungen } from '$lib/server/erinnerungen';
 import { nextcloud } from '$lib/server/nextcloud/konfig';
+import { laufend } from '$lib/server/zeiterfassung';
 
 /** Einzige Seite der App, die ohne volle Sitzung erreichbar ist: Einrichtung der Zwei-Faktor-Anmeldung (Vor-Sitzung). */
 const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
@@ -19,7 +20,7 @@ const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
 export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const nutzer = locals.nutzer;
 	if (!nutzer) {
-		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, erinnern: false, ungelesen: 0 };
+		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, erinnern: false, ungelesen: 0, laufendeZeit: null };
 		redirect(303, '/anmelden');
 	}
 	const module = nutzer.betriebId
@@ -32,5 +33,8 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	// Erinnerungen (Wunsch Jamil msg 2679): Glocke mit Zahl der ungelesenen Benachrichtigungen
 	const erinnern = !!nutzer.betriebId && hatRecht(nutzer, 'erinnerungen.nutzen');
 	const ungelesen = nutzer.betriebId ? (await benachrichtigungen({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }, 1)).ungelesen : 0;
-	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen };
+	// Zeiterfassung: laufende Zeit oben anzeigen (je Person höchstens eine)
+	const zeiten = !!nutzer.betriebId && module.includes('zeiterfassung') && (hatRecht(nutzer, 'zeiten.erfassen') || hatRecht(nutzer, 'zeiten.verwalten'));
+	const laufendeZeit = zeiten ? await laufend({ betriebId: nutzer.betriebId!, benutzerId: nutzer.id }, nutzer.id) : null;
+	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen, laufendeZeit };
 };

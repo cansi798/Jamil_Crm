@@ -13,6 +13,10 @@
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
 	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN, terminKurz } from '$lib/einsatz-art';
 	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
+	import ZeitKnoepfe from '$lib/components/zeit/ZeitKnoepfe.svelte';
+	import NachkalkulationKarte from '$lib/components/zeit/Nachkalkulation.svelte';
+	import { stundenText } from '$lib/zeiterfassung';
+	import { mengeText } from '$lib/geld';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -88,7 +92,7 @@
 		</aside>
 	{/if}
 
-	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler && !form?.protokollFehler}
+	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler && !form?.protokollFehler && !form?.materialFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
 
@@ -96,6 +100,121 @@
 	     Schmal eine Spalte; die Reihenfolge der Karten steuert dann `order` (Ort und Mitarbeiter früh). -->
 	<div class="af-raster">
 		<div class="af-haupt">
+			{#if data.zeit}
+				<div class="af-k k-zeit" id="zeiterfassung">
+					<Karte>
+						{#snippet titel()}Zeiterfassung{/snippet}
+						<ZeitKnoepfe auftragId={a.id} titel={`${a.nummer} ${a.titel}`} laufend={data.zeit.laufend} />
+						<p class="af-zeit-summe">
+							Heute ich: <strong>{stundenText(data.zeit.summe.heuteIch.arbeitMin)}</strong>
+							{#if data.zeit.verwalten}
+								· Auftrag gesamt: <strong>{stundenText(data.zeit.summe.gesamt.arbeitMin)}</strong> Arbeit, {stundenText(data.zeit.summe.gesamt.fahrtMin)} Fahrt, {String(data.zeit.summe.gesamt.km).replace('.', ',')} km
+							{/if}
+							· <a href={`/zeiten?auftrag=${a.id}`}>Zeiten ansehen</a>
+						</p>
+						{#if data.zeit.verwalten && data.zeit.summe.personen.length > 1}
+							<ul class="af-zeit-personen">
+								{#each data.zeit.summe.personen as p (p.benutzerId)}<li>{p.name}: {stundenText(p.arbeitMin)}</li>{/each}
+							</ul>
+						{/if}
+					</Karte>
+				</div>
+			{/if}
+			{#if data.nachkalkulation}
+				<div class="af-k k-nachkalk" id="nachkalkulation">
+					<Karte>
+						{#snippet titel()}Nachkalkulation{/snippet}
+						<NachkalkulationKarte nk={data.nachkalkulation} />
+					</Karte>
+				</div>
+			{/if}
+			{#if data.material}
+				<div class="af-k k-material" id="material">
+					<Karte>
+						{#snippet titel()}Material{/snippet}
+						{#snippet aktionen()}
+							{#if data.material && data.material.offenePlan > 0}
+								<form method="POST" action="?/materialWieGeplant" use:enhance>
+									<button type="submit" class="kd-knopf">✓ Wie geplant</button>
+								</form>
+							{/if}
+						{/snippet}
+						{#if form?.materialFehler}<p role="alert" class="kd-fehler">{form.materialFehler}</p>{/if}
+						{#if form?.materialMeldung}<p role="status" class="kd-info">{form.materialMeldung}</p>{/if}
+						{#if data.material.ohneAngebot}
+							<p class="kd-info">Geplantes Material kommt aus dem angenommenen Angebot – hier gibt es noch keins. Verbrauchtes Material kann trotzdem eingetragen werden.</p>
+						{/if}
+						{#if data.material.zeilen.length > 0}
+							<ul class="af-material">
+								{#each data.material.zeilen as m (m.id ?? m.positionId)}
+									<li class:offen={m.positionId && m.id === null}>
+										<span class="af-mat-name">{m.bezeichnung}{#if m.quelle === 'lieferschein'} <small>(Lieferschein)</small>{/if}
+											{#if m.mengePlan !== null}<small>geplant {mengeText(m.mengePlan)} {m.einheit}</small>{/if}
+										</span>
+										<form method="POST" action="?/materialMenge" use:enhance={() => async ({ update }) => update({ reset: false })} class="af-mat-form">
+											{#if m.id}<input type="hidden" name="id" value={m.id} />{:else}<input type="hidden" name="positionId" value={m.positionId} />{/if}
+											<label class="af-mat-menge">
+												<span class="unsichtbar">Verbraucht ({m.einheit})</span>
+												<input name="menge" inputmode="decimal" value={m.menge === null ? '' : mengeText(m.menge)} placeholder={m.mengePlan === null ? '' : mengeText(m.mengePlan)} aria-label={`Verbraucht: ${m.bezeichnung} in ${m.einheit}`} />
+												<span>{m.einheit}</span>
+											</label>
+											<button type="submit" class="kd-knopf hell">{m.id ? 'Ändern' : 'Bestätigen'}</button>
+										</form>
+										{#if m.id && !m.positionId}
+											<form method="POST" action="?/materialLoeschen" use:enhance>
+												<input type="hidden" name="id" value={m.id} />
+												<button type="submit" class="knopf-subtil" aria-label={`${m.bezeichnung} entfernen`}>✕</button>
+											</form>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+						<AddPanel label="Material hinzufügen">
+							{#snippet children(schliessen)}
+								<form method="POST" action="?/materialNeu" use:enhance class="af-mat-neu">
+									<label>Bezeichnung <input name="bezeichnung" required maxlength="200" /></label>
+									<label>Menge <input name="menge" inputmode="decimal" required /></label>
+									<label>Einheit <input name="einheit" value="Stk" maxlength="20" /></label>
+									{#if data.preiseSehen}<label>Einkauf je Einheit (€) <input name="preis" inputmode="decimal" /></label>{/if}
+									<div class="af-mat-knoepfe">
+										<button type="submit" class="kd-knopf">Speichern</button>
+										<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+									</div>
+								</form>
+							{/snippet}
+						</AddPanel>
+						<AddPanel label="Lieferschein fotografieren">
+							{#snippet children(schliessen)}
+								<form method="POST" action="?/lieferschein" enctype="multipart/form-data" use:enhance={() => { kiLaeuft = true; return async ({ update }) => { await update(); kiLaeuft = false; }; }} class="af-mat-neu">
+									<label>Foto des Lieferscheins <input type="file" name="foto" accept="image/jpeg,image/png" capture="environment" required /></label>
+									<label class="af-zustimmung"><input type="checkbox" name="zustimmung" value="ja" required /> Das Foto darf zur Auswertung an die KI gesendet werden (nur das Foto, keine Kundendaten).</label>
+									<div class="af-mat-knoepfe">
+										<button type="submit" class="kd-knopf" disabled={kiLaeuft}>{kiLaeuft ? 'KI liest …' : 'Auslesen'}</button>
+										<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+									</div>
+								</form>
+							{/snippet}
+						</AddPanel>
+						{#if form?.lieferschein}
+							<form method="POST" action="?/lieferscheinUebernehmen" use:enhance class="af-lieferschein">
+								<p class="kd-info">Bitte prüfen – nur angehakte Zeilen werden übernommen. Gelb = schlecht lesbar.</p>
+								{#each form.lieferschein as p, i (i)}
+									<fieldset class:unsicher={p.unsicher}>
+										<legend class="unsichtbar">Position {i + 1}</legend>
+										<label class="af-nehmen"><input type="checkbox" name={`nehmen_${i}`} value="ja" checked /> <span class="unsichtbar">übernehmen</span></label>
+										<input name={`bezeichnung_${i}`} value={p.bezeichnung} aria-label="Bezeichnung" />
+										<input name={`menge_${i}`} value={mengeText(p.menge)} inputmode="decimal" aria-label="Menge" class="kurz" />
+										<input name={`einheit_${i}`} value={p.einheit} aria-label="Einheit" class="kurz" />
+										{#if data.preiseSehen}<input name={`preis_${i}`} value={p.einzelpreisCent === null ? '' : euro(p.einzelpreisCent).replace(/\s*€/, '')} aria-label="Einkauf je Einheit (€)" class="kurz" />{/if}
+									</fieldset>
+								{/each}
+								<button type="submit" class="kd-knopf">Übernehmen</button>
+							</form>
+						{/if}
+					</Karte>
+				</div>
+			{/if}
 			<div class="af-k k-stamm">
 				<Karte>
 					{#snippet titel()}Stammdaten{/snippet}
@@ -653,6 +772,9 @@
 		display: contents;
 	}
 	/* Schmal: Ort und Mitarbeiter früh (Monteur unterwegs), dann Arbeit */
+	.k-zeit { order: 0; }
+	.k-material { order: 4; }
+	.k-nachkalk { order: 6; }
 	.k-stamm { order: 1; }
 	.k-buchung { order: 1; }
 	.k-ort { order: 2; }
@@ -861,5 +983,105 @@
 		gap: 0.5rem;
 		align-items: flex-start;
 		font-weight: 400;
+	}
+	.af-zeit-summe {
+		margin: var(--ui-a2) 0 0;
+		font-size: var(--ui-schrift-s);
+		color: var(--ui-text-leise);
+	}
+	.af-zeit-personen {
+		margin: var(--ui-a1) 0 0;
+		padding-left: 1.1rem;
+		font-size: var(--ui-schrift-s);
+	}
+	.af-material {
+		list-style: none;
+		margin: 0 0 var(--ui-a3);
+		padding: 0;
+		display: grid;
+		gap: var(--ui-a2);
+	}
+	.af-material li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--ui-a2);
+		padding: var(--ui-a2) 0;
+		border-bottom: 1px solid var(--ui-rand);
+	}
+	.af-material li.offen .af-mat-name {
+		color: var(--ui-text-leise);
+	}
+	.af-mat-name {
+		flex: 1 1 12rem;
+		display: grid;
+	}
+	.af-mat-name small {
+		color: var(--ui-text-leise);
+		font-size: var(--ui-schrift-xs);
+	}
+	.af-mat-form {
+		display: flex;
+		gap: var(--ui-a2);
+		align-items: center;
+	}
+	.af-mat-menge {
+		display: flex;
+		align-items: center;
+		gap: var(--ui-a1);
+	}
+	.af-mat-menge input {
+		width: 5.5rem;
+		min-height: var(--ui-feld-hoehe);
+		text-align: right;
+	}
+	.af-mat-neu {
+		display: grid;
+		gap: var(--ui-a2);
+	}
+	.af-mat-neu label {
+		display: grid;
+		gap: var(--ui-a1);
+	}
+	.af-mat-knoepfe {
+		display: flex;
+		gap: var(--ui-a2);
+		flex-wrap: wrap;
+	}
+	.af-zustimmung {
+		display: flex !important;
+		gap: var(--ui-a2);
+		align-items: flex-start;
+		font-size: var(--ui-schrift-s);
+	}
+	.af-lieferschein {
+		display: grid;
+		gap: var(--ui-a2);
+		margin-top: var(--ui-a3);
+	}
+	.af-lieferschein fieldset {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--ui-a2);
+		align-items: center;
+		margin: 0;
+		padding: var(--ui-a2);
+		border: 1px solid var(--ui-rand);
+		border-radius: var(--ui-radius);
+	}
+	.af-lieferschein fieldset.unsicher {
+		background: var(--m365-warnung-hell);
+	}
+	.af-lieferschein input {
+		min-height: var(--ui-feld-hoehe);
+		flex: 1 1 10rem;
+	}
+	.af-lieferschein input.kurz {
+		flex: 0 1 5.5rem;
+		width: 5.5rem;
+	}
+	.af-nehmen input {
+		width: 1.4rem;
+		height: 1.4rem;
 	}
 </style>

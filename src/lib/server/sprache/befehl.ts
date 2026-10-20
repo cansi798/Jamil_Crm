@@ -28,7 +28,79 @@ export const MAX_BEFEHL_ZEICHEN = 2000;
 export const UNBEKANNT_HINWEIS =
 	'Ich kann Kunden, Aufträge, To-dos (auch wiederkehrende), Termine und Anlagen anlegen, Termine verschieben, Mitarbeiter zuweisen, ' +
 	'den Auftragsstatus und die Auftragsquelle ändern, To-dos abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht, ' +
-	'wie die Auslastung ist, wie viel Gewinn diesen Monat verplant ist und wo Nachfassen fällig ist.';
+	'wie die Auslastung ist, wie viel Gewinn diesen Monat verplant ist, wo Nachfassen fällig ist, wie ein Auftrag gelaufen ist und welche Aufträge Verlust machen.';
+
+/** Aufträge zum gesprochenen Namen – auch abgerechnete (für Nachkalkulation, Portal, Foto-Aufmaß). */
+async function sucheAuftraege(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, text: string, alle: boolean) {
+	const suche = text
+		.replace(/\b(?:auftrag|auftrags|kunde|kundin|familie|firma|baustelle|bei|beim|für|fuer|von|der|die|das|den|dem)\b/gi, ' ')
+		.replace(/[?.!,]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, 100);
+	if (suche === '') return [];
+	return listeAuftraege(k, alle ? { alle: true, benutzerId: nutzer.id } : sichtVon(nutzer), { suche });
+}
+
+const karteVon = (aktion: Karte['aktion'], titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
+	aktion, titel, zeilen: [], auswahl: [], warnungen: [], fehler, aendern: null, ...(antwort ? { antwort } : {})
+});
+
+/** „Wie lief der Auftrag Müller?“ – Plan gegen Ist mit Ampel (Nachkalkulation). */
+async function beantworteNachkalkulation(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, auftrag: string): Promise<Karte> {
+	const { nachkalkulationAuftrag } = await import('../nachkalkulation');
+	const treffer = await sucheAuftraege(k, nutzer, auftrag, true);
+	if (treffer.length === 0) return karteVon('abfrage_nachkalkulation', 'Nachkalkulation', `Keinen Auftrag zu „${auftrag}“ gefunden.`);
+	if (treffer.length > 1) {
+		return karteVon('abfrage_nachkalkulation', 'Welcher Auftrag?', null, {
+			abschnitte: [{ titel: 'Aufträge', eintraege: treffer.slice(0, 8).map((a) => ({ zeit: '', titel: `${a.nummer} ${a.titel} – ${a.kundeName}`, ort: null, link: `/auftraege/${a.id}#nachkalkulation`, ueberfaellig: false })) }],
+			vorlesen: `Ich habe ${treffer.length} passende Aufträge gefunden – bitte einen antippen.`
+		});
+	}
+	const a = treffer[0];
+	const nk = await nachkalkulationAuftrag(k, a.id);
+	const std = (h: number) => `${String(h).replace('.', ',')} Stunden`;
+	const AMPEL = { rot: 'Verlust', gelb: 'deckt gerade die Kosten', gruen: 'mit Gewinn' } as const;
+	const zeilen = [
+		`Stunden: geplant ${std(nk.plan.stunden)}, gebraucht ${std(nk.ist.stunden)}${nk.ist.fahrtStunden ? ` plus ${std(nk.ist.fahrtStunden)} Fahrt` : ''}`,
+		`Material: geplant ${euro(nk.plan.materialCent)}, Ist ${euro(nk.ist.materialCent)}`,
+		`Gewinn: geplant ${nk.plan.gewinnCent === null ? '–' : euro(nk.plan.gewinnCent)}, Ist ${nk.ist.gewinnCent === null ? '–' : euro(nk.ist.gewinnCent)}`
+	];
+	const vorlesen = `${a.titel}: geplant ${std(nk.plan.stunden)}, gebraucht ${std(nk.ist.stunden)}. ${nk.ist.gewinnCent === null ? 'Gewinn unbekannt, die Kalkulation fehlt.' : `Gewinn ${euro(nk.ist.gewinnCent)}`}${nk.ampel ? ` – ${AMPEL[nk.ampel]}.` : '.'}`;
+	return karteVon('abfrage_nachkalkulation', `Nachkalkulation ${a.nummer}${nk.ampel ? ` · ${AMPEL[nk.ampel]}` : ''}`, null, {
+		oeffnen: `/auftraege/${a.id}#nachkalkulation`,
+		abschnitte: [
+			{ titel: `${a.nummer} ${a.titel} – ${a.kundeName}`, eintraege: zeilen.map((z) => ({ zeit: '', titel: z, ort: null, link: `/auftraege/${a.id}#nachkalkulation`, ueberfaellig: nk.ampel === 'rot' })) },
+			...(nk.hinweise.length ? [{ titel: 'Hinweise', eintraege: nk.hinweise.map((h) => ({ zeit: '', titel: h, ort: null, link: '/kalkulation', ueberfaellig: false })) }] : [])
+		],
+		vorlesen
+	});
+}
+
+/** „Welche Aufträge machen Verlust?“ – letzte 90 Tage, schlechteste zuerst. */
+async function beantworteVerlust(k: { betriebId: string; benutzerId: string }): Promise<Karte> {
+	const { verlustAuftraege } = await import('../nachkalkulation');
+	const liste = await verlustAuftraege(k, 90);
+	const vorlesen = liste.length === 0 ? 'In den letzten 90 Tagen hat kein Auftrag Verlust gemacht.' : `${liste.length} Auftr${liste.length === 1 ? 'ag macht' : 'äge machen'} Verlust, am meisten ${liste[0].kundeName} mit ${euro(-(liste[0].nk.ist.gewinnCent ?? 0))}.`;
+	return karteVon('abfrage_verlust', 'Aufträge mit Verlust (90 Tage)', null, {
+		oeffnen: '/auswertung/nachkalkulation',
+		abschnitte: [{ titel: 'Aufträge', eintraege: liste.slice(0, 10).map((a) => ({ zeit: euro(a.nk.ist.gewinnCent ?? 0), titel: `${a.nummer} ${a.titel} – ${a.kundeName}`, ort: null, link: `/auftraege/${a.id}#nachkalkulation`, ueberfaellig: true })) }],
+		vorlesen
+	});
+}
+
+/** „Kundenportal für Müller“ bzw. „Foto-Aufmaß für Müller“: Auftrag finden und die Stelle öffnen. */
+async function beantworteAuftragsLink(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, aktion: 'portallink_zeigen' | 'foto_aufmass', auftrag: string): Promise<Karte> {
+	const titel = aktion === 'portallink_zeigen' ? 'Kundenportal' : 'Foto-Aufmaß';
+	const ziel = (id: string) => (aktion === 'portallink_zeigen' ? `/auftraege/${id}#kundenportal` : `/auftraege/${id}/foto-aufmass`);
+	const treffer = await sucheAuftraege(k, nutzer, auftrag, false);
+	if (treffer.length === 0) return karteVon(aktion, titel, `Keinen Auftrag zu „${auftrag}“ gefunden.`);
+	return karteVon(aktion, treffer.length === 1 ? `${titel} ${treffer[0].nummer}` : `${titel} – welcher Auftrag?`, null, {
+		...(treffer.length === 1 ? { oeffnen: ziel(treffer[0].id) } : {}),
+		abschnitte: [{ titel: 'Aufträge', eintraege: treffer.slice(0, 8).map((a) => ({ zeit: '', titel: `${a.nummer} ${a.titel} – ${a.kundeName}`, ort: null, link: ziel(a.id), ueberfaellig: false })) }],
+		vorlesen: treffer.length === 1 ? `${titel} für ${treffer[0].titel} – tippe auf Öffnen.` : `Ich habe ${treffer.length} passende Aufträge gefunden.`
+	});
+}
 
 async function beantworteRoute(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, wer: string | undefined): Promise<Karte> {
 	const karte = (titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
@@ -368,6 +440,15 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	}
 	if (aktion.aktion === 'buchungslink_zeigen') {
 		return { text, vorschlag: null, karte: await beantworteBuchungslink(k, aktion.daten) };
+	}
+	if (aktion.aktion === 'abfrage_nachkalkulation') {
+		return { text, vorschlag: null, karte: await beantworteNachkalkulation(k, nutzer, aktion.daten.auftrag) };
+	}
+	if (aktion.aktion === 'abfrage_verlust') {
+		return { text, vorschlag: null, karte: await beantworteVerlust(k) };
+	}
+	if (aktion.aktion === 'portallink_zeigen' || aktion.aktion === 'foto_aufmass') {
+		return { text, vorschlag: null, karte: await beantworteAuftragsLink(k, nutzer, aktion.aktion, aktion.daten.auftrag) };
 	}
 	if (aktion.aktion === 'kalender_zeigen') {
 		return { text, vorschlag: null, karte: await beantworteKalender(k, nutzer, aktion.daten, jetzt) };

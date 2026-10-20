@@ -858,7 +858,11 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_nachfassen: 'Nachfassen fällig',
 	kalender_zeigen: 'Kalender',
 	dienst_anlegen: 'Dienst anlegen (Online-Buchung)',
-	buchungslink_zeigen: 'Buchungslink'
+	buchungslink_zeigen: 'Buchungslink',
+	abfrage_nachkalkulation: 'Nachkalkulation',
+	abfrage_verlust: 'Aufträge mit Verlust',
+	portallink_zeigen: 'Kundenportal',
+	foto_aufmass: 'Foto-Aufmaß'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -905,7 +909,7 @@ export async function loeseAuf(
 	nutzer: Nutzer,
 	aktion: Exclude<
 		KiAktion,
-		{ aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' }
+		{ aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' | 'foto_aufmass' }
 	>,
 	jetzt: Date
 ): Promise<Vorschau> {

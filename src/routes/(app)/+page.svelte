@@ -1,6 +1,8 @@
 <script lang="ts">
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import HeuteListe from '$lib/components/HeuteListe.svelte';
+	import ZeitKnoepfe from '$lib/components/zeit/ZeitKnoepfe.svelte';
+	import AddPanel from '$lib/components/AddPanel.svelte';
 	import { loesche, speichere } from '$lib/heute-kopie';
 	import { tagKurz } from '$lib/zeit';
 	import type { PageData } from './$types';
@@ -40,6 +42,32 @@
 			/>
 			<button type="submit" class="knopf-subtil">Suchen</button>
 		</form>
+	{/if}
+
+	{#if data.zeit}
+		<section aria-labelledby="zeit-titel" class="heute-karte zeit-karte" data-testid="heute-zeiterfassung">
+			<div class="plan-kopf">
+				<h2 id="zeit-titel">Zeiterfassung</h2>
+				<a href="/zeiten" class="zeit-link">Meine Zeiten</a>
+			</div>
+			{#each data.zeit.auftraege as a (a.id)}
+				<div class="zeit-auftrag">
+					<p class="zeit-auftrag-titel"><a href={`/auftraege/${a.id}`}>{a.nummer} · {a.titel}</a>{#if a.kunde}<small>{a.kunde}</small>{/if}</p>
+					<ZeitKnoepfe auftragId={a.id} titel={`${a.nummer} ${a.titel}`} laufend={data.zeit.laufend} kompakt />
+				</div>
+			{:else}
+				<p class="leise">Heute keine Aufträge eingeplant – Zeiten auf einem Auftrag starten Sie im Auftrag selbst.</p>
+			{/each}
+			{#if data.zeit.laufend && !data.zeit.laufend.auftragId}
+				<div class="zeit-auftrag"><ZeitKnoepfe laufend={data.zeit.laufend} taetigkeiten={data.zeit.taetigkeiten} kompakt /></div>
+			{:else}
+				<AddPanel label="Tätigkeit ohne Auftrag (Lager, Werkstatt …)">
+					{#snippet children()}
+						<ZeitKnoepfe laufend={data.zeit!.laufend} taetigkeiten={data.zeit!.taetigkeiten} kompakt />
+					{/snippet}
+				</AddPanel>
+			{/if}
+		</section>
 	{/if}
 
 	{#if data.monat}
@@ -301,5 +329,28 @@
 	.leise {
 		color: var(--m365-text-leise);
 		font-size: 0.875rem;
+	}
+	.zeit-karte {
+		display: grid;
+		gap: 0.75rem;
+		margin-bottom: 1.25rem;
+	}
+	.zeit-auftrag {
+		display: grid;
+		gap: 0.4rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--ui-rand);
+	}
+	.zeit-auftrag-titel {
+		margin: 0;
+		display: grid;
+		font-weight: 600;
+	}
+	.zeit-auftrag-titel small {
+		font-weight: 400;
+		color: var(--ui-text-leise);
+	}
+	.zeit-link {
+		font-size: var(--ui-schrift-s);
 	}
 </style>

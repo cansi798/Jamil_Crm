@@ -38,6 +38,10 @@ export type BetriebsWerte = {
 	gewinnProzent: number;
 	/** Optional: heute verlangter Stundensatz – zum Vergleich. */
 	aktuellerSatzCent: number | null;
+	/** Nachkalkulation: Kosten je gefahrenem km (fest) … */
+	kmSatzCent?: number | null;
+	/** … oder gefahrene km pro Jahr (km-Satz = Fahrzeugkosten ÷ km) */
+	jahresKm?: number | null;
 };
 
 export type KostenZeile = {

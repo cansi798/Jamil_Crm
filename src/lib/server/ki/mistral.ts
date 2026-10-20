@@ -1,6 +1,6 @@
 import { ApiFehler } from '../fehler';
 import { ENTWURF_WERKZEUG, pruefeAktion, pruefeEntwurf, werkzeuge, type KiAktion, type KiEntwurf } from '../sprache/aktionen';
-import type { EntwurfEingabe, KiAnbieter, KiKontext } from './anbieter';
+import type { BildAnfrage, EntwurfEingabe, KiAnbieter, KiKontext } from './anbieter';
 import { systemAktion, systemEntwurf } from './anweisungen';
 
 /**
@@ -143,6 +143,33 @@ export class MistralKi implements KiAnbieter {
 		if (name !== ENTWURF_WERKZEUG.function.name) throw new ApiFehler(502, UNGUELTIG);
 		try {
 			return pruefeEntwurf(args);
+		} catch {
+			throw new ApiFehler(502, UNGUELTIG);
+		}
+	}
+
+	async bildAuswertung<T>(a: BildAnfrage<T>): Promise<T> {
+		const antwort = await this.#anfrage({
+			model: this.fotoModell,
+			temperature: 0,
+			messages: [
+				{ role: 'system', content: a.system },
+				{
+					role: 'user',
+					content: [
+						{ type: 'text', text: a.text },
+						...a.bilder.map((b) => ({ type: 'image_url', image_url: `data:${b.typ};base64,${Buffer.from(b.bytes).toString('base64')}` }))
+					]
+				}
+			],
+			tools: [a.werkzeug],
+			tool_choice: 'any',
+			parallel_tool_calls: false
+		});
+		const { name, args } = MistralKi.#werkzeugAufruf(antwort);
+		if (name !== a.werkzeug.function.name) throw new ApiFehler(502, UNGUELTIG);
+		try {
+			return a.pruefe(args);
 		} catch {
 			throw new ApiFehler(502, UNGUELTIG);
 		}

@@ -20,6 +20,9 @@ import type { AktionsName } from './aktionen';
  * - Auslastung abfragen (nur lesend): wie die Seite Auslastung – Modul `plantafel` + `plantafel.bearbeiten` oder
  *   „Alle Aufträge ansehen“; Gewinn/Break-even zusätzlich „Preise sehen“
  * - Online-Buchung (Dienst anlegen, Buchungslink zeigen): Module `auftraege` + `plantafel`, Recht `buchung.verwalten`
+ * - Nachkalkulation / Verlust abfragen: Modul `zeiterfassung`, „Preise sehen“ und „Alle Aufträge ansehen“
+ * - Kundenportal: Modul `kundenportal` + `auftraege.bearbeiten`
+ * - Foto-Aufmaß: wie der KI-Angebotsentwurf (Modul `ki_angebote` + Angebote mit Preisen)
  * - Tagesplan abfragen (nur lesend): Modul `auftraege` und irgendein Auftragsrecht; andere Personen nur mit
  *   „Alle To-dos ansehen“ (geprüft beim Beantworten)
  */
@@ -75,6 +78,16 @@ export async function pruefeAktionsRechte(
 		case 'nachfassen_pausieren':
 			await angeboteZugriff(locals);
 			return;
+		case 'abfrage_nachkalkulation':
+		case 'abfrage_verlust':
+			await darf(locals, 'zeiterfassung', 'preise.sehen');
+			return darf(locals, 'auftraege', 'auftraege.alle_lesen');
+		case 'portallink_zeigen':
+			await darf(locals, 'kundenportal', 'auftraege.bearbeiten');
+			return pruefeModul(locals, 'auftraege');
+		case 'foto_aufmass':
+			await angeboteZugriff(locals);
+			return pruefeModul(locals, 'ki_angebote');
 		case 'dienst_anlegen':
 		case 'buchungslink_zeigen':
 			await darf(locals, 'auftraege', 'buchung.verwalten');

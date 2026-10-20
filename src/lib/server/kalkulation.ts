@@ -36,7 +36,7 @@ export type KalkulationDaten = {
 	uebersicht: Uebersicht;
 };
 
-export const FIRMA_FELDER = ['standardTage', 'standardStundenTag', 'risikoProzent', 'gewinnProzent', 'aktuellerSatz'] as const;
+export const FIRMA_FELDER = ['standardTage', 'standardStundenTag', 'risikoProzent', 'gewinnProzent', 'aktuellerSatz', 'kmSatz', 'jahresKm'] as const;
 export const KOSTEN_FELDER = ['name', 'kategorie', 'betrag', 'intervall', 'abschreibungMonate', 'aktiv'] as const;
 export const MITARBEITER_FELDER = ['name', 'benutzerId', 'brutto', 'agArt', 'agProzent', 'agEuro', 'tageJahr', 'stundenTag'] as const;
 
@@ -91,7 +91,9 @@ export function pruefeBetriebswerte(e: Record<string, unknown>): BetriebsWerte {
 		standardStundenTag: zahl(e.standardStundenTag, 'Effektive Stunden pro Tag', 0.25, 24)!,
 		risikoProzent: zahl(e.risikoProzent, 'Wagnis', 0, 1000)!,
 		gewinnProzent: zahl(e.gewinnProzent, 'Gewinn', 0, 1000)!,
-		aktuellerSatzCent: euro(e.aktuellerSatz, 'Aktueller Stundensatz', false)
+		aktuellerSatzCent: euro(e.aktuellerSatz, 'Aktueller Stundensatz', false),
+		kmSatzCent: euro(e.kmSatz, 'Kosten je km', false),
+		jahresKm: zahl(e.jahresKm, 'Gefahrene km pro Jahr', 1, 10_000_000, 0, false)
 	};
 }
 
@@ -148,7 +150,9 @@ function zuBetrieb(z: Record<string, any> | undefined): BetriebsWerte {
 		standardStundenTag: Number(z.standard_stunden_tag),
 		risikoProzent: Number(z.risiko_prozent),
 		gewinnProzent: Number(z.gewinn_prozent),
-		aktuellerSatzCent: z.aktueller_satz_cent === null ? null : Number(z.aktueller_satz_cent)
+		aktuellerSatzCent: z.aktueller_satz_cent === null ? null : Number(z.aktueller_satz_cent),
+		kmSatzCent: z.km_satz_cent === null || z.km_satz_cent === undefined ? null : Number(z.km_satz_cent),
+		jahresKm: z.jahres_km === null || z.jahres_km === undefined ? null : Number(z.jahres_km)
 	};
 }
 
@@ -208,12 +212,13 @@ const aktuellesJahr = () => Number(new Date().toLocaleString('de-DE', { year: 'n
 async function schreibeBetrieb(tx: TransactionSql, k: Kontext, w: BetriebsWerte): Promise<void> {
 	await tx`
 		insert into app.kalkulation_betrieb (betrieb_id, jahr, standard_tage, standard_stunden_tag, gewinn_prozent, risiko_prozent,
-			aktueller_satz_cent)
+			aktueller_satz_cent, km_satz_cent, jahres_km)
 		values (${k.betriebId}, ${aktuellesJahr()}, ${w.standardTage}, ${w.standardStundenTag}, ${w.gewinnProzent}, ${w.risikoProzent},
-			${w.aktuellerSatzCent})
+			${w.aktuellerSatzCent}, ${w.kmSatzCent ?? null}, ${w.jahresKm ?? null})
 		on conflict (betrieb_id) do update set standard_tage = excluded.standard_tage,
 			standard_stunden_tag = excluded.standard_stunden_tag, gewinn_prozent = excluded.gewinn_prozent,
-			risiko_prozent = excluded.risiko_prozent, aktueller_satz_cent = excluded.aktueller_satz_cent`;
+			risiko_prozent = excluded.risiko_prozent, aktueller_satz_cent = excluded.aktueller_satz_cent,
+			km_satz_cent = excluded.km_satz_cent, jahres_km = excluded.jahres_km`;
 }
 
 export async function speichereBetriebswerte(k: Kontext, e: Record<string, unknown>): Promise<BetriebsWerte> {

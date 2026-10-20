@@ -33,11 +33,16 @@ export const AKTIONEN = [
 	'abfrage_nachfassen',
 	'kalender_zeigen',
 	'dienst_anlegen',
-	'buchungslink_zeigen'
+	'buchungslink_zeigen',
+	'abfrage_nachkalkulation',
+	'abfrage_verlust',
+	'portallink_zeigen',
+	'foto_aufmass'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
-export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen', 'kalender_zeigen', 'buchungslink_zeigen'] as const;
+export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen', 'kalender_zeigen', 'buchungslink_zeigen',
+	'abfrage_nachkalkulation', 'abfrage_verlust', 'portallink_zeigen', 'foto_aufmass'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt';
@@ -142,6 +147,10 @@ export type KiAktion =
 	| { aktion: 'kalender_zeigen'; daten: { wer?: string; monat?: string; ansicht?: 'monat' | 'woche' | 'tag' } }
 	| { aktion: 'dienst_anlegen'; daten: DienstDaten }
 	| { aktion: 'buchungslink_zeigen'; daten: { dienst?: string } }
+	| { aktion: 'abfrage_nachkalkulation'; daten: { auftrag: string } }
+	| { aktion: 'abfrage_verlust'; daten: Record<string, never> }
+	| { aktion: 'portallink_zeigen'; daten: { auftrag: string } }
+	| { aktion: 'foto_aufmass'; daten: { auftrag: string } }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -430,6 +439,25 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		properties: { dienst: text(100, 'Name des Dienstes, z. B. „Besichtigung“ – leer = alle') },
 		additionalProperties: false
 	},
+	abfrage_nachkalkulation: {
+		type: 'object',
+		properties: { auftrag: text(100, 'Auftrag wie gesprochen (Kundenname, Titel oder Nummer)') },
+		required: ['auftrag'],
+		additionalProperties: false
+	},
+	abfrage_verlust: { type: 'object', properties: {}, additionalProperties: false },
+	portallink_zeigen: {
+		type: 'object',
+		properties: { auftrag: text(100, 'Auftrag wie gesprochen (Kundenname, Titel oder Nummer)') },
+		required: ['auftrag'],
+		additionalProperties: false
+	},
+	foto_aufmass: {
+		type: 'object',
+		properties: { auftrag: text(100, 'Auftrag wie gesprochen (Kundenname, Titel oder Nummer)') },
+		required: ['auftrag'],
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -453,6 +481,10 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 		'Kalender (Plantafel) öffnen, gefiltert nach Mitarbeiter oder Kolonne und Monat („Zeig mir den Kalender von Kolonne 3 im November“).',
 	dienst_anlegen:
 		'Neuen Dienst (Terminart) für die Online-Buchung anlegen, mit Dauer und zuständigen Mitarbeitern („Neuer Dienst Besichtigungstermin 60 Minuten für Murat“).',
+	abfrage_nachkalkulation: 'Frage beantworten, wie ein Auftrag gelaufen ist – Plan gegen Ist, Gewinn, Ampel („Wie lief der Auftrag Müller?“).',
+	abfrage_verlust: 'Frage beantworten, welche Aufträge Verlust machen („Welche Aufträge machen Verlust?“).',
+	portallink_zeigen: 'Kundenportal eines Auftrags öffnen bzw. Link für den Kunden erzeugen („Kundenportal für Müller“).',
+	foto_aufmass: 'Foto-Aufmaß für einen Auftrag öffnen („Foto-Aufmaß für Müller“).',
 	buchungslink_zeigen: 'Buchungslink (Online-Buchung) eines Dienstes zeigen bzw. kopieren („Buchungslink für Besichtigung“).',
 	abfrage_nachfassen: 'Frage beantworten, bei welchen Aufträgen/Angeboten das Nachfassen heute fällig oder überfällig ist („Wo muss ich nachfassen?“).',
 	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',

@@ -211,6 +211,10 @@ async function ausfuehrenJe(
 		case 'abfrage_nachfassen':
 		case 'kalender_zeigen':
 		case 'buchungslink_zeigen':
+		case 'abfrage_nachkalkulation':
+		case 'abfrage_verlust':
+		case 'portallink_zeigen':
+		case 'foto_aufmass':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
 		case 'dienst_anlegen': {
 			const { legeDienstAn } = await import('../buchung');

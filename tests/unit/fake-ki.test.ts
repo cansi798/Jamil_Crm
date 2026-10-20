@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FakeKi, findeTag, findeUhrzeiten } from '../../src/lib/server/ki/fake';
+import { deute, FakeKi, findeTag, findeUhrzeiten } from '../../src/lib/server/ki/fake';
 
 const kontext = { heute: '2026-10-17', wochentag: 'Samstag' };
 
@@ -73,5 +73,16 @@ describe('FakeKi (regelbasiert)', () => {
 			{ schluessel: 'K1', menge: 12, unsicher: false },
 			{ schluessel: 'K2', menge: 1, unsicher: true }
 		]);
+	});
+});
+
+describe('Test-KI: Nachkalkulation, Verlust, Kundenportal, Foto-Aufmaß (Jamil msgs 2770–2774)', () => {
+	const k = { heute: '2026-10-20', wochentag: 'Dienstag' };
+	it('erkennt die neuen Fragen', () => {
+		expect(deute('Wie lief der Auftrag Müller?', k)).toEqual({ aktion: 'abfrage_nachkalkulation', daten: { auftrag: 'Müller' } });
+		expect(deute('Nachkalkulation für Schmidt', k)).toEqual({ aktion: 'abfrage_nachkalkulation', daten: { auftrag: 'Schmidt' } });
+		expect(deute('Welche Aufträge machen Verlust?', k)).toEqual({ aktion: 'abfrage_verlust', daten: {} });
+		expect(deute('Kundenportal für Müller', k)).toEqual({ aktion: 'portallink_zeigen', daten: { auftrag: 'Müller' } });
+		expect(deute('Foto-Aufmaß für Bad Meier', k)).toEqual({ aktion: 'foto_aufmass', daten: { auftrag: 'Bad Meier' } });
 	});
 });

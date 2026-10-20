@@ -1,5 +1,5 @@
 import { berlinTag, wochentag } from '../../zeit';
-import type { KiAktion, KiEntwurf } from '../sprache/aktionen';
+import type { KiAktion, KiEntwurf, Werkzeug } from '../sprache/aktionen';
 import { FakeKi } from './fake';
 import { MistralKi } from './mistral';
 import { OpenAiKompatibelKi } from './openai-kompatibel';
@@ -19,10 +19,18 @@ export type KatalogFuerKi = { schluessel: string; bezeichnung: string; einheit: 
 export type FotoFuerKi = { bytes: Uint8Array; typ: 'image/jpeg' | 'image/png' };
 export type EntwurfEingabe = { text: string; katalog: KatalogFuerKi[]; foto?: FotoFuerKi };
 
+/**
+ * Bild-Auswertung (Lieferschein auslesen, Foto-Aufmaß): System-Anweisung, kurzer Text, 1–4 Fotos und GENAU EIN
+ * Werkzeug. Die Antwort prüft `pruefe` streng (wirft bei Unsinn → ein zweiter Versuch, dann 502). Datensparsamkeit:
+ * nur die Fotos und die Angaben des Nutzers (z. B. Referenzmaß) – nie Kundennamen, Adressen oder Preise aus der Datenbank.
+ */
+export type BildAnfrage<T> = { system: string; text: string; bilder: FotoFuerKi[]; werkzeug: Werkzeug; pruefe: (args: unknown) => T };
+
 export interface KiAnbieter {
 	readonly name: 'mistral' | 'openai-kompatibel' | 'fake';
 	aktionAusText(text: string, kontext: KiKontext): Promise<KiAktion>;
 	angebotsEntwurf(eingabe: EntwurfEingabe): Promise<KiEntwurf>;
+	bildAuswertung<T>(anfrage: BildAnfrage<T>): Promise<T>;
 }
 
 const WOCHENTAG_NAMEN = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
