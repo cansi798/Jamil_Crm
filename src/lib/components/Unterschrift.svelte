@@ -85,19 +85,26 @@
 	<canvas
 		bind:this={canvas}
 		data-testid="unterschrift-canvas"
-		style="touch-action: none; border: 1px solid #ccc; border-radius: 4px; cursor: crosshair;"
+		class="us-flaeche"
 		onpointerdown={pointerDown}
 		onpointermove={pointerMove}
 		onpointerup={pointerUp}
 		onpointercancel={pointerUp}
 	></canvas>
 	<div class="knopf-leiste">
-		<button type="button" onclick={loeschen} disabled={!hatZeichnung}>Löschen</button>
-		<button type="button" onclick={fertig} disabled={!hatZeichnung} data-testid="unterschrift-speichern">Fertig</button>
+		<button type="button" class="kd-knopf hell" onclick={loeschen} disabled={!hatZeichnung}>Löschen</button>
+		<button type="button" class="kd-knopf" onclick={fertig} disabled={!hatZeichnung} data-testid="unterschrift-speichern">Fertig</button>
 	</div>
 </div>
 
 <style>
+	.us-flaeche {
+		touch-action: none;
+		border: 1px solid var(--ui-rand-stark);
+		border-radius: var(--ui-radius);
+		background: #fff;
+		cursor: crosshair;
+	}
 	.unterschrift {
 		display: flex;
 		flex-direction: column;

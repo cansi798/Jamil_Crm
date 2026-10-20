@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Segmente from '$lib/components/ui/Segmente.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import KatalogSuche, { type KatalogTreffer } from '$lib/components/KatalogSuche.svelte';
@@ -263,6 +265,7 @@
 	let zuordnenTreffer = $state<{ id: string; text: string }[]>([]);
 	let zuordnenMeldung = $state<string | null>(null);
 
+	let zuordnenUhr: ReturnType<typeof setTimeout> | undefined;
 	async function zuordnenSuchen() {
 		zuordnenMeldung = null;
 		try {
@@ -322,24 +325,33 @@
 				{angebot.kundeId ? `Kunde: ${angebot.kundeName}. ` : 'Noch keinem Kunden zugeordnet. '}Einem Auftrag zuordnen – dann gilt dessen
 				Kunde – oder nur einem Kunden.
 			</p>
-			<div class="an-zuordnen-art" role="radiogroup" aria-label="Zuordnen zu">
-				<label><input type="radio" bind:group={zuordnenArt} value="auftrag" onchange={() => (zuordnenTreffer = [])} /> Auftrag</label>
-				<label><input type="radio" bind:group={zuordnenArt} value="kunde" onchange={() => (zuordnenTreffer = [])} /> Kunde</label>
-			</div>
+			<Segmente
+				label="Zuordnen zu"
+				bind:wert={zuordnenArt}
+				optionen={[
+					{ wert: 'auftrag', text: 'Auftrag' },
+					{ wert: 'kunde', text: 'Kunde' }
+				]}
+				onchange={() => (zuordnenTreffer = [])}
+			/>
 			<div class="kd-suche">
 				<input
 					type="search"
 					bind:value={zuordnenSuche}
 					placeholder={zuordnenArt === 'kunde' ? 'Name, Ort oder Telefon' : 'Nummer, Titel oder Kunde'}
 					aria-label="Zum Zuordnen suchen"
+					oninput={() => {
+						clearTimeout(zuordnenUhr);
+						zuordnenUhr = setTimeout(() => void zuordnenSuchen(), 250);
+					}}
 					onkeydown={(e) => {
 						if (e.key === 'Enter') {
 							e.preventDefault();
+							clearTimeout(zuordnenUhr);
 							void zuordnenSuchen();
 						}
 					}}
 				/>
-				<button type="button" class="kd-knopf" onclick={zuordnenSuchen}>Suchen</button>
 			</div>
 			{#if zuordnenMeldung}<p class="kd-info" role="status">{zuordnenMeldung}</p>{/if}
 			{#if zuordnenTreffer.length > 0}
@@ -366,11 +378,11 @@
 		</div>
 		<label>
 			MwSt-Satz
-			<select bind:value={kopf.mwstSatz} disabled={!entwurf}>
+			<Auswahl bind:value={kopf.mwstSatz} disabled={!entwurf}>
 				<option value={19}>19 %</option>
 				<option value={7}>7 %</option>
 				<option value={0}>0 %</option>
-			</select>
+			</Auswahl>
 		</label>
 		<label>Einleitung <textarea bind:value={kopf.einleitung} maxlength="2000" rows="2" disabled={!entwurf}></textarea></label>
 	</section>
@@ -393,12 +405,12 @@
 				<h3>Aus Vorlage einfügen</h3>
 				<p class="kd-info">Die Positionen kommen ans Ende; Katalogpositionen mit dem heutigen Katalogpreis.</p>
 				<div class="an-vorlage-wahl">
-					<select bind:value={vorlageWahl} aria-label="Angebots-Vorlage">
+					<Auswahl bind:value={vorlageWahl} aria-label="Angebots-Vorlage">
 						<option value="">– Vorlage wählen –</option>
 						{#each data.vorlagen as v (v.id)}
 							<option value={v.id}>{v.name} ({v.anzahlPositionen === 1 ? '1 Position' : `${v.anzahlPositionen} Positionen`})</option>
 						{/each}
-					</select>
+					</Auswahl>
 					<button type="button" class="kd-knopf" onclick={ausVorlage} disabled={arbeitet || !vorlageWahl}>Einfügen</button>
 				</div>
 			</section>
@@ -612,7 +624,7 @@
 		color: var(--m365-fehler);
 	}
 	.an-seite {
-		max-width: 64rem;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 	}
 	.an-kopf {
 		margin-bottom: 0.5rem;

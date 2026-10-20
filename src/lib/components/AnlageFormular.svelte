@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { untrack } from 'svelte';
 	import { ANLAGEN_TYPEN, EXTRA_FELDER, TYP_NAMEN, istAnlagenTyp, type AnlagenTyp } from '$lib/anlagen-typen';
@@ -25,9 +26,9 @@
 	<div class="kd-zwei an-zwei">
 		<label>
 			Typ *
-			<select name="typ" bind:value={typ}>
+			<Auswahl name="typ" bind:value={typ}>
 				{#each ANLAGEN_TYPEN as t (t)}<option value={t}>{TYP_NAMEN[t]}</option>{/each}
-			</select>
+			</Auswahl>
 		</label>
 		<label>
 			Bezeichnung
@@ -56,12 +57,12 @@
 					<label>
 						{f.name}{#if f.art === 'zahl' && f.einheit}&nbsp;({f.einheit}){/if}
 						{#if f.art === 'auswahl'}
-							<select name={`extra_${f.key}`}>
+							<Auswahl name={`extra_${f.key}`}>
 								<option value="">–</option>
 								{#each f.optionen as [wert, text] (wert)}
 									<option value={wert} selected={werte[`extra_${f.key}`] === wert}>{text}</option>
 								{/each}
-							</select>
+							</Auswahl>
 						{:else if f.art === 'datum'}
 							<input type="date" name={`extra_${f.key}`} value={werte[`extra_${f.key}`] ?? ''} />
 						{:else if f.art === 'zahl'}
@@ -80,10 +81,10 @@
 		<div class="an-drei">
 			<label>
 				Wartungsintervall
-				<select name="wartungRegel" bind:value={wartung}>
+				<Auswahl name="wartungRegel" bind:value={wartung}>
 					<option value="">keine</option>
 					{#each REGELN as r (r)}<option value={r}>{REGEL_NAMEN[r]}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
 			{#if wartung}
 				<label>

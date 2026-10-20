@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { anmelden } from './hilfe';
+import { anmelden, personenWaehlen } from './hilfe';
 import { berlinTag, berlinZeitpunkt, tagPlus, tagKurz } from '../../src/lib/zeit';
 
 /**
@@ -78,7 +78,7 @@ test.describe('Plantafel: Filter, Kolonnen, mehrtägig (Jamil msgs 2508, 2510, 2
 			await page.getByRole('button', { name: 'Kolonne hinzufügen' }).click();
 			const f = page.locator('form[action="?/speichern"]').filter({ hasNot: page.locator('input[name="id"]') });
 			await f.locator('input[name="name"]').fill(name);
-			await f.getByRole('checkbox', { name: MONTEUR_NAME }).check();
+			await personenWaehlen(f, 'Mitglieder', [MONTEUR_NAME]);
 			await f.getByRole('button', { name: 'Kolonne anlegen' }).click();
 			await expect(page.getByRole('list', { name: 'Kolonnen' })).toContainText(name);
 

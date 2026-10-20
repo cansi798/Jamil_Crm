@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { REGELN, REGEL_NAMEN } from '$lib/wiederholung';
@@ -119,9 +120,9 @@
 		<div class="ui-neu-regel">
 			<label>
 				Rhythmus
-				<select name="wiederholung">
+				<Auswahl name="wiederholung">
 					{#each REGELN as r (r)}<option value={r} selected={(werte.wiederholung || 'monatlich') === r}>{REGEL_NAMEN[r]}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
 			<label>
 				alle …

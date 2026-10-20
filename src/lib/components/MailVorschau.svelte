@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	/**
 	 * Live-Vorschau einer Mail (Wunsch Jamil msg 2670): fertige HTML-Mail mit Beispieldaten (Beispiel oder echtes Angebot
 	 * wählbar) und Signatur, Breite Desktop/Handy, Klartext-Ansicht. Sicherheit: Die Vorlage läuft nur im iframe mit
@@ -36,9 +37,9 @@
 		<strong class="mv-titel">{titel}</strong>
 		<label class="mv-wahl">
 			<span>Daten</span>
-			<select bind:value={beispielId} aria-label="Beispieldaten für die Vorschau">
+			<Auswahl bind:value={beispielId} aria-label="Beispieldaten für die Vorschau">
 				{#each beispiele as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-			</select>
+			</Auswahl>
 		</label>
 		<div class="mv-schalter" role="group" aria-label="Ansicht">
 			<button type="button" aria-pressed={ansicht === 'html'} onclick={() => (ansicht = 'html')}>HTML</button>

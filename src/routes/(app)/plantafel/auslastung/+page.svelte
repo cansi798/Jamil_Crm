@@ -97,7 +97,7 @@
 
 <style>
 	.al-seite {
-		max-width: 60rem;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 	}
 	.al-warnung {
 		padding: 0.6rem 0.8rem;

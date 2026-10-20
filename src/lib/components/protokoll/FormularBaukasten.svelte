@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	/**
 	 * Baukasten für Formulare (gemeinsam: Protokoll-Vorlagen, Wunsch Jamil msg 2649, und Fragen der Online-Buchung,
 	 * msgs 2684/2686): Schritte (Seiten) → Abschnitte → Felder. Felder per Ziehen und Ablegen oder ↑/↓ sortieren, je
@@ -197,9 +198,9 @@
 				<span class="pb-nr">{s + 1}</span>
 				<input type="text" class="pb-titel" bind:value={seite.titel} maxlength="200" aria-label={`Titel Schritt ${s + 1}`} />
 				<div class="pb-mini">
-					<button type="button" title="Schritt nach oben" aria-label="Schritt nach oben" disabled={s === 0} onclick={() => seiteSchieben(s, -1)}>↑</button>
-					<button type="button" title="Schritt nach unten" aria-label="Schritt nach unten" disabled={s === schema.seiten.length - 1} onclick={() => seiteSchieben(s, 1)}>↓</button>
-					<button type="button" title="Schritt löschen" aria-label="Schritt löschen" disabled={schema.seiten.length === 1} onclick={() => seiteWeg(s)}>✕</button>
+					<button type="button" class="knopf-ghost klein" title="Schritt nach oben" aria-label="Schritt nach oben" disabled={s === 0} onclick={() => seiteSchieben(s, -1)}>↑</button>
+					<button type="button" class="knopf-ghost klein" title="Schritt nach unten" aria-label="Schritt nach unten" disabled={s === schema.seiten.length - 1} onclick={() => seiteSchieben(s, 1)}>↓</button>
+					<button type="button" class="kd-knopf gefahr klein" title="Schritt löschen" aria-label="Schritt löschen" disabled={schema.seiten.length === 1} onclick={() => seiteWeg(s)}>✕</button>
 				</div>
 			</div>
 			{/if}
@@ -246,10 +247,10 @@
 										</span>
 									</button>
 									<div class="pb-mini">
-										<button type="button" aria-label="Nach oben" onclick={() => hoch(ort)}>↑</button>
-										<button type="button" aria-label="Nach unten" onclick={() => runter(ort)}>↓</button>
-										<button type="button" aria-label="Duplizieren" onclick={() => feldKopie(ort)}>⧉</button>
-										<button type="button" aria-label="Feld löschen" onclick={() => feldWeg(ort)}>✕</button>
+										<button type="button" class="knopf-ghost klein" aria-label="Nach oben" onclick={() => hoch(ort)}>↑</button>
+										<button type="button" class="knopf-ghost klein" aria-label="Nach unten" onclick={() => runter(ort)}>↓</button>
+										<button type="button" class="knopf-ghost klein" aria-label="Duplizieren" onclick={() => feldKopie(ort)}>⧉</button>
+										<button type="button" class="kd-knopf gefahr klein" aria-label="Feld löschen" onclick={() => feldWeg(ort)}>✕</button>
 									</div>
 								</div>
 								{#if offenId === f.id}
@@ -257,9 +258,9 @@
 									<div class="pb-feld-form">
 										<label>
 											Feldtyp
-											<select value={f.typ} onchange={(e) => typAendern(f, e.currentTarget.value as FeldTyp)}>
+											<Auswahl value={f.typ} onchange={(e) => typAendern(f, e.currentTarget.value as FeldTyp)}>
 												{#each typen as t (t)}<option value={t}>{FELD_TYP_NAMEN[t]}</option>{/each}
-											</select>
+											</Auswahl>
 										</label>
 										<label>{f.typ === 'hinweis' ? 'Überschrift' : 'Beschriftung / Frage'}<input type="text" bind:value={f.label} maxlength="300" /></label>
 										<label>
@@ -287,7 +288,7 @@
 										{#if f.typ === 'unterschrift'}
 											<label class="pb-kurz">
 												Wer unterschreibt?
-												<select bind:value={f.wer}><option value="kunde">Kunde</option><option value="monteur">Monteur</option></select>
+												<Auswahl bind:value={f.wer}><option value="kunde">Kunde</option><option value="monteur">Monteur</option></Auswahl>
 											</label>
 										{/if}
 										{#if f.typ !== 'hinweis'}
@@ -302,16 +303,16 @@
 											{#if quellen.length === 0}
 												<p class="kd-info">Bedingungen beziehen sich auf ein Feld davor – dieses ist das erste.</p>
 											{:else}
-												<select value={f.bedingung?.wirkung ?? ''} onchange={(e) => bedingungSetzen(f, e.currentTarget.value)} aria-label="Art der Bedingung">
+												<Auswahl value={f.bedingung?.wirkung ?? ''} onchange={(e) => bedingungSetzen(f, e.currentTarget.value)} aria-label="Art der Bedingung">
 													<option value="">immer zeigen</option>
 													<option value="zeigen">nur zeigen, wenn …</option>
 													{#if f.typ !== 'hinweis'}<option value="pflicht">Pflicht nur, wenn …</option>{/if}
-												</select>
+												</Auswahl>
 												{#if f.bedingung}
 													{@const b = f.bedingung}
 													{@const q = feldNach(b.feld)}
 													<div class="pb-reihe">
-														<select
+														<Auswahl
 															value={b.feld}
 															aria-label="Feld"
 															onchange={(e) => {
@@ -322,15 +323,15 @@
 															}}
 														>
 															{#each quellen as qf (qf.id)}<option value={qf.id}>{qf.label}</option>{/each}
-														</select>
-														<select bind:value={b.op} aria-label="Vergleich">
+														</Auswahl>
+														<Auswahl bind:value={b.op} aria-label="Vergleich">
 															{#each opsFuer(q?.typ ?? 'text') as op (op)}<option value={op}>{BEDINGUNG_OP_NAMEN[op]}</option>{/each}
-														</select>
+														</Auswahl>
 														{#if brauchtWert(b.op)}
 															{#if q?.typ === 'janein'}
-																<select bind:value={b.wert} aria-label="Wert"><option value="ja">ja</option><option value="nein">nein</option></select>
+																<Auswahl bind:value={b.wert} aria-label="Wert"><option value="ja">ja</option><option value="nein">nein</option></Auswahl>
 															{:else if q?.optionen}
-																<select bind:value={b.wert} aria-label="Wert">{#each q.optionen as o (o)}<option value={o}>{o}</option>{/each}</select>
+																<Auswahl bind:value={b.wert} aria-label="Wert">{#each q.optionen as o (o)}<option value={o}>{o}</option>{/each}</Auswahl>
 															{:else}
 																<input type="text" bind:value={b.wert} aria-label="Wert" maxlength="200" />
 															{/if}
@@ -352,7 +353,7 @@
 							}}
 							ondrop={(e) => (e.preventDefault(), ablegen({ s, a, f: abschnitt.felder.length }))}
 						>
-							<select
+							<Auswahl
 								class="pb-neu"
 								aria-label="Feld hinzufügen"
 								data-testid="feld-dazu"
@@ -363,7 +364,7 @@
 							>
 								<option value="">+ Feld hinzufügen …</option>
 								{#each typen as t (t)}<option value={t}>{FELD_TYP_NAMEN[t]}</option>{/each}
-							</select>
+							</Auswahl>
 						</li>
 					</ol>
 				</div>

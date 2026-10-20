@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import type { ActionData, PageData } from './$types';
@@ -55,33 +57,23 @@
 		{#if ko}<input type="hidden" name="id" value={ko.id} />{/if}
 		<div class="ko-raster">
 			<label>Name <input type="text" name="name" maxlength="100" required value={ko?.name ?? ''} placeholder="z. B. Kolonne A" /></label>
-			<label>
+			<div class="ui-feld">
 				Kolonnenführer (optional)
-				<select name="leiterId">
-					<option value="">–</option>
-					{#each data.mitarbeiter as m (m.id)}<option value={m.id} selected={ko?.leiterId === m.id}>{m.name}</option>{/each}
-				</select>
-			</label>
+				<PersonWahl name="leiterId" label="Kolonnenführer" leerText="Kein Kolonnenführer" personen={data.mitarbeiter} wert={ko?.leiterId ?? ''} />
+			</div>
 			<label>Fahrzeug (optional) <input type="text" name="fahrzeug" maxlength="100" value={ko?.fahrzeug ?? ''} placeholder="z. B. HH-BW 123" /></label>
 		</div>
-		<fieldset>
-			<legend>Mitglieder</legend>
-			<div class="ko-mitglieder">
-				{#each data.mitarbeiter as m (m.id)}
-					<label class="kd-haken">
-						<input type="checkbox" name="mitglieder" value={m.id} checked={!!ko?.mitglieder.some((x) => x.id === m.id)} />
-						<span>{m.name}</span>
-					</label>
-				{/each}
-			</div>
-		</fieldset>
+		<div class="ui-feld">
+			Mitglieder
+			<PersonWahl name="mitglieder" mehrfach label="Mitglieder" leerText="Mitglieder wählen" personen={data.mitarbeiter} werte={ko?.mitglieder.map((x) => x.id) ?? []} />
+		</div>
 		{#if ko}
 			<label class="kd-haken"><input type="checkbox" name="aktiv" value="true" checked={ko.aktiv} /><span>aktiv (auf der Plantafel)</span></label>
 			<input type="hidden" name="aktiv" value="false" />
 		{/if}
 		<div class="ko-knoepfe">
-			<button type="submit" class="kd-knopf">{ko ? 'Speichern' : 'Kolonne anlegen'}</button>
 			{#if schliessen}<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>{/if}
+			<button type="submit" class="kd-knopf">{ko ? 'Speichern' : 'Kolonne anlegen'}</button>
 		</div>
 	</form>
 {/snippet}

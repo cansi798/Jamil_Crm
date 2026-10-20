@@ -64,8 +64,8 @@
 				<label>Name <input type="text" name="name" maxlength="100" required placeholder="z. B. Instagram" /></label>
 				<label class="qu-farbwahl">Farbe <input type="color" name="farbe" value={standardFarbe('', data.quellen.length)} class="qu-farbe" /></label>
 				<div class="qu-knoepfe">
-					<button type="submit" class="kd-knopf">Hinzufügen</button>
 					<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+					<button type="submit" class="kd-knopf">Hinzufügen</button>
 				</div>
 			</form>
 		{/snippet}

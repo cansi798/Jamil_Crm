@@ -103,6 +103,13 @@ html summary:is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-
 html :is(.kd-knopf, .knopf, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr).klein {
 	border-radius: var(--ui-chip-radius);
 }
+@media (pointer: fine) {
+	html :is(.kd-knopf, .knopf, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost).klein {
+		min-height: 2rem;
+		padding: 0.2rem 0.75rem;
+		font-size: 0.75rem;
+	}
+}
 /* Reiter und Umschalter wie Chips */
 html .af-reiter a {
 	border-radius: var(--ui-chip-radius);
@@ -409,9 +416,35 @@ html :is(.kd-formular, .ui-formular) label:has(> input:is([type='checkbox'], [ty
 	color: var(--ui-text);
 	font-size: var(--ui-schrift-m);
 }
-html :is(.kd-formular, .ui-formular) fieldset {
-	border-color: var(--ui-rand);
-	border-radius: var(--ui-radius-karte);
+/* Gruppen ohne Rahmen (keine <fieldset>-Kästen als Gestaltung): Legende wie eine Feldbeschriftung */
+html :is(.kd-formular, .kd-seite, form, main) fieldset {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+}
+html :is(.kd-formular, .kd-seite, form, main) legend {
+	margin: 0 0 0.4rem;
+	padding: 0;
+	color: var(--ui-text-leise);
+	font-size: var(--ui-schrift-s);
+	font-weight: 500;
+}
+
+/* Feldgruppe ohne <label> (für Bausteine mit eigener Bedienung, z. B. PersonWahl): sieht aus wie eine Beschriftung */
+html .ui-feld {
+	display: grid;
+	gap: 0.3rem;
+	justify-items: start;
+	color: var(--ui-text-leise);
+	font-size: var(--ui-schrift-s);
+	font-weight: 500;
+}
+@media (min-width: 1100px) {
+	html .kd-formular > .ui-feld {
+		grid-column: auto;
+	}
 }
 
 /* ── Chips (Auswahl-Knöpfe in Formularen: Person, Datum …) und Popover ────────────────────────────── */
@@ -733,6 +766,9 @@ html .seiten-kopf h1 {
 	align-items: center;
 	gap: var(--ui-a2);
 }
+html .filter-leiste :is(.pill, .ui-chip) {
+	min-height: 2.25rem;
+}
 .fl-rechts {
 	display: flex;
 	flex-wrap: wrap;
@@ -762,7 +798,7 @@ html .seiten-kopf h1 {
 	margin-left: auto;
 }
 /* Altbestand: Aktionszeilen der Formulare ebenfalls rechtsbündig */
-html :is(.kd-aktionen, .td-neu-knoepfe, .af-fuss) {
+html :is(.kd-aktionen, .td-neu-knoepfe, .af-fuss, .ko-knoepfe, .knoepfe, form > .knopf-reihe:last-child) {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: flex-end;

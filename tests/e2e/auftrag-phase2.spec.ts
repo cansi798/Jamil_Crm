@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { anmelden, erwarteKeinQuerScrollen } from './hilfe';
+import { anmelden, erwarteKeinQuerScrollen, personenWaehlen, personWaehlen } from './hilfe';
 
 /**
  * Phase 2 der Wünsche von Jamil (19.10.2026): Zuständige am Auftrag, Einsatzort (Standard = Kundenadresse), Termine
@@ -47,7 +47,7 @@ test('Auftrag: Zuständige, Einsatzort, Termin mit Art, Hinweise zum Kunden', as
 		const objekt = page.locator('select[name="objektId"]');
 		await expect(objekt).toHaveValue('');
 		await expect(objekt.locator('option:checked')).toHaveText(/Kundenadresse \(Standard\) – Teichweg 5, 22846 Norderstedt/);
-		await page.getByRole('checkbox', { name: 'Murat Öztürk' }).check();
+		await personenWaehlen(page, 'Zuständige Mitarbeiter', ['Murat Öztürk']);
 		await page.getByRole('button', { name: 'Speichern' }).click();
 		await page.waitForURL(new RegExp(`/auftraege/${auftrag.id}$`));
 		await expect(page.getByRole('list', { name: 'Zuständige Mitarbeiter' }).getByText('Murat Öztürk')).toBeVisible();
@@ -56,7 +56,7 @@ test('Auftrag: Zuständige, Einsatzort, Termin mit Art, Hinweise zum Kunden', as
 		await page.getByRole('button', { name: 'Termin hinzufügen' }).click();
 		const termin = page.locator('form[action="?/terminAnlegen"]');
 		await termin.locator('select[name="art"]').selectOption('besichtigung');
-		await termin.locator('select[name="benutzerId"]').selectOption({ label: 'Murat Öztürk' });
+		await personWaehlen(termin, 'Mitarbeiter', 'Murat Öztürk');
 		await termin.locator('input[name="von"]').fill('09:00');
 		await termin.locator('input[name="bis"]').fill('10:00');
 		await termin.locator('input[name="notiz"]').fill('Aufmaß nehmen');

@@ -54,7 +54,7 @@ keine Linie darunter.
   **links** von „Speichern“ (primär).
 - Anlegen-Formulare eingeklappt: Baustein `components/AddPanel.svelte` („+ … hinzufügen“), außer die Seite IST das
   Formular.
-- Keine `<fieldset>`/`<legend>`-Rahmen als Gestaltung – Gruppen als Abschnitt oder mit Zwischenüberschrift.
+- Keine Rahmen um Gruppen: `<fieldset>` bleibt für die Bedienung mit Screenreader, sieht aber aus wie eine normale Feldgruppe (Legende = Beschriftung). Größere Gruppen als Abschnitt.
 
 ## 6. Auswahl-Bausteine (statt Browser-Standard)
 

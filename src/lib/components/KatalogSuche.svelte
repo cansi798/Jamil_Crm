@@ -13,6 +13,7 @@
 </script>
 
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { euro } from '$lib/geld';
 	import { GEWERKE, GEWERK_NAMEN } from '$lib/katalog-werte';
 
@@ -60,12 +61,12 @@
 <div class="ks">
 	<div class="ks-kopf">
 		<input type="search" bind:value={suche} placeholder="Katalog durchsuchen" aria-label="Katalog durchsuchen" autocomplete="off" />
-		<select bind:value={gewerk} aria-label="Gewerk">
+		<Auswahl bind:value={gewerk} aria-label="Gewerk">
 			<option value="">Alle Gewerke</option>
 			{#each GEWERKE as g (g)}
 				<option value={g}>{GEWERK_NAMEN[g]}</option>
 			{/each}
-		</select>
+		</Auswahl>
 	</div>
 	{#if fehler}
 		<p role="alert" class="kd-fehler">{fehler}</p>

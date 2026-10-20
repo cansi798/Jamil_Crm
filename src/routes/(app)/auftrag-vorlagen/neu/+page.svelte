@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { STUFEN, STUFE_NAMEN } from '$lib/stufen';
 	import { enhance } from '$app/forms';
 	import type { ActionData } from './$types';
@@ -27,7 +28,7 @@
 	<title>Neue Vorlage – CRM</title>
 </svelte:head>
 
-<div class="seite">
+<div class="seite kd-seite">
 	<header class="kopf">
 		<h1>Neue Vorlage</h1>
 	</header>
@@ -68,37 +69,37 @@
 							maxlength="500"
 						/>
 						<div class="todo-stufen">
-							<select name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke To-do {i + 1}">
+							<Auswahl name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke To-do {i + 1}">
 								<option value="">Lautstärke –</option>
 								{#each STUFEN as n (n)}<option value={String(n)}>Lautstärke: {STUFE_NAMEN[n]}</option>{/each}
-							</select>
-							<select name="todo_schmutz_{i}" bind:value={todo.schmutz} aria-label="Schmutz To-do {i + 1}">
+							</Auswahl>
+							<Auswahl name="todo_schmutz_{i}" bind:value={todo.schmutz} aria-label="Schmutz To-do {i + 1}">
 								<option value="">Schmutz –</option>
 								{#each STUFEN as n (n)}<option value={String(n)}>Schmutz: {STUFE_NAMEN[n]}</option>{/each}
-							</select>
+							</Auswahl>
 						</div>
 					</div>
 					<div class="todo-knoepfe">
-						<button type="button" on:click={() => todoVerschieben(i, -1)} disabled={i === 0}>↑</button>
-						<button type="button" on:click={() => todoVerschieben(i, 1)} disabled={i === todos.length - 1}>↓</button>
-						<button type="button" on:click={() => todoEntfernen(i)} class="entfernen">×</button>
+						<button type="button" class="knopf-ghost" aria-label="Nach oben" on:click={() => todoVerschieben(i, -1)} disabled={i === 0}>↑</button>
+						<button type="button" class="knopf-ghost" aria-label="Nach unten" on:click={() => todoVerschieben(i, 1)} disabled={i === todos.length - 1}>↓</button>
+						<button type="button" on:click={() => todoEntfernen(i)} class="kd-knopf gefahr" aria-label="Entfernen">×</button>
 					</div>
 				</div>
 			{/each}
-			<button type="button" on:click={todoHinzufuegen} class="hinzufuegen">+ To-do hinzufügen</button>
+			<button type="button" on:click={todoHinzufuegen} class="kd-knopf hell">+ Aufgabe hinzufügen</button>
 		</fieldset>
 
-		<div class="knoepfe">
-			<a href="/auftrag-vorlagen" class="knopf">Abbrechen</a>
-			<button type="submit" class="knopf prima">Speichern</button>
+		<div class="knoepfe form-fuss-rechts">
+			<a href="/auftrag-vorlagen" class="kd-knopf hell">Abbrechen</a>
+			<button type="submit" class="kd-knopf">Speichern</button>
 		</div>
 	</form>
 </div>
 
 <style>
 	.seite {
-		max-width: 600px;
-		margin: 0 auto;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
+		margin: 0;
 		padding: 1rem;
 	}
 	.kopf {

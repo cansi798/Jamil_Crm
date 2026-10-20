@@ -14,6 +14,6 @@
 
 <style>
 	.an-seite {
-		max-width: 64rem;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 	}
 </style>

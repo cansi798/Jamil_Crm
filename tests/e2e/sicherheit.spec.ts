@@ -106,7 +106,7 @@ test('CSP bricht nichts: Anmeldung, Navigation im Client, Service Worker – ohn
 	// Interaktivität (hydratisiertes Svelte): Suche abschicken führt zur Ergebnis-URL
 	await page.goto('/kunden');
 	await page.getByRole('searchbox', { name: 'Kunden suchen' }).fill('größer');
-	await page.getByRole('button', { name: 'Suchen' }).click();
+	await page.getByRole('searchbox', { name: 'Kunden suchen' }).press('Enter');
 	await expect(page).toHaveURL(/suche=/);
 	expect(await verstoesse()).toEqual([]);
 });

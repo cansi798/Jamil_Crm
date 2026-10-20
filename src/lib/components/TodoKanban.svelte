@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import KachelBoard from './KachelBoard.svelte';
@@ -155,17 +156,17 @@
 						<div class="karte-zwei">
 							<label>
 								Lautstärke
-								<select name="lautstaerke">
+								<Auswahl name="lautstaerke">
 									<option value="" selected={!todo.lautstaerke}>–</option>
 									{#each STUFEN as n (n)}<option value={String(n)} selected={todo.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
-								</select>
+								</Auswahl>
 							</label>
 							<label>
 								Schmutz
-								<select name="schmutz">
+								<Auswahl name="schmutz">
 									<option value="" selected={!todo.schmutz}>–</option>
 									{#each STUFEN as n (n)}<option value={String(n)} selected={todo.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
-								</select>
+								</Auswahl>
 							</label>
 						</div>
 						<button type="submit" class="kd-knopf">Speichern</button>

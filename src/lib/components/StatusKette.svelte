@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { naechsterStatus, STATUS, STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
 
@@ -50,7 +51,7 @@
 	<form method="POST" action={aktion} use:enhance class="sk-mobil">
 		<input type="hidden" name="sprung" value="1" />
 		{#if darfBearbeiten}
-			<select
+			<Auswahl
 				name="status"
 				aria-label="Status"
 				class="sk-chip"
@@ -61,7 +62,7 @@
 				}}
 			>
 				{#each STATUS as s (s)}<option value={s} selected={s === status}>{STATUS_NAMEN[s]}</option>{/each}
-			</select>
+			</Auswahl>
 		{:else}
 			<span class="sk-chip">{STATUS_NAMEN[status]}</span>
 		{/if}

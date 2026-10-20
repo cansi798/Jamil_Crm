@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { tagDeutsch } from '$lib/zeit';
 	import AddPanel from '$lib/components/AddPanel.svelte';
@@ -7,6 +9,7 @@
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let neuOffen = $state(untrack(() => !!form?.fehler));
 
 	const NAMEN = { urlaub: 'Urlaub', krank: 'Krank', sonstiges: 'Sonstiges' } as const;
 	const werte = $derived((form && 'werte' in form ? form.werte : null) ?? ({} as Record<string, string>));
@@ -23,10 +26,16 @@
 			<h1>Abwesenheiten</h1>
 			<p class="seiten-meta">Urlaub, Krankheit und Sonstiges – ganztägig, „von“ und „bis“ zählen mit.</p>
 		</div>
+		<div class="seiten-aktionen">
+			<button type="button" class="kd-knopf" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>
+				<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" /></svg>
+				Abwesenheit eintragen
+			</button>
+		</div>
 	</header>
 
 	{#if form && 'angelegt' in form}<p role="status" class="kd-info">Abwesenheit eingetragen.</p>{/if}
-	<AddPanel label="Abwesenheit eintragen" art="primaer" offen={!!form?.fehler}>
+	<AddPanel label="Abwesenheit eintragen" knopf={false} bind:offen={neuOffen}>
 		{#snippet children(schliessen)}
 	<form method="POST" action="?/anlegen" use:enhance class="kd-formular">
 		{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
@@ -36,11 +45,11 @@
 		</div>
 		<label>
 			Art *
-			<select name="art" required>
+			<Auswahl name="art" required>
 				{#each Object.entries(NAMEN) as [wert, name] (wert)}
 					<option value={wert} selected={wert === (werte.art || 'urlaub')}>{name}</option>
 				{/each}
-			</select>
+			</Auswahl>
 		</label>
 		<div class="kd-zwei">
 			<label>Von * <input type="date" name="von" required value={werte.von ?? data.heute} /></label>
@@ -48,8 +57,8 @@
 		</div>
 		<label>Notiz <input type="text" name="notiz" maxlength="200" value={werte.notiz ?? ''} /></label>
 		<div class="knopf-reihe">
-			<button type="submit" class="kd-knopf">Eintragen</button>
 			<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+			<button type="submit" class="kd-knopf">Eintragen</button>
 		</div>
 	</form>
 		{/snippet}

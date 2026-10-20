@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import AnlageFormular from '$lib/components/AnlageFormular.svelte';
@@ -109,13 +111,10 @@
 				{/if}
 				<div class="kd-zwei an-zwei-spalten">
 					<label>Erste Wartung <input type="date" name="faellig" value={heute} required /></label>
-					<label>
+					<div class="ui-feld">
 						Zuständig
-						<select name="zustaendigId">
-							<option value="">– niemand –</option>
-							{#each data.mitarbeiter as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
-						</select>
-					</label>
+						<PersonWahl name="zustaendigId" personen={data.mitarbeiter} />
+					</div>
 				</div>
 				<button type="submit" class="kd-knopf hell">Wartung {a.wartungText} als To-do planen</button>
 			</form>

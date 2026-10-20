@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import AddPanel from '$lib/components/AddPanel.svelte';
@@ -59,19 +61,24 @@
 					<label class="ob-kurz">Dauer (Minuten) <input type="number" name="dauerMin" min="5" max="720" step="5" value="60" required /></label>
 					<fieldset class="ob-wahl">
 						<legend>Wer wird gebucht?</legend>
-						<label class="kd-haken"><input type="radio" name="modus" value="beliebig" checked /> Beliebiger freier Mitarbeiter (abwechselnd)</label>
-						<label class="kd-haken"><input type="radio" name="modus" value="fest" /> Fester Mitarbeiter (genau einer)</label>
+						<Segmente
+							name="modus"
+							label="Wer wird gebucht?"
+							wert="beliebig"
+							optionen={[
+								{ wert: 'beliebig', text: 'Beliebiger freier Mitarbeiter (abwechselnd)' },
+								{ wert: 'fest', text: 'Fester Mitarbeiter (genau einer)' }
+							]}
+						/>
 					</fieldset>
-					<fieldset class="ob-wahl">
-						<legend>Mitarbeiter</legend>
+					<div class="ui-feld">
+						Mitarbeiter
 						<input type="hidden" name="mitarbeiterGesendet" value="1" />
-						{#each data.mitarbeiter as m (m.id)}
-							<label class="kd-haken"><input type="checkbox" name="mitarbeiter" value={m.id} /><Avatar name={m.name} groesse={22} /> {m.name}</label>
-						{/each}
-					</fieldset>
+						<PersonWahl name="mitarbeiter" mehrfach label="Mitarbeiter" leerText="Mitarbeiter wählen" personen={data.mitarbeiter} />
+					</div>
 					<div class="kd-aktionen">
-						<button type="submit" class="kd-knopf">Anlegen</button>
 						<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+						<button type="submit" class="kd-knopf">Anlegen</button>
 					</div>
 				</form>
 			{/snippet}

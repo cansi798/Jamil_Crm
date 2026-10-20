@@ -172,8 +172,8 @@
 							<textarea name="text" bind:value={notizText} maxlength="10000" rows="3" required placeholder="z. B. Hund im Garten – bitte klingeln"></textarea>
 						</label>
 						<div class="knopf-reihe">
-							<button type="submit" class="kd-knopf">Notiz speichern</button>
 							<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+							<button type="submit" class="kd-knopf">Notiz speichern</button>
 						</div>
 					</form>
 				{/snippet}
@@ -214,8 +214,8 @@
 						</label>
 						<label>Beschreibung (optional) <input type="text" name="beschreibung" maxlength="500" /></label>
 						<div class="knopf-reihe">
-							<button type="submit" class="kd-knopf">Hochladen</button>
 							<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+							<button type="submit" class="kd-knopf">Hochladen</button>
 						</div>
 					</form>
 				{/snippet}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import '$lib/stil/kunden.css';
 	import { enhance } from '$app/forms';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -30,7 +31,7 @@
 			<Abschnitt titel="1. Bekannte Werte">
 				<div class="fa-raster">
 					<label>Raum
-						<select name="raumart">{#each RAUMARTEN as r (r)}<option value={r} selected={w('raumart') === r}>{RAUMART_NAMEN[r]}</option>{/each}</select>
+						<Auswahl name="raumart">{#each RAUMARTEN as r (r)}<option value={r} selected={w('raumart') === r}>{RAUMART_NAMEN[r]}</option>{/each}</Auswahl>
 					</label>
 					<label>Wandfläche (m²) <input name="wandM2" inputmode="decimal" required value={w('wandM2')} placeholder="z. B. 22,5" /></label>
 					<label>Bodenfläche (m²) <input name="bodenM2" inputmode="decimal" required value={w('bodenM2')} placeholder="z. B. 6,2" /></label>

@@ -133,7 +133,7 @@
 
 <style>
 	.qa-seite {
-		max-width: 70rem;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 	}
 	.qa-zeitraum {
 		display: flex;

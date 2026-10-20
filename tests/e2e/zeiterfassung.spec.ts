@@ -74,9 +74,11 @@ test('Chef: Zeiten des Monteurs, Woche freigeben, Export CSV/PDF', async ({ brow
 	const viewport = info.project.name === 'mobil' ? { width: 390, height: 844 } : { width: 1280, height: 800 };
 	const chef = await alsTestzugang(browser, 'can.chef', viewport);
 	await chef.goto('/zeiten');
-	const person = chef.locator('select[name="person"]');
-	await expect(person).toBeVisible();
-	const monteurId = await person.locator('option', { hasText: 'Monteur' }).first().getAttribute('value');
+	// Personenauswahl (PersonWahl): Monteur wählen → Seite lädt mit ?person=…
+	await chef.getByRole('button', { name: /^Person( \(Pflichtfeld\))?:/ }).click();
+	await chef.getByRole('option', { name: /Monteur/ }).first().click();
+	await chef.waitForURL(/person=/);
+	const monteurId = new URL(chef.url()).searchParams.get('person');
 	await chef.goto(`/zeiten?ansicht=woche&person=${monteurId}`);
 	await expect(chef.locator('.zt-tabelle')).toBeVisible();
 	const freigeben = chef.getByRole('button', { name: 'Woche freigeben' });

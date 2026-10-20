@@ -1,4 +1,8 @@
 <script lang="ts">
+	import KundeWahl from '$lib/components/ui/KundeWahl.svelte';
+	import { goto } from '$app/navigation';
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import HeuteListe from '$lib/components/HeuteListe.svelte';
 	import ZeitKnoepfe from '$lib/components/zeit/ZeitKnoepfe.svelte';
@@ -30,17 +34,9 @@
 	</header>
 
 	{#if data.kunden}
-		<form method="GET" action="/kunden" role="search" class="suche">
-			<input
-				type="search"
-				name="suche"
-				placeholder="Kunden suchen"
-				aria-label="Kunden suchen"
-				autocomplete="off"
-				enterkeyhint="search"
-			/>
-			<button type="submit" class="knopf-subtil">Suchen</button>
-		</form>
+		<div class="suche">
+			<KundeWahl label="Kunden suchen" placeholder="Kunden suchen – Name, Ort oder Telefon" onwaehle={(k) => goto(`/kunden/${k.id}`)} />
+		</div>
 	{/if}
 
 	{#if data.zeit}
@@ -74,10 +70,16 @@
 				<h2 id="heute-titel">Heute <small>{tagKurz(data.heuteTag)}</small></h2>
 				{#if data.personen.length > 0}
 					<form method="GET" class="plan-person">
-						<select name="person" aria-label="Person" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-							{#each data.personen as p (p.id)}<option value={p.id} selected={p.id === data.plan.person.id}>{p.id === data.benutzerId ? `Ich (${p.name})` : p.name}</option>{/each}
-						</select>
-						<noscript><button type="submit">Zeigen</button></noscript>
+						<PersonWahl
+							name="person"
+							label="Person"
+							klein
+							required
+							personen={data.personen.map((p) => ({ id: p.id, name: p.id === data.benutzerId ? `Ich (${p.name})` : p.name }))}
+							wert={data.plan.person.id}
+							absenden
+						/>
+						<noscript><button type="submit" class="kd-knopf hell">Zeigen</button></noscript>
 					</form>
 				{/if}
 			</div>
@@ -148,25 +150,8 @@
 
 	/* Suche wie M365-CommandBar */
 	.suche {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 0.5rem;
-		margin-bottom: 1.5rem;
-	}
-	.suche input {
-		width: 100%;
-		min-height: var(--tippziel);
-		padding: 0.375rem 0.625rem;
-		border: 1px solid var(--m365-rand-stark);
-		border-radius: var(--m365-radius);
-		background: var(--m365-flaeche);
-		font-family: var(--m365-schrift);
-		font-size: 0.875rem;
-	}
-	.suche input:focus {
-		border-color: var(--m365-primaer);
-		box-shadow: var(--ui-fokus-ring);
-		outline: none;
+		margin-bottom: 1.25rem;
+		max-width: 40rem;
 	}
 
 	/* Kachel „Diesen Monat“ (Gewinn verplant, Stunden frei) */

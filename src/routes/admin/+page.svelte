@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { ABO_STATUS_NAMEN, istAboStatus } from '$lib/abo';
 	import type { ActionData, PageData } from './$types';
@@ -94,11 +95,11 @@
 			</label>
 			<label>
 				Tarif
-				<select name="tarif" required>
+				<Auswahl name="tarif" required>
 					{#each data.tarife as t (t.schluessel)}
 						<option value={t.schluessel} selected={wert('tarif') === t.schluessel}>{t.name}</option>
 					{/each}
-				</select>
+				</Auswahl>
 			</label>
 			<label>
 				Name des Chefs

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import '$lib/stil/kunden.css';
 	import { enhance } from '$app/forms';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -27,9 +28,9 @@
 		<label>Von <input type="date" name="von" value={a.von} /></label>
 		<label>Bis <input type="date" name="bis" value={a.bis} /></label>
 		<label>Gruppieren nach
-			<select name="gruppe">
+			<Auswahl name="gruppe">
 				{#each Object.entries(data.gruppen) as [w, n] (w)}<option value={w} selected={w === a.gruppe}>{n}</option>{/each}
-			</select>
+			</Auswahl>
 		</label>
 		<button type="submit" class="kd-knopf">Anzeigen</button>
 	</form>

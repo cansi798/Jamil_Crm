@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import AddPanel from '$lib/components/AddPanel.svelte';
@@ -14,6 +16,7 @@
 		form && 'fehler' in form && form.aktion === aktion && (id === undefined || ('id' in form && form.id === id))
 			? form.fehler
 			: null;
+	let neuOffen = $state(untrack(() => !!fehlerFuer('einladen')));
 	let kopiert = $state(false);
 
 	async function kopieren() {
@@ -40,9 +43,15 @@
 			<h1>Benutzer</h1>
 			<p class="seiten-meta">{data.benutzer.length} Benutzer · {data.einladungen.length} offene Einladungen</p>
 		</div>
+		<div class="seiten-aktionen">
+			<button type="button" class="kd-knopf" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>
+				<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" /></svg>
+				Person einladen
+			</button>
+		</div>
 	</header>
 
-	<AddPanel label="Person einladen" art="primaer" offen={!!fehlerFuer('einladen')}>
+	<AddPanel label="Person einladen" knopf={false} bind:offen={neuOffen}>
 		{#snippet children(schliessen)}
 			<p class="kd-info">
 				Sie erhalten einen Link, den Sie selbst weitergeben (z. B. per Messenger oder E-Mail). Er ist
@@ -74,16 +83,16 @@
 					</label>
 					<label>
 						Rolle
-						<select name="rolleId" required>
+						<Auswahl name="rolleId" required>
 							{#each vergebbar as rolle (rolle.id)}
 								<option value={rolle.id}>{rolle.name}</option>
 							{/each}
-						</select>
+						</Auswahl>
 					</label>
 				</div>
 				<div class="knopf-reihe">
-					<button type="submit" class="kd-knopf" disabled={vergebbar.length === 0}>Einladungslink erstellen</button>
 					<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+					<button type="submit" class="kd-knopf" disabled={vergebbar.length === 0}>Einladungslink erstellen</button>
 				</div>
 			</form>
 		{/snippet}
@@ -141,11 +150,11 @@
 							<form method="POST" action="?/aendern" use:enhance class="bn-rolle">
 								<input type="hidden" name="id" value={b.id} />
 								<label class="unsichtbar" for={`rolle-${b.id}`}>Rolle von {b.name}</label>
-								<select id={`rolle-${b.id}`} name="rolleId">
+								<Auswahl id={`rolle-${b.id}`} name="rolleId">
 									{#each vergebbar as rolle (rolle.id)}
 										<option value={rolle.id} selected={rolle.id === b.rolleId}>{rolle.name}</option>
 									{/each}
-								</select>
+								</Auswahl>
 								<button type="submit" class="kd-knopf hell">Rolle speichern</button>
 							</form>
 							{#if b.id !== data.ichId}

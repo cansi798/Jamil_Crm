@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { anmelden } from './hilfe';
+import { anmelden, personenWaehlen } from './hilfe';
 
 /**
  * Wünsche Jamil (msgs 2489, 2490, 2497): Mitarbeiter direkt im Auftrag zuweisen; der Mitarbeiter sieht den Auftrag
@@ -45,7 +45,7 @@ test('Büro weist „Jamil (Test) – Monteur“ im Auftrag zu → er sieht Auft
 		await page.goto(`/auftraege/${auftrag.id}`);
 		const zuweisen = page.locator('details.af-zuweisen');
 		if ((await zuweisen.getAttribute('open')) === null) await zuweisen.locator('summary').click();
-		await zuweisen.getByRole('checkbox', { name: 'Jamil (Test) – Monteur' }).check();
+		await personenWaehlen(zuweisen, 'Mitarbeiter zuweisen', ['Jamil (Test) – Monteur']);
 		await expect(page.getByRole('list', { name: 'Zuständige Mitarbeiter' }).getByText('Jamil (Test) – Monteur')).toBeVisible();
 		await expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible();
 		// To-do ohne direkte Zuweisung im Auftrag

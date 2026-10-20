@@ -1,4 +1,6 @@
 <script lang="ts">
+	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
+	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
 	import type { PageData } from './$types';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 
@@ -18,22 +20,18 @@
 	<header class="seiten-kopf">
 		<h1>Kunden</h1>
 		{#if data.darfBearbeiten}
-			<a href="/kunden/neu" class="knopf-gefuellt">+ Kunde</a>
+			<div class="seiten-aktionen"><a href="/kunden/neu" class="kd-knopf">+ Kunde</a></div>
 		{/if}
 	</header>
 
-	<form method="GET" role="search" class="kd-suche">
-		<input
-			type="search"
-			name="suche"
-			value={data.suche}
-			placeholder="Name, Firma, Ort, Telefon oder E-Mail"
-			aria-label="Kunden suchen"
-			autocomplete="off"
-			enterkeyhint="search"
-		/>
-		<button type="submit" class="knopf-subtil">Suchen</button>
-	</form>
+	<FilterLeiste label="Kunden filtern">
+		{#snippet suche()}
+			<SuchFeld wert={data.suche} label="Kunden suchen" placeholder="Name, Firma, Ort, Telefon oder E-Mail" />
+		{/snippet}
+		{#snippet rechts()}
+			<span class="kd-info">{data.kunden.length} {data.kunden.length === 1 ? 'Kunde' : 'Kunden'}</span>
+		{/snippet}
+	</FilterLeiste>
 
 	<ul class="kd-liste">
 		{#each data.kunden as kunde (kunde.id)}

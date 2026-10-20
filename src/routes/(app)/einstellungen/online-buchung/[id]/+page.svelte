@@ -1,4 +1,7 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Segmente from '$lib/components/ui/Segmente.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	/**
 	 * Dienst der Online-Buchung bearbeiten (Wunsch Jamil msgs 2684/2686): Angaben (Dauer, Puffer, Vorlauf, Horizont,
 	 * Tagesgrenze, Ort, Farbe), Mitarbeiter (fest/abwechselnd), eigene Fragen an den Kunden (gleicher Baukasten wie bei
@@ -96,10 +99,10 @@
 					<label>Puffer danach (Min.) <input type="number" name="pufferNachMin" min="0" max="240" step="5" value={d.pufferNachMin} /></label>
 					<label>
 						Mindestvorlauf
-						<select name="vorlaufMin">
+						<Auswahl name="vorlaufMin">
 							{#each VORLAUF as [min, text] (min)}<option value={min} selected={d.vorlaufMin === min}>{text}</option>{/each}
 							{#if !VORLAUF.some(([m]) => m === d.vorlaufMin)}<option value={d.vorlaufMin} selected>{d.vorlaufMin} Minuten</option>{/if}
-						</select>
+						</Auswahl>
 					</label>
 					<label>Buchbar bis (Tage im Voraus) <input type="number" name="horizontTage" min="1" max="365" value={d.horizontTage} /></label>
 					<label>Höchstens je Tag und Mitarbeiter <input type="number" name="maxProTag" min="1" max="50" placeholder="ohne Grenze" value={d.maxProTag ?? ''} /></label>
@@ -107,22 +110,22 @@
 				<div class="ob-raster">
 					<label>
 						Ort
-						<select name="ortArt">{#each ORT_ARTEN as o (o)}<option value={o} selected={d.ortArt === o}>{ORT_NAMEN[o]}</option>{/each}</select>
+						<Auswahl name="ortArt">{#each ORT_ARTEN as o (o)}<option value={o} selected={d.ortArt === o}>{ORT_NAMEN[o]}</option>{/each}</Auswahl>
 					</label>
 					<label>
 						Adresse des Kunden
-						<select name="adresse">{#each ADRESSE_ARTEN as a (a)}<option value={a} selected={d.adresse === a}>{ADRESSE_NAMEN[a]}</option>{/each}</select>
+						<Auswahl name="adresse">{#each ADRESSE_ARTEN as a (a)}<option value={a} selected={d.adresse === a}>{ADRESSE_NAMEN[a]}</option>{/each}</Auswahl>
 					</label>
 					<label>
 						Art in der Plantafel
-						<select name="einsatzArt">{#each EINSATZ_ARTEN as a (a)}<option value={a} selected={d.einsatzArt === a}>{EINSATZ_ART_NAMEN[a]}</option>{/each}</select>
+						<Auswahl name="einsatzArt">{#each EINSATZ_ARTEN as a (a)}<option value={a} selected={d.einsatzArt === a}>{EINSATZ_ART_NAMEN[a]}</option>{/each}</Auswahl>
 					</label>
 					<label>
 						Auftragsquelle
-						<select name="quelleId">
+						<Auswahl name="quelleId">
 							<option value="" selected={!d.quelleId}>Online-Buchung (Standard)</option>
 							{#each data.quellen as q (q.id)}<option value={q.id} selected={d.quelleId === q.id}>{q.name}</option>{/each}
-						</select>
+						</Auswahl>
 					</label>
 					<label class="ob-farbwahl">Farbe <input type="color" name="farbe" value={d.farbe} /></label>
 				</div>
@@ -133,25 +136,16 @@
 		<Abschnitt titel="Mitarbeiter">
 			<fieldset class="ob-wahl">
 				<legend>Wer wird gebucht?</legend>
-				{#each MODI as m (m)}
-					<label class="kd-haken"><input type="radio" name="modus" value={m} bind:group={modus} /> {MODUS_NAMEN[m]}</label>
-				{/each}
+				<Segmente name="modus" label="Wer wird gebucht?" bind:wert={modus} optionen={MODI.map((m) => ({ wert: m, text: MODUS_NAMEN[m] }))} />
 			</fieldset>
 			<input type="hidden" name="mitarbeiterGesendet" value="1" />
-			<div class="ob-personen" role="group" aria-label="Mitarbeiter">
-				{#each data.mitarbeiter as m (m.id)}
-					<label class="kd-haken ob-person">
-						<input
-							type={modus === 'fest' ? 'radio' : 'checkbox'}
-							name="mitarbeiter"
-							value={m.id}
-							checked={gewaehlt.includes(m.id)}
-							onchange={(e) => (gewaehlt = modus === 'fest' ? [m.id] : e.currentTarget.checked ? [...gewaehlt, m.id] : gewaehlt.filter((x) => x !== m.id))}
-						/>
-						<Avatar name={m.name} groesse={24} />
-						{m.name}
-					</label>
-				{/each}
+			<div class="ui-feld">
+				Mitarbeiter
+				{#if modus === 'fest'}
+					<PersonWahl name="mitarbeiter" label="Mitarbeiter" leerText="Mitarbeiter wählen" personen={data.mitarbeiter} wert={gewaehlt[0] ?? ''} onchange={(w) => (gewaehlt = w)} />
+				{:else}
+					<PersonWahl name="mitarbeiter" mehrfach label="Mitarbeiter" leerText="Mitarbeiter wählen" personen={data.mitarbeiter} bind:werte={gewaehlt} />
+				{/if}
 			</div>
 			<p class="kd-info">
 				Bucht ein Kunde, bekommt er nur einen dieser Mitarbeiter – bei „abwechselnd“ den, der am wenigsten Buchungen hat. Freie Zeiten kommen aus den
@@ -194,10 +188,10 @@
 							<input type="hidden" name="aktivGesendet" value="1" />
 							<label>
 								Auftragsquelle
-								<select name="quelleId" onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+								<Auswahl name="quelleId" onchange={(e) => e.currentTarget.form?.requestSubmit()}>
 									<option value="" selected={!l.quelleId}>wie Dienst</option>
 									{#each data.quellen as q (q.id)}<option value={q.id} selected={l.quelleId === q.id}>{q.name}</option>{/each}
-								</select>
+								</Auswahl>
 							</label>
 							<label class="kd-haken"><input type="checkbox" name="aktiv" checked={l.aktiv} onchange={(e) => e.currentTarget.form?.requestSubmit()} /> aktiv</label>
 						</form>
@@ -231,7 +225,7 @@
 			<form method="POST" action="?/linkAnlegen" use:enhance={sofort} class="ob-inline">
 				<label>
 					Eigener Link für einen Mitarbeiter
-					<select name="benutzerId">{#each ohneLink as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</select>
+					<Auswahl name="benutzerId">{#each ohneLink as m (m.id)}<option value={m.id}>{m.name}</option>{/each}</Auswahl>
 				</label>
 				<button type="submit" class="kd-knopf hell">Link anlegen</button>
 			</form>

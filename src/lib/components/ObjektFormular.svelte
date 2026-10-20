@@ -46,7 +46,7 @@
 	</label>
 
 	<div class="kd-aktionen">
-		<button type="submit" class="kd-knopf">{knopf}</button>
 		<a href={abbrechen} class="kd-knopf hell">Abbrechen</a>
+		<button type="submit" class="kd-knopf">{knopf}</button>
 	</div>
 </form>

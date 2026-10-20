@@ -24,6 +24,7 @@
 		offen = $bindable(false),
 		art = 'sekundaer',
 		voll = false,
+		knopf = true,
 		children
 	}: {
 		label: string;
@@ -33,6 +34,8 @@
 		art?: 'primaer' | 'sekundaer';
 		/** Auslöser auf ganzer Breite (mobil-freundlich) */
 		voll?: boolean;
+		/** false: eigener Auslöser entfällt – die Seite öffnet das Feld (z. B. Knopf rechts im Seitenkopf, bind:offen) */
+		knopf?: boolean;
 		children: Snippet<[() => void]>;
 	} = $props();
 
@@ -41,6 +44,12 @@
 	let ausloeser = $state<HTMLButtonElement>();
 	let wartet = $state(false);
 
+	// Von außen geöffnet (Knopf im Seitenkopf): ersten Eingabebereich fokussieren
+	let warOffen = false;
+	$effect(() => {
+		if (offen && !warOffen) tick().then(() => feld?.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea')?.focus());
+		warOffen = offen;
+	});
 	async function oeffnen() {
 		offen = true;
 		await tick();
@@ -76,7 +85,7 @@
 </script>
 
 <div class="add-panel" class:offen>
-	{#if !offen}
+	{#if !offen && knopf}
 		<button
 			bind:this={ausloeser}
 			type="button"
@@ -89,7 +98,7 @@
 			<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" /></svg>
 			{label}
 		</button>
-	{:else}
+	{:else if offen}
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 		<div
 			bind:this={feld}
@@ -114,6 +123,9 @@
 <style>
 	.add-panel {
 		margin: 0.5rem 0 1rem;
+	}
+	.add-panel:empty {
+		display: none;
 	}
 	.voll {
 		width: 100%;

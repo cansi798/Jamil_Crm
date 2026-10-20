@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import Karte from '$lib/components/Karte.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
@@ -249,16 +251,16 @@
 			<label>Bezeichnung <input type="text" name="name" maxlength="200" required value={wert(bereich, 'name', start.name)} placeholder="z. B. Miete" /></label>
 			<label>
 				Kategorie
-				<select name="kategorie">
+				<Auswahl name="kategorie">
 					{#each KATEGORIEN as k (k)}<option value={k} selected={wert(bereich, 'kategorie', start.kategorie) === k}>{KATEGORIE_NAMEN[k]}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
 			<label>Betrag netto (€) <input type="text" inputmode="decimal" name="betrag" required value={wert(bereich, 'betrag', start.betrag)} /></label>
 			<label>
 				Intervall
-				<select name="intervall" onchange={(ev) => !id && (intervallNeu = ev.currentTarget.value)}>
+				<Auswahl name="intervall" onchange={(ev) => !id && (intervallNeu = ev.currentTarget.value)}>
 					{#each INTERVALLE as i (i)}<option value={i} selected={intervall === i}>{INTERVALL_NAMEN[i]}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
 			<label>
 				Abschreibung in Monaten (nur einmalig)
@@ -273,8 +275,8 @@
 			{/if}
 		</div>
 		<div class="kk-knoepfe">
-			<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Kostenzeile hinzufügen'}</button>
 			{#if schliessen}<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>{/if}
+			<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Kostenzeile hinzufügen'}</button>
 		</div>
 	</form>
 {/snippet}
@@ -286,15 +288,10 @@
 		{#if id}<input type="hidden" name="id" value={id} />{/if}
 		<div class="kk-raster">
 			<label>Name <input type="text" name="name" maxlength="200" required value={wert(bereich, 'name', start.name)} /></label>
-			<label>
+			<div class="ui-feld">
 				Benutzer der Software (optional)
-				<select name="benutzerId">
-					<option value="">– keiner –</option>
-					{#each data.benutzer as nutzer (nutzer.id)}
-						<option value={nutzer.id} selected={wert(bereich, 'benutzerId', start.benutzerId) === nutzer.id}>{nutzer.name}</option>
-					{/each}
-				</select>
-			</label>
+				<PersonWahl name="benutzerId" label="Benutzer" leerText="Keiner" personen={data.benutzer} wert={wert(bereich, 'benutzerId', start.benutzerId)} />
+			</div>
 			<label>
 				Bruttojahresgehalt (€, optional)
 				<input type="text" inputmode="decimal" name="brutto" value={wert(bereich, 'brutto', start.brutto)} placeholder="leer, wenn der Lohn als Kostenzeile steht" />
@@ -302,10 +299,10 @@
 			<fieldset class="kk-puffer">
 				<legend>Arbeitgeber-Anteil</legend>
 				<div class="kk-zwei">
-					<select name="agArt" aria-label="Arbeitgeber-Anteil in" onchange={(ev) => bereich === 'neu' && (agArtNeu = ev.currentTarget.value)}>
+					<Auswahl name="agArt" aria-label="Arbeitgeber-Anteil in" onchange={(ev) => bereich === 'neu' && (agArtNeu = ev.currentTarget.value)}>
 						<option value="prozent" selected={agArt === 'prozent'}>Prozent vom Brutto</option>
 						<option value="euro" selected={agArt === 'euro'}>Euro pro Jahr</option>
-					</select>
+					</Auswahl>
 					{#if agArt === 'prozent'}
 						<input type="text" inputmode="decimal" name="agProzent" aria-label="Arbeitgeber-Anteil in Prozent" placeholder="z. B. 21" value={wert(bereich, 'agProzent', start.agProzent)} />
 					{:else}
@@ -323,15 +320,15 @@
 			</label>
 		</div>
 		<div class="kk-knoepfe">
-			<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Mitarbeiter hinzufügen'}</button>
 			{#if schliessen}<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>{/if}
+			<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Mitarbeiter hinzufügen'}</button>
 		</div>
 	</form>
 {/snippet}
 
 <style>
 	.kk-seite {
-		max-width: 64rem;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 	}
 	.kk-kacheln {
 		display: grid;

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { tagDeutsch } from '$lib/zeit';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
@@ -99,32 +101,29 @@
 						<label>Titel <input type="text" name="titel" maxlength="200" required value={t.titel} /></label>
 						<label>Beschreibung <textarea name="beschreibung" maxlength="500" rows="2">{t.beschreibung ?? ''}</textarea></label>
 						<div class="tl-raster">
-							<label>
+							<div class="ui-feld">
 								Zuständig
-								<select name="zustaendigId">
-									<option value="" selected={!t.zustaendigId}>– niemand –</option>
-									{#each mitarbeiter as m (m.id)}<option value={m.id} selected={m.id === t.zustaendigId}>{m.name}</option>{/each}
-								</select>
-							</label>
+								<PersonWahl name="zustaendigId" personen={mitarbeiter} wert={t.zustaendigId ?? ''} />
+							</div>
 							<label>Fällig <input type="date" name="faellig" value={t.faellig ?? ''} /></label>
 							<label>
 								Lautstärke
-								<select name="lautstaerke">
+								<Auswahl name="lautstaerke">
 									<option value="" selected={!t.lautstaerke}>–</option>
 									{#each STUFEN as n (n)}<option value={String(n)} selected={t.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
-								</select>
+								</Auswahl>
 							</label>
 							<label>
 								Schmutz
-								<select name="schmutz">
+								<Auswahl name="schmutz">
 									<option value="" selected={!t.schmutz}>–</option>
 									{#each STUFEN as n (n)}<option value={String(n)} selected={t.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
-								</select>
+								</Auswahl>
 							</label>
 						</div>
 						<div class="tl-knoepfe">
-							<button type="submit" class="kd-knopf">Speichern</button>
 							<button type="button" class="kd-knopf hell" onclick={() => (aufgeklappt = null)}>Abbrechen</button>
+							<button type="submit" class="kd-knopf">Speichern</button>
 						</div>
 					</form>
 					<div class="tl-knoepfe">

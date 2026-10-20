@@ -11,7 +11,8 @@
 		voll = false,
 		onchange
 	}: {
-		name: string;
+		/** Feldname im Formular; ohne Namen nur Anzeige-Umschalter (Wert über bind:wert) */
+		name?: string;
 		optionen: readonly { wert: string; text: string }[];
 		wert?: string;
 		/** Beschriftung der Gruppe (für Screenreader; sichtbar macht sie die Seite selbst) */
@@ -63,13 +64,17 @@
 		align-items: center;
 		justify-content: center;
 		min-height: calc(var(--ui-feld-hoehe) - 6px) !important;
-		padding: 0 1rem;
+		padding: 0.25rem 1rem;
 		border-radius: 999px;
 		color: var(--ui-text-leise) !important;
 		font-family: var(--ui-schrift-titel);
 		font-size: 0.8125rem !important;
 		font-weight: 600 !important;
 		text-align: center;
+		line-height: 1.15;
+		overflow-wrap: normal;
+		word-break: normal;
+		hyphens: manual;
 		cursor: pointer;
 		transition: background 150ms, color 150ms, box-shadow 150ms;
 	}
@@ -86,6 +91,12 @@
 	}
 	.seg-teil:hover:not(.an) {
 		color: var(--ui-text) !important;
+	}
+	@media (max-width: 30rem) {
+		.seg-teil {
+			padding: 0.25rem 0.55rem;
+			font-size: 0.75rem !important;
+		}
 	}
 	.seg-teil.an {
 		background: var(--ui-flaeche);

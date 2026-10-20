@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import * as OTPAuth from 'otpauth';
 
@@ -67,3 +67,22 @@ export async function erwarteKeinQuerScrollen(page: Page, breite: number): Promi
 }
 
 export const hauptnavigation = (page: Page) => page.getByRole('navigation', { name: 'Hauptnavigation' });
+
+/**
+ * Personen in der Personenauswahl (PersonWahl, mehrfach) ankreuzen: Chip „<feld>: …“ öffnen, Namen ankreuzen,
+ * „Fertig“. `bereich` grenzt die Suche ein (Formular, Region).
+ */
+export async function personenWaehlen(bereich: Page | Locator, feld: string, namen: string[]): Promise<void> {
+	const esc = feld.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	await bereich.getByRole('button', { name: new RegExp(`^${esc}( \\(Pflichtfeld\\))?:`) }).click();
+	const liste = bereich.getByRole('dialog', { name: feld });
+	for (const n of namen) await liste.getByRole('checkbox', { name: n, exact: true }).check();
+	await liste.getByRole('button', { name: 'Fertig' }).click();
+}
+
+/** Eine Person in der Personenauswahl (PersonWahl, einzeln) wählen. */
+export async function personWaehlen(bereich: Page | Locator, feld: string, name: string): Promise<void> {
+	const esc = feld.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	await bereich.getByRole('button', { name: new RegExp(`^${esc}( \\(Pflichtfeld\\))?:`) }).click();
+	await bereich.getByRole('option', { name, exact: true }).click();
+}

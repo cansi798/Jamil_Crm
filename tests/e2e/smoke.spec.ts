@@ -30,7 +30,7 @@ test('Büro: anmelden, Kunde „Müller“ anlegen, mit „müller“ finden', a
 
 	await page.goto('/kunden');
 	await page.getByRole('searchbox', { name: 'Kunden suchen' }).fill('müller');
-	await page.getByRole('button', { name: 'Suchen' }).click();
+	await page.getByRole('searchbox', { name: 'Kunden suchen' }).press('Enter');
 	await expect(page).toHaveURL(/suche=m%C3%BCller/);
 	await expect(page.getByRole('link', { name: new RegExp(kennung) })).toBeVisible();
 

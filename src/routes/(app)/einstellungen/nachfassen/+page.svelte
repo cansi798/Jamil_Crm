@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import Karte from '$lib/components/Karte.svelte';
@@ -165,10 +167,10 @@
 			{#if art === 'rechnung'}
 				<label>
 					Stufe
-					<select name="mahnstufe">
+					<Auswahl name="mahnstufe">
 						<option value="0" selected={wert(b, 'mahnstufe', String(s?.mahnstufe ?? 0)) === '0'}>Zahlungserinnerung</option>
 						{#each [1, 2, 3] as m (m)}<option value={String(m)} selected={wert(b, 'mahnstufe', String(s?.mahnstufe ?? 0)) === String(m)}>Mahnstufe {m}</option>{/each}
-					</select>
+					</Auswahl>
 				</label>
 			{/if}
 		</div>
@@ -176,10 +178,10 @@
 			<label class="kd-haken"><input type="checkbox" name="mail" checked={wert(b, 'mail', s?.mail ? 'on' : '') !== ''} /><span>Mail vorbereiten</span></label>
 			<label>
 				Mail-Vorlage
-				<select name="mailVorlageId">
+				<Auswahl name="mailVorlageId">
 					<option value="">– keine –</option>
 					{#each data.vorlagen as v (v.id)}<option value={v.id} selected={wert(b, 'mailVorlageId', s?.mailVorlageId ?? '') === v.id}>{v.name}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
 			<label class="kd-haken"><input type="checkbox" name="todo" checked={wert(b, 'todo', s ? (s.todo ? 'on' : '') : 'on') !== ''} /><span>To-do anlegen</span></label>
 			<label>
@@ -190,23 +192,20 @@
 		<div class="nf-raster">
 			<label>
 				Zuständig
-				<select name="zuweisung">
+				<Auswahl name="zuweisung">
 					{#each ZUWEISUNGEN as z (z)}<option value={z} selected={zuweisung === z}>{ZUWEISUNG_NAMEN[z]}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
-			<label>
+			<div class="ui-feld">
 				Mitarbeiter (bei „fest“)
-				<select name="benutzerId">
-					<option value="">–</option>
-					{#each data.mitarbeiter as m (m.id)}<option value={m.id} selected={wert(b, 'benutzerId', s?.benutzerId ?? '') === m.id}>{m.name}</option>{/each}
-				</select>
-			</label>
+				<PersonWahl name="benutzerId" label="Mitarbeiter" leerText="Niemand" personen={data.mitarbeiter} wert={wert(b, 'benutzerId', s?.benutzerId ?? '')} />
+			</div>
 			<label>
 				Rolle (bei „Rolle“)
-				<select name="rolleId">
+				<Auswahl name="rolleId">
 					<option value="">–</option>
 					{#each data.rollen as r (r.id)}<option value={r.id} selected={wert(b, 'rolleId', s?.rolleId ?? '') === r.id}>{r.name}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
 		</div>
 		{#if s}
@@ -214,8 +213,8 @@
 			<input type="hidden" name="aktiv" value="false" />
 		{/if}
 		<div class="nf-knoepfe">
-			<button type="submit" class="kd-knopf">{s ? 'Speichern' : 'Stufe hinzufügen'}</button>
 			{#if schliessen}<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>{/if}
+			<button type="submit" class="kd-knopf">{s ? 'Speichern' : 'Stufe hinzufügen'}</button>
 		</div>
 	</form>
 {/snippet}
@@ -244,8 +243,8 @@
 				<textarea name="text" rows="3" maxlength="50000" value={jetztText} oninput={(ev) => setze(schluessel, 'text', ev.currentTarget.value)}></textarea>
 			</label>
 			<div class="nf-knoepfe">
-				<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Vorlage anlegen'}</button>
 				{#if schliessen}<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>{/if}
+				<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Vorlage anlegen'}</button>
 			</div>
 		</div>
 		<MailVorschau titel={`Vorschau ${name || 'neue Vorlage'}`} html={jetztHtml} betreff={jetztBetreff} text={jetztText} {signatur} beispiele={data.beispiele} />
@@ -254,7 +253,7 @@
 
 <style>
 	.nf-seite {
-		max-width: 80rem;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 	}
 	/* Bearbeiten links, Live-Vorschau rechts; schmal untereinander */
 	.nf-editor {

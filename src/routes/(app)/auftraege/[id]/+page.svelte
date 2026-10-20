@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import Karte from '$lib/components/Karte.svelte';
@@ -143,11 +145,11 @@
 						{#if data.abEinstellung}
 							<form method="POST" action="?/abAutomatisch" use:enhance={sofort} class="af-inline af-ab-schalter">
 								<label>Automatisch erstellen
-									<select name="wert" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+									<Auswahl name="wert" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
 										<option value="" selected={data.abEinstellung?.auftrag == null}>wie im Betrieb ({data.abEinstellung?.betrieb ? 'an' : 'aus'})</option>
 										<option value="an" selected={data.abEinstellung?.auftrag === true}>an</option>
 										<option value="aus" selected={data.abEinstellung?.auftrag === false}>aus</option>
-									</select>
+									</Auswahl>
 								</label>
 							</form>
 						{/if}
@@ -171,11 +173,11 @@
 						</p>
 						<form method="POST" action="?/portalFreigabe" use:enhance={sofort} class="af-portal-freigabe">
 							<label class="af-portal-wahl">Im Portal zeigen
-								<select name="sichtbar" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+								<Auswahl name="sichtbar" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
 									<option value="" selected={data.portal.freigabe.sichtbar === null}>nach Regel ({data.portal.standard === 'alle_aktiven' ? 'alle aktiven Aufträge' : 'nur markierte'})</option>
 									<option value="an" selected={data.portal.freigabe.sichtbar === true}>ja</option>
 									<option value="aus" selected={data.portal.freigabe.sichtbar === false}>nein</option>
-								</select>
+								</Auswahl>
 							</label>
 							<p class="af-portal-titel">Der Kunde sieht:</p>
 							<label><input type="checkbox" name="status" value="ja" checked={data.portal.freigabe.status} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Auftragsstatus</label>
@@ -258,8 +260,8 @@
 									<label>Einheit <input name="einheit" value="Stk" maxlength="20" /></label>
 									{#if data.preiseSehen}<label>Einkauf je Einheit (€) <input name="preis" inputmode="decimal" /></label>{/if}
 									<div class="af-mat-knoepfe">
-										<button type="submit" class="kd-knopf">Speichern</button>
 										<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+										<button type="submit" class="kd-knopf">Speichern</button>
 									</div>
 								</form>
 							{/snippet}
@@ -270,8 +272,8 @@
 									<label>Foto des Lieferscheins <input type="file" name="foto" accept="image/jpeg,image/png" capture="environment" required /></label>
 									<label class="af-zustimmung"><input type="checkbox" name="zustimmung" value="ja" required /> Das Foto darf zur Auswertung an die KI gesendet werden (nur das Foto, keine Kundendaten).</label>
 									<div class="af-mat-knoepfe">
-										<button type="submit" class="kd-knopf" disabled={kiLaeuft}>{kiLaeuft ? 'KI liest …' : 'Auslesen'}</button>
 										<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+										<button type="submit" class="kd-knopf" disabled={kiLaeuft}>{kiLaeuft ? 'KI liest …' : 'Auslesen'}</button>
 									</div>
 								</form>
 							{/snippet}
@@ -324,12 +326,12 @@
 								<dd>
 									{#if data.darfBearbeiten && data.quellen.length > 0}
 										<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
-											<select name="quelleId" aria-label="Auftragsquelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+											<Auswahl name="quelleId" aria-label="Auftragsquelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
 												<option value="" selected={!a.quelleId}>– keine –</option>
 												{#each data.quellen.filter((q) => q.aktiv || q.id === a.quelleId) as q (q.id)}
 													<option value={q.id} selected={q.id === a.quelleId}>{q.name}</option>
 												{/each}
-											</select>
+											</Auswahl>
 										</form>
 									{:else}{a.quelleName ?? '–'}{/if}
 								</dd>
@@ -447,17 +449,14 @@
 									<div class="kd-zwei">
 										<label>
 											Art
-											<select name="art" required>
+											<Auswahl name="art" required>
 												{#each EINSATZ_ARTEN as art (art)}<option value={art} selected={art === 'montage'}>{EINSATZ_ART_NAMEN[art]}</option>{/each}
-											</select>
+											</Auswahl>
 										</label>
-										<label>
+										<div class="ui-feld">
 											Mitarbeiter
-											<select name="benutzerId" required>
-												<option value="">– bitte wählen –</option>
-												{#each data.mitarbeiter as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
-											</select>
-										</label>
+											<PersonWahl name="benutzerId" label="Mitarbeiter" leerText="Mitarbeiter wählen" required personen={data.mitarbeiter} />
+										</div>
 									</div>
 									<div class="af-drei">
 										<label>Tag <input type="date" name="tag" required value={data.heute} /></label>
@@ -497,9 +496,9 @@
 						{#snippet aktionen()}
 							{#if data.darfProtokollStarten && data.protokollVorlagen.length > 0}
 								<form method="POST" action="?/protokollStarten" use:enhance class="af-protokoll-start">
-									<select name="vorlageId" aria-label="Protokoll-Vorlage" required data-testid="protokoll-vorlage">
+									<Auswahl name="vorlageId" aria-label="Protokoll-Vorlage" required data-testid="protokoll-vorlage">
 										{#each data.protokollVorlagen as v (v.id)}<option value={v.id}>{v.name}</option>{/each}
-									</select>
+									</Auswahl>
 									<button type="submit" class="kd-knopf" data-testid="protokoll-starten">Protokoll starten</button>
 								</form>
 							{/if}
@@ -579,12 +578,12 @@
 							<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
 								<label class="af-feld">
 									Objekt
-									<select name="objektId" aria-label="Objekt" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+									<Auswahl name="objektId" aria-label="Objekt" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
 										<option value="" selected={!a.objektId}>Kundenadresse (Standard)</option>
 										{#each data.objekte as o (o.id)}
 											<option value={o.id} selected={o.id === a.objektId}>{o.bezeichnung}{o.adresse ? ` – ${o.adresse}` : ''}</option>
 										{/each}
-									</select>
+									</Auswahl>
 								</label>
 							</form>
 							<span class="af-adresse">{a.adresse ?? 'Keine Adresse hinterlegt'}</span>
@@ -624,12 +623,12 @@
 									<form method="POST" action="?/aendern" use:enhance={sofort} class="af-inline">
 										<label class="af-feld">
 											Anlage
-											<select name="anlageId" aria-label="Anlage" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+											<Auswahl name="anlageId" aria-label="Anlage" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
 												<option value="" selected={!a.anlageId}>– keine Anlage –</option>
 												{#each data.anlagen as an (an.id)}
 													<option value={an.id} selected={an.id === a.anlageId}>{an.bezeichnung} ({an.typName})</option>
 												{/each}
-											</select>
+											</Auswahl>
 										</label>
 									</form>
 								{:else}
@@ -659,29 +658,25 @@
 							<summary class="kd-knopf hell">Mitarbeiter zuweisen</summary>
 							<form method="POST" action="?/aendern" use:enhance={sofort} class="af-zuweisen-liste">
 								<input type="hidden" name="zustaendigeGesendet" value="1" />
-								<p class="kd-info">Mehrere möglich – jedes Häkchen wird sofort gespeichert.</p>
-								{#each data.mitarbeiter as m (m.id)}
-									<label class="af-haken-zeile">
-										<input
-											type="checkbox"
-											name="zustaendige"
-											value={m.id}
-											checked={a.zustaendige.some((z) => z.id === m.id)}
-											onchange={(ev) => ev.currentTarget.form?.requestSubmit()}
-										/>
-										<Avatar name={m.name} groesse={24} />
-										{m.name}
-									</label>
-								{/each}
+								<p class="kd-info">Mehrere möglich – jede Auswahl wird sofort gespeichert.</p>
+								<PersonWahl
+									name="zustaendige"
+									mehrfach
+									absenden
+									label="Mitarbeiter zuweisen"
+									leerText="Mitarbeiter wählen"
+									personen={data.mitarbeiter}
+									werte={a.zustaendige.map((z) => z.id)}
+								/>
 								<button type="button" class="kd-knopf hell af-fertig" onclick={() => (zuweisenOffen = false)}>Fertig</button>
 							</form>
 							{#if data.kolonnen.length > 0}
 								<form method="POST" action="?/kolonneZuweisen" use:enhance={sofort} class="af-kolonne">
 									<label>
 										Kolonne zuweisen
-										<select name="kolonneId" required>
+										<Auswahl name="kolonneId" required>
 											{#each data.kolonnen as ko (ko.id)}<option value={ko.id}>{ko.name} ({ko.mitglieder.map((m) => m.name.split(' ')[0]).join(', ')})</option>{/each}
-										</select>
+										</Auswahl>
 									</label>
 									<button type="submit" class="kd-knopf hell">Zuweisen</button>
 								</form>
@@ -730,12 +725,12 @@
 											{#if angebotWeg === 'vorlage'}
 												<label>
 													Angebots-Vorlage
-													<select name="vorlageId" required>
+													<Auswahl name="vorlageId" required>
 														<option value="">– bitte wählen –</option>
 														{#each data.angebotVorlagen as v (v.id)}
 															<option value={v.id}>Vorlage: {v.name}</option>
 														{/each}
-													</select>
+													</Auswahl>
 												</label>
 											{:else}
 												<p class="kd-info">Leeres Angebot zu diesem Auftrag; Positionen fügen Sie im Angebot hinzu.</p>
@@ -746,12 +741,12 @@
 										<form method="POST" action="?/angebotZuordnen" use:enhance class="kd-formular">
 											<label>
 												Bestehendes Angebot zuordnen
-												<select name="angebotId" required>
+												<Auswahl name="angebotId" required>
 													<option value="">– bitte wählen –</option>
 													{#each data.zuordenbareAngebote as z (z.id)}
 														<option value={z.id}>{z.nummer} · {z.kundeName} · {tagDeutsch(z.datum)} · {euro(z.bruttoCent)}</option>
 													{/each}
-												</select>
+												</Auswahl>
 											</label>
 											<div class="af-fuss"><button type="submit" class="kd-knopf">Zuordnen</button></div>
 										</form>
@@ -839,7 +834,7 @@
 	}
 	/* Kopf über die ganze Breite, darunter ab 1200 px zwei Spalten */
 	.af-seite {
-		max-width: 96rem;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 	}
 	.af-raster {
 		display: flex;

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
+	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
 	import { enhance } from '$app/forms';
 	import { euro } from '$lib/geld';
 	import { GEWERKE, GEWERK_NAMEN } from '$lib/katalog-werte';
@@ -66,11 +68,12 @@
 		</ul>
 	</nav>
 
-	<form method="GET" role="search" class="kd-suche">
-		{#if data.gewerk}<input type="hidden" name="gewerk" value={data.gewerk} />{/if}
-		<input type="search" name="suche" value={data.suche} placeholder="Nummer oder Bezeichnung" aria-label="Katalog durchsuchen" autocomplete="off" enterkeyhint="search" />
-		<button type="submit" class="kd-knopf hell">Suchen</button>
-	</form>
+	<FilterLeiste label="Katalog filtern">
+		{#snippet suche()}
+			{#if data.gewerk}<input type="hidden" name="gewerk" value={data.gewerk} />{/if}
+			<SuchFeld wert={data.suche} label="Katalog durchsuchen" placeholder="Nummer oder Bezeichnung" />
+		{/snippet}
+	</FilterLeiste>
 
 	{#if uebernommen}
 		<p role="status" class="kt-hinweis ok">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import { enhance } from '$app/forms';
 
 	/** Formular für Kunden (Neu und Bearbeiten). Die Seite liefert Werte und Fehler aus `load` bzw. der Aktion. */
@@ -27,16 +28,16 @@
 
 	<fieldset>
 		<legend>Art des Kunden</legend>
-		<div class="kd-art">
-			<label>
-				<input type="radio" name="art" value="privat" checked={art === 'privat'} onchange={() => (gewaehlt = 'privat')} />
-				Privatkunde
-			</label>
-			<label>
-				<input type="radio" name="art" value="firma" checked={art === 'firma'} onchange={() => (gewaehlt = 'firma')} />
-				Firma
-			</label>
-		</div>
+		<Segmente
+			name="art"
+			label="Art des Kunden"
+			wert={art}
+			optionen={[
+				{ wert: 'privat', text: 'Privatkunde' },
+				{ wert: 'firma', text: 'Firma' }
+			]}
+			onchange={(w) => (gewaehlt = w as typeof gewaehlt)}
+		/>
 	</fieldset>
 
 	{#if art === 'firma'}
@@ -96,7 +97,7 @@
 	</label>
 
 	<div class="kd-aktionen">
-		<button type="submit" class="kd-knopf">{knopf}</button>
 		<a href={abbrechen} class="kd-knopf hell">Abbrechen</a>
+		<button type="submit" class="kd-knopf">{knopf}</button>
 	</div>
 </form>

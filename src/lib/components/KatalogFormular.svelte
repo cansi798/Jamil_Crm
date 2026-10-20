@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { untrack } from 'svelte';
 	import { EINHEITEN, GEWERKE, GEWERK_NAMEN } from '$lib/katalog-werte';
@@ -47,20 +48,20 @@
 	<div class="kd-zwei">
 		<label>
 			Einheit *
-			<select name="einheit" required bind:value={einheit}>
+			<Auswahl name="einheit" required bind:value={einheit}>
 				{#each EINHEITEN as e (e)}
 					<option value={e} selected={(werte.einheit || 'Stk') === e}>{e}</option>
 				{/each}
-			</select>
+			</Auswahl>
 		</label>
 		<label>
 			Gewerk
-			<select name="gewerk">
+			<Auswahl name="gewerk">
 				<option value="" selected={!werte.gewerk}>–</option>
 				{#each GEWERKE as g (g)}
 					<option value={g} selected={werte.gewerk === g}>{GEWERK_NAMEN[g]}</option>
 				{/each}
-			</select>
+			</Auswahl>
 		</label>
 	</div>
 	<label>
@@ -102,7 +103,7 @@
 		</label>
 	{/if}
 	<div class="kd-aktionen">
-		<button type="submit" class="kd-knopf">{knopf}</button>
 		<a href={abbrechen} class="kd-knopf hell">Abbrechen</a>
+		<button type="submit" class="kd-knopf">{knopf}</button>
 	</div>
 </form>

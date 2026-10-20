@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let neuOffen = $state(untrack(() => !!form?.fehler));
 </script>
 
 <svelte:head>
@@ -17,9 +20,15 @@
 			<h1>Rollen</h1>
 			<p class="seiten-meta">Eine Rolle legt fest, was ein Benutzer im System sehen und tun darf.</p>
 		</div>
+		<div class="seiten-aktionen">
+			<button type="button" class="kd-knopf" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>
+				<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" /></svg>
+				Rolle anlegen
+			</button>
+		</div>
 	</header>
 
-	<AddPanel label="Rolle anlegen" art="primaer" offen={!!form?.fehler}>
+	<AddPanel label="Rolle anlegen" knopf={false} bind:offen={neuOffen}>
 		{#snippet children(schliessen)}
 			<form method="POST" action="?/neu" use:enhance class="kd-formular">
 				{#if form?.fehler}
@@ -32,17 +41,17 @@
 					</label>
 					<label>
 						Vorlage
-						<select name="vorlage">
+						<Auswahl name="vorlage">
 							<option value="">Leer (ohne Rechte)</option>
 							{#each data.vorlagen as vorlage (vorlage.schluessel)}
 								<option value={vorlage.schluessel}>{vorlage.name}</option>
 							{/each}
-						</select>
+						</Auswahl>
 					</label>
 				</div>
 				<div class="knopf-reihe">
-					<button type="submit" class="kd-knopf">Rolle anlegen</button>
 					<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+					<button type="submit" class="kd-knopf">Rolle anlegen</button>
 				</div>
 			</form>
 		{/snippet}

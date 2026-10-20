@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	/**
 	 * Eine Erinnerung wählen (Wunsch Jamil msg 2679): keine, „… vorher“ (relativ zur Fälligkeit bzw. zum Terminbeginn)
 	 * oder „zu festem Zeitpunkt“ (Tag + Uhrzeit). Sendet ein Feld `name` mit „60“ bzw. „zeit:JJJJ-MM-TTTHH:MM“.
@@ -17,11 +18,11 @@
 <span class="ew">
 	<label>
 		<span class="ew-text">{label}</span>
-		<select bind:value={auswahl} aria-label={label}>
+		<Auswahl bind:value={auswahl} aria-label={label}>
 			<option value="">keine</option>
 			{#each VORLAUF_AUSWAHL as v (v.minuten)}<option value={String(v.minuten)}>{v.text}</option>{/each}
 			<option value="fest">zu festem Zeitpunkt …</option>
-		</select>
+		</Auswahl>
 	</label>
 	{#if auswahl === 'fest'}
 		<input type="datetime-local" bind:value={fest} aria-label={`${label}: Tag und Uhrzeit`} step="300" />

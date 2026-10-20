@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { STATUS, STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
 	import { terminKurz } from '$lib/einsatz-art';
@@ -184,31 +186,28 @@
 				<span class="kd-info">Ohne Auswahl: alle außer „Abgerechnet“</span>
 			</fieldset>
 			<div class="kt-raster">
-				<label>
+				<div class="ui-feld">
 					Mitarbeiter
-					<select name="ma">
-						<option value="">alle</option>
-						{#each data.mitarbeiter as m (m.id)}<option value={m.id} selected={data.filter.benutzerId === m.id}>{m.name}</option>{/each}
-					</select>
-				</label>
+					<PersonWahl name="ma" label="Mitarbeiter" leerText="Alle" klein personen={data.mitarbeiter} wert={data.filter.benutzerId ?? ''} />
+				</div>
 				{#if data.kolonnen.length > 0}
 					<label>
 						Kolonne
-						<select name="ko">
+						<Auswahl name="ko">
 							<option value="">alle</option>
 							{#each data.kolonnen as ko (ko.id)}<option value={ko.id} selected={data.filter.kolonneId === ko.id}>{ko.name}</option>{/each}
-						</select>
+						</Auswahl>
 					</label>
 				{/if}
 				<label>Termine von <input type="date" name="von" value={data.filter.von ?? ''} /></label>
 				<label>bis <input type="date" name="bis" value={data.filter.bis ?? ''} /></label>
 				<label>
 					Auftragsquelle
-					<select name="quelle">
+					<Auswahl name="quelle">
 						<option value="">alle</option>
 						{#each data.quellen as q (q.id)}<option value={q.id} selected={data.filter.quelleId === q.id}>{q.name}</option>{/each}
 						<option value="ohne" selected={data.filter.quelleId === 'ohne'}>ohne Auftragsquelle</option>
-					</select>
+					</Auswahl>
 				</label>
 			</div>
 			<div class="kt-knoepfe">
@@ -265,9 +264,9 @@
 								<small>{s.adresse ?? 'keine Adresse'}{s.lat === null && s.adresse ? ' (Ort wird gesucht)' : ''}</small>
 							</span>
 							<span class="kt-pfeile">
-								<button type="button" onclick={() => verschiebe(i, -1)} disabled={i === 0} aria-label={`Stopp ${i + 1} nach oben`}>↑</button>
-								<button type="button" onclick={() => verschiebe(i, 1)} disabled={i === stopps.length - 1} aria-label={`Stopp ${i + 1} nach unten`}>↓</button>
-								<button type="button" onclick={() => (stopps = stopps.filter((_, j) => j !== i))} aria-label={`Stopp ${i + 1} entfernen`}>✕</button>
+								<button type="button" class="knopf-ghost klein" onclick={() => verschiebe(i, -1)} disabled={i === 0} aria-label={`Stopp ${i + 1} nach oben`}>↑</button>
+								<button type="button" class="knopf-ghost klein" onclick={() => verschiebe(i, 1)} disabled={i === stopps.length - 1} aria-label={`Stopp ${i + 1} nach unten`}>↓</button>
+								<button type="button" class="kd-knopf gefahr klein" onclick={() => (stopps = stopps.filter((_, j) => j !== i))} aria-label={`Stopp ${i + 1} entfernen`}>✕</button>
 							</span>
 						</li>
 					{/each}
@@ -301,7 +300,7 @@
 
 <style>
 	.kt-seite {
-		max-width: 90rem;
+		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 	}
 	.kt-filter > summary {
 		display: inline-flex;

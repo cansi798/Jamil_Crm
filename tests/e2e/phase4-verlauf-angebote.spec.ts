@@ -40,7 +40,6 @@ test('Angebot ohne Auftrag → im Angebot einem Auftrag zuordnen; zweites im Auf
 		await expect(zuordnen).toContainText(`Kunde: E2E-Verlauf ${stempel}`);
 		// 2. Einem Auftrag zuordnen (Suche nach dem Titel)
 		await zuordnen.getByRole('searchbox', { name: 'Zum Zuordnen suchen' }).fill(`E2E Zuordnen ${stempel}`);
-		await zuordnen.getByRole('button', { name: 'Suchen' }).click();
 		await zuordnen.getByRole('button', { name: new RegExp(`E2E Zuordnen ${stempel}`) }).click();
 		await expect(page.getByRole('status').filter({ hasText: 'Zugeordnet' })).toBeVisible();
 		await expect(page.getByRole('link', { name: /← Auftrag A-/ })).toBeVisible();

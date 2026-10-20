@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import DateiUpload from '$lib/components/DateiUpload.svelte';
 	import Karte from '$lib/components/Karte.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
@@ -196,10 +197,10 @@
 							<textarea bind:value={neueNotiz} placeholder="Neue Notiz eingeben…" rows="3" maxlength="10000" aria-label="Neue Notiz"></textarea>
 							{#if notizFehler}<p class="fehler">{notizFehler}</p>{/if}
 							<div class="knopf-reihe">
+								<button type="button" class="knopf-sekundaer" onclick={schliessen}>Abbrechen</button>
 								<button type="submit" class="knopf-gefuellt" disabled={notizLaedt || !neueNotiz.trim()}>
 									{notizLaedt ? 'Wird gespeichert…' : 'Notiz speichern'}
 								</button>
-								<button type="button" class="knopf-sekundaer" onclick={schliessen}>Abbrechen</button>
 							</div>
 						</form>
 					{/snippet}
@@ -252,12 +253,12 @@
 				<form onsubmit={(e) => { e.preventDefault(); protokollAnlegen(); }} class="protokoll-form">
 					<label>
 						Typ
-						<select bind:value={protokollTyp} data-testid="protokoll-typ">
+						<Auswahl bind:value={protokollTyp} data-testid="protokoll-typ">
 							<option value="abnahme">Abnahme</option>
 							<option value="regiebericht">Regiebericht</option>
 							<option value="aufmass">Aufmaß</option>
 							<option value="maengelliste">Mängelliste</option>
-						</select>
+						</Auswahl>
 					</label>
 					<label>
 						Bemerkung

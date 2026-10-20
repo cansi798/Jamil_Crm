@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import '$lib/stil/kunden.css';
 	import { enhance } from '$app/forms';
 	import AddPanel from '$lib/components/AddPanel.svelte';
@@ -43,11 +45,17 @@
 
 	<form method="GET" class="zt-filter">
 		{#if data.verwalten}
-			<label>Mitarbeiter
-				<select name="person" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-					{#each data.personen as p (p.id)}<option value={p.id} selected={p.id === n.person.id}>{p.id === data.ichId ? `Ich (${p.name})` : p.name}</option>{/each}
-				</select>
-			</label>
+			<div class="ui-feld">Mitarbeiter
+				<PersonWahl
+					name="person"
+					label="Person"
+					klein
+					required
+					personen={data.personen.map((p) => ({ id: p.id, name: p.id === data.ichId ? `Ich (${p.name})` : p.name }))}
+					wert={n.person.id}
+					absenden
+				/>
+			</div>
 		{/if}
 		<input type="hidden" name="tag" value={data.tag} />
 		<div class="zt-reiter" role="group" aria-label="Ansicht">
@@ -171,7 +179,7 @@
 							<form method="POST" action="?/korrigieren" use:enhance={() => async ({ result, update }) => { await update({ reset: false }); if (result.type === 'success') offen = null; }} class="kd-formular zt-form">
 								<input type="hidden" name="id" value={e.id} />
 								<div class="zt-reihe">
-									<label>Art <select name="art" value={e.art}><option value="arbeit">Arbeit</option><option value="pause">Pause</option><option value="fahrt">Fahrt</option></select></label>
+									<label>Art <Auswahl name="art" value={e.art}><option value="arbeit">Arbeit</option><option value="pause">Pause</option><option value="fahrt">Fahrt</option></Auswahl></label>
 									<label>Tag <input type="date" name="tag" value={berlinTag(new Date(e.beginn))} required /></label>
 									<label>Von <input type="time" name="von" value={berlinUhrzeit(new Date(e.beginn))} required /></label>
 									<label>Bis <input type="time" name="bis" value={e.ende ? berlinUhrzeit(new Date(e.ende)) : ''} /></label>
@@ -179,17 +187,17 @@
 									<label>km <input name="km" inputmode="decimal" value={km(e.km)} /></label>
 								</div>
 								<label>Auftrag
-									<select name="auftragId" value={e.auftragId} required>
+									<Auswahl name="auftragId" value={e.auftragId} required>
 										{#if !data.auftraege.some((a) => a.id === e.auftragId)}<option value={e.auftragId}>{wasText(e)}</option>{/if}
 										{#each data.auftraege as a (a.id)}<option value={a.id}>{a.label}</option>{/each}
-									</select>
+									</Auswahl>
 								</label>
 								<label>Notiz <input name="notiz" value={e.notiz ?? ''} maxlength="500" /></label>
 								<label>Grund der Korrektur (Pflicht) <input name="grund" required minlength="3" maxlength="300" placeholder="z. B. Start vergessen" /></label>
 								{#if form?.korrekturFehler && form?.korrekturId === e.id}<p role="alert" class="kd-fehler">{form.korrekturFehler}</p>{/if}
 								<div class="zt-knoepfe">
-									<button type="submit" class="kd-knopf">Speichern</button>
 									<button type="button" class="kd-knopf hell" onclick={() => (offen = null)}>Abbrechen</button>
+									<button type="submit" class="kd-knopf">Speichern</button>
 									<button type="submit" formaction="?/loeschen" class="kd-knopf hell gefahr">Löschen</button>
 								</div>
 							</form>
@@ -209,7 +217,7 @@
 			<form method="POST" action="?/nachtragen" use:enhance class="kd-formular zt-form">
 				{#if data.verwalten}<input type="hidden" name="benutzerId" value={n.person.id} />{/if}
 				<div class="zt-reihe">
-					<label>Art <select name="art"><option value="arbeit">Arbeit</option><option value="pause">Pause</option><option value="fahrt">Fahrt</option></select></label>
+					<label>Art <Auswahl name="art"><option value="arbeit">Arbeit</option><option value="pause">Pause</option><option value="fahrt">Fahrt</option></Auswahl></label>
 					<label>Tag <input type="date" name="tag" value={data.tag} required /></label>
 					<label>Von <input type="time" name="von" required /></label>
 					<label>Bis <input type="time" name="bis" required /></label>
@@ -217,14 +225,14 @@
 					<label>km (Fahrt) <input name="km" inputmode="decimal" /></label>
 				</div>
 				<label>Auftrag
-					<select name="auftragId" required><option value="">Bitte wählen …</option>{#each data.auftraege as a (a.id)}<option value={a.id}>{a.label}</option>{/each}</select>
+					<Auswahl name="auftragId" required><option value="">Bitte wählen …</option>{#each data.auftraege as a (a.id)}<option value={a.id}>{a.label}</option>{/each}</Auswahl>
 				</label>
 				<label>Notiz <input name="notiz" maxlength="500" /></label>
 				<label>Grund (Pflicht) <input name="grund" required minlength="3" maxlength="300" placeholder="z. B. Handy war leer" /></label>
 				{#if form?.nachtragenFehler}<p role="alert" class="kd-fehler">{form.nachtragenFehler}</p>{/if}
 				<div class="zt-knoepfe">
-					<button type="submit" class="kd-knopf">Nachtragen</button>
 					<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+					<button type="submit" class="kd-knopf">Nachtragen</button>
 				</div>
 			</form>
 		{/snippet}

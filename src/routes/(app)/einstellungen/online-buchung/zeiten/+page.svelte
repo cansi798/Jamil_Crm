@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Segmente from '$lib/components/ui/Segmente.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
@@ -64,13 +66,13 @@
 			<PersonWahl name="ma" personen={data.mitarbeiter} bind:wert={person} label="Mitarbeiter" required />
 			<label>
 				Gilt für
-				<select
+				<Auswahl
 					value={data.dienstId ?? ''}
 					onchange={(e) => goto(`?ma=${data.benutzerId}${e.currentTarget.value ? `&dienst=${e.currentTarget.value}` : ''}`, { noScroll: true })}
 				>
 					<option value="">alle Dienste</option>
 					{#each dienste as d (d.id)}<option value={d.id}>nur „{d.name}“{data.zeiten?.jeDienst[d.id] ? ' (eigene Zeiten)' : ''}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
 		</div>
 
@@ -131,8 +133,15 @@
 						<input type="hidden" name="benutzerId" value={data.benutzerId} />
 						<DatumWahl name="tag" bind:wert={ausnahmeTag} label="Tag" />
 						<fieldset class="oz-art">
-							<label class="kd-haken"><input type="radio" name="art" value="frei" bind:group={ausnahmeArt} /> nicht buchbar</label>
-							<label class="kd-haken"><input type="radio" name="art" value="zusaetzlich" bind:group={ausnahmeArt} /> zusätzlich buchbar</label>
+							<Segmente
+								name="art"
+								label="Art der Ausnahme"
+								bind:wert={ausnahmeArt}
+								optionen={[
+									{ wert: 'frei', text: 'nicht buchbar' },
+									{ wert: 'zusaetzlich', text: 'zusätzlich buchbar' }
+								]}
+							/>
 						</fieldset>
 						<div class="kd-zwei">
 							<label>von {ausnahmeArt === 'frei' ? '(leer = ganzer Tag)' : ''}<input type="time" name="von" step="900" /></label>
@@ -140,8 +149,8 @@
 						</div>
 						<label>Notiz (optional) <input type="text" name="notiz" maxlength="200" /></label>
 						<div class="kd-aktionen">
-							<button type="submit" class="kd-knopf">Hinzufügen</button>
 							<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+							<button type="submit" class="kd-knopf">Hinzufügen</button>
 						</div>
 					</form>
 				{/snippet}

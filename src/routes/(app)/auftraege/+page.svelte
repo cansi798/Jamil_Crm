@@ -1,4 +1,7 @@
 <script lang="ts">
+	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
+	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { terminKurz } from '$lib/einsatz-art';
 	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
 	import AuftragBoard from '$lib/components/AuftragBoard.svelte';
@@ -39,20 +42,10 @@
 				<a href={link({ ansicht: 'liste' })} aria-current={data.ansicht === 'liste' ? 'page' : undefined}>Liste</a>
 			</nav>
 			{#if data.darfBearbeiten}
-				<a href="/auftraege/neu" class="knopf-gefuellt">+ Auftrag</a>
+				<a href="/auftraege/neu" class="kd-knopf">+ Auftrag</a>
 			{/if}
 		</div>
 	</header>
-
-	{#if data.alle}
-		<nav aria-label="Meine oder alle Aufträge" class="af-meine">
-			<a href={link({ meine: false })} class="pill" class:aktiv={!data.meine} aria-current={!data.meine ? 'page' : undefined}>Alle</a>
-			<a href={link({ meine: true })} class="pill" class:aktiv={data.meine} aria-current={data.meine ? 'page' : undefined}>Meine</a>
-					</nav>
-				{/if}
-				<nav aria-label="Weitere Filter" class="af-meine">
-					<a href={link({ nachfassen: !data.nachfassenFaellig })} class="pill" class:aktiv={data.nachfassenFaellig} aria-current={data.nachfassenFaellig ? 'page' : undefined}>↻ Nachfassen fällig</a>
-				</nav>
 
 	{#if data.ansicht === 'liste'}
 		<nav aria-label="Status">
@@ -67,27 +60,33 @@
 		</nav>
 	{/if}
 
-	<form method="GET" role="search" class="kd-suche af-suche">
-		{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
-		{#if data.ansicht === 'liste' && data.status}<input type="hidden" name="status" value={data.status} />{/if}
-		{#if data.meine}<input type="hidden" name="meine" value="1" />{/if}
-		{#if data.nachfassenFaellig}<input type="hidden" name="nachfassen" value="faellig" />{/if}
-		<select name="quelle" aria-label="Auftragsquelle" class="af-quelle-filter" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-			<option value="" selected={!data.quelle}>Alle Auftragsquellen</option>
-			{#each data.quellen as q (q.id)}<option value={q.id} selected={data.quelle === q.id}>{q.name}{q.aktiv ? '' : ' (aus)'}</option>{/each}
-			<option value="ohne" selected={data.quelle === 'ohne'}>Ohne Auftragsquelle</option>
-		</select>
-		<input
-			type="search"
-			name="suche"
-			value={data.suche}
-			placeholder="Nummer, Titel oder Kunde"
-			aria-label="Aufträge suchen"
-			autocomplete="off"
-			enterkeyhint="search"
-		/>
-		<button type="submit" class="knopf-subtil">Suchen</button>
-	</form>
+	<FilterLeiste label="Aufträge filtern">
+		{#snippet suche()}
+			{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
+			{#if data.ansicht === 'liste' && data.status}<input type="hidden" name="status" value={data.status} />{/if}
+			{#if data.meine}<input type="hidden" name="meine" value="1" />{/if}
+			{#if data.nachfassenFaellig}<input type="hidden" name="nachfassen" value="faellig" />{/if}
+			<SuchFeld wert={data.suche} label="Aufträge suchen" placeholder="Nummer, Titel oder Kunde" />
+		{/snippet}
+		{#snippet filter()}
+			{#if data.alle}
+				<nav aria-label="Meine oder alle Aufträge" class="af-meine">
+					<a href={link({ meine: false })} class="pill" class:aktiv={!data.meine} aria-current={!data.meine ? 'page' : undefined}>Alle</a>
+					<a href={link({ meine: true })} class="pill" class:aktiv={data.meine} aria-current={data.meine ? 'page' : undefined}>Meine</a>
+							</nav>
+						{/if}
+						<nav aria-label="Weitere Filter" class="af-meine">
+							<a href={link({ nachfassen: !data.nachfassenFaellig })} class="pill" class:aktiv={data.nachfassenFaellig} aria-current={data.nachfassenFaellig ? 'page' : undefined}>↻ Nachfassen fällig</a>
+						</nav>
+			<div class="af-quelle-filter">
+				<Auswahl name="quelle" klein aria-label="Auftragsquelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+					<option value="" selected={!data.quelle}>Alle Auftragsquellen</option>
+					{#each data.quellen as q (q.id)}<option value={q.id} selected={data.quelle === q.id}>{q.name}{q.aktiv ? '' : ' (aus)'}</option>{/each}
+					<option value="ohne" selected={data.quelle === 'ohne'}>Ohne Auftragsquelle</option>
+				</Auswahl>
+			</div>
+		{/snippet}
+	</FilterLeiste>
 
 	{#if data.ansicht === 'board' && data.board}
 		{#if !data.darfBearbeiten}

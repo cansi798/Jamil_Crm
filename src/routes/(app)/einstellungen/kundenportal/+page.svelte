@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import '$lib/stil/kunden.css';
 	import { enhance } from '$app/forms';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -26,10 +27,10 @@
 		<Abschnitt titel="Kundenportal">
 			{#if !data.portalModul}<p class="kd-info">Das Kundenportal ist im aktuellen Tarif nicht enthalten – die Links gelten erst mit dem Modul.</p>{/if}
 			<label>Welche Aufträge stehen im Portal?
-				<select name="standard">
+				<Auswahl name="standard">
 					<option value="alle_aktiven" selected={data.e.standard === 'alle_aktiven'}>alle aktiven Aufträge des Kunden (nicht abgerechnet)</option>
 					<option value="nur_markierte" selected={data.e.standard === 'nur_markierte'}>nur Aufträge mit „Im Portal zeigen: ja“</option>
-				</select>
+				</Auswahl>
 			</label>
 			<p class="kd-info">Je Auftrag überschreibbar (Karte „Kundenportal“ im Auftrag). Den Link erzeugen Sie auf der Seite des Kunden.</p>
 			<label>Link zu Ihren AGB (für das Häkchen bei der Annahme)

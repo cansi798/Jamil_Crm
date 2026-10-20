@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { erwarteKeinQuerScrollen } from './hilfe';
+import { erwarteKeinQuerScrollen, personenWaehlen } from './hilfe';
 
 /**
  * Online-Buchung (Jamil msgs 2684/2686) im Browser, gegen die Vorschau im Testmodus:
@@ -84,8 +84,7 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 	await page.getByRole('button', { name: 'Dienst hinzufügen' }).click();
 	const neu = page.getByRole('region', { name: 'Dienst hinzufügen' });
 	await neu.getByLabel('Name').fill(dienstName);
-	await neu.getByRole('checkbox', { name: MURAT }).check();
-	await neu.getByRole('checkbox', { name: SABINE }).check();
+	await personenWaehlen(neu, 'Mitarbeiter', [MURAT, SABINE]);
 	await neu.getByRole('button', { name: 'Anlegen' }).click();
 	await expect(page).toHaveURL(/\/einstellungen\/online-buchung\/[0-9a-f-]{36}$/);
 	const dienstUrl = page.url();

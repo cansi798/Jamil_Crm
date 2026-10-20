@@ -19,6 +19,7 @@
 		leerText = mehrfach ? 'Niemand ausgewählt' : 'Nicht zugewiesen',
 		required = false,
 		klein = false,
+		absenden = false,
 		onchange
 	}: {
 		name: string;
@@ -32,6 +33,8 @@
 		required?: boolean;
 		/** schmaler Chip für Filterleisten */
 		klein?: boolean;
+		/** nach jeder Auswahl das umgebende Formular abschicken (Filter, sofort speichern) */
+		absenden?: boolean;
 		onchange?: (auswahl: string[]) => void;
 	} = $props();
 
@@ -67,8 +70,13 @@
 		await tick();
 		(mitSuche ? suchfeld : liste)?.focus();
 	}
-	function melden() {
+	let wurzel = $state<HTMLDivElement>();
+	async function melden() {
 		onchange?.(mehrfach ? [...werte] : wert ? [wert] : []);
+		if (absenden) {
+			await tick();
+			wurzel?.closest('form')?.requestSubmit();
+		}
 	}
 	function umschalten(p: Person | null) {
 		if (mehrfach) {
@@ -100,7 +108,7 @@
 	}
 </script>
 
-<div class="pw" class:klein onfocusout={draussen} onkeydown={offen ? taste : undefined} role="presentation">
+<div class="pw" class:klein bind:this={wurzel} onfocusout={draussen} onkeydown={offen ? taste : undefined} role="presentation">
 	{#if mehrfach}
 		{#each werte as w (w)}<input type="hidden" {name} value={w} />{/each}
 	{:else if !required}

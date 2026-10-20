@@ -19,6 +19,7 @@
 </script>
 
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { euro, leseEuroInCent, leseMenge, positionsSumme } from '$lib/geld';
 	import { EINHEITEN } from '$lib/katalog-werte';
 	import { istKiPruefen } from '$lib/ki-entwurf';
@@ -121,9 +122,9 @@
 			</label>
 			<label class="pe-einheit">
 				<span class="pe-label">Einheit</span>
-				<select bind:value={z.einheit} disabled={nurLesen} aria-label={`Einheit Position ${nr}`}>
+				<Auswahl bind:value={z.einheit} disabled={nurLesen} aria-label={`Einheit Position ${nr}`}>
 					{#each EINHEITEN as e (e)}<option value={e}>{e}</option>{/each}
-				</select>
+				</Auswahl>
 			</label>
 			<label class="pe-preis">
 				<span class="pe-label">Einzelpreis (€)</span>
@@ -135,8 +136,8 @@
 			</span>
 			{#if !nurLesen}
 				<span class="pe-knoepfe">
-					<button type="button" onclick={() => verschiebe(i, -1)} disabled={i === 0} aria-label={`Position ${nr} nach oben`}>↑</button>
-					<button type="button" onclick={() => verschiebe(i, 1)} disabled={i === zeilen.length - 1} aria-label={`Position ${nr} nach unten`}>↓</button>
+					<button type="button" class="knopf-ghost klein" onclick={() => verschiebe(i, -1)} disabled={i === 0} aria-label={`Position ${nr} nach oben`}>↑</button>
+					<button type="button" class="knopf-ghost klein" onclick={() => verschiebe(i, 1)} disabled={i === zeilen.length - 1} aria-label={`Position ${nr} nach unten`}>↓</button>
 					<button type="button" class="weg" onclick={() => entferne(i)} aria-label={`Position ${nr} entfernen`}>✕</button>
 				</span>
 			{/if}

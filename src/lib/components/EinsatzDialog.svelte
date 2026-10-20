@@ -1,4 +1,7 @@
 <script lang="ts">
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import Segmente from '$lib/components/ui/Segmente.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { untrack } from 'svelte';
 	import { ausTagUndUhrzeit, berlinTag, berlinUhrzeit, tagPlus } from '$lib/zeit';
 	import { page } from '$app/state';
@@ -274,12 +277,12 @@
 			{#if suchFehler}<p class="kd-info" role="status">{suchFehler}</p>{/if}
 			<label>
 				Auftrag *
-				<select bind:value={auftragId} required size={Math.min(6, Math.max(2, treffer.length + 1))}>
+				<Auswahl bind:value={auftragId} required size={Math.min(6, Math.max(2, treffer.length + 1))}>
 					<option value="" disabled>– bitte wählen –</option>
 					{#each treffer as a (a.id)}
 						<option value={a.id}>{a.nummer} · {a.titel} · {a.kundeName}</option>
 					{/each}
-				</select>
+				</Auswahl>
 			</label>
 		{/if}
 
@@ -302,27 +305,28 @@
 			<legend>{einsatz ? 'Verschieben' : 'Wer und wann'}</legend>
 			<div class="kd-formular">
 				{#if !einsatz && kolonnen.length > 0}
-					<div class="pt-wer" role="radiogroup" aria-label="Wer">
-						<label class="kd-haken"><input type="radio" bind:group={wer} value="person" /><span>Mitarbeiter</span></label>
-						<label class="kd-haken"><input type="radio" bind:group={wer} value="kolonne" /><span>Kolonne</span></label>
-					</div>
+					<Segmente
+						label="Wer"
+						voll
+						bind:wert={wer}
+						optionen={[
+							{ wert: 'person', text: 'Mitarbeiter' },
+							{ wert: 'kolonne', text: 'Kolonne' }
+						]}
+					/>
 				{/if}
 				{#if wer === 'kolonne' && !einsatz}
 					<label>
 						Kolonne
-						<select bind:value={kolonneId} required>
+						<Auswahl bind:value={kolonneId} required>
 							{#each kolonnen as ko (ko.id)}<option value={ko.id}>{ko.name} ({ko.mitglieder.map((m) => m.name.split(' ')[0]).join(', ')})</option>{/each}
-						</select>
+						</Auswahl>
 					</label>
 				{:else}
-					<label>
+					<div class="ui-feld">
 						Mitarbeiter
-						<select bind:value={benutzerId} required>
-							{#each auswahlMitarbeiter as m (m.id)}
-								<option value={m.id}>{m.name}</option>
-							{/each}
-						</select>
-					</label>
+						<PersonWahl name="benutzerId" label="Mitarbeiter" leerText="Mitarbeiter wählen" required personen={auswahlMitarbeiter} bind:wert={benutzerId} />
+					</div>
 				{/if}
 				<div class={einsatz ? '' : 'kd-zwei'}>
 					<label>
@@ -366,8 +370,8 @@
 		{/if}
 
 		<div class="kd-aktionen">
-			<button type="submit" class="kd-knopf" disabled={sendet}>{einsatz ? 'Speichern' : 'Einsatz anlegen'}</button>
 			<button type="button" class="kd-knopf hell" onclick={() => dialog?.close()}>Abbrechen</button>
+			<button type="submit" class="kd-knopf" disabled={sendet}>{einsatz ? 'Speichern' : 'Einsatz anlegen'}</button>
 			{#if einsatz}
 				<button type="button" class="kd-knopf gefahr" disabled={sendet} onclick={loeschen}>Einsatz löschen</button>
 			{/if}
