@@ -8,6 +8,10 @@
 		menge: string;
 		einheit: string;
 		einzelpreis: string;
+		/** Arbeitszeit je Einheit in Minuten (Text; leer = unbekannt, bei „h“ 60) – nur im Angebot. */
+		arbeitMinuten?: string;
+		/** Materialanteil je Einheit aus dem Katalog (für die Ampel). */
+		materialCent?: number | null;
 	};
 
 	let zaehler = 0;
@@ -30,8 +34,9 @@
 	let {
 		zeilen = $bindable(),
 		nurLesen = false,
-		katalogPreisFest = false
-	}: { zeilen: EditorZeile[]; nurLesen?: boolean; katalogPreisFest?: boolean } = $props();
+		katalogPreisFest = false,
+		mitArbeitszeit = false
+	}: { zeilen: EditorZeile[]; nurLesen?: boolean; katalogPreisFest?: boolean; mitArbeitszeit?: boolean } = $props();
 	const preisFest = (z: EditorZeile) => katalogPreisFest && z.katalogPositionId !== null;
 
 	const menge = (z: EditorZeile) => {
@@ -95,6 +100,20 @@
 					<span class="pe-hinweis">{preisFest(z) ? 'aus dem Katalog – Preis wird beim Einfügen aktuell übernommen' : 'aus dem Katalog'}</span>
 				{/if}
 				{#if istKiPruefen(z.beschreibung)}<span class="pe-ki">bitte prüfen (KI-Vorschlag)</span>{/if}
+				{#if mitArbeitszeit}
+					<label class="pe-arbeit">
+						<span>Arbeitszeit je {z.einheit}</span>
+						<input
+							type="text"
+							inputmode="decimal"
+							bind:value={z.arbeitMinuten}
+							disabled={nurLesen}
+							aria-label={`Arbeitszeit Position ${nr}`}
+							placeholder={z.einheit === 'h' ? '60' : '–'}
+						/>
+						<span>Min.</span>
+					</label>
+				{/if}
 			</div>
 			<label class="pe-menge">
 				<span class="pe-label">Menge</span>
@@ -143,6 +162,20 @@
 		color: #4d3b00;
 		font-size: 0.8rem;
 		font-weight: 700;
+	}
+	.pe-arbeit {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin-top: 0.35rem;
+		font-size: 0.8125rem;
+		color: var(--m365-text-leise, #5b6168);
+	}
+	.pe-arbeit input {
+		width: 4.5rem !important;
+		min-height: 2rem !important;
+		padding: 0.15rem 0.4rem !important;
+		text-align: right;
 	}
 	.pe {
 		display: grid;

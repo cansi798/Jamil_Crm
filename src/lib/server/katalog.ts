@@ -148,7 +148,7 @@ function euroFeld(w: unknown, name: string): number {
 }
 
 /** Arbeitszeit in Minuten je Einheit: leer → null, sonst 0–100.000 mit höchstens 2 Nachkommastellen („7,5“). */
-function minutenFeld(w: unknown): number | null {
+export function minutenFeld(w: unknown): number | null {
 	if (w === undefined || w === null || w === '') return null;
 	const t = typeof w === 'number' ? String(w) : typeof w === 'string' ? w.trim().replace(',', '.') : '';
 	if (!/^\d+(\.\d{1,2})?$/.test(t) || Number(t) > 100000) {

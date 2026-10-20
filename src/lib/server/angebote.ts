@@ -9,6 +9,7 @@ import { istMwstSatz, leseEuroInCent, leseMenge, positionsSumme, summen, type Mw
 import { istEinheit, EINHEITEN } from '../katalog-werte';
 import { istTag } from '../zeit';
 import { ladeVorlagePositionen, pruefeVorlageId } from './angebot-vorlagen';
+import { minutenFeld } from './katalog';
 
 /**
  * Angebote zu Aufträgen (Modul `angebote`). Jeder Zugriff verlangt `angebote.bearbeiten` UND `preise.sehen` – ein
@@ -33,6 +34,10 @@ export type AngebotPosition = {
 	einheit: string;
 	einzelpreisCent: number;
 	summeCent: number;
+	/** Arbeitszeit je Einheit in Minuten (aus dem Katalog, änderbar; null: bei „h“ 60, sonst unbekannt). */
+	arbeitMinuten: number | null;
+	/** Materialanteil je Einheit (aus dem Katalog; null bei freien Positionen) – nur für die Ampel. */
+	materialCent: number | null;
 };
 
 export type AngebotWarnung = 'preis_fehlt';
@@ -74,6 +79,8 @@ export type PositionEingabe = {
 	menge: string | number;
 	einheit?: string;
 	einzelpreis?: string | number;
+	arbeitMinuten?: string | number | null;
+	materialCent?: number | null;
 };
 
 /** Wer greift zu: Sicht auf Aufträge und ob Auftragsstatus mitgeändert werden dürfen (`auftraege.bearbeiten`). */
@@ -157,7 +164,9 @@ function zuPosition(z: Record<string, any>): AngebotPosition {
 		menge,
 		einheit: z.einheit,
 		einzelpreisCent,
-		summeCent: positionsSumme(menge, einzelpreisCent)
+		summeCent: positionsSumme(menge, einzelpreisCent),
+		arbeitMinuten: z.arbeit_minuten === null || z.arbeit_minuten === undefined ? null : Number(z.arbeit_minuten),
+		materialCent: z.material_cent === null || z.material_cent === undefined ? null : Number(z.material_cent)
 	};
 }
 
@@ -190,7 +199,7 @@ function zuAngebot(z: Record<string, any>, positionen: AngebotPosition[]): Angeb
 async function ladePositionen(tx: TransactionSql, k: Kontext, ids: string[]): Promise<Map<string, AngebotPosition[]>> {
 	const z = await tx`
 		select id, angebot_id, pos, katalog_position_id, bezeichnung, beschreibung, menge::text as menge,
-			einheit::text as einheit, einzelpreis_cent
+			einheit::text as einheit, einzelpreis_cent, arbeit_minuten, material_cent
 		from app.angebot_positionen
 		where betrieb_id = ${k.betriebId} and angebot_id = any(${ids}::uuid[])
 		order by angebot_id, pos`;
@@ -416,9 +425,20 @@ async function vorlageAnhaengen(tx: TransactionSql, k: Kontext, aid: string, vid
 				'einzelpreis_cent'
 			)}`;
 	}
+	await uebernimmKatalogArbeit(tx, k, aid);
 	await tx`
 		update app.angebote set einleitung = coalesce(${v.einleitung}, einleitung), schluss = coalesce(${v.schluss}, schluss)
 		where id = ${aid} and betrieb_id = ${k.betriebId}`;
+}
+
+/** Arbeitszeit und Material fehlender Katalogpositionen aus dem Katalog übernehmen (für Ampel/Gewinn, msg 2476). */
+async function uebernimmKatalogArbeit(tx: TransactionSql, k: Kontext, aid: string): Promise<void> {
+	await tx`
+		update app.angebot_positionen ap
+		set arbeit_minuten = coalesce(ap.arbeit_minuten, kp.arbeit_minuten), material_cent = coalesce(ap.material_cent, kp.material_cent)
+		from app.katalog_positionen kp
+		where ap.angebot_id = ${aid} and ap.betrieb_id = ${k.betriebId} and kp.id = ap.katalog_position_id
+			and kp.betrieb_id = ap.betrieb_id and (ap.arbeit_minuten is null or ap.material_cent is null)`;
 }
 
 /** Sperrt den Kopf und prüft „Entwurf“ (sonst 409); unbekannt/fremd → 404. */
@@ -513,6 +533,8 @@ type Zeile = {
 	menge: number;
 	einheit: string;
 	einzelpreis_cent: number;
+	arbeit_minuten: number | null;
+	material_cent: number | null;
 };
 
 /**
@@ -556,7 +578,7 @@ async function positionenErsetzen(tx: TransactionSql, k: Kontext, aid: string, e
 	const katalog = new Map<string, Record<string, any>>();
 	if (katalogIds.length > 0) {
 		const z = await tx`
-			select id, bezeichnung, beschreibung, einheit::text as einheit, lohn_cent + material_cent as preis
+			select id, bezeichnung, beschreibung, einheit::text as einheit, lohn_cent + material_cent as preis, arbeit_minuten, material_cent
 			from app.katalog_positionen
 			where betrieb_id = ${k.betriebId} and id = any(${katalogIds}::uuid[])
 			for key share`;
@@ -596,7 +618,34 @@ async function positionenErsetzen(tx: TransactionSql, k: Kontext, aid: string, e
 		} catch (e) {
 			throw fehler((e as Error).message);
 		}
-		return { katalog_position_id: kid, bezeichnung, beschreibung, menge, einheit, einzelpreis_cent: einzelpreis };
+		// Arbeitszeit: mitgeschickt (auch leer = unbekannt) oder aus dem Katalog; Material: mitgeschickt oder aus dem Katalog
+		let arbeit: number | null;
+		try {
+			arbeit = Object.hasOwn(p, 'arbeitMinuten')
+				? minutenFeld(p.arbeitMinuten)
+				: kat?.arbeit_minuten === null || kat?.arbeit_minuten === undefined
+					? null
+					: Number(kat.arbeit_minuten);
+		} catch (e) {
+			throw fehler((e as Error).message);
+		}
+		const mat = p.materialCent;
+		const material =
+			typeof mat === 'number' && Number.isInteger(mat) && mat >= 0 && mat <= 1_000_000_000
+				? mat
+				: kat && kat.material_cent !== null
+					? Number(kat.material_cent)
+					: null;
+		return {
+			katalog_position_id: kid,
+			bezeichnung,
+			beschreibung,
+			menge,
+			einheit,
+			einzelpreis_cent: einzelpreis,
+			arbeit_minuten: arbeit,
+			material_cent: material
+		};
 	});
 	const netto = summen(zeilen.map((z) => ({ menge: z.menge, einzelpreisCent: z.einzelpreis_cent })), 0).nettoCent;
 	if (netto > MAX_NETTO_CENT) throw new ApiFehler(400, 'Die Angebotssumme ist zu hoch (höchstens 100 Mrd. € netto).');
@@ -613,7 +662,9 @@ async function positionenErsetzen(tx: TransactionSql, k: Kontext, aid: string, e
 				'beschreibung',
 				'menge',
 				'einheit',
-				'einzelpreis_cent'
+				'einzelpreis_cent',
+				'arbeit_minuten',
+				'material_cent'
 			)}`;
 	}
 	// geaendert des Kopfs fortschreiben (Positionen gehören zum Angebot)
@@ -676,8 +727,10 @@ export async function neueVersion(k: Kontext, id: string, zg: AngebotZugriff = v
 			returning id`;
 		await tx`
 			insert into app.angebot_positionen
-				(betrieb_id, angebot_id, pos, katalog_position_id, bezeichnung, beschreibung, menge, einheit, einzelpreis_cent)
-			select betrieb_id, ${neu.id}, pos, katalog_position_id, bezeichnung, beschreibung, menge, einheit, einzelpreis_cent
+				(betrieb_id, angebot_id, pos, katalog_position_id, bezeichnung, beschreibung, menge, einheit, einzelpreis_cent,
+					arbeit_minuten, material_cent)
+			select betrieb_id, ${neu.id}, pos, katalog_position_id, bezeichnung, beschreibung, menge, einheit, einzelpreis_cent,
+				arbeit_minuten, material_cent
 			from app.angebot_positionen where angebot_id = ${aid} and betrieb_id = ${k.betriebId}`;
 		return ladeEines(tx, k, neu.id, zg.sicht);
 	});

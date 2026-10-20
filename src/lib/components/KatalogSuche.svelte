@@ -7,6 +7,8 @@
 		beschreibung: string | null;
 		einheit: string;
 		einzelpreisCent?: number;
+		materialCent?: number;
+		arbeitMinuten?: number | null;
 	};
 </script>
 

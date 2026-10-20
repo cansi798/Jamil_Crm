@@ -5,6 +5,7 @@ import { listeAngebotVorlagen } from '$lib/server/angebot-vorlagen';
 import { sichtVon } from '$lib/server/auftraege';
 import { hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
+import { ladeFirmensatz } from '$lib/server/kalkulation';
 
 /** Angebots-Editor. Gespeichert wird über die API (`PATCH`/`PUT …/positionen`, Status, neue Version, PDF). */
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -17,5 +18,6 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		})
 	);
 	// „+ Aus Vorlage“ gibt es nur im Entwurf
-	return { angebot, vorlagen: angebot.status === 'entwurf' ? await listeAngebotVorlagen(k) : [] };
+	// Ampel/Gewinn (msg 2476): Stundensätze aus der Kalkulation – keine Gehälter, nur mit „Preise sehen“ (oben geprüft)
+	return { angebot, vorlagen: angebot.status === 'entwurf' ? await listeAngebotVorlagen(k) : [], satz: await ladeFirmensatz(k) };
 };

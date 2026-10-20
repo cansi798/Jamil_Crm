@@ -83,6 +83,13 @@ test.describe('Angebote', () => {
 			expect(pdf.typ).toBe('application/pdf');
 			expect(pdf.groesse).toBeGreaterThan(5000);
 
+			// Wirtschaftlichkeit (Ampel aus der Kalkulation, msg 2476) – Arbeitszeit je Position änderbar
+			const ampel = page.getByRole('region', { name: 'Wirtschaftlichkeit' });
+			if (await ampel.count()) {
+				await page.getByLabel('Arbeitszeit Position 1').fill('30');
+				await expect(ampel).toContainText('Arbeitszeit');
+				await expect(ampel).not.toContainText('0 h\n');
+			}
 			await page.getByRole('button', { name: 'Als versendet markieren' }).click();
 			await expect(page.getByTestId('angebot-status')).toHaveText('Versendet');
 			await expect(page.getByLabel('Menge Position 1')).toBeDisabled();

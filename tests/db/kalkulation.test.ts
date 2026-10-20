@@ -17,6 +17,8 @@ import {
 import { actions as seitenAktionen, load as seitenLoad } from '../../src/routes/(app)/kalkulation/+page.server';
 import { load as katalogLoad } from '../../src/routes/(app)/katalog/+page.server';
 import { legePositionAn } from '../../src/lib/server/katalog';
+import { legeAngebotAn, speicherePositionen } from '../../src/lib/server/angebote';
+import { bewerteAngebot } from '../../src/lib/kalkulation';
 import { baueUmgebung, UNBEKANNT, type Umgebung } from './hilfe-1c';
 
 /** Kalkulation v2 (Wünsche Jamil, msgs 2515/2516): Kostenzeilen, Mitarbeiter, Kosten- und Verrechnungssatz. */
@@ -175,5 +177,33 @@ describe('Kalkulation v2', () => {
 		expect(chef.positionen.find((p: any) => p.bezeichnung === 'Silikonfuge').arbeitMinuten).toBe(6);
 		await expect(legePositionAn(kA(), { bezeichnung: 'x', einheit: 'm', arbeitMinuten: 'lang' }, true)).rejects.toThrow(/Arbeitszeit/);
 		await root`delete from app.katalog_positionen where id = any(${ids}::uuid[])`;
+	});
+
+	it('Angebot: Arbeitszeit/Material aus dem Katalog, überschreibbar; Ampel aus dem Firmensatz', async () => {
+		await speichereBetriebswerte(kA(), FIRMA);
+		await legeKostenAn(kA(), MIETE);
+		await legeKalkMitarbeiterAn(kA(), ALI); // 37,55 / 45,06 €/h
+		const kat = await legePositionAn(kA(), { bezeichnung: 'Fliesen E2E', einheit: 'm²', arbeitMinuten: '60', lohn: '40,00', material: '20,00' }, true);
+		const ang = await legeAngebotAn(kA(), u.auftragA);
+		try {
+			const a = await speicherePositionen(kA(), ang.id, [
+				{ katalogPositionId: kat.id, menge: '10' },
+				{ bezeichnung: 'Anfahrt', menge: '1', einheit: 'psch', einzelpreis: '50,00' }
+			]);
+			expect(a.positionen.map((p) => [p.arbeitMinuten, p.materialCent])).toEqual([
+				[60, 2000],
+				[null, null]
+			]);
+			// Arbeitszeit im Angebot ändern (Material bleibt mitgeschickt)
+			const b = await speicherePositionen(kA(), ang.id, [{ katalogPositionId: kat.id, menge: '10', arbeitMinuten: '45', materialCent: 2000 }]);
+			expect(b.positionen[0]).toMatchObject({ arbeitMinuten: 45, materialCent: 2000, einzelpreisCent: 6000 });
+			await expect(speicherePositionen(kA(), ang.id, [{ katalogPositionId: kat.id, menge: '1', arbeitMinuten: 'ewig' }])).rejects.toThrow(/Position 1: Arbeitszeit/);
+			const satz = (await ladeFirmensatz(kA()))!;
+			// 10 m² × 45 Min. = 7,5 h; Erlös 600 €, Material 200 € → 53,33 €/h ≥ 45,06 → grün
+			expect(bewerteAngebot(b.positionen, satz)).toMatchObject({ arbeitsstunden: 7.5, effektiverSatzCent: 5333, ampel: 'gruen', gewinnCent: 60000 - 20000 - 28163 });
+		} finally {
+			await root`delete from app.angebote where id = ${ang.id}`;
+			await root`delete from app.katalog_positionen where id = ${kat.id}`;
+		}
 	});
 });

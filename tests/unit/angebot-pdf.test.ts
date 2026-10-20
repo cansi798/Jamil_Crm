@@ -35,7 +35,9 @@ function position(i: number, menge: number, einzelpreisCent: number, bezeichnung
 		menge,
 		einheit: 'm²',
 		einzelpreisCent,
-		summeCent: positionsSumme(menge, einzelpreisCent)
+		summeCent: positionsSumme(menge, einzelpreisCent),
+		arbeitMinuten: null,
+		materialCent: null
 	};
 }
 

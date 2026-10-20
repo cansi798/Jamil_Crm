@@ -5,7 +5,8 @@
 	import PositionenEditor, { neuerSchluessel, type EditorZeile } from '$lib/components/PositionenEditor.svelte';
 	import Summenblock from '$lib/components/Summenblock.svelte';
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
-	import { centAlsEingabe, leseEuroInCent, leseMenge, mengeText, summen, type MwstSatz } from '$lib/geld';
+	import { centAlsEingabe, euro, leseEuroInCent, leseMenge, mengeText, summen, type MwstSatz } from '$lib/geld';
+	import { bewerteAngebot } from '$lib/kalkulation';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -22,7 +23,9 @@
 			beschreibung: p.beschreibung ?? '',
 			menge: mengeText(p.menge).replaceAll('.', ''),
 			einheit: p.einheit,
-			einzelpreis: centAlsEingabe(p.einzelpreisCent)
+			einzelpreis: centAlsEingabe(p.einzelpreisCent),
+			arbeitMinuten: p.arbeitMinuten === null ? '' : String(p.arbeitMinuten).replace('.', ','),
+			materialCent: p.materialCent
 		}));
 	const kopfAus = (a: Angebot): Kopf => ({
 		datum: a.datum,
@@ -47,6 +50,28 @@
 	let vorlageOffen = $state(false);
 	let vorlageWahl = $state('');
 	let zuletztHinzu = $state<string | null>(null);
+
+	// Ampel und erwarteter Gewinn (Wunsch Jamil, msg 2476): Arbeitszeit × Kosten-Stundensatz + Material gegen den Erlös
+	const zahlOderNull = (t: string | undefined) => {
+		const x = (t ?? '').trim().replace(',', '.');
+		return x === '' || Number.isNaN(Number(x)) ? null : Number(x);
+	};
+	const bewertung = $derived(
+		bewerteAngebot(
+			zeilen.map((z) => {
+				let menge = 0;
+				let preis = 0;
+				try {
+					menge = leseMenge(z.menge);
+					preis = z.einzelpreis.trim() === '' ? 0 : leseEuroInCent(z.einzelpreis);
+				} catch {
+					/* ungültige Zeile zählt nicht */
+				}
+				return { menge, einzelpreisCent: preis, einheit: z.einheit, arbeitMinuten: zahlOderNull(z.arbeitMinuten), materialCent: z.materialCent ?? null };
+			}),
+			data.satz
+		)
+	);
 
 	function uebernehme(a: Angebot) {
 		angebot = a;
@@ -136,7 +161,9 @@
 				beschreibung: z.beschreibung,
 				menge: z.menge,
 				einheit: z.einheit,
-				einzelpreis: z.einzelpreis
+				einzelpreis: z.einzelpreis,
+				arbeitMinuten: z.arbeitMinuten ?? '',
+				materialCent: z.materialCent ?? null
 			}))
 		});
 		uebernehme(a);
@@ -194,7 +221,9 @@
 				beschreibung: t.beschreibung ?? '',
 				menge: '1',
 				einheit: t.einheit,
-				einzelpreis: centAlsEingabe(t.einzelpreisCent ?? 0)
+				einzelpreis: centAlsEingabe(t.einzelpreisCent ?? 0),
+				arbeitMinuten: t.arbeitMinuten === null || t.arbeitMinuten === undefined ? '' : String(t.arbeitMinuten).replace('.', ','),
+				materialCent: t.materialCent ?? null
 			}
 		];
 		zuletztHinzu = t.bezeichnung;
@@ -335,7 +364,7 @@
 	</section>
 
 	<h2>Positionen</h2>
-	<PositionenEditor bind:zeilen nurLesen={!entwurf} />
+	<PositionenEditor bind:zeilen nurLesen={!entwurf} mitArbeitszeit />
 
 	{#if entwurf}
 		<div class="an-hinzu">
@@ -372,6 +401,34 @@
 	{/if}
 
 	<Summenblock nettoCent={live.nettoCent} mwstCent={live.mwstCent} bruttoCent={live.bruttoCent} mwstSatz={kopf.mwstSatz} />
+
+	{#if data.satz}
+		<section class={`an-ampel ampel-${bewertung.ampel ?? 'leer'}`} aria-label="Wirtschaftlichkeit">
+			<div class="an-ampel-kopf">
+				<span class="an-ampel-punkt" aria-hidden="true"></span>
+				<strong>
+					{#if bewertung.ampel === 'gruen'}Mit Gewinn
+					{:else if bewertung.ampel === 'gelb'}Deckt die Kosten, aber wenig Gewinn
+					{:else if bewertung.ampel === 'rot'}Verlust – unter kostendeckend
+					{:else}Noch keine Bewertung – Arbeitszeit je Position fehlt{/if}
+				</strong>
+			</div>
+			<dl>
+				<div><dt>Arbeitszeit</dt><dd>{bewertung.arbeitsstunden.toLocaleString('de-DE')} h</dd></div>
+				<div><dt>Erlös je Arbeitsstunde</dt><dd>{bewertung.effektiverSatzCent === null ? '–' : `${euro(bewertung.effektiverSatzCent)}/h`}</dd></div>
+				<div><dt>Kosten (Arbeit × {euro(data.satz.kostendeckendCent)}/h + Material)</dt><dd>{bewertung.kostenCent === null ? '–' : euro(bewertung.kostenCent)}</dd></div>
+				<div>
+					<dt>Erwarteter Gewinn</dt>
+					<dd class:minus={(bewertung.gewinnCent ?? 0) < 0}>{bewertung.gewinnCent === null ? '–' : euro(bewertung.gewinnCent)}</dd>
+				</div>
+			</dl>
+			<p class="kd-info">
+				Grün ab Verrechnungssatz {euro(data.satz.empfohlenCent)}/h, rot unter dem Kosten-Stundensatz {euro(data.satz.kostendeckendCent)}/h (aus der
+				Kalkulation).{#if bewertung.ohneArbeitszeit > 0} {bewertung.ohneArbeitszeit} Position{bewertung.ohneArbeitszeit === 1 ? '' : 'en'} ohne Arbeitszeit
+					zählen nur mit Erlös und Material.{/if}
+			</p>
+		</section>
+	{/if}
 	{#if ohnePreis > 0}
 		<p class="kt-hinweis warnung">{ohnePreis === 1 ? '1 Position' : `${ohnePreis} Positionen`} ohne Preis.</p>
 	{/if}
@@ -406,6 +463,52 @@
 </main>
 
 <style>
+	.an-ampel {
+		margin: 1rem 0;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--m365-rand);
+		border-left: 6px solid var(--ampel, var(--m365-rand-stark));
+		border-radius: var(--m365-radius);
+		background: var(--m365-flaeche);
+	}
+	.ampel-gruen {
+		--ampel: var(--m365-erfolg);
+	}
+	.ampel-gelb {
+		--ampel: #e0a800;
+	}
+	.ampel-rot {
+		--ampel: var(--m365-fehler);
+	}
+	.an-ampel-kopf {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.an-ampel-punkt {
+		width: 0.9rem;
+		height: 0.9rem;
+		border-radius: 50%;
+		background: var(--ampel, var(--m365-rand-stark));
+	}
+	.an-ampel dl {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+		gap: 0.5rem 1rem;
+		margin: 0.6rem 0;
+	}
+	.an-ampel dt {
+		font-size: 0.8125rem;
+		color: var(--m365-text-leise);
+	}
+	.an-ampel dd {
+		margin: 0;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+	}
+	.an-ampel dd.minus {
+		color: var(--m365-fehler);
+	}
 	.an-seite {
 		max-width: 64rem;
 	}
