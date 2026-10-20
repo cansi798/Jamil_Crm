@@ -48,6 +48,7 @@ function systemAktion(k: KiKontext): string {
 		'- Mehrtägige Termine („von Montag bis Mittwoch“, „bis Freitag“): einsatz_anlegen mit start (erster Tag) und bis (letzter Tag).',
 		'- „Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“: route_heute (wer leer = ich).',
 		'- „Wie ist die Auslastung?“, „Wie ausgelastet ist Murat nächsten Monat?“: abfrage_auslastung (wer leer = alle; monat dieser|letzter|naechster).',
+		'- „Zeig mir den Kalender von Kolonne 3 im November“, „Kalender von Ali nächste Woche“: kalender_zeigen (wer Person/Kolonne, monat Name oder naechster/letzter, ansicht monat|woche|tag).',
 		'- „Wo muss ich nachfassen?“, „Welche Angebote sind zum Nachfassen fällig?“: abfrage_nachfassen (nicht nachfassen_pausieren).',
 		'- „Wie viel Gewinn haben wir diesen Monat verplant?“, „Break-even erreicht?“: abfrage_monatsgewinn (monat dieser|letzter|naechster).',
 		'- Fragen wie „Was steht heute für mich an?“, „Was hat Sabine morgen?“, „Was habe ich diese Woche?“, „Welche To-dos sind überfällig?“:',

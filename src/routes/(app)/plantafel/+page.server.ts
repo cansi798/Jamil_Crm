@@ -1,13 +1,16 @@
 import type { PageServerLoad } from './$types';
 import { listeAuftraege } from '$lib/server/auftraege';
-import { ladeWoche } from '$lib/server/plantafel';
+import { ladeTage } from '$lib/server/plantafel';
+import { istAnsicht, monatsWochen, type Ansicht } from '$lib/kalender';
 import { hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
-import { berlinTag, istTag } from '$lib/zeit';
+import { berlinTag, istTag, wocheVon } from '$lib/zeit';
 import { listeKolonnen } from '$lib/server/kolonnen';
 
 /**
- * Plantafel: Mitarbeiter × 7 Tage der Woche mit `?tag=` (Standard: heute, Berlin). Sehen: `plantafel.bearbeiten` oder
+ * Plantafel (Wunsch Jamil msg 2676): Kalender mit Ansicht `?ansicht=monat|woche|tag` (Standard Monat, wie Outlook) oder
+ * `team` (Mitarbeiter × 7 Tage). Farbe `?farbe=status` (sonst nach Mitarbeiter/Kolonne).
+ * Team: Mitarbeiter × 7 Tage der Woche mit `?tag=` (Standard: heute, Berlin). Sehen: `plantafel.bearbeiten` oder
  * `auftraege.alle_lesen`; planen (Ziehen, Anlegen, Ändern) nur mit `plantafel.bearbeiten`. Für den Dialog
  * „Einsatz anlegen“ die neuesten offenen Aufträge (ohne abgerechnete, in der Datenbank gefiltert); ältere findet die
  * Suche im Dialog über `/api/auftraege?offen=1&suche=…`.
@@ -18,10 +21,16 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const heute = berlinTag(new Date());
 	const roh = url.searchParams.get('tag');
 	const tag = istTag(roh) ? roh : heute;
+	const rohAnsicht = url.searchParams.get('ansicht');
+	const ansicht: Ansicht = istAnsicht(rohAnsicht) ? rohAnsicht : 'monat';
+	const farbe = url.searchParams.get('farbe') === 'status' ? 'status' : 'person';
+	const monat = tag.slice(0, 7);
+	const wochen = ansicht === 'monat' ? monatsWochen(monat) : [wocheVon(tag)];
+	const tage = ansicht === 'tag' ? [tag] : wochen.flat();
 	const darfPlanen = hatRecht(nutzer, 'plantafel.bearbeiten');
 	const [woche, auftraege, kolonnen] = await alsSeitenFehler(() =>
 		Promise.all([
-			ladeWoche(k, tag),
+			ladeTage(k, tage),
 			darfPlanen ? listeAuftraege(k, { alle: true, benutzerId: nutzer.id }, { offen: true }) : Promise.resolve([]),
 			listeKolonnen(k, true)
 		])
@@ -38,6 +47,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {
 		tag,
 		heute,
+		ansicht,
+		farbe,
+		monat,
+		wochen,
 		woche: {
 			...woche,
 			mitarbeiter: sichtbar,

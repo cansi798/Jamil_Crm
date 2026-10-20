@@ -46,6 +46,8 @@ export type Einsatz = {
 	/** Mehrtägiger Termin bzw. Kolonnen-Einsatz: gemeinsame Gruppe (erster/letzter Tag), sonst null. */
 	gruppe: { id: string; vonTag: string; bisTag: string } | null;
 	kolonne: { id: string; name: string } | null;
+	/** Status des Auftrags (Kalender: Farbe nach Status). */
+	auftragStatus: string;
 };
 
 export type Abwesenheit = {
@@ -147,7 +149,7 @@ const adresse = (strasse: string | null, plz: string | null, ort: string | null)
 	[strasse, [plz, ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null;
 
 export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.benutzer_id, e.beginn, e.ende, e.notiz, e.art,
-	a.nummer as auftrag_nummer, a.titel as auftrag_titel, b.name as benutzer_name,
+	a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.status as auftrag_status, b.name as benutzer_name,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
 	o.id as objekt_id, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
@@ -182,7 +184,8 @@ export function zuEinsatz(z: Record<string, any>, warnungen: Warnung[] = []): Ei
 		art: z.art ?? 'montage',
 		warnungen,
 		gruppe: z.gruppe_id ? { id: z.gruppe_id, vonTag: z.gruppe_von, bisTag: z.gruppe_bis } : null,
-		kolonne: z.kolonne_id ? { id: z.kolonne_id, name: z.kolonne_name } : null
+		kolonne: z.kolonne_id ? { id: z.kolonne_id, name: z.kolonne_name } : null,
+		auftragStatus: z.auftrag_status ?? 'anfrage'
 	};
 }
 
@@ -577,9 +580,15 @@ export type Wochenansicht = {
  */
 export async function ladeWoche(k: Kontext, tag: string): Promise<Wochenansicht> {
 	if (!istTag(tag)) throw new ApiFehler(400, 'Ungültiger Tag.');
-	const tage = wocheVon(tag);
+	return ladeTage(k, wocheVon(tag));
+}
+
+/** Wie `ladeWoche`, aber für beliebige aufeinanderfolgende Tage (Kalender: Monat mit bis zu 6 Wochen, Tag). */
+export async function ladeTage(k: Kontext, tage: string[]): Promise<Wochenansicht> {
+	if (tage.length === 0 || tage.length > 43 || !tage.every(istTag)) throw new ApiFehler(400, 'Ungültiger Zeitraum.');
+	const letzter = tage[tage.length - 1];
 	const beginn = tagesGrenzen(tage[0]).beginn;
-	const ende = tagesGrenzen(tage[6]).ende;
+	const ende = tagesGrenzen(letzter).ende;
 	// Für Warnungen auch Einsätze bis 14 Stunden vor und nach der Woche (so lang darf ein Einsatz höchstens sein:
 	// Sonntag 22–6 Uhr kollidiert mit Montag 1 Uhr) und Abwesenheiten der Tage davor und danach.
 	const vorlauf = new Date(beginn.getTime() - MAX_STUNDEN * MS_STUNDE);
@@ -591,7 +600,7 @@ export async function ladeWoche(k: Kontext, tag: string): Promise<Wochenansicht>
 			order by e.beginn, b.name, e.id`;
 		const abw = await tx`
 			select ${tx.unsafe(ABWESENHEIT_AUSWAHL)} from ${tx.unsafe(ABWESENHEIT_VON)}
-			where w.betrieb_id = ${k.betriebId} and w.von <= ${tagPlus(tage[6], 1)}::date and w.bis >= ${tagPlus(tage[0], -1)}::date
+			where w.betrieb_id = ${k.betriebId} and w.von <= ${tagPlus(letzter, 1)}::date and w.bis >= ${tagPlus(tage[0], -1)}::date
 			order by w.von, b.name, w.id`;
 		const mitarbeiter = await tx`
 			select b.id, b.name, b.aktiv from app.benutzer b
@@ -602,7 +611,7 @@ export async function ladeWoche(k: Kontext, tag: string): Promise<Wochenansicht>
 				))
 			order by public.unaccent(lower(b.name)), b.id`;
 		const vergleich = abw.map(zuAbwesenheit);
-		const abwesenheiten = vergleich.filter((a) => a.von <= tage[6] && a.bis >= tage[0]);
+		const abwesenheiten = vergleich.filter((a) => a.von <= letzter && a.bis >= tage[0]);
 		const alle = zeilen.map((z) => ({
 			id: z.id as string,
 			benutzerId: z.benutzer_id as string,

@@ -36,7 +36,7 @@ async function api(page: Page, methode: string, url: string, koerper?: unknown) 
 async function testAuftrag(page: Page, titel: string) {
 	const heute = await api(page, 'GET', '/api/plantafel');
 	const montag = tagPlus(heute.tage[0], 21);
-	const woche = await api(page, 'GET', `/api/plantafel?tag=${montag}`);
+	const woche = await api(page, 'GET', `/api/plantafel?ansicht=team&tag=${montag}`);
 	const monteur = woche.mitarbeiter.find((m: { name: string }) => m.name === MONTEUR_NAME);
 	expect(monteur, 'Monteur aus dem Seed').toBeTruthy();
 	const [kunde] = await api(page, 'GET', '/api/kunden');
@@ -83,7 +83,7 @@ test.describe('Plantafel: Filter, Kolonnen, mehrtägig (Jamil msgs 2508, 2510, 2
 			await expect(page.getByRole('list', { name: 'Kolonnen' })).toContainText(name);
 
 			// Filter: nur diese Kolonne (bleibt in der Adresse)
-			await page.goto(`/plantafel?tag=${montag}`);
+			await page.goto(`/plantafel?ansicht=team&tag=${montag}`);
 			await page.locator('.pt-filter > summary').click();
 			await page.getByRole('checkbox', { name }).check();
 			await expect(page).toHaveURL(/[?&]ko=/);
@@ -137,7 +137,7 @@ test.describe('Plantafel', () => {
 				page.locator(`table.pt-raster td[data-tag="${tag}"][data-benutzer="${monteurId}"]`);
 			const karte = (tag: string) => zelle(tag).locator(`[data-einsatz="${e1.id}"]`);
 
-			await page.goto(`/plantafel?tag=${montag}`);
+			await page.goto(`/plantafel?ansicht=team&tag=${montag}`);
 			await expect(karte(montag)).toBeVisible();
 			await ziehe(page, karte(montag), zelle(dienstag));
 			await expect(page.getByRole('status').filter({ hasText: 'Verschoben' })).toBeVisible();
@@ -168,7 +168,7 @@ test.describe('Plantafel', () => {
 		const { auftrag, monteurId, montag } = await testAuftrag(page, titel);
 		try {
 			const donnerstag = tagPlus(montag, 3);
-			await page.goto(`/plantafel?tag=${montag}`);
+			await page.goto(`/plantafel?ansicht=team&tag=${montag}`);
 			await page.getByRole('button', { name: `Einsatz für ${MONTEUR_NAME} am ${tagKurz(donnerstag)} anlegen` }).click();
 			const dialog = page.getByRole('dialog', { name: 'Einsatz anlegen' });
 			await expect(dialog).toBeVisible();

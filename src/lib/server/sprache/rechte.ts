@@ -63,6 +63,7 @@ export async function pruefeAktionsRechte(
 		case 'anlage_anlegen':
 			return darf(locals, 'kunden', 'kunden.bearbeiten');
 		case 'abfrage_auslastung':
+		case 'kalender_zeigen':
 			return darfEines(locals, 'plantafel', ['plantafel.bearbeiten', 'auftraege.alle_lesen']);
 		case 'abfrage_monatsgewinn':
 			await darfEines(locals, 'plantafel', ['plantafel.bearbeiten', 'auftraege.alle_lesen']);

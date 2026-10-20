@@ -17,6 +17,8 @@
 		aendern: string | null;
 		/** Antwort auf eine Frage (nur lesend, z. B. Tagesplan) – ohne Speichern. */
 		antwort?: {
+			/** Seite, die sich direkt öffnet (z. B. gefilterter Kalender) */
+			oeffnen?: string;
 			abschnitte: { titel: string; eintraege: { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean }[] }[];
 			vorlesen: string;
 		};

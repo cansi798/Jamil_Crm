@@ -30,11 +30,12 @@ export const AKTIONEN = [
 	'route_heute',
 	'abfrage_auslastung',
 	'abfrage_monatsgewinn',
-	'abfrage_nachfassen'
+	'abfrage_nachfassen',
+	'kalender_zeigen'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
-export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen'] as const;
+export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen', 'kalender_zeigen'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt';
@@ -121,6 +122,7 @@ export type KiAktion =
 	| { aktion: 'abfrage_auslastung'; daten: { wer?: string; monat?: MonatRelativ } }
 	| { aktion: 'abfrage_monatsgewinn'; daten: { monat?: MonatRelativ } }
 	| { aktion: 'abfrage_nachfassen'; daten: Record<string, never> }
+	| { aktion: 'kalender_zeigen'; daten: { wer?: string; monat?: string; ansicht?: 'monat' | 'woche' | 'tag' } }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -369,6 +371,15 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		additionalProperties: false
 	},
 	abfrage_nachfassen: { type: 'object', properties: {}, additionalProperties: false },
+	kalender_zeigen: {
+		type: 'object',
+		properties: {
+			wer: text(100, 'Mitarbeiter (Vorname) oder Kolonne, z. B. „Kolonne 3“ – leer = alle'),
+			monat: text(20, 'Monat als Name („November“) oder „nächster“/„letzter“ – leer = dieser'),
+			ansicht: { type: 'string', enum: ['monat', 'woche', 'tag'] }
+		},
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -388,6 +399,8 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 		'Frage nach der Auslastung beantworten: verplante und freie Stunden je Mitarbeiter (oder alle) in diesem, letzten oder nächsten Monat („Wie ist die Auslastung?“, „Wie ausgelastet ist Murat im November?“ → monat dieser/naechster nach Bezug).',
 	abfrage_monatsgewinn:
 		'Frage nach Gewinn/Break-even des Monats beantworten („Wie viel Gewinn haben wir diesen Monat verplant?“, „Haben wir den Break-even erreicht?“).',
+	kalender_zeigen:
+		'Kalender (Plantafel) öffnen, gefiltert nach Mitarbeiter oder Kolonne und Monat („Zeig mir den Kalender von Kolonne 3 im November“).',
 	abfrage_nachfassen: 'Frage beantworten, bei welchen Aufträgen/Angeboten das Nachfassen heute fällig oder überfällig ist („Wo muss ich nachfassen?“).',
 	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',
 	quelle_setzen: 'Auftragsquelle (auch „Quelle“) eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import Bestaetigungskarte, { type Karte } from './Bestaetigungskarte.svelte';
 
 	/**
@@ -212,6 +212,12 @@
 		}
 		ergebnis = koerper as Ergebnis;
 		zustand = 'karte';
+		// „Zeig mir den Kalender …“: gleich dorthin (nur Seiten der App)
+		const ziel = ergebnis.karte.antwort?.oeffnen;
+		if (ziel && ziel.startsWith('/') && !ziel.startsWith('//')) {
+			schliessen();
+			await goto(ziel);
+		}
 	}
 
 	async function speichern(auswahl: Record<string, string>) {

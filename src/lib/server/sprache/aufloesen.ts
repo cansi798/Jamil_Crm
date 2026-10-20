@@ -35,7 +35,7 @@ export type Karte = {
 	/** Link zum normalen Formular, so weit wie möglich vorausgefüllt („Ändern“). */
 	aendern: string | null;
 	/** Nur bei Fragen (nur lesend): Antwort als Liste mit Links und Text zum Vorlesen. */
-	antwort?: { abschnitte: { titel: string; eintraege: { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean }[] }[]; vorlesen: string };
+	antwort?: { oeffnen?: string; abschnitte: { titel: string; eintraege: { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean }[] }[]; vorlesen: string };
 };
 
 /** Ausführbare Werte je Aktion (IDs aufgelöst, Zeitpunkte als ISO). `null` an einer Stelle = offene Auswahl. */
@@ -751,7 +751,8 @@ const TITEL: Record<AktionsName, string> = {
 	route_heute: 'Route für heute',
 	abfrage_auslastung: 'Auslastung',
 	abfrage_monatsgewinn: 'Gewinn diesen Monat',
-	abfrage_nachfassen: 'Nachfassen fällig'
+	abfrage_nachfassen: 'Nachfassen fällig',
+	kalender_zeigen: 'Kalender'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -794,7 +795,7 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 export async function loeseAuf(
 	k: Kontext,
 	nutzer: Nutzer,
-	aktion: Exclude<KiAktion, { aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' }>,
+	aktion: Exclude<KiAktion, { aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' }>,
 	jetzt: Date
 ): Promise<Vorschau> {
 	let bau: Bau;

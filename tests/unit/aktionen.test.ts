@@ -21,7 +21,8 @@ describe('Aktions-Schema', () => {
 			'route_heute',
 			'abfrage_auslastung',
 			'abfrage_monatsgewinn',
-			'abfrage_nachfassen'
+			'abfrage_nachfassen',
+			'kalender_zeigen'
 		]);
 		expect(Object.keys(AKTIONS_SCHEMAS).sort()).toEqual([...AKTIONEN, 'unbekannt'].sort());
 		// Werkzeuge für Function Calling: je Aktion eine Funktion mit Parametern = Schema

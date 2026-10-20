@@ -536,7 +536,7 @@ describe('Plantafel: Einsätze und Abwesenheiten', () => {
 
 		it('Plantafel: Woche aus ?tag=, Aufträge für den Dialog nur zum Planen; Monteur 403; ohne Modul 402', async () => {
 			await legeEinsatzAn(kA(), { auftragId: auftragA, benutzerId: aliId, beginn: um('2026-10-21', 8), ende: um('2026-10-21', 12) });
-			const d = (await plantafelLoad({ ...ort(chefA), url: new URL('http://localhost/plantafel?tag=2026-10-21') } as never)) as any;
+			const d = (await plantafelLoad({ ...ort(chefA), url: new URL('http://localhost/plantafel?ansicht=team&tag=2026-10-21') } as never)) as any;
 			expect(d.tag).toBe('2026-10-21');
 			expect(d.woche.tage[0]).toBe('2026-10-19');
 			expect(d.woche.einsaetze).toHaveLength(1);

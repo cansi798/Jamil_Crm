@@ -190,6 +190,7 @@ async function ausfuehrenJe(
 		case 'abfrage_auslastung':
 		case 'abfrage_monatsgewinn':
 		case 'abfrage_nachfassen':
+		case 'kalender_zeigen':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
 		case 'protokoll_ausfuellen': {
 			if (w.formular) {

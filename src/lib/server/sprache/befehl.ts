@@ -9,6 +9,7 @@ import { berlinTag } from '../../zeit';
 import type { MonatRelativ, TagesplanDaten } from './aktionen';
 import { dieserMonat, ladeAuslastung, monatText } from '../auslastung';
 import { gewinnSatz, monatPlus, stundenText } from '../../auslastung';
+import { monatAusName, monatName } from '../../kalender';
 import { euro } from '../../geld';
 import { firmenStart, termineAlsStopps } from '../karte';
 import { listeAuftraege, sichtVon } from '../auftraege';
@@ -180,6 +181,43 @@ async function beantworteMonatsgewinn(k: { betriebId: string; benutzerId: string
 	});
 }
 
+/** „Zeig mir den Kalender von Kolonne 3 im November“ (Wunsch Jamil msg 2676): öffnet die gefilterte Plantafel. */
+async function beantworteKalender(
+	k: { betriebId: string; benutzerId: string },
+	nutzer: Nutzer,
+	d: { wer?: string; monat?: string; ansicht?: 'monat' | 'woche' | 'tag' },
+	jetzt: Date
+): Promise<Karte> {
+	const heute = berlinTag(jetzt);
+	const karte = (titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
+		aktion: 'kalender_zeigen', titel, zeilen: [], auswahl: [], warnungen: [], fehler, aendern: null, ...(antwort ? { antwort } : {})
+	});
+	const m = (d.monat ?? '').trim().toLowerCase();
+	const monat = !m || m === 'dieser' ? heute.slice(0, 7) : m === 'naechster' || m === 'nächster' ? monatPlus(heute.slice(0, 7), 1) : m === 'letzter' ? monatPlus(heute.slice(0, 7), -1) : monatAusName(m, heute);
+	if (!monat) return karte('Kalender', `Monat „${d.monat}“ nicht verstanden.`);
+	const p = new URLSearchParams();
+	if (d.ansicht && d.ansicht !== 'monat') p.set('ansicht', d.ansicht);
+	p.set('tag', monat === heute.slice(0, 7) ? heute : `${monat}-01`);
+	let wer = 'alle';
+	if (d.wer) {
+		const x = await personAufloesen(k, nutzer, d.wer);
+		if (x.kolonne) {
+			p.append('ko', x.kolonne.id);
+			wer = x.kolonne.name;
+		} else if (x.id) {
+			p.append('ma', x.id);
+			wer = x.id === nutzer.id ? 'meine' : d.wer;
+		} else return karte('Kalender', x.frage);
+	}
+	const link = `/plantafel?${p.toString()}`;
+	const was = `${wer === 'alle' ? 'Kalender' : wer === 'meine' ? 'Mein Kalender' : `Kalender ${wer}`} · ${monatName(monat)}`;
+	return karte(was, null, {
+		oeffnen: link,
+		abschnitte: [{ titel: 'Öffnen', eintraege: [{ zeit: '', titel: `${was} öffnen`, ort: null, link, ueberfaellig: false }] }],
+		vorlesen: `Ich öffne ${wer === 'alle' ? 'den Kalender' : wer === 'meine' ? 'deinen Kalender' : `den Kalender von ${wer}`} für ${monatName(monat)}.`
+	});
+}
+
 /** „Wo muss ich nachfassen?“ (Wunsch Jamil msg 2674): Aufträge mit Nachfassen heute oder überfällig (nicht pausiert). */
 async function beantworteNachfassen(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, jetzt: Date): Promise<Karte> {
 	const heute = berlinTag(jetzt);
@@ -289,6 +327,9 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	// Auslastung und Gewinn des Monats (Wunsch Jamil msg 2476, Punkte 4 und 5)
 	if (aktion.aktion === 'abfrage_auslastung') {
 		return { text, vorschlag: null, karte: await beantworteAuslastung(k, nutzer, aktion.daten, jetzt) };
+	}
+	if (aktion.aktion === 'kalender_zeigen') {
+		return { text, vorschlag: null, karte: await beantworteKalender(k, nutzer, aktion.daten, jetzt) };
 	}
 	if (aktion.aktion === 'abfrage_nachfassen') {
 		return { text, vorschlag: null, karte: await beantworteNachfassen(k, nutzer, jetzt) };

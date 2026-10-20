@@ -254,6 +254,15 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 		const wer = kolonne ? `Kolonne ${kolonne[1]}` : person && istNamensWort(person[1]) ? person[1] : undefined;
 		return { aktion: 'route_heute', daten: wer ? { wer } : {} };
 	}
+	if (/\b(kalender|plantafel)\b/.test(l)) {
+		const kolonne = /\bkolonne\s+([A-ZÄÖÜ0-9][\wäöüß-]*)/i.exec(t);
+		const person = /\b(?:von|für|fuer)\s+(?!heute|mich|morgen|die|der|das|kolonne)([A-ZÄÖÜ][\wäöüß-]+)/.exec(t);
+		const wer = kolonne ? `Kolonne ${kolonne[1]}` : /\bmeine[nm]?\b/.test(l) ? 'ich' : person && istNamensWort(person[1]) ? person[1] : undefined;
+		const mName = /\b(januar|februar|märz|maerz|april|mai|juni|juli|august|september|oktober|november|dezember)\b/.exec(l);
+		const monat = mName ? mName[1] : /\b(nächste[nm]?|naechste[nm]?|kommende[nm]?) monat/.test(l) ? 'naechster' : /\b(letzte[nm]?|vorige[nm]?) monat/.test(l) ? 'letzter' : undefined;
+		const ansicht = /\bwoche\b/.test(l) ? 'woche' : /\b(heute|tag)\b/.test(l) ? 'tag' : undefined;
+		return { aktion: 'kalender_zeigen', daten: { ...(wer ? { wer } : {}), ...(monat ? { monat } : {}), ...(ansicht ? { ansicht } : {}) } };
+	}
 	if (/\b(auslastung|ausgelastet|break-?even)\b|\bgewinn\b/.test(l)) {
 		const monat = /\b(nächste[nm]?|naechste[nm]?|kommende[nm]?) monat/.test(l) ? 'naechster' : /\b(letzte[nm]?|vorige[nm]?) monat|\bvormonat/.test(l) ? 'letzter' : undefined;
 		if (/\bgewinn\b|break-?even/.test(l)) return { aktion: 'abfrage_monatsgewinn', daten: monat ? { monat } : {} };
