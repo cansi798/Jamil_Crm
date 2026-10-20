@@ -315,15 +315,17 @@ export async function loescheKalkMitarbeiter(k: Kontext, id: unknown): Promise<v
 /**
  * „Beispiel aus Jamils Excel laden“: fügt die Kostenzeilen hinzu (nur wenn noch keine gleichnamige da ist) und setzt
  * eine übernommene v1-Summe auf inaktiv (sonst doppelt gezählt). Mitarbeiter (3 × ohne Gehalt, Lohn steht als
- * Kostenzeile) nur, wenn noch keine erfasst sind; Standard 210 Tage × 7 Stunden. Bestehende Werte bleiben sonst.
+ * Kostenzeile) nur, wenn noch keine erfasst sind; Standard 210 Tage × 7 Stunden. Haben erfasste Mitarbeiter schon ein
+ * Gehalt, entfällt die Lohn-Zeile der Excel (sonst doppelt). Bestehende Werte bleiben sonst.
  */
 export async function ladeBeispiel(k: Kontext): Promise<KalkulationDaten> {
 	return mitBetrieb(k, async (tx) => {
 		const vorher = await lade(tx, k);
 		const namen = new Set(vorher.kosten.map((z) => z.name));
+		const lohnBeiMitarbeitern = vorher.mitarbeiter.some((m) => m.werte.bruttoCent > 0);
 		let n = vorher.kosten.length;
 		for (const b of BEISPIEL_KOSTEN) {
-			if (namen.has(b.name)) continue;
+			if (namen.has(b.name) || (b.kategorie === 'personal' && lohnBeiMitarbeitern)) continue;
 			await tx`
 				insert into app.kalkulation_kosten (betrieb_id, name, kategorie, betrag_cent, intervall, sortierung)
 				values (${k.betriebId}, ${b.name}, ${b.kategorie}, ${b.betragCent}, 'monatlich', ${n++})`;

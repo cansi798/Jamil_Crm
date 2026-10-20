@@ -112,6 +112,14 @@ describe('Kalkulation v2', () => {
 		expect((await ladeBeispiel(kA())).kosten).toHaveLength(14);
 	});
 
+	it('Beispiel bei Mitarbeitern mit Gehalt: ohne die Lohn-Zeile der Excel (nicht doppelt), Mitarbeiter bleiben', async () => {
+		await legeKalkMitarbeiterAn(kA(), ALI);
+		const d = await ladeBeispiel(kA());
+		expect(d.kosten).toHaveLength(12);
+		expect(d.kosten.some((z) => z.kategorie === 'personal')).toBe(false);
+		expect(d.mitarbeiter.map((m) => m.name)).toEqual(['Ali Monteur']);
+	});
+
 	it('Seite: Aktionen (Chef); Büro 403; Fehler behalten die Eingaben', async () => {
 		const req = (felder: Record<string, string>, nutzer = u.chefA) =>
 			({ locals: { nutzer }, request: new Request('http://localhost/kalkulation', { method: 'POST', body: new URLSearchParams(felder) }) }) as never;
@@ -130,7 +138,7 @@ describe('Kalkulation v2', () => {
 		expect(((await seitenAktionen.kostenLoeschen(req({ id: zid }, u.bueroA))) as any).status).toBe(403);
 		expect(await seitenAktionen.kostenLoeschen(req({ id: zid }))).toBeUndefined();
 		expect(await seitenAktionen.beispiel(req({}))).toBeUndefined();
-		expect((await ladeKalkulation(kA())).kosten.length).toBe(13);
+		expect((await ladeKalkulation(kA())).kosten.length).toBe(12); // Ali hat Gehalt → ohne Lohn-Zeile
 	});
 
 	it('Katalog zeigt den Verrechnungssatz als Hinweis – nur Chef, Büro nicht', async () => {
