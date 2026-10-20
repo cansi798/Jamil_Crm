@@ -15,8 +15,17 @@ export const AKTIONEN = [
 	'einsatz_anlegen',
 	'einsatz_verschieben',
 	'angebot_entwurf',
-	'protokoll_ausfuellen'
+	'protokoll_ausfuellen',
+	'mitarbeiter_zuweisen',
+	'status_aendern',
+	'todo_abhaken',
+	'anlage_anlegen',
+	'nachfassen_pausieren',
+	'abfrage_tagesplan'
 ] as const;
+
+/** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
+export const NUR_LESEN = ['abfrage_tagesplan'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt';
@@ -52,7 +61,24 @@ export type AuftragDaten = {
 	ende_uhrzeit?: string;
 	mitarbeiter?: string[];
 };
-export type TodoDaten = { titel: string; zustaendig?: string; faellig?: Zeitangabe; auftrag?: string };
+export type Regel = 'taeglich' | 'woechentlich' | 'monatlich' | 'jaehrlich';
+export type TodoDaten = { titel: string; zustaendig?: string; faellig?: Zeitangabe; auftrag?: string; wiederholung?: Regel; intervall?: number };
+export type ZuweisenDaten = { auftrag: string; mitarbeiter: string[] };
+export type StatusDaten = { auftrag: string; status: 'weiter' | 'anfrage' | 'angebot' | 'beauftragt' | 'in_arbeit' | 'abgenommen' | 'abgerechnet' };
+export type AbhakenDaten = { titel: string; auftrag?: string };
+export type AnlageDaten = {
+	kunde: { name: string; ort?: string };
+	objekt?: string;
+	typ: 'solar' | 'waermepumpe' | 'gasspeicher' | 'heizung' | 'klima' | 'lueftung' | 'wallbox' | 'sonstige';
+	bezeichnung?: string;
+	hersteller?: string;
+	modell?: string;
+	seriennummer?: string;
+	wartung?: Regel;
+	wartung_intervall?: number;
+};
+export type NachfassenDaten = { angebot: string; fortsetzen?: boolean };
+export type TagesplanDaten = { wer?: string; zeitraum: 'heute' | 'morgen' | 'woche' | 'datum'; datum?: string; nur_ueberfaellig?: boolean };
 export type EinsatzDaten = { auftrag: string; mitarbeiter: string[]; start: Zeitangabe; ende_uhrzeit?: string; notiz?: string };
 export type VerschiebenDaten = { mitarbeiter?: string; auftrag?: string; von?: Zeitangabe; nach: Zeitangabe };
 export type AngebotDaten = { auftrag: string; stichworte: string };
@@ -73,6 +99,12 @@ export type KiAktion =
 	| { aktion: 'einsatz_verschieben'; daten: VerschiebenDaten }
 	| { aktion: 'angebot_entwurf'; daten: AngebotDaten }
 	| { aktion: 'protokoll_ausfuellen'; daten: ProtokollDaten }
+	| { aktion: 'mitarbeiter_zuweisen'; daten: ZuweisenDaten }
+	| { aktion: 'status_aendern'; daten: StatusDaten }
+	| { aktion: 'todo_abhaken'; daten: AbhakenDaten }
+	| { aktion: 'anlage_anlegen'; daten: AnlageDaten }
+	| { aktion: 'nachfassen_pausieren'; daten: NachfassenDaten }
+	| { aktion: 'abfrage_tagesplan'; daten: TagesplanDaten }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -161,7 +193,9 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 			titel: text(200, 'Was zu tun ist'),
 			zustaendig: text(100, 'Mitarbeiter, der es erledigen soll'),
 			faellig: ZEIT,
-			auftrag: text(200, 'Auftrag bzw. Kunde, zu dem das To-do gehört')
+			auftrag: text(200, 'Auftrag bzw. Kunde, zu dem das To-do gehört'),
+			wiederholung: { type: 'string', enum: ['taeglich', 'woechentlich', 'monatlich', 'jaehrlich'], description: 'Nur bei wiederkehrenden To-dos („jede Woche“, „jährlich“)' },
+			intervall: { type: 'integer', minimum: 1, maximum: 365, description: '„alle 2 Wochen“ = 2 (nur mit wiederholung)' }
 		},
 		required: ['titel'],
 		additionalProperties: false
@@ -223,6 +257,75 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		},
 		additionalProperties: false
 	},
+	mitarbeiter_zuweisen: {
+		type: 'object',
+		properties: {
+			auftrag: text(200, 'Kunde oder Auftrag'),
+			mitarbeiter: { type: 'array', items: text(100, 'Vorname des Mitarbeiters'), minItems: 1, maxItems: 10 }
+		},
+		required: ['auftrag', 'mitarbeiter'],
+		additionalProperties: false
+	},
+	status_aendern: {
+		type: 'object',
+		properties: {
+			auftrag: text(200, 'Kunde oder Auftrag'),
+			status: {
+				type: 'string',
+				enum: ['weiter', 'anfrage', 'angebot', 'beauftragt', 'in_arbeit', 'abgenommen', 'abgerechnet'],
+				description: 'Neuer Status; „weiter“ = nächster Schritt'
+			}
+		},
+		required: ['auftrag', 'status'],
+		additionalProperties: false
+	},
+	todo_abhaken: {
+		type: 'object',
+		properties: { titel: text(200, 'Titel des To-dos wie gesprochen'), auftrag: text(200, 'Kunde oder Auftrag, falls genannt') },
+		required: ['titel'],
+		additionalProperties: false
+	},
+	anlage_anlegen: {
+		type: 'object',
+		properties: {
+			kunde: {
+				type: 'object',
+				properties: { name: text(200, 'Name des Kunden wie gesprochen'), ort: text(200, 'Ort, falls genannt') },
+				required: ['name'],
+				additionalProperties: false
+			},
+			objekt: text(200, 'Objekt/Gebäude, falls genannt'),
+			typ: { type: 'string', enum: ['solar', 'waermepumpe', 'gasspeicher', 'heizung', 'klima', 'lueftung', 'wallbox', 'sonstige'] },
+			bezeichnung: text(200, 'Bezeichnung, z. B. Wärmepumpe Keller'),
+			hersteller: text(200, 'Hersteller'),
+			modell: text(200, 'Modell'),
+			seriennummer: text(100, 'Seriennummer'),
+			wartung: { type: 'string', enum: ['taeglich', 'woechentlich', 'monatlich', 'jaehrlich'], description: 'Wartungsintervall' },
+			wartung_intervall: { type: 'integer', minimum: 1, maximum: 365, description: '„alle 2 Jahre“ = 2' }
+		},
+		required: ['kunde', 'typ'],
+		additionalProperties: false
+	},
+	nachfassen_pausieren: {
+		type: 'object',
+		properties: {
+			angebot: text(200, 'Angebotsnummer oder Kunde'),
+			fortsetzen: { type: 'boolean', description: 'true bei „fortsetzen/wieder aufnehmen“' }
+		},
+		required: ['angebot'],
+		additionalProperties: false
+	},
+	abfrage_tagesplan: {
+		type: 'object',
+		properties: {
+			wer: text(100, 'Person (Vorname) – „ich/mich“ für sich selbst; leer = ich'),
+			zeitraum: { type: 'string', enum: ['heute', 'morgen', 'woche', 'datum'] },
+			datum: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+			nur_ueberfaellig: { type: 'boolean', description: 'true bei „Welche To-dos sind überfällig?“' }
+		},
+		required: ['zeitraum'],
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
@@ -233,9 +336,16 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	einsatz_anlegen: 'Termin/Einsatz von Mitarbeitern bei einem Kunden bzw. Auftrag einplanen.',
 	einsatz_verschieben: 'Bestehenden Termin/Einsatz auf einen anderen Tag oder eine andere Uhrzeit verschieben.',
 	angebot_entwurf: 'Angebotsentwurf für einen Auftrag aus gesprochenen Leistungen erstellen.',
+	mitarbeiter_zuweisen: 'Mitarbeiter einem Auftrag als Zuständige zuweisen.',
+	status_aendern: 'Status eines Auftrags ändern (Anfrage, Angebot, Beauftragt, In Arbeit, Abgenommen, Abgerechnet) oder „weiter“.',
+	todo_abhaken: 'Ein offenes To-do als erledigt abhaken.',
+	anlage_anlegen: 'Eine Anlage (Wärmepumpe, Solar, Heizung, Klima, Lüftung, Wallbox, Gasspeicher …) beim Objekt eines Kunden anlegen.',
+	nachfassen_pausieren: 'Automatisches Nachfassen für ein Angebot pausieren oder fortsetzen.',
+	abfrage_tagesplan:
+		'Frage nach dem Tagesplan beantworten: Termine und To-dos für eine Person (ich oder Name) heute, morgen, diese Woche oder ein Datum; auch „überfällige To-dos“.',
 	protokoll_ausfuellen:
 		'Protokoll zu einem Auftrag: eine Protokoll-Vorlage starten („Protokoll Abdichtung für Auftrag Müller starten“ → vorlage) oder ein Baustellen-Protokoll (Abnahme, Regiebericht, Aufmaß, Mängelliste) ausfüllen (typ).',
-	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. Fragen, Rechnungen, Löschen).'
+	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. andere Fragen, Rechnungen, Löschen).'
 };
 
 export type Werkzeug = { type: 'function'; function: { name: string; description: string; parameters: Schema } };

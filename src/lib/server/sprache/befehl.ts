@@ -3,7 +3,10 @@ import { betriebKontext } from '../rechte';
 import { pruefeModul } from '../tarif';
 import { kiAnbieter, kiKontext } from '../ki/anbieter';
 import { verbrauche } from '../ki/kontingent';
-import { hinweisKarte, loeseAuf, type Karte } from './aufloesen';
+import { hinweisKarte, loeseAuf, personAufloesen, type Karte } from './aufloesen';
+import { tagesplan, zeitraumTage } from '../tagesplan';
+import { berlinTag } from '../../zeit';
+import type { TagesplanDaten } from './aktionen';
 import { rechteHinweis } from './rechte';
 import { signiere } from './vorschlag';
 
@@ -15,7 +18,40 @@ import { signiere } from './vorschlag';
 
 export const MAX_BEFEHL_ZEICHEN = 2000;
 export const UNBEKANNT_HINWEIS =
-	'Ich kann Kunden, Aufträge, To-dos und Termine anlegen, Termine verschieben, Angebotsentwürfe erstellen und Protokolle starten.';
+	'Ich kann Kunden, Aufträge, To-dos (auch wiederkehrende), Termine und Anlagen anlegen, Termine verschieben, Mitarbeiter zuweisen, ' +
+	'den Auftragsstatus ändern, To-dos abhaken, Nachfassen pausieren, Angebotsentwürfe erstellen, Protokolle starten – und sagen, was heute ansteht.';
+
+/** Frage „Was steht heute an?“ beantworten (nur lesend, ohne Bestätigung). */
+async function beantworteTagesplan(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, d: TagesplanDaten, jetzt: Date): Promise<Karte> {
+	const karte = (titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
+		aktion: 'abfrage_tagesplan',
+		titel,
+		zeilen: [],
+		auswahl: [],
+		warnungen: [],
+		fehler,
+		aendern: null,
+		...(antwort ? { antwort } : {})
+	});
+	const p = await personAufloesen(k, nutzer, d.wer);
+	if (!p.id) return karte('Tagesplan', p.frage);
+	const z = zeitraumTage(d.zeitraum, berlinTag(jetzt), d.datum);
+	try {
+		const plan = await tagesplan(k, nutzer, p.id, z, { nurUeberfaellig: d.nur_ueberfaellig, jetzt });
+		const abschnitte = d.nur_ueberfaellig
+			? [{ titel: 'Überfällige To-dos', eintraege: [...plan.todos, ...plan.nachfassen] }]
+			: [
+					{ titel: 'Termine', eintraege: plan.termine },
+					{ titel: 'To-dos', eintraege: plan.todos },
+					{ titel: 'Nachfassen', eintraege: plan.nachfassen }
+				].filter((a) => a.titel !== 'Nachfassen' || a.eintraege.length > 0);
+		const wer = p.id === nutzer.id ? '' : ` – ${plan.person.name}`;
+		return karte(d.nur_ueberfaellig ? `Überfällig${wer}` : `Tagesplan ${z.text}${wer}`, null, { abschnitte, vorlesen: plan.text });
+	} catch (e) {
+		if (e instanceof ApiFehler && (e.status === 403 || e.status === 404)) return karte('Tagesplan', e.message);
+		throw e;
+	}
+}
 
 export type Befehlsergebnis = { text: string; vorschlag: string | null; karte: Karte };
 
@@ -44,6 +80,10 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	}
 	const fehlt = await rechteHinweis(locals, aktion.aktion);
 	if (fehlt) return { text, vorschlag: null, karte: hinweisKarte(aktion.aktion, fehlt) };
+	// Fragen: sofort beantworten, kein Vorschlag, keine Bestätigung (Wunsch Jamil msg 2647)
+	if (aktion.aktion === 'abfrage_tagesplan') {
+		return { text, vorschlag: null, karte: await beantworteTagesplan(k, nutzer, aktion.daten, jetzt) };
+	}
 	const vorschau = await loeseAuf(k, nutzer, aktion, jetzt);
 	if (aktion.aktion === 'auftrag_anlegen' && vorschau.werte.einsaetze?.length > 0) {
 		const ohnePlanung = await rechteHinweis(locals, aktion.aktion, { mitEinsaetzen: true });

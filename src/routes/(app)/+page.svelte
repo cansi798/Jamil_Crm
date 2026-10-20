@@ -42,7 +42,35 @@
 		</form>
 	{/if}
 
-	{#if data.heute}
+	{#if data.plan}
+		<section aria-labelledby="heute-titel" class="heute-karte plan">
+			<div class="plan-kopf">
+				<h2 id="heute-titel">Heute <small>{tagKurz(data.heuteTag)}</small></h2>
+				{#if data.personen.length > 0}
+					<form method="GET" class="plan-person">
+						<select name="person" aria-label="Person" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+							{#each data.personen as p (p.id)}<option value={p.id} selected={p.id === data.plan.person.id}>{p.id === data.benutzerId ? `Ich (${p.name})` : p.name}</option>{/each}
+						</select>
+						<noscript><button type="submit">Zeigen</button></noscript>
+					</form>
+				{/if}
+			</div>
+			<p class="plan-text">{data.plan.text}</p>
+			{#each [{ titel: 'Termine', liste: data.plan.termine }, { titel: 'To-dos', liste: data.plan.todos }, { titel: 'Nachfassen', liste: data.plan.nachfassen }] as ab (ab.titel)}
+				{#if ab.liste.length > 0}
+					<h3>{ab.titel}</h3>
+					<ul class="plan-liste">
+						{#each ab.liste as e, i (i)}
+							<li class:ueberfaellig={e.ueberfaellig}>
+								<span class="plan-zeit">{e.zeit}</span>
+								<span class="plan-was"><a href={e.link}>{e.titel}</a>{#if e.ort}<small>{e.ort}</small>{/if}</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			{/each}
+		</section>
+	{:else if data.heute}
 		<section aria-labelledby="heute-titel" class="heute-karte">
 			<h2 id="heute-titel">Meine Einsätze heute <small>{tagKurz(data.heuteTag)}</small></h2>
 			<HeuteListe einsaetze={data.heute} />
@@ -113,6 +141,62 @@
 		border-color: var(--m365-primaer);
 		box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
 		outline: none;
+	}
+
+	/* Kachel „Heute“ (Tagesplan) */
+	.plan-kopf {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+	.plan-kopf h2 {
+		margin: 0;
+	}
+	.plan-person select {
+		min-height: 2.25rem;
+		padding: 0.2rem 0.5rem;
+		border: 1px solid var(--m365-rand-stark);
+		border-radius: var(--m365-radius);
+		background: var(--m365-flaeche);
+		font: inherit;
+		font-size: 0.875rem;
+	}
+	.plan-text {
+		margin: 0.5rem 0;
+		color: var(--m365-text-leise);
+		font-size: 0.875rem;
+		line-height: 1.6;
+	}
+	.plan h3 {
+		margin: 0.75rem 0 0.35rem;
+		font-size: 0.875rem;
+		font-weight: 600;
+	}
+	.plan-liste {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.35rem;
+	}
+	.plan-liste li {
+		display: grid;
+		grid-template-columns: 7.5rem minmax(0, 1fr);
+		gap: 0.5rem;
+		font-size: 0.875rem;
+	}
+	.plan-liste li.ueberfaellig .plan-zeit {
+		color: var(--m365-fehler);
+		font-weight: 600;
+	}
+	.plan-was {
+		display: grid;
+		overflow-wrap: anywhere;
+	}
+	.plan-was small {
+		color: var(--m365-text-leise);
 	}
 
 	/* Einsätze als Karte */

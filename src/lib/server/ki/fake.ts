@@ -248,6 +248,16 @@ function bereinige(text: string): string {
 export function deute(text: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
 	const t = bereinige(text);
 	const l = t.toLowerCase();
+	if (istFrage(text, l)) return abfrage(t, kontext);
+	if (/\bnachfass/.test(l)) return nachfassen(t);
+	if (/\b(?:hake|hak|abhaken|abgehakt)\b|\b(?:ist|sind|als)\s+(?:jetzt\s+)?(?:erledigt|abgehakt)\b|\berledigt\s*$/.test(l) && !/\b(?:soll|muss|bis)\b/.test(l)) {
+		return abhaken(t);
+	}
+	if (/\bauftrag/.test(l) && /\b(?:weise|zuweisen|zuteilen|zuordnen|ordne)\b|\bteile?\b.*\bzu\s*$/.test(l)) return zuweisen(t);
+	if (/\bauftrag/.test(l) && !/\b(?:neue[nrs]?|anlegen|lege|leg)\b/.test(l) && (/\bstatus\b|\bweiter\b/.test(l) || STATUS_WOERTER.some(([re]) => re.test(l)))) {
+		return status(t);
+	}
+	if (ANLAGE_WORT.test(l) && /\b(?:neue[nrs]?|anlegen|lege|leg|erfasse|aufnehmen|eintragen)\b/.test(l) && !/\btodo\b/.test(l)) return anlage(t);
 	if (/\b(verschieb|verleg|umleg|schieb)/.test(l)) return verschieben(t, kontext);
 	if (/\btodo\b|\baufgabe\b|\berinner|\bsoll\b|\bmuss\b/.test(l)) return todo(t, kontext);
 	if (/\bangebot/.test(l)) return angebot(t);
@@ -258,6 +268,150 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 	if (/\bauftrag/.test(l)) return auftrag(t, kontext);
 	if (/\b(termin|einsatz|einplanen|einteilen)\b|\bplane?\b.*\bein\b|\bteile?\b.*\bein\b/.test(l)) return einsatz(t, kontext);
 	return { aktion: 'unbekannt', daten: {} };
+}
+
+
+// ——— Neue Aktionen (Wunsch Jamil msgs 2645/2647) ———
+
+const ANLAGE_WORT = /\b(anlage|wärmepumpe|waermepumpe|solaranlage|pv-anlage|photovoltaik|solar|wallbox|klimaanlage|klimagerät|lüftung|lüftungsanlage|heizung|gasspeicher|gastank|flüssiggastank)\b/;
+const ANLAGE_TYP: [RegExp, string][] = [
+	[/wärmepumpe|waermepumpe/, 'waermepumpe'],
+	[/solar|pv-anlage|photovoltaik/, 'solar'],
+	[/wallbox/, 'wallbox'],
+	[/klima/, 'klima'],
+	[/lüftung/, 'lueftung'],
+	[/gasspeicher|gastank|flüssiggastank/, 'gasspeicher'],
+	[/heizung/, 'heizung']
+];
+const STATUS_WOERTER: [RegExp, string][] = [
+	[/\bin\s+arbeit\b/, 'in_arbeit'],
+	[/\bbeauftragt\b/, 'beauftragt'],
+	[/\babgenommen\b/, 'abgenommen'],
+	[/\babgerechnet\b/, 'abgerechnet'],
+	[/\bauf\s+angebot\b/, 'angebot'],
+	[/\bauf\s+anfrage\b/, 'anfrage']
+];
+
+/** „alle 2 Wochen“, „jährlich“, „jeden Monat“ … → Regel + Intervall (und der Text ohne diese Angabe). */
+function wiederholungAus(s: string): { regel: string; intervall: number; rest: string } | null {
+	const regeln: [RegExp, (m: RegExpExecArray) => [string, number]][] = [
+		[new RegExp(`\\balle\\s+(\\d+|${ZAHLWORT})\\s+(tage|wochen|monate|jahre)\\b`, 'i'), (m) => [
+			{ tage: 'taeglich', wochen: 'woechentlich', monate: 'monatlich', jahre: 'jaehrlich' }[m[2].toLowerCase() as 'tage'],
+			zahl(m[1]) ?? 1
+		]],
+		[/\b(?:halbjährlich|halbjaehrlich|alle\s+halbe\s+jahr)\b/i, () => ['monatlich', 6]],
+		[/\b(?:vierteljährlich|quartalsweise)\b/i, () => ['monatlich', 3]],
+		[/\b(?:täglich|jeden\s+tag)\b/i, () => ['taeglich', 1]],
+		[/\b(?:wöchentlich|jede\s+woche)\b/i, () => ['woechentlich', 1]],
+		[/\b(?:monatlich|jeden\s+monat)\b/i, () => ['monatlich', 1]],
+		[/\b(?:jährlich|jaehrlich|jedes\s+jahr|einmal\s+im\s+jahr)\b/i, () => ['jaehrlich', 1]]
+	];
+	for (const [re, f] of regeln) {
+		const m = re.exec(s);
+		if (m) {
+			const [regel, intervall] = f(m);
+			return { regel, intervall: Math.max(1, Math.min(365, intervall)), rest: s.replace(m[0], ' ') };
+		}
+	}
+	return null;
+}
+
+function istFrage(original: string, l: string): boolean {
+	return (
+		(/\?\s*$/.test(original) || /^(?:was|welche[rs]?|wie\s?viele|habe\s+ich|hab\s+ich|hat\s+\w+)\b/.test(l)) &&
+		/\b(an|steht|stehen|hat|habe|hab|termine?|todos?|überfällig|plan|vor|los)\b/.test(l)
+	);
+}
+
+function abfrage(t: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
+	const l = t.toLowerCase();
+	const daten: Record<string, unknown> = {};
+	if (/überfällig|ueberfaellig/.test(l)) daten.nur_ueberfaellig = true;
+	const tag = findeTag(t, kontext);
+	if (/\b(?:diese[rn]?\s+|die\s+|ganze[rn]?\s+)?woche\b/.test(l)) daten.zeitraum = 'woche';
+	else if (tag?.tag === 'morgen') daten.zeitraum = 'morgen';
+	else if (tag?.tag === 'datum') {
+		daten.zeitraum = 'datum';
+		daten.datum = tag.datum;
+	} else daten.zeitraum = 'heute';
+	const kolonne = /\bkolonne\s+(\w+)/i.exec(t);
+	const wer =
+		kolonne?.[0] ??
+		/\bwas\s+(?:hat|macht|habe?n?)\s+([A-ZÄÖÜ][\wäöüß-]+)/.exec(t)?.[1] ??
+		/\b(?:für|bei|von)\s+([A-ZÄÖÜ][\wäöüß-]+)\b/.exec(t)?.[1] ??
+		/\b(?:hat|haben)\s+([A-ZÄÖÜ][\wäöüß-]+)\b/.exec(t)?.[1];
+	if (wer && !/^(ich|mich|mir|mein)$/i.test(wer) && (kolonne || istNamensWort(wer))) daten.wer = wer;
+	return { aktion: 'abfrage_tagesplan', daten };
+}
+
+function nachfassen(t: string): { aktion: string; daten: Record<string, unknown> } {
+	const nr = /\b(?:AN-?)?(\d{4}-\d{3,})\b/i.exec(t);
+	const kunde = /\b(?:bei|für|von)\s+(?:(?:dem\s+)?angebot\s+)?(?:kunden?\s+|familie\s+|firma\s+|herrn?\s+|frau\s+)?([A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ][\wäöüß-]+)?)/.exec(t);
+	const angebot = nr ? `AN-${nr[1]}` : kunde ? kunde[1] : sauber(t.replace(/\bnachfass\w*\b|\b(?:pausier\w*|stopp\w*|anhalten|fortsetz\w*|aufnehm\w*|wieder|für|das|angebot)\b/gi, ' ')) || '?';
+	const daten: Record<string, unknown> = { angebot };
+	if (/fortsetz|wieder|aufnehm|aktivier|weiterlaufen/i.test(t)) daten.fortsetzen = true;
+	return { aktion: 'nachfassen_pausieren', daten };
+}
+
+function abhaken(t: string): { aktion: string; daten: Record<string, unknown> } {
+	let rest = t;
+	const daten: Record<string, unknown> = {};
+	const auftrag = /\b(?:beim|bei|im|zum|vom)\s+auftrag\s+(.+)$/i.exec(rest);
+	if (auftrag) {
+		daten.auftrag = sauber(auftrag[1]);
+		rest = rest.replace(auftrag[0], ' ');
+	}
+	rest = rest
+		.replace(/^\s*(?:bitte\s+)?(?:hake|hak)\s+(?:mal\s+)?(?:das|die|den)?\s*/i, '')
+		.replace(/^\s*(?:das|die)?\s*(?:todo|aufgabe)\s*:?\s*/i, '')
+		.replace(/\s+(?:ab|abhaken)\s*$/i, '')
+		.replace(/\s+(?:ist|sind|als)\s+(?:jetzt\s+)?(?:erledigt|fertig|abgehakt)\b.*$/i, '')
+		.replace(/\s+erledigt\s*$/i, '')
+		.replace(/^\s*(?:das|die)?\s*(?:todo|aufgabe)\s*:?\s*/i, '');
+	daten.titel = sauber(rest) || '?';
+	return { aktion: 'todo_abhaken', daten };
+}
+
+function zuweisen(t: string): { aktion: string; daten: Record<string, unknown> } {
+	const a = /\b(?:dem|den|zum|zu\s+dem|für\s+den|beim)?\s*auftrag\s+(.+?)(?:\s+zu(?:weisen|teilen|ordnen)?)?\s*$/i.exec(t);
+	const auftrag = a ? sauber(a[1].replace(/\s+zu$/i, '')) : '?';
+	const vor = a ? t.slice(0, a.index) : t;
+	const namenText = vor.replace(/^\s*(?:bitte\s+)?(?:weise|teile|ordne)\s+/i, '').replace(/\b(?:dem|den|zum)\s*$/i, '').trim();
+	const namen = namensListe(namenText) ?? namenText.split(/\s*,\s*|\s+und\s+/).map(sauber).filter((n) => istNamensWort(n));
+	return { aktion: 'mitarbeiter_zuweisen', daten: { auftrag, mitarbeiter: namen.length ? namen : ['?'] } };
+}
+
+function status(t: string): { aktion: string; daten: Record<string, unknown> } {
+	const l = t.toLowerCase();
+	let ziel = 'weiter';
+	for (const [re, s] of STATUS_WOERTER) if (re.test(l)) ziel = s;
+	const a = /\bauftrag(?:s)?\s+(.+?)(?=\s+(?:auf|ist|weiter|nach|setzen|schalten|als)\b|$)/i.exec(t);
+	return { aktion: 'status_aendern', daten: { auftrag: a ? sauber(a[1]) : '?', status: ziel } };
+}
+
+function anlage(t: string): { aktion: string; daten: Record<string, unknown> } {
+	const l = t.toLowerCase();
+	const daten: Record<string, unknown> = { typ: 'sonstige' };
+	for (const [re, typ] of ANLAGE_TYP) {
+		if (re.test(l)) {
+			daten.typ = typ;
+			break;
+		}
+	}
+	const w = wiederholungAus(t.replace(/\bwartung\s+/i, ''));
+	if (w && /\bwartung|\bwarten\b/i.test(t)) {
+		daten.wartung = w.regel;
+		if (w.intervall > 1) daten.wartung_intervall = w.intervall;
+	}
+	const hersteller = /\b(?:hersteller|marke)\s+([A-ZÄÖÜ][\wäöüß-]+)/i.exec(t);
+	if (hersteller) daten.hersteller = hersteller[1];
+	const modell = /\bmodell\s+([^,]+?)(?=,|\s+(?:bei|für|wartung|seriennummer)\b|$)/i.exec(t);
+	if (modell) daten.modell = sauber(modell[1]);
+	const sn = /\bseriennummer\s+([\w-]+)/i.exec(t);
+	if (sn) daten.seriennummer = sn[1];
+	const k = findeKunde(t.replace(/\b(?:hersteller|marke|modell|seriennummer|wartung)\b.*$/i, ''), true);
+	daten.kunde = k ? { name: k.name, ...(k.ort ? { ort: k.ort } : {}) } : { name: '?' };
+	return { aktion: 'anlage_anlegen', daten };
 }
 
 function kunde(t: string): { aktion: string; daten: Record<string, unknown> } {
@@ -348,6 +502,12 @@ function auftrag(t: string, kontext: KiKontext): { aktion: string; daten: Record
 function todo(t: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
 	const daten: Record<string, unknown> = {};
 	let rest = t;
+	const wdh = wiederholungAus(rest);
+	if (wdh) {
+		daten.wiederholung = wdh.regel;
+		if (wdh.intervall > 1) daten.intervall = wdh.intervall;
+		rest = wdh.rest;
+	}
 	// Fälligkeit: „bis Freitag“, „bis morgen“, „am 23.10.“, sonst eine Tagesangabe irgendwo
 	const bis = new RegExp(`\\b(?:bis|bis zum|am|zum|für)\\s+((?:nächsten\\s+|kommenden\\s+)?(?:${WOCHENTAGE.join('|')}|übermorgen|morgen|heute|\\d{1,2}\\.\\s?\\d{1,2}\\.?(?:\\d{2,4})?|\\d{1,2}\\.\\s+\\w+)(?:\\s+(?:um\\s+)?\\d{1,2}(?::\\d{2})?\\s*uhr)?)`, 'i').exec(rest);
 	const f = zeitangabe(bis ? bis[1] : rest, kontext);

@@ -35,12 +35,16 @@ export function wendeAuswahlAn(werte: Record<string, any>, offen: Auswahl[], aus
 		if (id === undefined || id === null || id === '') throw new ApiFehler(400, `Bitte wählen: ${a.frage}`);
 		if (typeof id !== 'string' || !a.optionen.some((o) => o.id === id)) throw new ApiFehler(400, 'Ungültige Auswahl.');
 		const m = /^mitarbeiter\.(\d+)$/.exec(a.feld);
-		if (m) w.einsaetze[Number(m[1])].benutzerId = id;
+		if (m && Array.isArray(w.mitarbeiterIds)) w.mitarbeiterIds[Number(m[1])] = id;
+		else if (m) w.einsaetze[Number(m[1])].benutzerId = id;
 		else if (a.feld === 'kunde') w.kundeId = id;
 		else if (a.feld === 'zustaendig') w.zustaendigId = id;
 		else if (a.feld === 'auftrag') w.auftragId = id;
 		else if (a.feld === 'einsatz') w.einsatzId = id;
 		else if (a.feld === 'vorlage') w.vorlageId = id;
+		else if (a.feld === 'todo') w.todoId = id;
+		else if (a.feld === 'objekt') w.objektId = id;
+		else if (a.feld === 'angebot') w.angebotId = id;
 		else throw new ApiFehler(400, 'Ungültige Auswahl.');
 	}
 	return w;
@@ -118,10 +122,21 @@ async function ausfuehrenJe(
 		case 'todo_anlegen': {
 			const t = await legeTodoAn(
 				k,
-				{ titel: w.titel, zustaendigId: w.zustaendigId ?? null, faellig: w.faellig ?? null, auftragId: w.auftragId ?? null },
+				{
+					titel: w.titel,
+					zustaendigId: w.zustaendigId ?? null,
+					faellig: w.faellig ?? null,
+					auftragId: w.auftragId ?? null,
+					...(w.wiederholung ? { wiederholung: w.wiederholung, intervall: w.intervall ?? '1' } : {})
+				},
 				todoSichtVon(nutzer)
 			);
-			return { status: 201, meldung: `To-do „${t.titel}“ angelegt`, link: t.auftragId ? `/auftraege/${t.auftragId}` : '/todos', warnungen: [] };
+			return {
+				status: 201,
+				meldung: t.serie ? `Wiederkehrendes To-do „${t.titel}“ angelegt (${t.serie.text})` : `To-do „${t.titel}“ angelegt`,
+				link: t.auftragId ? `/auftraege/${t.auftragId}` : '/todos',
+				warnungen: []
+			};
 		}
 		case 'einsatz_anlegen': {
 			const einsaetze: Einsatz[] = [];
@@ -145,6 +160,14 @@ async function ausfuehrenJe(
 		}
 		case 'angebot_entwurf':
 			throw new Error('angebot_entwurf läuft nicht über ausfuehrenJe');
+		case 'mitarbeiter_zuweisen':
+		case 'status_aendern':
+		case 'todo_abhaken':
+		case 'anlage_anlegen':
+		case 'nachfassen_pausieren':
+			return neueAktionen(k, nutzer, aktion, w);
+		case 'abfrage_tagesplan':
+			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
 		case 'protokoll_ausfuellen': {
 			if (w.formular) {
 				// Frei gestaltete Vorlage: Protokoll starten und den Assistenten öffnen
@@ -156,6 +179,45 @@ async function ausfuehrenJe(
 			const prot = await legeProtokollAn(k, w.auftragId, w.typ, w.inhalt, nutzer.id);
 			return { status: 201, meldung: `Protokoll ${PROTOKOLL_TYP_TITEL[prot.typ] ?? prot.typ} gespeichert`, link: `/auftraege/${prot.auftragId}/dokumentation`, warnungen: [] };
 		}
+	}
+}
+
+async function neueAktionen(k: { betriebId: string; benutzerId: string }, nutzer: Nutzer, aktion: AktionsName, w: Record<string, any>): Promise<Ausfuehrung> {
+	switch (aktion) {
+		case 'mitarbeiter_zuweisen': {
+			const { aendereAuftrag, holeAuftrag } = await import('../auftraege');
+			const a = await holeAuftrag(k, sichtVon(nutzer), w.auftragId);
+			const ids = [...new Set([...a.zustaendige.map((z) => z.id), ...(w.mitarbeiterIds as string[])])];
+			const neu = await aendereAuftrag(k, a.id, { zustaendige: ids }, sichtVon(nutzer));
+			return { status: 200, meldung: `Zuständig für ${neu.nummer}: ${neu.zustaendige.map((z) => z.name).join(', ')}`, link: `/auftraege/${neu.id}`, warnungen: [] };
+		}
+		case 'status_aendern': {
+			const { setzeStatus } = await import('../auftraege');
+			const { STATUS_NAMEN, istStatus } = await import('../../auftrag-status');
+			if (!istStatus(w.status)) throw new ApiFehler(400, 'Bitte den neuen Status nennen.');
+			const a = await setzeStatus(k, w.auftragId, w.status, sichtVon(nutzer), { sprung: true });
+			return { status: 200, meldung: `Auftrag ${a.nummer} ist jetzt „${STATUS_NAMEN[a.status]}“`, link: `/auftraege/${a.id}`, warnungen: [] };
+		}
+		case 'todo_abhaken': {
+			const { aendereTodo, setzeErledigt, todoSichtVon: tsv } = await import('../todos');
+			const { hatRecht } = await import('../rechte');
+			const t = hatRecht(nutzer, 'auftraege.bearbeiten')
+				? await aendereTodo(k, w.todoId, { erledigt: true }, tsv(nutzer))
+				: await setzeErledigt(k, tsv(nutzer), w.todoId, true);
+			return { status: 200, meldung: `To-do „${t.titel}“ erledigt`, link: t.auftragId ? `/auftraege/${t.auftragId}` : '/todos', warnungen: [] };
+		}
+		case 'anlage_anlegen': {
+			const { legeAnlageAn } = await import('../anlagen');
+			const an = await legeAnlageAn(k, w.kundeId, w.objektId, w.anlage);
+			return { status: 201, meldung: `Anlage „${an.bezeichnung}“ angelegt`, link: `/anlagen/${an.id}`, warnungen: [] };
+		}
+		case 'nachfassen_pausieren': {
+			const { setzeNachfassenPausiert } = await import('../nachfassen');
+			await setzeNachfassenPausiert(k, w.angebotId, !!w.pausiert);
+			return { status: 200, meldung: w.pausiert ? 'Nachfassen pausiert' : 'Nachfassen läuft wieder', link: `/angebote/${w.angebotId}#nachfassen`, warnungen: [] };
+		}
+		default:
+			throw new Error(`Aktion ${aktion} nicht ausführbar`);
 	}
 }
 

@@ -13,6 +13,12 @@ import type { AktionsName } from './aktionen';
  * - Angebotsentwurf: Modul `ki_angebote` und `angebote` + `angebote.bearbeiten` + `preise.sehen`
  * - Protokoll: Vorlage starten (Formular) Modul `protokolle` + `protokolle.ausfuellen` oder `protokolle.bearbeiten`;
  *   Baustellen-Protokoll (feste Typen) `protokolle.bearbeiten`
+ * - Mitarbeiter zuweisen, Status ändern: Modul `auftraege` + `auftraege.bearbeiten`
+ * - To-do abhaken: Modul `auftraege`; abhaken darf, wer bearbeiten darf, sonst nur eigene To-dos (beim Ausführen)
+ * - Anlage anlegen: Modul `kunden` + `kunden.bearbeiten`
+ * - Nachfassen pausieren: wie Angebote (`angebote.bearbeiten` + `preise.sehen`)
+ * - Tagesplan abfragen (nur lesend): Modul `auftraege` und irgendein Auftragsrecht; andere Personen nur mit
+ *   „Alle To-dos ansehen“ (geprüft beim Beantworten)
  */
 
 export const MELDUNG_RECHTE = 'Dafür fehlt Ihnen die Berechtigung';
@@ -43,6 +49,17 @@ export async function pruefeAktionsRechte(
 		case 'protokoll_ausfuellen':
 			if (opts.formular === false) return darf(locals, 'protokolle', 'protokolle.bearbeiten');
 			return darfEines(locals, 'protokolle', ['protokolle.ausfuellen', 'protokolle.bearbeiten']);
+		case 'mitarbeiter_zuweisen':
+		case 'status_aendern':
+			return darf(locals, 'auftraege', 'auftraege.bearbeiten');
+		case 'todo_abhaken':
+		case 'abfrage_tagesplan':
+			return darfEines(locals, 'auftraege', ['auftraege.bearbeiten', 'auftraege.lesen', 'auftraege.alle_lesen']);
+		case 'anlage_anlegen':
+			return darf(locals, 'kunden', 'kunden.bearbeiten');
+		case 'nachfassen_pausieren':
+			await angeboteZugriff(locals);
+			return;
 	}
 }
 

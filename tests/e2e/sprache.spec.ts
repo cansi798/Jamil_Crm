@@ -44,6 +44,35 @@ async function befehlTippen(page: Page, text: string) {
 }
 
 test.describe('Sprachsteuerung', () => {
+	test('Frage „Was steht heute für mich an?“: Antwort ohne Speichern, mit Vorlesen und Links (msg 2647)', async ({ page }) => {
+		await anmelden(page, MONTEUR);
+		const dialog = await befehlTippen(page, 'Was steht heute für mich an?');
+		const karte = dialog.getByRole('region', { name: 'Bestätigung' });
+		await expect(karte.getByRole('heading', { name: 'Tagesplan heute' })).toBeVisible();
+		await expect(karte).toContainText(/Du hast heute/);
+		await expect(karte.getByRole('region', { name: 'Termine' })).toBeVisible();
+		await expect(karte.getByRole('button', { name: 'Ja, speichern' })).toHaveCount(0);
+		await expect(karte.getByRole('button', { name: 'Schließen' })).toBeVisible();
+	});
+
+	test('Neue Befehle: Status „weiter“ zeigt die Bestätigung mit Auftrag und neuem Status', async ({ page }) => {
+		await anmelden(page, BUERO);
+		const kunden = await api(page, 'GET', '/api/kunden');
+		const titel = `E2E Sprachstatus ${Date.now()}`;
+		const auftrag = await api(page, 'POST', '/api/auftraege', { titel, kundeId: kunden[0].id });
+		try {
+			const dialog = await befehlTippen(page, `Auftrag ${titel} weiter`);
+			const karte = dialog.getByRole('region', { name: 'Bestätigung' });
+			await expect(karte.getByRole('heading', { name: 'Auftragsstatus ändern' })).toBeVisible();
+			await expect(karte).toContainText('Anfrage → Angebot');
+			await karte.getByRole('button', { name: 'Ja, speichern' }).click();
+			await expect(dialog).toContainText('ist jetzt „Angebot“');
+		} finally {
+			await api(page, 'POST', `/api/auftraege/${auftrag.id}/status`, { status: 'anfrage' }).catch(() => null);
+			await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`).catch(() => null);
+		}
+	});
+
 	test('Mikrofon-Knopf nur mit Modul sprache, groß genug, ohne Querscrollen', async ({ page }, info) => {
 		await anmelden(page, BUERO);
 		const knopf = page.getByRole('button', { name: 'Sprachbefehl' });

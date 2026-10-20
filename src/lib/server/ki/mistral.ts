@@ -37,7 +37,15 @@ function systemAktion(k: KiKontext): string {
 		'- Bei „erinnere mich“ ist zustaendig „mich“.',
 		'- „Protokoll X (für Auftrag Y) starten/öffnen/beginnen“ bedeutet protokoll_ausfuellen mit vorlage = X (z. B. Abdichtung) und',
 		'  auftrag.name = Y bzw. auftrag.nummer bei einer Nummer wie A-2026-0001.',
-		'- Wenn keine Aktion passt (Fragen, Rechnungen, Löschen, …), rufe unbekannt auf.'
+		'- „jede Woche/wöchentlich/alle 2 Wochen/monatlich/jährlich“ bei einem To-do: todo_anlegen mit wiederholung (und intervall).',
+		'- „Weise Ali dem Auftrag Müller zu“ / „Ali und Murat zum Auftrag Müller“: mitarbeiter_zuweisen.',
+		'- „Auftrag Müller auf In Arbeit setzen“ / „Auftrag Müller weiter“: status_aendern (status=weiter für den nächsten Schritt).',
+		'- „Hake das To-do X ab“ / „X ist erledigt“: todo_abhaken.',
+		'- „Neue Wärmepumpe/Anlage bei Müller, Hersteller …, Wartung jährlich“: anlage_anlegen (typ: waermepumpe, solar, heizung, klima, lueftung, wallbox, gasspeicher, sonstige).',
+		'- „Nachfassen für Angebot … pausieren/fortsetzen“: nachfassen_pausieren.',
+		'- Fragen wie „Was steht heute für mich an?“, „Was hat Sabine morgen?“, „Was habe ich diese Woche?“, „Welche To-dos sind überfällig?“:',
+		'  abfrage_tagesplan (wer leer = ich; zeitraum heute|morgen|woche|datum; nur_ueberfaellig=true bei überfällig).',
+		'- Wenn keine Aktion passt (andere Fragen, Rechnungen, Löschen, …), rufe unbekannt auf.'
 	].join('\n');
 }
 

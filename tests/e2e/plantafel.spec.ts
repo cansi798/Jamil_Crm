@@ -139,7 +139,7 @@ test.describe('Plantafel', () => {
 		expect(status).toBe(403);
 	});
 
-	test('Monteur: „Meine Einsätze heute“ auf Start, ohne Netz zeigt die Offline-Seite denselben Einsatz', async ({
+	test('Monteur: Kachel „Heute“ auf Start, ohne Netz zeigt die Offline-Seite denselben Einsatz', async ({
 		page,
 		browser
 	}, info) => {
@@ -155,7 +155,8 @@ test.describe('Plantafel', () => {
 
 			await anmelden(page, MONTEUR);
 			await page.goto('/');
-			const heute = page.getByRole('region', { name: /Meine Einsätze heute/ });
+			// Kachel „Heute“ (Tagesplan, msg 2647): Termine mit Uhrzeit
+			const heute = page.getByRole('region', { name: /^Heute/ });
 			await expect(heute).toContainText(titel);
 			await expect(heute).toContainText('05:00–06:00');
 			// Service Worker muss die Seite kontrollieren, bevor das Netz wegfällt

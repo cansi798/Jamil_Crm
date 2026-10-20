@@ -11,7 +11,11 @@ describe('Testsatz 50 Sprachbefehle', () => {
 	it('Zusammensetzung laut Plan: 58 Befehle, je ≥ 7 pro Aktion, 5 mehrdeutige, 4 nicht unterstützte', () => {
 		expect(satz.befehle).toHaveLength(58);
 		expect(satz.befehle.map((b) => b.nr)).toEqual(Array.from({ length: 58 }, (_, i) => i + 1));
-		for (const a of AKTIONEN) expect(satz.befehle.filter((b) => b.erwartet.aktion === a).length, a).toBeGreaterThanOrEqual(7);
+		// Abnahme-Testsatz der Stufe 1d (mit Audio): die damaligen sieben Aktionen; neuere Aktionen prüft
+		// tests/unit/sprache-neu.test.ts (Text), bis echte Aufnahmen dazukommen
+		const STUFE_1D = AKTIONEN.slice(0, 7);
+		expect(STUFE_1D).toEqual(['kunde_anlegen', 'auftrag_anlegen', 'todo_anlegen', 'einsatz_anlegen', 'einsatz_verschieben', 'angebot_entwurf', 'protokoll_ausfuellen']);
+		for (const a of STUFE_1D) expect(satz.befehle.filter((b) => b.erwartet.aktion === a).length, a).toBeGreaterThanOrEqual(7);
 		expect(satz.befehle.filter((b) => b.mehrdeutig)).toHaveLength(5);
 		expect(satz.befehle.filter((b) => b.erwartet.aktion === 'unbekannt')).toHaveLength(4);
 		expect(new Set(satz.befehle.map((b) => b.text)).size).toBe(58);

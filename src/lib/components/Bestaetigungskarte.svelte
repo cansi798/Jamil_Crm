@@ -15,6 +15,11 @@
 		warnungen: string[];
 		fehler: string | null;
 		aendern: string | null;
+		/** Antwort auf eine Frage (nur lesend, z. B. Tagesplan) – ohne Speichern. */
+		antwort?: {
+			abschnitte: { titel: string; eintraege: { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean }[] }[];
+			vorlesen: string;
+		};
 	};
 
 	let {
@@ -39,6 +44,26 @@
 	let gewaehlt = $state<Record<string, string>>({});
 	const vollstaendig = $derived(karte.auswahl.every((a) => gewaehlt[a.feld]));
 	const label = (a: Auswahl) => a.optionen.find((o) => o.id === gewaehlt[a.feld])?.label;
+
+	// Antwort vorlesen (Browser-Sprachausgabe, Deutsch) – nur auf Knopfdruck
+	const kannVorlesen = typeof window !== 'undefined' && 'speechSynthesis' in window;
+	let liest = $state(false);
+	function vorlesen(text: string) {
+		if (!kannVorlesen) return;
+		window.speechSynthesis.cancel();
+		if (liest) {
+			liest = false;
+			return;
+		}
+		const u = new SpeechSynthesisUtterance(text);
+		u.lang = 'de-DE';
+		u.onend = () => (liest = false);
+		liest = true;
+		window.speechSynthesis.speak(u);
+	}
+	$effect(() => () => {
+		if (kannVorlesen) window.speechSynthesis.cancel();
+	});
 </script>
 
 <section class="bk" aria-label="Bestätigung">
@@ -56,6 +81,28 @@
 				</div>
 			{/each}
 		</dl>
+	{/if}
+
+	{#if karte.antwort}
+		<p class="bk-antwort-text">{karte.antwort.vorlesen}</p>
+		{#each karte.antwort.abschnitte as ab (ab.titel)}
+			<section class="bk-abschnitt" aria-label={ab.titel}>
+				<h3>{ab.titel} ({ab.eintraege.length})</h3>
+				{#if ab.eintraege.length === 0}
+					<p class="bk-leer">Keine.</p>
+				{:else}
+					<ul>
+						{#each ab.eintraege as e, i (i)}
+							<li class:ueberfaellig={e.ueberfaellig}>
+								<span class="bk-zeit">{e.zeit}</span>
+								<a href={e.link} onclick={onabbrechen}>{e.titel}</a>
+								{#if e.ort}<span class="bk-ort">{e.ort}</span>{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/each}
 	{/if}
 
 	{#each karte.auswahl as a (a.feld)}
@@ -99,7 +146,10 @@
 		{#if karte.aendern && karte.aktion !== 'unbekannt'}
 			<a class="bk-zweit" href={karte.aendern} onclick={onabbrechen}>Ändern</a>
 		{/if}
-		<button type="button" class="bk-zweit" onclick={onabbrechen}>Abbrechen</button>
+		{#if karte.antwort && kannVorlesen}
+			<button type="button" class="knopf bk-ja" onclick={() => vorlesen(karte.antwort!.vorlesen)}>{liest ? 'Stopp' : 'Vorlesen'}</button>
+		{/if}
+		<button type="button" class="bk-zweit" onclick={onabbrechen}>{karte.antwort ? 'Schließen' : 'Abbrechen'}</button>
 	</div>
 </section>
 
@@ -108,6 +158,43 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+	}
+	.bk-antwort-text {
+		margin: 0;
+		line-height: 1.6;
+	}
+	.bk-abschnitt h3 {
+		margin: 0 0 0.35rem;
+		font-size: 0.95rem;
+	}
+	.bk-abschnitt ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.35rem;
+	}
+	.bk-abschnitt li {
+		display: grid;
+		grid-template-columns: 6.5rem minmax(0, 1fr);
+		gap: 0 0.5rem;
+	}
+	.bk-abschnitt li .bk-ort {
+		grid-column: 2;
+		font-size: 0.85rem;
+		color: var(--text-leise);
+	}
+	.bk-abschnitt li.ueberfaellig .bk-zeit {
+		color: var(--m365-fehler, #b00020);
+		font-weight: 600;
+	}
+	.bk-zeit {
+		font-variant-numeric: tabular-nums;
+		font-size: 0.875rem;
+	}
+	.bk-leer {
+		margin: 0;
+		color: var(--text-leise);
 	}
 	.bk-titel {
 		margin: 0;

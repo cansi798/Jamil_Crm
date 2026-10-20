@@ -34,6 +34,8 @@ export type Karte = {
 	fehler: string | null;
 	/** Link zum normalen Formular, so weit wie möglich vorausgefüllt („Ändern“). */
 	aendern: string | null;
+	/** Nur bei Fragen (nur lesend): Antwort als Liste mit Links und Text zum Vorlesen. */
+	antwort?: { abschnitte: { titel: string; eintraege: { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean }[] }[]; vorlesen: string };
 };
 
 /** Ausführbare Werte je Aktion (IDs aufgelöst, Zeitpunkte als ISO). `null` an einer Stelle = offene Auswahl. */
@@ -276,6 +278,13 @@ async function todoAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { ak
 	const faellig = d.faellig ? loeseTag(d.faellig, jetzt) : null;
 	bau.werte.faellig = faellig;
 	if (faellig) bau.zeilen.push({ label: 'Fällig', wert: tagLang(faellig) });
+	if (d.wiederholung) {
+		const { regelText } = await import('../../wiederholung');
+		bau.werte.wiederholung = d.wiederholung;
+		bau.werte.intervall = String(d.intervall ?? 1);
+		bau.zeilen.push({ label: 'Wiederholt sich', wert: regelText(d.wiederholung, d.intervall ?? 1, null) });
+		if (!faellig) bau.zeilen.push({ label: 'Erster Termin', wert: tagLang(berlinTag(jetzt)) });
+	}
 	bau.werte.auftragId = null;
 	if (d.auftrag) {
 		const t = await findeAuftraege(k, nutzer, d.auftrag, false);
@@ -466,6 +475,174 @@ async function protokollAusfuellen(k: Kontext, nutzer: Nutzer, d: Extract<KiAkti
 	return bau;
 }
 
+
+// ——— Neue Aktionen (Wunsch Jamil msg 2645) ———
+
+/** Offener Auftrag zum gesprochenen Text; Mehrdeutigkeit → Auswahl „auftrag“, keiner → fehlt. */
+async function auftragAufloesen(bau: Bau, k: Kontext, nutzer: Nutzer, text: string, alle = false): Promise<void> {
+	const t = await findeAuftraege(k, nutzer, text, alle);
+	bau.werte.auftragId = null;
+	if (t.length === 1) {
+		bau.werte.auftragId = t[0].id;
+		bau.zeilen.push({ label: 'Auftrag', wert: auftragLabel(t[0]) });
+	} else if (t.length > 1) {
+		bau.auswahl.push({ feld: 'auftrag', frage: 'Welcher Auftrag ist gemeint?', optionen: t.slice(0, 8).map((a) => ({ id: a.id, label: auftragLabel(a) })) });
+		bau.zeilen.push({ label: 'Auftrag', wert: `${text} (bitte wählen)` });
+	} else {
+		bau.fehlt.push(`Kein offener Auftrag zu „${ohneAnrede(text)}“ gefunden.`);
+		bau.zeilen.push({ label: 'Auftrag', wert: `${ohneAnrede(text)} (nicht gefunden)` });
+	}
+}
+
+async function mitarbeiterZuweisen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'mitarbeiter_zuweisen' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	await auftragAufloesen(bau, k, nutzer, d.auftrag, false);
+	const alle = await aktiveMitarbeiter(k);
+	const ids = mitarbeiterAufloesen(bau, alle, d.mitarbeiter, nutzer.id);
+	bau.werte.mitarbeiterIds = ids;
+	bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, ids, d.mitarbeiter) });
+	bau.warnungen.push('Bisherige Zuständige bleiben – die Genannten kommen dazu.');
+	return bau;
+}
+
+async function statusAendern(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'status_aendern' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	const { STATUS_NAMEN, naechsterStatus } = await import('../../auftrag-status');
+	const t = await findeAuftraege(k, nutzer, d.auftrag, false);
+	bau.werte.auftragId = null;
+	bau.werte.status = d.status;
+	if (t.length === 1) {
+		bau.werte.auftragId = t[0].id;
+		bau.zeilen.push({ label: 'Auftrag', wert: auftragLabel(t[0]) });
+		const ziel = d.status === 'weiter' ? naechsterStatus(t[0].status) : d.status;
+		if (!ziel) bau.fehlt.push('Der Auftrag ist schon im letzten Status (Abgerechnet).');
+		else {
+			bau.werte.status = ziel;
+			bau.zeilen.push({ label: 'Status', wert: `${STATUS_NAMEN[t[0].status]} → ${STATUS_NAMEN[ziel]}` });
+			if (ziel === t[0].status) bau.fehlt.push(`Der Auftrag ist schon „${STATUS_NAMEN[ziel]}“.`);
+		}
+	} else if (t.length > 1) {
+		bau.auswahl.push({ feld: 'auftrag', frage: 'Welcher Auftrag ist gemeint?', optionen: t.slice(0, 8).map((a) => ({ id: a.id, label: auftragLabel(a) })) });
+		bau.zeilen.push({ label: 'Auftrag', wert: `${d.auftrag} (bitte wählen)` });
+		bau.zeilen.push({ label: 'Status', wert: d.status === 'weiter' ? 'nächster Schritt' : STATUS_NAMEN[d.status] });
+	} else {
+		bau.fehlt.push(`Kein offener Auftrag zu „${ohneAnrede(d.auftrag)}“ gefunden.`);
+	}
+	return bau;
+}
+
+async function todoAbhaken(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'todo_abhaken' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	const { listeTodos, todoSichtVon } = await import('../todos');
+	const offen = await listeTodos(k, todoSichtVon(nutzer), { nur: 'alle', status: 'offen' });
+	const g = woerter(d.titel).filter((w) => w.length > 2 && !['das', 'die', 'der', 'todo', 'aufgabe'].includes(w));
+	let treffer = offen.filter((t) => {
+		const tw = normal(t.titel);
+		return g.length > 0 && g.every((w) => tw.includes(w.slice(0, Math.max(4, w.length - 1))));
+	});
+	if (d.auftrag && treffer.length > 1) {
+		const a = normal(ohneAnrede(d.auftrag));
+		const mitAuftrag = treffer.filter((t) => normal(`${t.auftragNummer ?? ''} ${t.auftragTitel ?? ''}`).includes(a));
+		if (mitAuftrag.length > 0) treffer = mitAuftrag;
+	}
+	bau.werte.todoId = null;
+	const label = (t: (typeof offen)[number]) => `${t.titel}${t.auftragNummer ? ` · ${t.auftragNummer}` : ''}${t.zustaendigName ? ` · ${t.zustaendigName}` : ''}`;
+	if (treffer.length === 1) {
+		bau.werte.todoId = treffer[0].id;
+		bau.zeilen.push({ label: 'To-do', wert: label(treffer[0]) });
+		if (treffer[0].serie?.aktiv) bau.warnungen.push(`Wiederkehrend (${treffer[0].serie.text}) – das nächste To-do entsteht automatisch.`);
+	} else if (treffer.length > 1) {
+		bau.auswahl.push({ feld: 'todo', frage: 'Welches To-do ist erledigt?', optionen: treffer.slice(0, 8).map((t) => ({ id: t.id, label: label(t) })) });
+		bau.zeilen.push({ label: 'To-do', wert: `${d.titel} (bitte wählen)` });
+	} else {
+		bau.fehlt.push(`Kein offenes To-do „${d.titel}“ gefunden.`);
+	}
+	return bau;
+}
+
+async function anlageAnlegen(k: Kontext, d: Extract<KiAktion, { aktion: 'anlage_anlegen' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	const { TYP_NAMEN } = await import('../../anlagen-typen');
+	const { regelText } = await import('../../wiederholung');
+	const { treffer } = await findeKunden(k, d.kunde.name, d.kunde.ort);
+	bau.werte.kundeId = null;
+	bau.werte.objektId = null;
+	bau.werte.anlage = {
+		typ: d.typ,
+		bezeichnung: d.bezeichnung ?? null,
+		hersteller: d.hersteller ?? null,
+		modell: d.modell ?? null,
+		seriennummer: d.seriennummer ?? null,
+		wartungRegel: d.wartung ?? null,
+		wartungIntervall: d.wartung ? String(d.wartung_intervall ?? 1) : null
+	};
+	bau.zeilen.push({ label: 'Anlage', wert: [d.bezeichnung ?? TYP_NAMEN[d.typ], d.hersteller, d.modell].filter(Boolean).join(' · ') });
+	if (d.wartung) bau.zeilen.push({ label: 'Wartung', wert: regelText(d.wartung, d.wartung_intervall ?? 1, null) });
+	if (treffer.length === 0) {
+		bau.fehlt.push(`Kunde „${ohneAnrede(d.kunde.name)}“ nicht gefunden.`);
+		return bau;
+	}
+	if (treffer.length > 1) {
+		bau.fehlt.push(`Mehrere Kunden „${ohneAnrede(d.kunde.name)}“ – bitte mit Ort sagen oder die Anlage am Objekt anlegen.`);
+		return bau;
+	}
+	const kd = treffer[0];
+	bau.werte.kundeId = kd.id;
+	bau.zeilen.push({ label: 'Kunde', wert: kundenLabel(kd) });
+	const objekte = await mitBetrieb(k, (tx) => tx`
+		select id, bezeichnung, strasse, ort from app.objekte where kunde_id = ${kd.id} and betrieb_id = ${k.betriebId}
+		order by public.unaccent(lower(bezeichnung)), id`);
+	const passend = d.objekt ? objekte.filter((o) => normal(o.bezeichnung).includes(normal(d.objekt!))) : objekte;
+	const liste = passend.length > 0 ? passend : objekte;
+	const objLabel = (o: Record<string, any>) => [o.bezeichnung, [o.strasse, o.ort].filter(Boolean).join(', ')].filter(Boolean).join(' – ');
+	if (liste.length === 1) {
+		bau.werte.objektId = liste[0].id;
+		bau.zeilen.push({ label: 'Objekt', wert: objLabel(liste[0]) });
+	} else if (liste.length > 1) {
+		bau.auswahl.push({ feld: 'objekt', frage: 'An welchem Objekt?', optionen: liste.slice(0, 8).map((o) => ({ id: o.id, label: objLabel(o) })) });
+		bau.zeilen.push({ label: 'Objekt', wert: 'bitte wählen' });
+	} else {
+		bau.fehlt.push('Der Kunde hat noch kein Objekt – bitte zuerst ein Objekt anlegen.');
+	}
+	return bau;
+}
+
+async function nachfassenPausieren(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'nachfassen_pausieren' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	const { listeAngebote } = await import('../angebote');
+	const { sichtVon: sv } = await import('../auftraege');
+	const alle = (await listeAngebote(k, {}, { sicht: sv(nutzer), auftragAendern: false })).filter((a) => a.status === 'versendet');
+	const q = normal(ohneAnrede(d.angebot));
+	const nr = /\b(?:an-?)?(\d{4})-?(\d{3,})\b/i.exec(d.angebot);
+	const treffer = nr
+		? alle.filter((a) => a.nummer.endsWith(`${nr[1]}-${nr[2].padStart(4, '0')}`) || a.nummer.toLowerCase().includes(nr[0].toLowerCase()))
+		: alle.filter((a) => woerter(q).every((w) => normal(`${a.kundeName} ${a.auftragTitel ?? ''}`).includes(w)));
+	bau.werte.angebotId = null;
+	bau.werte.pausiert = !d.fortsetzen;
+	const label = (a: (typeof alle)[number]) => `${a.nummer} · ${a.kundeName}`;
+	if (treffer.length === 1) {
+		bau.werte.angebotId = treffer[0].id;
+		bau.zeilen.push({ label: 'Angebot', wert: label(treffer[0]) });
+	} else if (treffer.length > 1) {
+		bau.auswahl.push({ feld: 'angebot', frage: 'Welches Angebot?', optionen: treffer.slice(0, 8).map((a) => ({ id: a.id, label: label(a) })) });
+		bau.zeilen.push({ label: 'Angebot', wert: 'bitte wählen' });
+	} else {
+		bau.fehlt.push(`Kein versendetes Angebot zu „${d.angebot}“ gefunden.`);
+	}
+	bau.zeilen.push({ label: 'Nachfassen', wert: d.fortsetzen ? 'fortsetzen' : 'pausieren' });
+	return bau;
+}
+
+/** Für die Frage „Was hat Sabine morgen?“: Person (ich/Name) auflösen. */
+export async function personAufloesen(k: Kontext, nutzer: Nutzer, wer: string | undefined): Promise<{ id: string | null; frage: string | null }> {
+	if (!wer) return { id: nutzer.id, frage: null };
+	const alle = await aktiveMitarbeiter(k);
+	const t = findeMitarbeiter(alle, wer, nutzer.id);
+	if (t.length === 1) return { id: t[0].id, frage: null };
+	if (t.length === 0) return { id: null, frage: `Mitarbeiter „${wer}“ nicht gefunden.` };
+	return { id: null, frage: `Wen meinen Sie: ${t.map((m) => m.name).join(' oder ')}?` };
+}
+
 const TITEL: Record<AktionsName, string> = {
 	kunde_anlegen: 'Kunde anlegen',
 	auftrag_anlegen: 'Auftrag anlegen',
@@ -473,7 +650,13 @@ const TITEL: Record<AktionsName, string> = {
 	einsatz_anlegen: 'Termin einplanen',
 	einsatz_verschieben: 'Termin verschieben',
 	angebot_entwurf: 'Angebotsentwurf (KI)',
-	protokoll_ausfuellen: 'Protokoll ausfüllen'
+	protokoll_ausfuellen: 'Protokoll ausfüllen',
+	mitarbeiter_zuweisen: 'Mitarbeiter zuweisen',
+	status_aendern: 'Auftragsstatus ändern',
+	todo_abhaken: 'To-do abhaken',
+	anlage_anlegen: 'Anlage anlegen',
+	nachfassen_pausieren: 'Nachfassen',
+	abfrage_tagesplan: 'Tagesplan'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -497,14 +680,27 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 			return `/plantafel${q({ tag: werte.nachTag })}`;
 		case 'angebot_entwurf':
 		case 'protokoll_ausfuellen':
+		case 'mitarbeiter_zuweisen':
+		case 'status_aendern':
 			return werte.auftragId ? `/auftraege/${werte.auftragId}` : '/auftraege';
+		case 'todo_abhaken':
+			return '/todos';
+		case 'anlage_anlegen':
+			return werte.kundeId && werte.objektId ? `/kunden/${werte.kundeId}/objekte/${werte.objektId}` : werte.kundeId ? `/kunden/${werte.kundeId}` : '/kunden';
+		case 'nachfassen_pausieren':
+			return werte.angebotId ? `/angebote/${werte.angebotId}#nachfassen` : '/angebote';
 		default:
 			return '/';
 	}
 }
 
 /** Löst die Aktion auf (Rechte prüft der Aufrufer vorher, siehe `ausfuehren.ts`). */
-export async function loeseAuf(k: Kontext, nutzer: Nutzer, aktion: Exclude<KiAktion, { aktion: 'unbekannt' }>, jetzt: Date): Promise<Vorschau> {
+export async function loeseAuf(
+	k: Kontext,
+	nutzer: Nutzer,
+	aktion: Exclude<KiAktion, { aktion: 'unbekannt' | 'abfrage_tagesplan' }>,
+	jetzt: Date
+): Promise<Vorschau> {
 	let bau: Bau;
 	try {
 		switch (aktion.aktion) {
@@ -528,6 +724,21 @@ export async function loeseAuf(k: Kontext, nutzer: Nutzer, aktion: Exclude<KiAkt
 				break;
 			case 'protokoll_ausfuellen':
 				bau = await protokollAusfuellen(k, nutzer, aktion.daten);
+				break;
+			case 'mitarbeiter_zuweisen':
+				bau = await mitarbeiterZuweisen(k, nutzer, aktion.daten);
+				break;
+			case 'status_aendern':
+				bau = await statusAendern(k, nutzer, aktion.daten);
+				break;
+			case 'todo_abhaken':
+				bau = await todoAbhaken(k, nutzer, aktion.daten);
+				break;
+			case 'anlage_anlegen':
+				bau = await anlageAnlegen(k, aktion.daten);
+				break;
+			case 'nachfassen_pausieren':
+				bau = await nachfassenPausieren(k, nutzer, aktion.daten);
 				break;
 		}
 	} catch (e) {
