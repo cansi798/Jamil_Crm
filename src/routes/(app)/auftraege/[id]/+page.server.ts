@@ -29,6 +29,8 @@ import { listeAngebotVorlagen } from '$lib/server/angebot-vorlagen';
 import { ohnePreise } from '$lib/server/preisschutz';
 import { hatModul } from '$lib/server/tarif';
 import { entwirfAngebot } from '$lib/server/ki/angebot-entwurf';
+import { listeProtokolle, listeVorlagen, protokollVerlauf, starteProtokoll } from '$lib/server/protokoll-formulare';
+import { protokollRechte, zugriffAusfuellen } from '$lib/server/protokoll-zugriff';
 
 /**
  * Auftrag mit Statuskette, Einsätzen, To-dos, Angeboten und Verlauf. Nicht sichtbare (fremde/unbekannte) Aufträge: 404.
@@ -57,14 +59,28 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			kundenLesbar && auftrag.kundeId ? holeKunde(k, auftrag.kundeId) : Promise.resolve(null),
 			kundenLesbar && auftrag.kundeId ? listeKundenNotizen(k, auftrag.kundeId) : Promise.resolve([])
 		]);
+		// Protokolle (frei gestaltbare Formulare, Wunsch Jamil msg 2649): Liste, „Protokoll starten“, Einträge im Verlauf
+		const pr = await protokollRechte(nutzer);
+		const [protokolle, protokollVorlagen, protokollEintraege] = await Promise.all([
+			pr.lesen ? listeProtokolle(k, { auftragId: auftrag.id }) : Promise.resolve(null),
+			pr.ausfuellen ? listeVorlagen(k) : Promise.resolve([]),
+			pr.lesen ? protokollVerlauf(k, auftrag.id) : Promise.resolve([])
+		]);
+		const verlauf = [
+			...protokoll.eintraege.map((e) => ({ iso: e.zeit, zeile: verlaufZeile(e) })),
+			...protokollEintraege
+		].sort((x, y) => (x.iso < y.iso ? 1 : x.iso > y.iso ? -1 : 0));
 		return {
 			auftrag,
+			protokolle,
+			protokollVorlagen: protokollVorlagen.map((v) => ({ id: v.id, name: v.name })),
+			darfProtokollStarten: pr.ausfuellen,
 			todos,
 			mitarbeiter,
 			einsaetze,
 			heute: berlinTag(new Date()),
 			benutzerId: nutzer.id,
-			verlauf: protokoll.eintraege.map(verlaufZeile),
+			verlauf: verlauf.map((v) => v.zeile),
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
 			darfBearbeiten,
 			darfTermine,
@@ -171,6 +187,19 @@ export const actions: Actions = {
 			return alsFormFehler(e);
 		}
 		redirect(303, `/kunden/${kundeId}`);
+	},
+	/** Protokoll aus einer Vorlage starten und den Assistenten öffnen (`protokolle.ausfuellen`). */
+	protokollStarten: async ({ locals, params, request }) => {
+		const vorlage = (await request.formData()).get('vorlageId');
+		let id: string;
+		try {
+			const { k, sicht } = await zugriffAusfuellen(locals);
+			id = (await starteProtokoll(k, sicht, { vorlageId: vorlage, auftragId: params.id })).id;
+		} catch (e) {
+			const meldung = e instanceof ApiFehler ? e.message : 'Interner Fehler. Bitte später erneut versuchen.';
+			return alsFormFehler(e, { protokollFehler: meldung });
+		}
+		redirect(303, `/protokolle/${id}`);
 	},
 	todoAnlegen: todo.anlegen,
 	todoUmschalten: todo.umschalten,

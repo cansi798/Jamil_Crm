@@ -15,6 +15,8 @@ export const RECHTE = {
 	'katalog.bearbeiten': 'Katalog und Leistungen bearbeiten',
 	'protokolle.lesen': 'Protokolle ansehen',
 	'protokolle.bearbeiten': 'Protokolle anlegen und ändern',
+	'protokolle.ausfuellen': 'Protokolle ausfüllen (Formulare)',
+	'protokolle.vorlagen_bearbeiten': 'Protokoll-Vorlagen gestalten',
 	'benutzer.verwalten': 'Benutzer verwalten',
 	einstellungen: 'Einstellungen verwalten'
 } as const;
@@ -30,7 +32,7 @@ export const istRecht = (wert: unknown): wert is Recht =>
 export const VORLAGEN = {
 	chef: ALLE_RECHTE,
 	buero: ALLE_RECHTE.filter((r) => r !== 'einstellungen' && r !== 'benutzer.verwalten'),
-	monteur: ['kunden.lesen', 'auftraege.lesen']
+	monteur: ['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen']
 } as const satisfies Record<string, readonly Recht[]>;
 
 export type Vorlage = keyof typeof VORLAGEN;

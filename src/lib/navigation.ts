@@ -76,6 +76,10 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[]): Na
 		if (module.includes('katalog') && hat('preise.sehen') && hat('einstellungen')) {
 			mehr.push({ name: 'Kalkulation', href: '/kalkulation', symbol: 'katalog' });
 		}
+		// Protokoll-Vorlagen (frei gestaltbare Formulare, Wunsch Jamil msg 2649): Chef/Büro
+		if (module.includes('protokolle') && hat('protokolle.vorlagen_bearbeiten')) {
+			mehr.push({ name: 'Protokoll-Vorlagen', href: '/einstellungen/protokoll-vorlagen', symbol: 'angebote' });
+		}
 		if (hat('benutzer.verwalten')) {
 			mehr.push({ name: 'Benutzer', href: '/einstellungen/benutzer', symbol: 'benutzer' });
 		}

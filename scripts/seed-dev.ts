@@ -6,6 +6,7 @@ import * as OTPAuth from 'otpauth';
 import { ladeEnv, urlAusUmgebung } from './migrate';
 import { hashePasswort, pruefePasswort } from '../src/lib/server/auth/passwort';
 import { VORLAGEN, VORLAGEN_NAMEN, type Vorlage } from '../src/lib/server/rechte';
+import { STARTVORLAGEN } from '../src/lib/protokoll-startvorlagen';
 import { totpUri } from '../src/lib/server/auth/totp';
 import { berlinTag, berlinZeitpunkt, tagPlus, wocheVon } from '../src/lib/zeit';
 import { GUELTIG_TAGE, STANDARD_EINLEITUNG, STANDARD_SCHLUSS } from '../src/lib/server/angebote';
@@ -166,7 +167,13 @@ async function sichereBenutzer(
 	return { id: z.id, neu: true };
 }
 
-export type SeedErgebnis = { neueBenutzer: number; neueKunden: number; neueVorlagen: number; neueAngebotsVorlagen: number } &
+export type SeedErgebnis = {
+	neueBenutzer: number;
+	neueKunden: number;
+	neueVorlagen: number;
+	neueAngebotsVorlagen: number;
+	neueProtokollVorlagen: number;
+} &
 	Planung &
 	Angebote1c;
 
@@ -575,6 +582,20 @@ export async function sichereAngebotsVorlagen(tx: Tx, betriebId: string): Promis
 	return neue;
 }
 
+/** Protokoll-Vorlagen „Abdichtungsprotokoll Bad“ und „Abnahmeprotokoll“ (idempotent nach Name). */
+export async function sichereProtokollVorlagen(tx: Tx, betriebId: string): Promise<number> {
+	let neue = 0;
+	for (const v of STARTVORLAGEN) {
+		const [da] = await tx`select 1 from app.protokoll_vorlagen where betrieb_id = ${betriebId} and lower(name) = lower(${v.name})`;
+		if (da) continue;
+		await tx`
+			insert into app.protokoll_vorlagen (betrieb_id, gruppe_id, version, name, beschreibung, schema)
+			values (${betriebId}, gen_random_uuid(), 1, ${v.name}, ${v.beschreibung}, ${tx.json(v.schema as never)})`;
+		neue++;
+	}
+	return neue;
+}
+
 export async function seedDev(url: string, opts: { datei?: string } = {}): Promise<SeedErgebnis> {
 	const datei = opts.datei ?? STANDARD_DATEI;
 	const daten = leseZugangsdaten(datei);
@@ -662,7 +683,8 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			const angebote = await sichereKatalogUndAngebote(tx, betrieb.id);
 			const neueVorlagen = await sichereVorlagen(tx, betrieb.id);
 			const neueAngebotsVorlagen = await sichereAngebotsVorlagen(tx, betrieb.id);
-			return { neueBenutzer, neueKunden, ...planung, ...angebote, neueVorlagen, neueAngebotsVorlagen };
+			const neueProtokollVorlagen = await sichereProtokollVorlagen(tx, betrieb.id);
+			return { neueBenutzer, neueKunden, ...planung, ...angebote, neueVorlagen, neueAngebotsVorlagen, neueProtokollVorlagen };
 		});
 	} finally {
 		await sql.end();
@@ -675,7 +697,8 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			`${AUFTRAEGE.length} Beispielaufträge (${ergebnis.neueAuftraege} neu), ` +
 			`${ergebnis.neueEinsaetze} neue Einsätze, ${ergebnis.neueTodos} neue To-dos, ` +
 			`${ergebnis.neueKatalogpositionen} neue Katalogpositionen, ${ergebnis.neueAngebote} neue Angebote, ` +
-			`${ergebnis.neueVorlagen} neue Auftrags-Vorlagen, ${ergebnis.neueAngebotsVorlagen} neue Angebots-Vorlagen. ` +
+			`${ergebnis.neueVorlagen} neue Auftrags-Vorlagen, ${ergebnis.neueAngebotsVorlagen} neue Angebots-Vorlagen, ` +
+				`${ergebnis.neueProtokollVorlagen} neue Protokoll-Vorlagen. ` +
 			`Zugangsdaten: ${datei}`
 	);
 	return ergebnis;

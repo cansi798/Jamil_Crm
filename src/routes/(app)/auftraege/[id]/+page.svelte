@@ -86,7 +86,7 @@
 		</aside>
 	{/if}
 
-	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler}
+	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler && !form?.protokollFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
 
@@ -239,6 +239,48 @@
 					</ul>
 				</Karte>
 			</div>
+
+			{#if data.protokolle}
+				<div class="af-k k-protokolle">
+					<Karte>
+						{#snippet titel()}Protokolle{/snippet}
+						{#snippet aktionen()}
+							{#if data.darfProtokollStarten && data.protokollVorlagen.length > 0}
+								<form method="POST" action="?/protokollStarten" use:enhance class="af-protokoll-start">
+									<select name="vorlageId" aria-label="Protokoll-Vorlage" required data-testid="protokoll-vorlage">
+										{#each data.protokollVorlagen as v (v.id)}<option value={v.id}>{v.name}</option>{/each}
+									</select>
+									<button type="submit" class="kd-knopf" data-testid="protokoll-starten">Protokoll starten</button>
+								</form>
+							{/if}
+						{/snippet}
+						{#if form?.protokollFehler}<p role="alert" class="kd-fehler">{form.protokollFehler}</p>{/if}
+						<ul class="kd-liste">
+							{#each data.protokolle as pr (pr.id)}
+								<li>
+									<a href={`/protokolle/${pr.id}`}>
+										<span class="af-kopfzeile">
+											<strong>{pr.titel}</strong>
+											<span class={`badge ${pr.status === 'abgeschlossen' ? 'badge-gruen' : 'badge-gelb'}`}>{pr.status === 'abgeschlossen' ? 'Abgeschlossen' : 'Entwurf'}</span>
+										</span>
+										<span class="kd-info">
+											{pr.status === 'abgeschlossen' && pr.abgeschlossen
+												? `${tagDeutsch(berlinTag(new Date(pr.abgeschlossen)))} · ${pr.abgeschlossenVonName ?? ''}${pr.unterschriebenVon ? ` · unterschrieben von ${pr.unterschriebenVon}` : ''}`
+												: `begonnen ${tagDeutsch(berlinTag(new Date(pr.angelegt)))}${pr.vonName ? ` von ${pr.vonName}` : ''}`}
+										</span>
+									</a>
+								</li>
+							{:else}
+								<li class="kd-leer">
+									{data.darfProtokollStarten && data.protokollVorlagen.length === 0
+										? 'Noch keine Protokoll-Vorlage – unter Einstellungen → Protokoll-Vorlagen anlegen.'
+										: 'Noch kein Protokoll.'}
+								</li>
+							{/each}
+						</ul>
+					</Karte>
+				</div>
+			{/if}
 
 			<div class="af-k k-verlauf">
 				<Karte>
@@ -507,6 +549,15 @@
 </main>
 
 <style>
+	.af-protokoll-start {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--ui-a2);
+	}
+	.af-protokoll-start select {
+		width: auto;
+		max-width: 16rem;
+	}
 	/* Kopf über die ganze Breite, darunter ab 1200 px zwei Spalten */
 	.af-seite {
 		max-width: 96rem;
@@ -527,6 +578,7 @@
 	.k-mitarbeiter { order: 3; }
 	.k-todos { order: 4; }
 	.k-termine { order: 5; }
+	.k-protokolle { order: 5; }
 	.k-angebote { order: 6; }
 	.k-doku { order: 7; }
 	.k-verlauf { order: 8; }
