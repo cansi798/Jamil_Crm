@@ -28,8 +28,9 @@
 		if (o.nachfassen ?? data.nachfassenFaellig) p.set('nachfassen', 'faellig');
 		const z = o.zeitraum ?? data.zeitraum;
 		if (z !== 'monat') p.set('zeitraum', z);
-		const q = p.toString();
-		return q ? `/auftraege?${q}` : '/auftraege';
+		// Ausdrücklich „keine Filter“ (≠ erster Besuch): Marker, damit keine Standard-Ansicht darüber springt
+		if (p.toString() === '') p.set('alle', '1');
+		return `/auftraege?${p}`;
 	};
 	// Kennzahl-Kacheln (msg 2801): Status-Kachel öffnet die Liste mit diesem Status, nochmal klicken hebt ihn auf
 	const STATUS_TON = { anfrage: 'grau', angebot: 'lila', beauftragt: 'blau', in_arbeit: 'orange', abgenommen: 'gruen', abgerechnet: 'grau' } as const;

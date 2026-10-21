@@ -6,6 +6,9 @@ describe('Gespeicherte Ansichten (Jamil msgs 2830, 2921) – Filter-Teil der Adr
 	it('ohne „?“, ohne leere Werte; Plantafel ohne Tag, Zeiten ohne Tag/Monat; Mehrfachwerte bleiben', () => {
 		expect(filterQuery('auftraege', '?status=beauftragt&suche=&quelle=q1')).toBe('status=beauftragt&quelle=q1');
 		expect(filterQuery('plantafel', 'tag=2026-10-21&ansicht=woche&ma=a&ma=b')).toBe('ansicht=woche&ma=a&ma=b');
+		// Marker „ausdrücklich keine Filter“ wird nie gespeichert
+		expect(filterQuery('auftraege', 'alle=1')).toBe('');
+		expect(filterQuery('todos', 'alle=1&status=offen')).toBe('status=offen');
 		expect(filterQuery('zeiten', 'monat=2026-10&ansicht=monat&person=x&tag=2026-10-01')).toBe('ansicht=monat&person=x');
 	});
 

@@ -8,9 +8,15 @@ export const OHNE_PARAMETER: Record<string, readonly string[]> = {
 	zeiten: ['tag', 'monat']
 };
 
+/**
+ * Marker „ausdrücklich keine Filter“ (`?alle=1`): Die Filterleisten setzen ihn, wenn alles abgewählt ist – so
+ * unterscheidet sich das vom ersten Besuch (leere Adresse), bei dem die Standard-Ansicht greift. Nie gespeichert.
+ */
+export const OHNE_FILTER = 'alle';
+
 /** Query ohne „?“, ohne leere Werte und ohne die ausgenommenen Parameter der Seite. */
 export function filterQuery(seite: string, q: string): string {
-	const ohne = new Set(OHNE_PARAMETER[seite] ?? []);
+	const ohne = new Set([...(OHNE_PARAMETER[seite] ?? []), OHNE_FILTER]);
 	const aus = new URLSearchParams();
 	for (const [k, v] of new URLSearchParams(q.replace(/^\?/, ''))) if (v !== '' && !ohne.has(k)) aus.append(k, v);
 	return aus.toString();

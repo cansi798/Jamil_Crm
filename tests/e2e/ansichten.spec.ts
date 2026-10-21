@@ -20,7 +20,9 @@ async function anmelden(browser: Browser, mobil: boolean) {
 
 for (const [seite, pfad, filter] of [
 	['Auftragskarte', '/karte', 'status=beauftragt'],
-	['Plantafel', '/plantafel', 'ansicht=tag']
+	['Plantafel', '/plantafel', 'ansicht=tag'],
+	['Aufträge', '/auftraege', 'ansicht=liste&status=beauftragt'],
+	['Aufgaben', '/todos', 'status=offen']
 ] as const) {
 	test(`${seite}: Ansicht speichern, öffnen, Standard, löschen`, async ({ browser }, info) => {
 		const { ctx, page, viewport } = await anmelden(browser, info.project.name === 'mobil');
@@ -48,6 +50,13 @@ for (const [seite, pfad, filter] of [
 		await p2.goto(pfad);
 		await expect(p2).toHaveURL(new RegExp(`\\?${filter}`));
 		await zwei.close();
+		// ausdrücklich „keine Filter“ (?alle=1, setzen die Filterleisten beim Abwählen): Standard springt nicht darüber
+		const drei = await ctx.browser()!.newContext({ viewport, storageState: await ctx.storageState() });
+		const p3 = await drei.newPage();
+		await p3.goto(`${pfad}?alle=1`);
+		await p3.waitForLoadState('networkidle');
+		await expect(p3).toHaveURL(new RegExp(`${pfad}\\?alle=1$`));
+		await drei.close();
 
 		// löschen
 		await page.getByRole('button', { name: new RegExp(name) }).first().click();

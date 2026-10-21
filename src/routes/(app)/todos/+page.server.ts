@@ -3,7 +3,6 @@ import { hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff, vorbelegung } from '$lib/server/seite';
 import { todoAktionen } from '$lib/server/todo-aktionen';
 import { aktiveMitarbeiter, listeTodos, todoSichtVon, type TodoAuswahl } from '$lib/server/todos';
-import { redirect } from '@sveltejs/kit';
 import { todoSpalte } from '$lib/todo-board';
 import { UUID } from '$lib/server/kunden';
 import { berlinTag } from '$lib/zeit';
@@ -12,7 +11,7 @@ import { berlinTag } from '$lib/zeit';
  * Aufgaben als Board oder Liste (wie Aufträge) mit Reitern „Meine“ / „Offen“ / „Alle“ (die beiden letzten nur mit `auftraege.alle_lesen`). Überfällig ist,
  * was vor dem heutigen Tag (Berlin) fällig und noch offen ist.
  */
-export const load: PageServerLoad = async ({ locals, url, request }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const k = await seitenZugriff(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
 	const nutzer = locals.nutzer!;
 	// Sicht nach dem Recht „Alle Aufgaben ansehen“ (sonst: eigene + die in eigenen Aufträgen)
@@ -23,16 +22,16 @@ export const load: PageServerLoad = async ({ locals, url, request }) => {
 	// Ansicht wie bei den Aufträgen: Board (Standard) oder Liste (`?ansicht=liste`)
 	const ansicht = url.searchParams.get('ansicht') === 'liste' ? 'liste' : 'board';
 	const darfBearbeiten = hatRecht(nutzer, 'auftraege.bearbeiten');
-	// „Zugewiesen an“ (Jamil msg 2806): Vorgabe ist der angemeldete Benutzer – steht immer in der Adresse
-	// (`person=<id>` bzw. `person=alle`), damit Lesezeichen und Zurück genau diese Sicht zeigen. Nur mit „Alle
-	// Aufgaben ansehen“; sonst gilt ohnehin „meine“.
+	// „Zugewiesen an“ (Jamil msg 2806): Vorgabe ist der angemeldete Benutzer. Ohne `person` in der Adresse gilt
+	// „ich“ – bewusst ohne Weiterleitung: die leere Adresse bleibt „erster Besuch“, damit eine gespeicherte
+	// Standard-Ansicht greifen kann (msg 2921). `person=alle` bzw. `person=<id>` wählt ausdrücklich. Nur mit
+	// „Alle Aufgaben ansehen“; sonst gilt ohnehin „meine“.
 	const person = url.searchParams.get('person');
-	if (sicht.alle && person === null && request.method === 'GET') {
-		const ziel = new URL(url);
-		ziel.searchParams.set('person', nutzer.id);
-		redirect(307, `${ziel.pathname}${ziel.search}`);
-	}
-	const zustaendigId = sicht.alle ? (person && UUID.test(person) ? person : person === 'alle' || person === '' ? undefined : nutzer.id) : undefined;
+	// Ohne `person`: „ich“ – außer der ältere Reiter `nur=offen|alle` ist ausdrücklich gewählt (Lesezeichen, Links)
+	const ohnePerson = roh === 'offen' || roh === 'alle' ? undefined : nutzer.id;
+	const zustaendigId = sicht.alle
+		? person && UUID.test(person) ? person : person === 'alle' || person === '' ? undefined : person === null ? ohnePerson : nutzer.id
+		: undefined;
 	// Status-Chips (Jamil msg 2805): Offen | In Arbeit | Erledigt | Alle – wie die Spalten des Boards
 	const statusRoh = url.searchParams.get('status');
 	const status = statusRoh === 'offen' || statusRoh === 'in-arbeit' || statusRoh === 'erledigt' ? statusRoh : 'alle';

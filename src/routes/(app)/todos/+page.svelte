@@ -27,10 +27,11 @@
 		const p = new URLSearchParams();
 		if (ansicht === 'liste') p.set('ansicht', 'liste');
 		if (!data.personFilter && nur !== 'meine') p.set('nur', nur);
-		if (data.personFilter) p.set('person', data.filter.person);
+		if (data.personFilter && data.filter.person !== data.benutzerId) p.set('person', data.filter.person);
 		if (status !== 'alle') p.set('status', status);
-		const q = p.toString();
-		return q ? `/todos?${q}` : '/todos';
+		// Ausdrücklich „keine Filter“ (≠ erster Besuch): Marker, damit keine Standard-Ansicht darüber springt
+		if (p.toString() === '') p.set('alle', '1');
+		return `/todos?${p}`;
 	};
 	// Status-Chips wie die Spalten des Boards (Jamil msg 2805)
 	const STATUS_CHIPS = [
