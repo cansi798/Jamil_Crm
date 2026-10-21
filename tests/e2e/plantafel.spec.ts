@@ -84,12 +84,11 @@ test.describe('Plantafel: Filter, Kolonnen, mehrtägig (Jamil msgs 2508, 2510, 2
 
 			// Filter: nur diese Kolonne (bleibt in der Adresse)
 			await page.goto(`/plantafel?ansicht=team&tag=${montag}`);
-			const chips = page.getByRole('group', { name: 'Filter Mitarbeiter und Kolonnen' });
-			await chips.getByRole('button', { name }).click();
+			// eine Personenauswahl wie bei „Aufgaben“ (Kolonnen und Mitarbeiter in einer Liste)
+			await personenWaehlen(page, 'Mitarbeiter und Kolonnen', [name]);
 			await expect(page).toHaveURL(/[?&]ko=/);
 			await page.reload();
-			await expect(chips.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'true');
-			await expect(chips.getByRole('button', { name: 'Alle' })).toHaveAttribute('aria-pressed', 'false');
+			await expect(page.getByRole('button', { name: new RegExp(`^Mitarbeiter und Kolonnen: ${name}`) })).toBeVisible();
 			await expect(page.locator('table.pt-raster tbody th.pt-name').first()).toContainText(name);
 
 			// Kolonne Mo–Mi einplanen

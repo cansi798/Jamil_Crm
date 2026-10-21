@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -35,30 +36,11 @@
 
 <main class="kd-seite breit">
 	<header class="seiten-kopf">
-		<h1>{data.alle && !data.meine ? 'Aufträge' : 'Meine Aufträge'}</h1>
-		<div class="af-werkzeuge">
-			<nav class="af-ansicht" aria-label="Ansicht">
-				<a href={link({ ansicht: 'board' })} aria-current={data.ansicht === 'board' ? 'page' : undefined}>Board</a>
-				<a href={link({ ansicht: 'liste' })} aria-current={data.ansicht === 'liste' ? 'page' : undefined}>Liste</a>
-			</nav>
-			{#if data.darfBearbeiten}
-				<a href="/auftraege/neu" class="kd-knopf">+ Auftrag</a>
-			{/if}
-		</div>
+		<div><h1>{data.alle && !data.meine ? 'Aufträge' : 'Meine Aufträge'}</h1></div>
+		{#if data.darfBearbeiten}
+			<div class="seiten-aktionen"><a href="/auftraege/neu" class="kd-knopf">+ Auftrag</a></div>
+		{/if}
 	</header>
-
-	{#if data.ansicht === 'liste'}
-		<nav aria-label="Status">
-			<ul class="af-reiter">
-				<li><a href={link({ status: null })} aria-current={data.status === null ? 'page' : undefined}>Alle</a></li>
-				{#each STATUS as s (s)}
-					<li>
-						<a href={link({ status: s })} aria-current={data.status === s ? 'page' : undefined}>{STATUS_NAMEN[s]}</a>
-					</li>
-				{/each}
-			</ul>
-		</nav>
-	{/if}
 
 	<FilterLeiste label="Aufträge filtern">
 		{#snippet suche()}
@@ -70,14 +52,27 @@
 		{/snippet}
 		{#snippet filter()}
 			{#if data.alle}
-				<nav aria-label="Meine oder alle Aufträge" class="af-meine">
-					<a href={link({ meine: false })} class="pill" class:aktiv={!data.meine} aria-current={!data.meine ? 'page' : undefined}>Alle</a>
-					<a href={link({ meine: true })} class="pill" class:aktiv={data.meine} aria-current={data.meine ? 'page' : undefined}>Meine</a>
-							</nav>
-						{/if}
-						<nav aria-label="Weitere Filter" class="af-meine">
-							<a href={link({ nachfassen: !data.nachfassenFaellig })} class="pill" class:aktiv={data.nachfassenFaellig} aria-current={data.nachfassenFaellig ? 'page' : undefined}>↻ Nachfassen fällig</a>
-						</nav>
+				<Umschalter
+					label="Meine oder alle Aufträge"
+					aktiv={data.meine ? 'meine' : 'alle'}
+					eintraege={[
+						{ wert: 'alle', text: 'Alle', href: link({ meine: false }) },
+						{ wert: 'meine', text: 'Meine', href: link({ meine: true }) }
+					]}
+				/>
+			{/if}
+			{#if data.ansicht === 'liste'}
+				<Umschalter
+					label="Status"
+					aktiv={data.status ?? 'alle'}
+					eintraege={[{ wert: 'alle', text: 'Alle', href: link({ status: null }) }, ...STATUS.map((s) => ({ wert: s, text: STATUS_NAMEN[s], href: link({ status: s }) }))]}
+				/>
+			{/if}
+			<Umschalter
+				label="Weitere Filter"
+				aktiv={data.nachfassenFaellig ? 'nachfassen' : null}
+				eintraege={[{ wert: 'nachfassen', text: '↻ Nachfassen fällig', href: link({ nachfassen: !data.nachfassenFaellig }) }]}
+			/>
 			<div class="af-quelle-filter">
 				<Auswahl name="quelle" klein aria-label="Auftragsquelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
 					<option value="" selected={!data.quelle}>Alle Auftragsquellen</option>
@@ -85,6 +80,16 @@
 					<option value="ohne" selected={data.quelle === 'ohne'}>Ohne Auftragsquelle</option>
 				</Auswahl>
 			</div>
+		{/snippet}
+		{#snippet rechts()}
+			<Umschalter
+				label="Ansicht"
+				aktiv={data.ansicht}
+				eintraege={[
+					{ wert: 'board', text: 'Board', href: link({ ansicht: 'board' }) },
+					{ wert: 'liste', text: 'Liste', href: link({ ansicht: 'liste' }) }
+				]}
+			/>
 		{/snippet}
 	</FilterLeiste>
 

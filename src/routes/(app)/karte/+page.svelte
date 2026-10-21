@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { onMount, untrack } from 'svelte';
@@ -159,6 +160,9 @@
 		routeZeichnen();
 	});
 
+	// Eine Auswahl für Mitarbeiter oder Kolonne („ma:…“ / „ko:…“), geht als ma bzw. ko in die Adresse
+	let personWahl = $state(untrack(() => (data.filter.benutzerId ? `ma:${data.filter.benutzerId}` : data.filter.kolonneId ? `ko:${data.filter.kolonneId}` : '')));
+	let mehrFilter = $state(false);
 	const filterAnzahl = $derived(
 		data.filter.status.length + (data.filter.benutzerId ? 1 : 0) + (data.filter.kolonneId ? 1 : 0) + (data.filter.von || data.filter.bis ? 1 : 0) + (data.filter.quelleId ? 1 : 0)
 	);
@@ -170,59 +174,96 @@
 </svelte:head>
 
 <main class="kd-seite breit kt-seite">
-	<h1>Auftragskarte</h1>
+	<header class="seiten-kopf">
+		<div>
+			<h1>Auftragskarte</h1>
+			<p class="seiten-meta">{data.auftraege.length} {data.auftraege.length === 1 ? 'Auftrag' : 'Aufträge'}{filterAnzahl > 0 ? ` · ${filterAnzahl} Filter aktiv` : ''}</p>
+		</div>
+	</header>
 
-	<details class="kt-filter">
-		<summary class="kd-knopf hell">Filter{filterAnzahl > 0 ? ` (${filterAnzahl})` : ''}</summary>
-		<form method="GET" class="kt-filter-form">
+	<FilterLeiste label="Karte filtern">
+		{#snippet suche()}
+			{#each data.filter.status as st (st)}<input type="hidden" name="status" value={st} />{/each}
+			{#if data.filter.von}<input type="hidden" name="von" value={data.filter.von} />{/if}
+			{#if data.filter.bis}<input type="hidden" name="bis" value={data.filter.bis} />{/if}
+			{#if personWahl.startsWith('ma:')}<input type="hidden" name="ma" value={personWahl.slice(3)} />{/if}
+			{#if personWahl.startsWith('ko:')}<input type="hidden" name="ko" value={personWahl.slice(3)} />{/if}
+		{/snippet}
+		{#snippet filter()}
+			<!-- Mitarbeiter und Kolonnen in EINER Auswahl wie bei „Aufgaben“ (Jamil msg 2921) -->
+			<PersonWahl
+				name=""
+				klein
+				absenden
+				label="Mitarbeiter und Kolonnen"
+				leerText="Alle Personen"
+				personen={[
+					...data.kolonnen.map((ko) => ({ id: `ko:${ko.id}`, name: ko.name, gruppe: 'Kolonnen' })),
+					...data.mitarbeiter.map((m) => ({ id: `ma:${m.id}`, name: m.name, gruppe: 'Mitarbeiter' }))
+				]}
+				bind:wert={personWahl}
+			/>
+			<div class="kt-quelle">
+				<Auswahl name="quelle" klein aria-label="Auftragsquelle" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+					<option value="">Alle Auftragsquellen</option>
+					{#each data.quellen as q (q.id)}<option value={q.id} selected={data.filter.quelleId === q.id}>{q.name}</option>{/each}
+					<option value="ohne" selected={data.filter.quelleId === 'ohne'}>Ohne Auftragsquelle</option>
+				</Auswahl>
+			</div>
+			<button type="button" class="kd-knopf hell" aria-expanded={mehrFilter} onclick={() => (mehrFilter = !mehrFilter)}>
+				Status &amp; Zeitraum{data.filter.status.length + (data.filter.von || data.filter.bis ? 1 : 0) > 0 ? ` (${data.filter.status.length + (data.filter.von || data.filter.bis ? 1 : 0)})` : ''}
+			</button>
+			{#if filterAnzahl > 0}<a href="/karte" class="knopf-ghost">Zurücksetzen</a>{/if}
+		{/snippet}
+		{#snippet rechts()}
+			<!-- Platz für „Gespeicherte Ansichten“ (Baustein der Funktions-Seite, Jamil) -->
+			<div class="kt-ansichten" data-slot="gespeicherte-ansichten"></div>
+			<PersonWahl
+				name=""
+				klein
+				label="Route heute"
+				leerText="Route heute …"
+				personen={[
+					{ id: `ma:${data.ich}`, name: 'Meine Route', gruppe: 'Mitarbeiter' },
+					...data.mitarbeiter.filter((m) => m.id !== data.ich).map((m) => ({ id: `ma:${m.id}`, name: m.name, gruppe: 'Mitarbeiter' })),
+					...data.kolonnen.map((ko) => ({ id: `ko:${ko.id}`, name: ko.name, gruppe: 'Kolonnen' }))
+				]}
+				onchange={(w) => {
+					const x = w[0] ?? '';
+					if (x.startsWith('ma:')) location.href = x.slice(3) === data.ich ? '/karte?route=heute' : `/karte?route=heute&person=${x.slice(3)}`;
+					else if (x.startsWith('ko:')) location.href = `/karte?route=heute&kolonne=${x.slice(3)}`;
+				}}
+			/>
+		{/snippet}
+	</FilterLeiste>
+
+	{#if mehrFilter}
+		<form method="GET" class="kt-mehr kd-formular" aria-label="Status und Zeitraum">
+			{#if personWahl.startsWith('ma:')}<input type="hidden" name="ma" value={personWahl.slice(3)} />{/if}
+			{#if personWahl.startsWith('ko:')}<input type="hidden" name="ko" value={personWahl.slice(3)} />{/if}
+			{#if data.filter.quelleId}<input type="hidden" name="quelle" value={data.filter.quelleId} />{/if}
 			<fieldset>
 				<legend>Status</legend>
-				{#each STATUS as s (s)}
-					<label class="kd-haken">
-						<input type="checkbox" name="status" value={s} checked={data.filter.status.includes(s)} />
-						<span><span class="kt-punkt" style:background={STATUS_FARBEN[s]}></span>{STATUS_NAMEN[s]}</span>
-					</label>
-				{/each}
+				<div class="kt-status">
+					{#each STATUS as st (st)}
+						<label class="kd-haken">
+							<input type="checkbox" name="status" value={st} checked={data.filter.status.includes(st)} />
+							<span><span class="kt-punkt" style:background={STATUS_FARBEN[st]}></span>{STATUS_NAMEN[st]}</span>
+						</label>
+					{/each}
+				</div>
 				<span class="kd-info">Ohne Auswahl: alle außer „Abgerechnet“</span>
 			</fieldset>
-			<div class="kt-raster">
-				<div class="ui-feld">
-					Mitarbeiter
-					<PersonWahl name="ma" label="Mitarbeiter" leerText="Alle" klein personen={data.mitarbeiter} wert={data.filter.benutzerId ?? ''} />
+			<label>Termine von <input type="date" name="von" value={data.filter.von ?? ''} /></label>
+			<label>bis <input type="date" name="bis" value={data.filter.bis ?? ''} /></label>
+			<div class="form-fuss">
+				<div class="form-fuss-rechts">
+					<button type="button" class="kd-knopf hell" onclick={() => (mehrFilter = false)}>Abbrechen</button>
+					<button type="submit" class="kd-knopf">Anwenden</button>
 				</div>
-				{#if data.kolonnen.length > 0}
-					<label>
-						Kolonne
-						<Auswahl name="ko">
-							<option value="">alle</option>
-							{#each data.kolonnen as ko (ko.id)}<option value={ko.id} selected={data.filter.kolonneId === ko.id}>{ko.name}</option>{/each}
-						</Auswahl>
-					</label>
-				{/if}
-				<label>Termine von <input type="date" name="von" value={data.filter.von ?? ''} /></label>
-				<label>bis <input type="date" name="bis" value={data.filter.bis ?? ''} /></label>
-				<label>
-					Auftragsquelle
-					<Auswahl name="quelle">
-						<option value="">alle</option>
-						{#each data.quellen as q (q.id)}<option value={q.id} selected={data.filter.quelleId === q.id}>{q.name}</option>{/each}
-						<option value="ohne" selected={data.filter.quelleId === 'ohne'}>ohne Auftragsquelle</option>
-					</Auswahl>
-				</label>
-			</div>
-			<div class="kt-knoepfe">
-				<button type="submit" class="kd-knopf">Anwenden</button>
-				<a href="/karte" class="kd-knopf hell">Zurücksetzen</a>
 			</div>
 		</form>
-	</details>
-
-	<div class="kt-heute">
-		<span class="kd-info">Route mit den Terminen von heute:</span>
-		<a class="kd-knopf hell klein" href="/karte?route=heute">Meine</a>
-		{#each data.mitarbeiter.filter((m) => m.id !== data.ich) as m (m.id)}<a class="kd-knopf hell klein" href={`/karte?route=heute&person=${m.id}`}>{m.name}</a>{/each}
-		{#each data.kolonnen as ko (ko.id)}<a class="kd-knopf hell klein" href={`/karte?route=heute&kolonne=${ko.id}`}>{ko.name}</a>{/each}
-	</div>
+	{/if}
 	{#if data.routeFehler}<p role="alert" class="kd-fehler">{data.routeFehler}</p>{/if}
 
 	<div class="kt-haupt">
@@ -301,6 +342,24 @@
 <style>
 	.kt-seite {
 		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
+	}
+	.kt-quelle {
+		min-width: 12rem;
+	}
+	.kt-ansichten:empty {
+		display: none;
+	}
+	.kt-mehr {
+		margin: 0 0 var(--ui-abstand-block);
+		padding: var(--ui-karte-y) var(--ui-karte-x);
+		border: 1px solid var(--ui-rand);
+		border-radius: var(--ui-radius-karte);
+		background: var(--ui-flaeche);
+	}
+	.kt-status {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0 1rem;
 	}
 	.kt-filter > summary {
 		display: inline-flex;

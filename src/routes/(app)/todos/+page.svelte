@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import { untrack } from 'svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
@@ -48,19 +49,15 @@
 
 <main class="kd-seite breit">
 	<header class="seiten-kopf">
-		<h1>{data.filter.person === data.benutzerId || (!data.personFilter && data.nur === 'meine') ? 'Meine Aufgaben' : 'Aufgaben'}</h1>
-		<div class="seiten-aktionen">
-			<nav class="af-ansicht" aria-label="Ansicht">
-				<a href={link({ ansicht: 'board' })} aria-current={data.ansicht === 'board' ? 'page' : undefined}>Board</a>
-				<a href={link({ ansicht: 'liste' })} aria-current={data.ansicht === 'liste' ? 'page' : undefined}>Liste</a>
-			</nav>
-			{#if data.darfBearbeiten}
-				<button type="button" class="kd-knopf" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>
+		<div><h1>{data.filter.person === data.benutzerId || (!data.personFilter && data.nur === 'meine') ? 'Meine Aufgaben' : 'Aufgaben'}</h1></div>
+		{#if data.darfBearbeiten}
+			<div class="seiten-aktionen">
+				<button type="button" class="kd-knopf" aria-label="Aufgabe hinzufügen" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>
 					<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" /></svg>
-					Aufgabe hinzufügen
+					Aufgabe
 				</button>
-			{/if}
-		</div>
+			</div>
+		{/if}
 	</header>
 
 	<FilterLeiste label="Aufgaben filtern">
@@ -70,11 +67,7 @@
 			{#if data.filter.status !== 'alle'}<input type="hidden" name="status" value={data.filter.status} />{/if}
 		{/snippet}
 		{#snippet filter()}
-			<nav aria-label="Status" class="pills">
-				{#each STATUS_CHIPS as [wert, text] (wert)}
-					<a href={link({ status: wert })} class="pill" class:aktiv={data.filter.status === wert} aria-current={data.filter.status === wert ? 'page' : undefined}>{text}</a>
-				{/each}
-			</nav>
+			<Umschalter label="Status" aktiv={data.filter.status} eintraege={STATUS_CHIPS.map(([wert, text]) => ({ wert, text, href: link({ status: wert }) }))} />
 			{#if data.personFilter && data.mitarbeiter.length > 0}
 				<PersonWahl
 					name="person"
@@ -87,6 +80,16 @@
 				/>
 			{/if}
 			<noscript><button type="submit" class="kd-knopf hell">Filtern</button></noscript>
+		{/snippet}
+		{#snippet rechts()}
+			<Umschalter
+				label="Ansicht"
+				aktiv={data.ansicht}
+				eintraege={[
+					{ wert: 'board', text: 'Board', href: link({ ansicht: 'board' }) },
+					{ wert: 'liste', text: 'Liste', href: link({ ansicht: 'liste' }) }
+				]}
+			/>
 		{/snippet}
 	</FilterLeiste>
 

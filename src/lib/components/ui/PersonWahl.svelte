@@ -8,7 +8,8 @@
 	 * Esc). Einzeln (`wert`) oder mehrfach (`mehrfach`, `werte`, Häkchen in der Liste). Die Werte gehen über
 	 * versteckte Felder `name` mit dem Formular; `onchange` z. B. für sofortiges Speichern oder Filtern.
 	 */
-	type Person = { id: string; name: string };
+	/** `gruppe`: Überschrift in der Liste (z. B. „Kolonnen“ / „Mitarbeiter“), `farbe`: Punkt statt Avatar-Farbe */
+	type Person = { id: string; name: string; gruppe?: string };
 	let {
 		name,
 		personen,
@@ -149,6 +150,7 @@
 			{#if mehrfach}
 				<div class="pw-liste" bind:this={liste} tabindex="-1">
 					{#each optionen as p, i (p?.id ?? '')}
+						{#if p?.gruppe && p.gruppe !== optionen[i - 1]?.gruppe}<p class="pw-gruppe">{p.gruppe}</p>{/if}
 						{#if p}
 							<label id={`${id}-${i}`} class="pw-zeile" class:aktiv={i === aktiv} onmousemove={() => (aktiv = i)}>
 								<input type="checkbox" checked={werte.includes(p.id)} onchange={() => umschalten(p)} />
@@ -298,6 +300,15 @@
 		height: 16px;
 		margin-left: auto;
 		color: var(--ui-akzent-text);
+	}
+	.pw-gruppe {
+		margin: 0.35rem 0.6rem 0.15rem;
+		color: var(--ui-akzent-text);
+		font-family: var(--ui-schrift-titel);
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 	}
 	.pw-nichts {
 		margin: 0;

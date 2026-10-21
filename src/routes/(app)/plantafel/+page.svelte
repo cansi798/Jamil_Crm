@@ -1,4 +1,7 @@
 <script lang="ts">
+	import Umschalter from '$lib/components/ui/Umschalter.svelte';
+	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
+	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import { untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
@@ -87,6 +90,17 @@
 		const alt = u.searchParams.getAll(art).filter((x) => x !== id);
 		u.searchParams.delete(art);
 		for (const x of an ? [...alt, id] : alt) u.searchParams.append(art, x);
+		goto(`${u.pathname}${u.search}`, { keepFocus: true, noScroll: true });
+	}
+	/** Auswahl aus der Personenauswahl („ma:…“ / „ko:…“) in die Adresse übernehmen */
+	function filterAlle(auswahl: string[]) {
+		const u = new URL(page.url);
+		u.searchParams.delete('ma');
+		u.searchParams.delete('ko');
+		for (const w of auswahl) {
+			const [art, id] = w.split(':');
+			if ((art === 'ma' || art === 'ko') && id) u.searchParams.append(art, id);
+		}
 		goto(`${u.pathname}${u.search}`, { keepFocus: true, noScroll: true });
 	}
 	function filterLeeren() {
@@ -185,45 +199,49 @@
 </svelte:head>
 
 <main class="kd-seite breit pt-seite">
-	<header class="seiten-kopf pt-kopfzeile">
+	<header class="seiten-kopf">
 		<div>
 			<h1>Plantafel</h1>
 			<p class="seiten-meta pt-titel">{titel}</p>
 		</div>
-		<nav class="pt-ansicht" aria-label="Ansicht">
-			{#each ANSICHTEN as a (a)}
-				<a href={adresse({ ansicht: a === 'monat' ? null : a })} aria-current={data.ansicht === a ? 'page' : undefined}>{ANSICHT_NAMEN[a]}</a>
-			{/each}
-		</nav>
 	</header>
 
-	<nav class="pt-wochen" aria-label="Zeitraum wählen">
-		<a href={schritt(-1)} class="kd-knopf hell">{SCHRITT_NAMEN[data.ansicht][0]}</a>
-		<a href={adresse({ tag: data.heute })} class="kd-knopf hell" aria-current={tage.includes(data.heute) ? 'true' : undefined}>Heute</a>
-		<a href={schritt(1)} class="kd-knopf hell">{SCHRITT_NAMEN[data.ansicht][1]}</a>
-	</nav>
-
-	<div class="pt-chips" role="group" aria-label="Filter Mitarbeiter und Kolonnen">
-		<button type="button" class="pt-chip" aria-pressed={filterAnzahl === 0} onclick={filterLeeren}>Alle</button>
-		{#each data.kolonnen as ko (ko.id)}
-			<button type="button" class="pt-chip ko" aria-pressed={istGewaehlt('ko', ko.id)} onclick={() => filterSetzen('ko', ko.id, !istGewaehlt('ko', ko.id))}>
-				<span class="pt-punkt" style:background={terminFarbe({ kolonne: ko, personen: [], status: '' }, 'person', reihenfolge)}></span>{ko.name}
-			</button>
-		{/each}
-		{#each data.alleMitarbeiter as m (m.id)}
-			<button type="button" class="pt-chip" aria-pressed={istGewaehlt('ma', m.id)} onclick={() => filterSetzen('ma', m.id, !istGewaehlt('ma', m.id))}>
-				<span class="pt-punkt" style:background={terminFarbe({ kolonne: null, personen: [{ id: m.id, name: m.name }], status: '' }, 'person', reihenfolge)}></span>{m.name}
-			</button>
-		{/each}
-	</div>
-
-	{#if kalender}
-		<div class="pt-farbe" role="group" aria-label="Farbe nach">
-			<span class="kd-info">Farbe:</span>
-			<a href={adresse({ farbe: null })} aria-current={data.farbe !== 'status' ? 'true' : undefined}>Mitarbeiter/Kolonne</a>
-			<a href={adresse({ farbe: 'status' })} aria-current={data.farbe === 'status' ? 'true' : undefined}>Status</a>
-		</div>
-	{/if}
+	<FilterLeiste form={false} label="Plantafel filtern">
+		{#snippet filter()}
+			<nav class="pt-wochen" aria-label="Zeitraum wählen">
+				<a href={schritt(-1)} class="kd-knopf hell" aria-label={SCHRITT_NAMEN[data.ansicht][0]}>‹</a>
+				<a href={adresse({ tag: data.heute })} class="kd-knopf hell" aria-current={tage.includes(data.heute) ? 'true' : undefined}>Heute</a>
+				<a href={schritt(1)} class="kd-knopf hell" aria-label={SCHRITT_NAMEN[data.ansicht][1]}>›</a>
+			</nav>
+			<!-- Personen und Kolonnen in EINER Auswahl wie bei „Aufgaben“ (Jamil msg 2921) -->
+			<PersonWahl
+				name="pt-filter"
+				mehrfach
+				klein
+				label="Mitarbeiter und Kolonnen"
+				leerText="Alle Personen"
+				personen={[
+					...data.kolonnen.map((ko) => ({ id: `ko:${ko.id}`, name: ko.name, gruppe: 'Kolonnen' })),
+					...data.alleMitarbeiter.map((m) => ({ id: `ma:${m.id}`, name: m.name, gruppe: 'Mitarbeiter' }))
+				]}
+				werte={[...data.filter.ko.map((x) => `ko:${x}`), ...data.filter.ma.map((x) => `ma:${x}`)]}
+				onchange={filterAlle}
+			/>
+			{#if kalender}
+				<Umschalter
+					label="Farbe nach"
+					aktiv={data.farbe === 'status' ? 'status' : 'person'}
+					eintraege={[
+						{ wert: 'person', text: 'Farbe: Person', href: adresse({ farbe: null }) },
+						{ wert: 'status', text: 'Farbe: Status', href: adresse({ farbe: 'status' }) }
+					]}
+				/>
+			{/if}
+		{/snippet}
+		{#snippet rechts()}
+			<Umschalter label="Ansicht" aktiv={data.ansicht} eintraege={ANSICHTEN.map((x) => ({ wert: x, text: ANSICHT_NAMEN[x], href: adresse({ ansicht: x === 'monat' ? null : x }) }))} />
+		{/snippet}
+	</FilterLeiste>
 
 	{#if meldung}
 		<p class={`pt-meldung ${meldung.art}`} role={meldung.art === 'ok' ? 'status' : 'alert'}>{meldung.text}</p>
@@ -306,20 +324,13 @@
 </main>
 
 <style>
-	.pt-kopfzeile {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 0 1rem;
-	}
-	.pt-kopfzeile h1 {
-		margin-bottom: 0.25rem;
-	}
 	.pt-wochen {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0.5rem;
-		margin: 0.5rem 0 0.75rem;
+		display: inline-flex;
+		gap: 0.25rem;
+	}
+	.pt-wochen :global(.kd-knopf) {
+		min-height: var(--ui-seg-hoehe);
+		padding: 0 0.85rem;
 	}
 	.pt-wochen a {
 		padding-inline: 0.4rem;
@@ -440,11 +451,6 @@
 	}
 	.pt-neu:hover {
 		background: #eaf2fb;
-	}
-	.pt-titel {
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: inherit;
 	}
 	.pt-links {
 		display: flex;

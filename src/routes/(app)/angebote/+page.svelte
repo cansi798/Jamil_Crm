@@ -1,4 +1,6 @@
 <script lang="ts">
+	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
+	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import { ANGEBOT_STATUS, ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { tagDeutsch } from '$lib/zeit';
@@ -16,26 +18,25 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Angebote</h1>
-			<p class="seiten-meta">
-				Meist im Auftrag erstellt („Angebot erstellen“). Ein Angebot ohne Auftrag lässt sich später zuordnen.
-			</p>
+			<p class="seiten-meta">Meist im Auftrag erstellt – ein Angebot ohne Auftrag lässt sich später zuordnen.</p>
 		</div>
 		{#if data.darfOhneAuftrag}
-			<form method="POST" action="?/neu" use:enhance>
-				<button type="submit" class="kd-knopf">+ Angebot ohne Auftrag</button>
+			<form method="POST" action="?/neu" use:enhance class="seiten-aktionen">
+				<button type="submit" class="kd-knopf" aria-label="+ Angebot ohne Auftrag">+ Angebot</button>
 			</form>
 		{/if}
 	</header>
 	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 
-	<nav aria-label="Status">
-		<ul class="af-reiter">
-			<li><a href="/angebote" aria-current={data.status === null ? 'page' : undefined}>Alle</a></li>
-			{#each ANGEBOT_STATUS as s (s)}
-				<li><a href={`/angebote?status=${s}`} aria-current={data.status === s ? 'page' : undefined}>{ANGEBOT_STATUS_NAMEN[s]}</a></li>
-			{/each}
-		</ul>
-	</nav>
+	<FilterLeiste form={false} label="Angebote filtern">
+		{#snippet filter()}
+			<Umschalter
+				label="Status"
+				aktiv={data.status ?? 'alle'}
+				eintraege={[{ wert: 'alle', text: 'Alle', href: '/angebote' }, ...ANGEBOT_STATUS.map((st) => ({ wert: st, text: ANGEBOT_STATUS_NAMEN[st], href: `/angebote?status=${st}` }))]}
+			/>
+		{/snippet}
+	</FilterLeiste>
 
 	<ul class="kd-liste">
 		{#each data.angebote as a (a.id)}

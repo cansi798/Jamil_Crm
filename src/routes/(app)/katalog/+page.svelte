@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
 	import { enhance } from '$app/forms';
@@ -35,6 +36,20 @@
 			</div>
 		{/if}
 	</header>
+
+	<FilterLeiste label="Katalog filtern">
+		{#snippet suche()}
+			{#if data.gewerk}<input type="hidden" name="gewerk" value={data.gewerk} />{/if}
+			<SuchFeld wert={data.suche} label="Katalog durchsuchen" placeholder="Nummer oder Bezeichnung" />
+		{/snippet}
+		{#snippet filter()}
+			<Umschalter
+				label="Gewerk"
+				aktiv={data.gewerk ?? 'alle'}
+				eintraege={[{ wert: 'alle', text: 'Alle', href: link(null) }, ...GEWERKE.map((g) => ({ wert: g, text: GEWERK_NAMEN[g], href: link(g) }))]}
+			/>
+		{/snippet}
+	</FilterLeiste>
 	{#if data.stundensatz}
 		<p class="kt-hinweis" role="note">
 			Laut <a href="/kalkulation">Kalkulation</a>: Verrechnungssatz {euro(data.stundensatz.empfohlenCent)}/h
@@ -59,21 +74,9 @@
 		{/if}
 	{/if}
 
-	<nav aria-label="Gewerk">
-		<ul class="af-reiter">
-			<li><a href={link(null)} aria-current={data.gewerk === null ? 'page' : undefined}>Alle</a></li>
-			{#each GEWERKE as g (g)}
-				<li><a href={link(g)} aria-current={data.gewerk === g ? 'page' : undefined}>{GEWERK_NAMEN[g]}</a></li>
-			{/each}
-		</ul>
-	</nav>
 
-	<FilterLeiste label="Katalog filtern">
-		{#snippet suche()}
-			{#if data.gewerk}<input type="hidden" name="gewerk" value={data.gewerk} />{/if}
-			<SuchFeld wert={data.suche} label="Katalog durchsuchen" placeholder="Nummer oder Bezeichnung" />
-		{/snippet}
-	</FilterLeiste>
+
+
 
 	{#if uebernommen}
 		<p role="status" class="kt-hinweis ok">

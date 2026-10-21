@@ -93,7 +93,30 @@ rechts (Hauptaktion ganz rechts). Am Handy als Blatt von unten, mit einer Hand b
   Textfelder, Gruppen, Hinweise und der Fuß über die ganze Breite).
 - Nur reiner Lesetext behält eine maximale Zeilenlänge (`.ui-lesetext`, ca. 70 Zeichen).
 
-## 10. Prüfen
+## 10. Seitenvorlage „Ruhe“ (Jamil msgs 2919–2922)
+
+Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
+
+1. **Brotkrumen-Zeile** (immer reserviert, auch leer): „← Zurück“ bzw. Überzeile.
+2. **Seitenkopf** (`SeitenKopf` bzw. `header.seiten-kopf`): Titel einzeilig links, darunter eine Zeile Kennzahl;
+   Aktionen rechts, oben bündig. Am Handy höchstens **eine** Hauptaktion neben dem Titel – Ansicht-Umschalter,
+   Exporte usw. gehören in die Filterleiste.
+3. **Filterleiste** (`FilterLeiste`) direkt darunter: Suche links, Filter, rechts Ansicht (Board/Liste,
+   Monat/Woche/Tag/Team) – alle Bedienelemente gleich hoch (`--ui-seg-hoehe`).
+4. Inhalt.
+
+- **EIN Umschalter**: `components/ui/Umschalter.svelte` (Links oder Knöpfe), für Formulare `Segmente` – gleicher
+  Stil. Keine eigenen Chips/Reiter/Pillen mehr bauen.
+- **Personen filtern** (auch Plantafel und Karte): eine `PersonWahl` („Alle Personen“, mehrfach, mit Kolonnen als
+  eigene Gruppe in derselben Liste) – keine langen Namenslisten.
+- **Dichte „kompakt“** ist Standard (Tokens `--ui-seite-*`, `--ui-abstand-block`, `--ui-karte-*`, `--ui-kopfband`,
+  `--ui-feld-abstand`): Abstände nur über diese Tokens, nie pro Seite. Tippziele bleiben ≥ 44 px.
+- **Automatisch geprüft:** `tests/e2e/ruhe.spec.ts` misst auf allen Hauptseiten (1440 und 390 px), dass Titel,
+  Filterleiste und Umschalter auf 1 px genau gleich stehen bzw. gleich hoch sind. Neue Hauptseite → in die Liste
+  aufnehmen.
+- **Karte:** in der Filterleiste rechts ist der Platz für „Gespeicherte Ansichten“ (`data-slot="gespeicherte-ansichten"`).
+
+## 11. Prüfen
 
 - Querscrollen bei 390 px: keins. Tippziele ≥ 44 px.
 - Vor dem Commit nach Ausreißern suchen: `grep -rn '<select\|type="radio"\|<fieldset\|style="' src --include=*.svelte`

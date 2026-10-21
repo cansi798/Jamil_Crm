@@ -1,4 +1,5 @@
 <script lang="ts">
+	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import KundeWahl from '$lib/components/ui/KundeWahl.svelte';
 	import { goto } from '$app/navigation';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
@@ -25,18 +26,22 @@
 	<title>Start – CRM System</title>
 </svelte:head>
 
-<main class="start">
+<main class="start kd-seite breit">
 	<header class="seiten-kopf">
-		<h1>Start</h1>
+		<div><h1>Start</h1></div>
 		{#if data.darfKundeAnlegen}
-			<a href="/kunden/neu" class="knopf-gefuellt">+ Kunde</a>
+			<div class="seiten-aktionen"><a href="/kunden/neu" class="kd-knopf">+ Kunde</a></div>
 		{/if}
 	</header>
 
 	{#if data.kunden}
-		<div class="suche">
-			<KundeWahl label="Kunden suchen" placeholder="Kunden suchen – Name, Ort oder Telefon" onwaehle={(k) => goto(`/kunden/${k.id}`)} />
-		</div>
+		<FilterLeiste form={false} label="Kunden suchen">
+			{#snippet suche()}
+				<div class="suche">
+					<KundeWahl label="Kunden suchen" placeholder="Kunden suchen – Name, Ort oder Telefon" onwaehle={(k) => goto(`/kunden/${k.id}`)} />
+				</div>
+			{/snippet}
+		</FilterLeiste>
 	{/if}
 
 	{#if data.zeit}
@@ -131,16 +136,6 @@
 </main>
 
 <style>
-	.start {
-		margin: 0 auto;
-		padding: 1.5rem;
-	}
-	h1 {
-		font-size: 1.5rem;
-		font-weight: 600;
-		margin: 0;
-		letter-spacing: -0.01em;
-	}
 	.bereiche-titel {
 		font-size: 1rem;
 		font-weight: 600;
@@ -150,8 +145,8 @@
 
 	/* Suche wie M365-CommandBar */
 	.suche {
-		margin-bottom: 1.25rem;
-		max-width: 40rem;
+		flex: 1 1 18rem;
+		max-width: 32rem;
 	}
 
 	/* Kachel „Diesen Monat“ (Gewinn verplant, Stunden frei) */

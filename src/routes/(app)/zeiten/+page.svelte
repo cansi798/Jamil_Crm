@@ -36,17 +36,12 @@
 			<h1>Zeiten</h1>
 			<p class="seiten-meta">Arbeitszeitnachweis {n.person.name} · {data.ansicht === 'tag' ? tagDeutsch(n.von) : data.ansicht === 'monat' ? monatText(data.monat) : `${tagDeutsch(n.von)} – ${tagDeutsch(n.bis)}`}</p>
 		</div>
-		<div class="seiten-aktionen">
-			<a class="kd-knopf hell" href={exportLink('csv')} download>CSV</a>
-			<a class="kd-knopf hell" href={exportLink('pdf')} download>PDF</a>
-			{#if data.team}<a class="kd-knopf hell" href={`/zeiten/export?${new URLSearchParams({ format: 'csv', team: '1', von: n.von, bis: n.bis })}`} download>Team-CSV</a>{/if}
-		</div>
+
 	</header>
 
-	<form method="GET" class="zt-filter">
+	<form method="GET" class="zt-filter filter-leiste" aria-label="Zeiten filtern">
 		{#if data.verwalten}
-			<div class="ui-feld">Mitarbeiter
-				<PersonWahl
+			<PersonWahl
 					name="person"
 					label="Person"
 					klein
@@ -55,10 +50,9 @@
 					wert={n.person.id}
 					absenden
 				/>
-			</div>
 		{/if}
 		<input type="hidden" name="tag" value={data.tag} />
-		<div class="zt-reiter" role="group" aria-label="Ansicht">
+		<div class="zt-reiter ui-umschalter" role="group" aria-label="Ansicht">
 			<button name="ansicht" value="tag" class:aktiv={data.ansicht === 'tag'} aria-pressed={data.ansicht === 'tag'}>Tag</button>
 			<button name="ansicht" value="woche" class:aktiv={data.ansicht === 'woche'} aria-pressed={data.ansicht === 'woche'}>Woche</button>
 			<button name="ansicht" value="monat" class:aktiv={data.ansicht === 'monat'} aria-pressed={data.ansicht === 'monat'}>Monat</button>
@@ -77,6 +71,11 @@
 				<a href={link({ tag: data.nachher })} class="kd-knopf hell" aria-label="Weiter">›</a>
 			</nav>
 		{/if}
+		<div class="fl-rechts zt-export">
+			<a class="kd-knopf hell" href={exportLink('csv')} download>CSV</a>
+			<a class="kd-knopf hell" href={exportLink('pdf')} download>PDF</a>
+			{#if data.team}<a class="kd-knopf hell" href={`/zeiten/export?${new URLSearchParams({ format: 'csv', team: '1', von: n.von, bis: n.bis })}`} download>Team-CSV</a>{/if}
+		</div>
 	</form>
 
 	{#if form?.erfolg}<p role="status" class="kd-info zt-ok">{form.erfolg}</p>{/if}
@@ -245,8 +244,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--ui-a2);
-		align-items: flex-end;
-		margin-bottom: var(--ui-a3);
+		align-items: center;
 	}
 	.zt-filter label {
 		display: grid;

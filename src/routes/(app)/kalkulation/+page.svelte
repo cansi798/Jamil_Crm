@@ -72,12 +72,13 @@
 	<title>Kalkulation – Stundensatz</title>
 </svelte:head>
 
-<main class="kd-seite kk-seite">
-	<h1>Kalkulation / Stundensatz</h1>
-	<p class="kd-info">
-		Alle Kosten des Betriebs geteilt durch die produktiven Stunden ergibt den Kosten-Stundensatz; mit Wagnis und Gewinn den
-		Verrechnungssatz.
-	</p>
+<main class="kd-seite breit kk-seite">
+	<header class="seiten-kopf">
+		<div>
+			<h1>Kalkulation / Stundensatz</h1>
+			<p class="seiten-meta">Kosten ÷ produktive Stunden = Kosten-Stundensatz; mit Wagnis und Gewinn der Verrechnungssatz.</p>
+		</div>
+	</header>
 
 	<section class="kk-kacheln" aria-label="Ergebnis">
 		<div class="kk-kachel">

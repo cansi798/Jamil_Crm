@@ -56,6 +56,18 @@
 	--ui-gefahr: #b03a2e;
 	--ui-gefahr-hell: #f7e3e0;
 
+	/* Dichte „kompakt“ (Standard, Jamil msg 2922): rund 25 % weniger Luft als vorher – gleich auf jeder Seite */
+	--ui-seite-x: 1rem; /* Seitenrand links/rechts (Desktop 1,25 rem) */
+	--ui-seite-oben: 0.6rem; /* Abstand über der Brotkrume */
+	--ui-brotkrume: 1.25rem; /* reservierte Zeile für „← Zurück“ bzw. Überzeile – immer da, damit der Titel nie springt */
+	--ui-kopf-hoehe: 3.1rem; /* Seitenkopf: Titel + Kennzahl (Desktop 3,5 rem) */
+	--ui-abstand-block: 0.75rem; /* zwischen Seitenkopf, Filterleiste, Karten */
+	--ui-karte-x: 1.1rem;
+	--ui-karte-y: 0.85rem;
+	--ui-kopfband: 2.75rem;
+	--ui-feld-abstand: 0.75rem;
+	--ui-seg-hoehe: 2.75rem; /* Umschalter, Filter-Chips, Suche in der Filterleiste (Touch 44 px, Desktop 36 px) */
+
 	/* Abstände (4er-Raster), Radien, Höhen */
 	--ui-a1: 0.25rem;
 	--ui-a2: 0.5rem;
@@ -142,6 +154,20 @@
 	--nav-hoehe: 4rem;
 	--seitenleiste: 15.5rem;
 	color-scheme: light;
+}
+
+/* Desktop mit Maus: etwas dichter */
+@media (min-width: 900px) {
+	:root {
+		--ui-seite-x: 1.25rem;
+		--ui-seite-oben: 0.75rem;
+		--ui-kopf-hoehe: 3.5rem;
+	}
+}
+@media (pointer: fine) {
+	:root {
+		--ui-seg-hoehe: 2.25rem;
+	}
 }
 
 /* Mobil: Tippziel 44 px für Felder und Knöpfe */
