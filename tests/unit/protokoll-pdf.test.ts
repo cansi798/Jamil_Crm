@@ -25,7 +25,11 @@ const PROFIL: Profil = {
 	titelGross: 'nein',
 	hatLogo: false,
 	logoTyp: null,
-	logoGeaendert: null
+	logoGeaendert: null,
+	hatLogoDunkel: false,
+	logoDunkelGeaendert: null,
+	logoFarbe: null,
+	farbeEigen: false
 };
 
 describe('Protokoll-PDF', () => {

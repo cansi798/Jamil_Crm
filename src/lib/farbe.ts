@@ -53,11 +53,58 @@ export type FarbTokens = {
 	'--ui-fokus-ring': string;
 };
 
+/**
+ * Füllfarbe lesbar machen (msg 3016): Text auf der Füllung (dunkel oder weiß, das Bessere) muss WCAG AA erreichen
+ * (≥ 4,5 : 1). Reicht keines von beiden, wird die Füllung schrittweise abgedunkelt, bis weißer Text 4,5 : 1 hat.
+ */
+export function lesbareFuellung(hex: string): { fuellung: string; auf: string } {
+	const besser = (f: string) => (kontrast(f, DUNKEL) >= kontrast(f, WEISS) ? DUNKEL : WEISS);
+	if (kontrast(hex, besser(hex)) >= 4.5) return { fuellung: hex, auf: besser(hex) };
+	const rgb = zuRgb(hex);
+	for (let i = 1; i <= 20; i++) {
+		const f = zuHex(mische(rgb, SCHWARZ, i * 0.05));
+		if (kontrast(f, WEISS) >= 4.5) return { fuellung: f, auf: WEISS };
+	}
+	return { fuellung: DUNKEL, auf: WEISS };
+}
+
+/**
+ * Vorherrschende bunte Farbe aus Pixeln [r, g, b, a] (Logo, msg 3016). Nicht gezählt: (fast) durchsichtig,
+ * fast Weiß/Schwarz und Grautöne (Sättigung < 25 %). Die Pixel kommen in Farbtöpfe (je Kanal 16 Stufen); der größte
+ * Topf gewinnt, Ergebnis ist sein Mittelwert. Weniger als 0,5 % bunte Pixel (bzw. < 20) → `null` (keine brauchbare Farbe).
+ */
+export function dominanteFarbe(pixel: Iterable<readonly [number, number, number, number]>): string | null {
+	const toepfe = new Map<number, { n: number; r: number; g: number; b: number }>();
+	let alle = 0;
+	let bunt = 0;
+	for (const [r, g, b, a] of pixel) {
+		if (a < 128) continue;
+		alle++;
+		const max = Math.max(r, g, b);
+		const min = Math.min(r, g, b);
+		const l = (max + min) / 510;
+		if (l < 0.1 || l > 0.94) continue;
+		const s = max === min ? 0 : (max - min) / (255 - Math.abs(max + min - 255));
+		if (s < 0.25) continue;
+		bunt++;
+		const k = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+		const t = toepfe.get(k) ?? { n: 0, r: 0, g: 0, b: 0 };
+		t.n++;
+		t.r += r;
+		t.g += g;
+		t.b += b;
+		toepfe.set(k, t);
+	}
+	if (bunt < 20 || bunt < alle * 0.005) return null;
+	let best: { n: number; r: number; g: number; b: number } | null = null;
+	for (const t of toepfe.values()) if (!best || t.n > best.n) best = t;
+	return best ? zuHex([best.r / best.n, best.g / best.n, best.b / best.n]) : null;
+}
+
 /** Leitet alle Akzent-Tokens aus einer Hausfarbe ab (ungültig/leer → Gold). */
 export function farbTokens(farbe: string | null | undefined): FarbTokens {
-	const hex = istFarbe(farbe) ? farbe.toLowerCase() : STANDARD_FARBE;
+	const { fuellung: hex, auf } = lesbareFuellung(istFarbe(farbe) ? farbe.toLowerCase() : STANDARD_FARBE);
 	const rgb = zuRgb(hex);
-	const auf = kontrast(hex, DUNKEL) >= kontrast(hex, WEISS) ? DUNKEL : WEISS;
 	// Textfarbe auf Weiß: so lange abdunkeln, bis der Kontrast reicht
 	let text = hex;
 	for (let i = 1; i <= 20 && kontrast(text, WEISS) < 4.6; i++) text = zuHex(mische(rgb, SCHWARZ, i * 0.05));

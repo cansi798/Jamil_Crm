@@ -8,16 +8,47 @@ import {
 	loescheLogo,
 	PROFIL_FELDER,
 	speichereLogo,
-	speichereProfil
+	speichereProfil,
+	setzeHausfarbe,
+	type LogoVariante
 } from '$lib/server/betriebsprofil';
 import { formWerte } from '$lib/server/seite';
 
-/** Briefkopf und Logo für Angebote (Recht `einstellungen`). */
+/** Briefkopf, Logo für Angebote und Logo für die App (Recht `einstellungen`). */
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.nutzer) redirect(303, '/anmelden');
 	if (!hatRecht(locals.nutzer, 'einstellungen') || !locals.nutzer.betriebId) error(403, 'Keine Berechtigung');
 	return { profil: await holeProfil(betriebKontext(locals)) };
 };
+
+async function logoHochladen(locals: App.Locals, request: Request, variante: LogoVariante) {
+	try {
+		pruefeRecht(locals, 'einstellungen');
+		let datei: FormDataEntryValue | null = null;
+		try {
+			datei = (await request.formData()).get('logo');
+		} catch {
+			/* zu groß oder kaputt: wie „keine Datei“ */
+		}
+		if (!datei || typeof datei === 'string' || datei.size === 0) {
+			throw new ApiFehler(400, 'Bitte ein PNG- oder JPEG-Bild bis 1 MB hochladen');
+		}
+		await speichereLogo(betriebKontext(locals), await dateiBytes(datei), variante);
+	} catch (e) {
+		return alsFormFehler(e, { logoFehler: variante });
+	}
+	return { logoGespeichert: variante };
+}
+
+async function logoEntfernen(locals: App.Locals, variante: LogoVariante) {
+	try {
+		pruefeRecht(locals, 'einstellungen');
+		await loescheLogo(betriebKontext(locals), variante);
+	} catch (e) {
+		return alsFormFehler(e, { logoFehler: variante });
+	}
+	return { logoGeloescht: variante };
+}
 
 export const actions: Actions = {
 	speichern: async ({ locals, request }) => {
@@ -30,32 +61,20 @@ export const actions: Actions = {
 		}
 		return { gespeichert: true };
 	},
-	logo: async ({ locals, request }) => {
+	logo: async ({ locals, request }) => logoHochladen(locals, request, 'briefkopf'),
+	logoLoeschen: async ({ locals }) => logoEntfernen(locals, 'briefkopf'),
+	// Logo für dunklen Hintergrund (Seitenleiste der App, msg 3014)
+	logoDunkel: async ({ locals, request }) => logoHochladen(locals, request, 'dunkel'),
+	logoDunkelLoeschen: async ({ locals }) => logoEntfernen(locals, 'dunkel'),
+	// Hausfarbe (msg 3016): aus dem Logo übernehmen oder auf Standard zurücksetzen
+	hausfarbe: async ({ locals, request }) => {
 		try {
 			pruefeRecht(locals, 'einstellungen');
-			let datei: FormDataEntryValue | null = null;
-			try {
-				datei = (await request.formData()).get('logo');
-			} catch {
-				/* zu groß oder kaputt: wie „keine Datei“ */
-			}
-			if (!datei || typeof datei === 'string' || datei.size === 0) {
-				throw new ApiFehler(400, 'Bitte ein PNG- oder JPEG-Bild bis 1 MB hochladen');
-			}
-			await speichereLogo(betriebKontext(locals), await dateiBytes(datei));
+			await setzeHausfarbe(betriebKontext(locals), (await request.formData()).get('wahl'));
 		} catch (e) {
-			return alsFormFehler(e, { logoFehler: true });
+			return alsFormFehler(e, { farbeFehler: true });
 		}
-		return { logoGespeichert: true };
-	},
-	logoLoeschen: async ({ locals }) => {
-		try {
-			pruefeRecht(locals, 'einstellungen');
-			await loescheLogo(betriebKontext(locals));
-		} catch (e) {
-			return alsFormFehler(e, { logoFehler: true });
-		}
-		return { logoGeloescht: true };
+		return { farbeGespeichert: true };
 	}
 };
 

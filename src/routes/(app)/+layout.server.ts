@@ -7,7 +7,7 @@ import { hatRecht } from '$lib/server/rechte';
 import { benachrichtigungen } from '$lib/server/erinnerungen';
 import { nextcloud } from '$lib/server/nextcloud/konfig';
 import { laufend } from '$lib/server/zeiterfassung';
-import { hausfarbe } from '$lib/server/betriebsprofil';
+import { hausfarbe, markenLogos } from '$lib/server/betriebsprofil';
 import { farbStil } from '$lib/farbe';
 
 /** Einzige Seite der App, die ohne volle Sitzung erreichbar ist: Einrichtung der Zwei-Faktor-Anmeldung (Vor-Sitzung). */
@@ -22,7 +22,7 @@ const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
 export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const nutzer = locals.nutzer;
 	if (!nutzer) {
-		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, erinnern: false, ungelesen: 0, laufendeZeit: null, farbStil: farbStil(null), ansichtenTeilen: false };
+		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, erinnern: false, ungelesen: 0, laufendeZeit: null, farbStil: farbStil(null), ansichtenTeilen: false, marke: null };
 		redirect(303, '/anmelden');
 	}
 	const module = nutzer.betriebId
@@ -40,5 +40,7 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const laufendeZeit = zeiten ? await laufend({ betriebId: nutzer.betriebId!, benutzerId: nutzer.id }, nutzer.id) : null;
 	// Hausfarbe des Betriebs (Briefkopf) als Akzent der ganzen App; ohne Angabe Gold (Theme „Handwerk“)
 	const farbe = nutzer.betriebId ? await hausfarbe({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }).catch(() => null) : null;
-	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache') && hatRecht(nutzer, 'sprache.nutzen'), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe), ansichtenTeilen: hatRecht(nutzer, 'auftraege.alle_lesen') };
+	// Logo des Betriebs oben links (msg 3014): nur, welche Varianten es gibt (Bilder kommen über /api/marke/logo)
+	const marke = nutzer.betriebId ? await markenLogos({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }).catch(() => null) : null;
+	return { marke, navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache') && hatRecht(nutzer, 'sprache.nutzen'), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe), ansichtenTeilen: hatRecht(nutzer, 'auftraege.alle_lesen') };
 };

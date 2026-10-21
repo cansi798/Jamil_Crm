@@ -2,6 +2,7 @@
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
+	import { farbStil, STANDARD_FARBE } from '$lib/farbe';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -13,7 +14,9 @@
 	) as Record<string, string>;
 	const logoUrl = $derived(`/api/einstellungen/briefkopf/logo?v=${encodeURIComponent(p.logoGeaendert ?? '')}`);
 	const profilFehler = $derived(form && !('logoFehler' in form) && 'fehler' in form ? (form.fehler as string) : null);
-	const logoFehler = $derived(form && 'logoFehler' in form && 'fehler' in form ? (form.fehler as string) : null);
+	const logoFehler = $derived(form && 'logoFehler' in form && form.logoFehler !== 'dunkel' && 'fehler' in form ? (form.fehler as string) : null);
+	const logoDunkelFehler = $derived(form && 'logoFehler' in form && form.logoFehler === 'dunkel' && 'fehler' in form ? (form.fehler as string) : null);
+	const logoDunkelUrl = $derived(`/api/marke/logo?variante=dunkel&v=${encodeURIComponent(p.logoDunkelGeaendert ?? '')}`);
 </script>
 
 <svelte:head>
@@ -34,7 +37,7 @@
 	</div>
 	{#if logoFehler}
 		<p role="alert" class="kd-fehler">{logoFehler}</p>
-	{:else if form && 'logoGespeichert' in form}
+	{:else if form && 'logoGespeichert' in form && form.logoGespeichert !== 'dunkel'}
 		<p role="status" class="bk-ok">Logo gespeichert.</p>
 	{/if}
 	<form method="POST" action="?/logo" enctype="multipart/form-data" use:enhance class="kd-formular">
@@ -51,6 +54,73 @@
 			<button type="submit" class="kd-knopf hell">Logo entfernen</button>
 		</form>
 	{/if}
+
+	<h2>Logo in der App (oben links)</h2>
+	<p class="kd-info">
+		Oben links in der App steht das Logo deines Betriebs. Am Handy (heller Hintergrund) erscheint das Logo von oben. Die
+		Seitenleiste am Computer ist dunkel – dafür hier optional eine helle Variante hochladen (z. B. weiße Schrift). Ohne helle
+		Variante steht das normale Logo dort auf einem weißen Feld.
+	</p>
+	<div class="bk-logo bk-logo-dunkel">
+		{#if p.hatLogoDunkel}
+			<img src={logoDunkelUrl} alt="Logo für dunklen Hintergrund" />
+		{:else}
+			<p class="kd-leer">Noch keine helle Variante hinterlegt.</p>
+		{/if}
+	</div>
+	{#if logoDunkelFehler}
+		<p role="alert" class="kd-fehler">{logoDunkelFehler}</p>
+	{:else if form && 'logoGespeichert' in form && form.logoGespeichert === 'dunkel'}
+		<p role="status" class="bk-ok">Logo für die App gespeichert.</p>
+	{/if}
+	<form method="POST" action="?/logoDunkel" enctype="multipart/form-data" use:enhance class="kd-formular">
+		<label>
+			Helle Variante für dunklen Hintergrund – PNG oder JPEG (am besten PNG mit transparentem Hintergrund)
+			<input type="file" name="logo" accept="image/png,image/jpeg" required />
+		</label>
+		<div class="kd-aktionen">
+			<button type="submit" class="kd-knopf">Helle Variante hochladen</button>
+		</div>
+	</form>
+	{#if p.hatLogoDunkel}
+		<form method="POST" action="?/logoDunkelLoeschen" use:enhance class="bk-loeschen">
+			<button type="submit" class="kd-knopf hell">Helle Variante entfernen</button>
+		</form>
+	{/if}
+
+	<h2 id="hausfarbe">Hausfarbe</h2>
+	<p class="kd-info">
+		Knöpfe, Links und der aktive Menüpunkt nutzen die Hausfarbe. Beim Hochladen des Logos wird seine Farbe automatisch
+		erkannt und übernommen – solange du keine eigene Farbe gewählt hast. Die Schrift auf Knöpfen wird so gewählt, dass sie
+		gut lesbar bleibt.
+	</p>
+	<div class="bk-farbvorschau" style={farbStil(p.farbe)} aria-label="Vorschau der Hausfarbe">
+		<span class="bk-muster" style:background={p.farbe ?? STANDARD_FARBE}></span>
+		<span>
+			<strong>{p.farbe ?? `${STANDARD_FARBE} (Standard)`}</strong><br />
+			<span class="kd-info">
+				{#if !p.farbeEigen && p.logoFarbe}aus dem Logo erkannt{:else if p.farbeEigen && p.farbe}eigene Farbe{:else}Standard{/if}
+				{#if p.logoFarbe} · Logo-Farbe: {p.logoFarbe}{:else if p.hatLogo} · im Logo keine eindeutige Farbe gefunden{/if}
+			</span>
+		</span>
+		<span class="bk-beispiel" data-testid="farb-beispiel">Beispiel-Knopf</span>
+	</div>
+	{#if form && 'farbeFehler' in form && 'fehler' in form}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
+	<div class="bk-farbknoepfe">
+		{#if p.logoFarbe && (p.farbeEigen || p.farbe !== p.logoFarbe)}
+			<form method="POST" action="?/hausfarbe" use:enhance>
+				<input type="hidden" name="wahl" value="logo" />
+				<button type="submit" class="kd-knopf hell">Farbe aus dem Logo übernehmen</button>
+			</form>
+		{/if}
+		{#if p.farbe}
+			<form method="POST" action="?/hausfarbe" use:enhance>
+				<input type="hidden" name="wahl" value="standard" />
+				<button type="submit" class="kd-knopf hell">Zurücksetzen auf Standard</button>
+			</form>
+		{/if}
+	</div>
+	<p class="kd-info">Eine eigene Farbe wählst du unten bei „Angaben“ (Hausfarbe) und speicherst.</p>
 
 	<h2>Angaben</h2>
 	<form method="POST" action="?/speichern" use:enhance={() => async ({ update }) => update({ reset: false })} class="kd-formular">
@@ -71,8 +141,8 @@
 		</div>
 		<label>Internetseite <input type="text" name="web" maxlength="200" value={werte.web ?? ''} /></label>
 		<label class="bk-farbe">
-			Hausfarbe (App, Online-Buchung, Kundenportal)
-			<input type="color" name="farbe" value={werte.farbe || '#c3a56f'} />
+			Hausfarbe (App, Online-Buchung, Kundenportal) – eigene Farbe wählen
+			<input type="color" name="farbe" value={werte.farbe || STANDARD_FARBE} />
 		</label>
 		<div class="bk-portal" role="group" aria-labelledby="bk-portal-titel">
 			<h2 id="bk-portal-titel">Erscheinungsbild Kundenportal</h2>
@@ -154,6 +224,43 @@
 		max-height: 6rem;
 		max-width: 100%;
 		object-fit: contain;
+	}
+	.bk-logo-dunkel {
+		background: var(--ui-anthrazit-900, #2d2c2e);
+	}
+	.bk-logo-dunkel .kd-leer {
+		color: #fff;
+	}
+	.bk-farbvorschau {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		margin-bottom: 0.5rem;
+		border: 1px solid var(--rand);
+		border-radius: 0.5rem;
+		background: #fff;
+	}
+	.bk-muster {
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 8px;
+		border: 1px solid var(--rand);
+		flex-shrink: 0;
+	}
+	.bk-beispiel {
+		margin-left: auto;
+		padding: 0.5rem 1rem;
+		border-radius: 8px;
+		background: var(--ui-akzent);
+		color: var(--ui-akzent-auf);
+		font-weight: 600;
+	}
+	.bk-farbknoepfe {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
 	}
 	.bk-ok {
 		color: #1b6b2a;

@@ -1,6 +1,8 @@
-import { mitBetrieb, type Kontext } from './db';
+import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { textFeld } from './kunden';
+import { farbeAusLogo } from './logo-farbe';
+import { STANDARD_FARBE } from '../farbe';
 import { pruefeBild } from './bildpruefung';
 
 /**
@@ -36,6 +38,12 @@ export type Profil = {
 	logoTyp: string | null;
 	/** Zeitpunkt des letzten Logo-Wechsels (für Cache-Brecher in der Oberfläche). */
 	logoGeaendert: string | null;
+	/** Zweite Variante für dunkle Hintergründe (Seitenleiste der App, msg 3014). */
+	hatLogoDunkel: boolean;
+	logoDunkelGeaendert: string | null;
+	/** Aus dem Logo erkannte Farbe (msg 3016) und ob die Hausfarbe von Hand gewählt ist (sonst folgt sie dem Logo). */
+	logoFarbe: string | null;
+	farbeEigen: boolean;
 };
 
 /** Feld → [Spalte, Beschriftung, höchste Länge] – entspricht den Check-Constraints in Migration 013. */
@@ -96,12 +104,17 @@ const LEER: Profil = {
 	titelGross: 'nein',
 	hatLogo: false,
 	logoTyp: null,
-	logoGeaendert: null
+	logoGeaendert: null,
+	hatLogoDunkel: false,
+	logoDunkelGeaendert: null,
+	logoFarbe: null,
+	farbeEigen: false
 };
 
 const AUSWAHL = `firmenname, strasse, plz, ort, telefon, email, web, steuernummer, ust_id, iban, bic, bank, fusszeile, farbe,
 	dunkel_farbe, hintergrund_farbe, titel_schrift, text_schrift, titel_gross,
-	logo is not null as hat_logo, logo_typ, logo_geaendert`;
+	logo is not null as hat_logo, logo_typ, logo_geaendert, logo_dunkel is not null as hat_logo_dunkel, logo_dunkel_geaendert,
+	logo_farbe, farbe_eigen`;
 
 function zuProfil(z: Record<string, any> | undefined): Profil {
 	if (!z) return { ...LEER };
@@ -127,7 +140,11 @@ function zuProfil(z: Record<string, any> | undefined): Profil {
 		titelGross: z.titel_gross === true ? 'ja' : 'nein',
 		hatLogo: z.hat_logo === true,
 		logoTyp: z.logo_typ,
-		logoGeaendert: z.logo_geaendert ? new Date(z.logo_geaendert).toISOString() : null
+		logoGeaendert: z.logo_geaendert ? new Date(z.logo_geaendert).toISOString() : null,
+		hatLogoDunkel: z.hat_logo_dunkel === true,
+		logoDunkelGeaendert: z.logo_dunkel_geaendert ? new Date(z.logo_dunkel_geaendert).toISOString() : null,
+		logoFarbe: z.logo_farbe ?? null,
+		farbeEigen: z.farbe_eigen === true
 	};
 }
 
@@ -183,6 +200,14 @@ export function pruefeProfilEingabe(e: Record<string, unknown>): Record<string, 
 export async function speichereProfil(k: Kontext, e: Record<string, unknown>): Promise<Profil> {
 	const werte = pruefeProfilEingabe(e);
 	return mitBetrieb(k, async (tx) => {
+		// Hausfarbe: nur eine wirklich geänderte Farbe gilt als „von Hand gewählt“ (msg 3016). Der Farbwähler schickt
+		// immer einen Wert – ohne Farbe den Standard (Gold); das ist keine Änderung.
+		if ('farbe' in werte) {
+			const [alt] = await tx`select farbe from app.betrieb_profil where betrieb_id = ${k.betriebId}`;
+			const bisher = (alt?.farbe as string | null) ?? null;
+			if (werte.farbe === bisher || (bisher === null && werte.farbe === STANDARD_FARBE)) delete werte.farbe;
+			else werte.farbe_eigen = true;
+		}
 		const spalten = Object.keys(werte);
 		if (spalten.length > 0) {
 			await tx`
@@ -195,10 +220,20 @@ export async function speichereProfil(k: Kontext, e: Record<string, unknown>): P
 }
 
 /**
+ * Logo-Varianten: „briefkopf“ = das Logo für PDFs, Portal und helle Flächen (dunkel auf hell); „dunkel“ = optionale
+ * zweite Variante für dunkle Hintergründe (Seitenleiste der App, msg 3014). Spaltennamen nur aus dieser festen Liste.
+ */
+export type LogoVariante = 'briefkopf' | 'dunkel';
+const LOGO_SPALTEN: Record<LogoVariante, { bytes: string; typ: string; geaendert: string }> = {
+	briefkopf: { bytes: 'logo', typ: 'logo_typ', geaendert: 'logo_geaendert' },
+	dunkel: { bytes: 'logo_dunkel', typ: 'logo_dunkel_typ', geaendert: 'logo_dunkel_geaendert' }
+};
+
+/**
  * Prüft und speichert das Logo: PNG oder JPEG (erkannt an den Bytes, nicht an Dateiname oder Typ-Angabe; vollständig
  * geprüft mit `pruefeBild`, damit kaputte Bilddaten nie bis zum PDF kommen), höchstens 1 MB und 1500 × 1500 Pixel. Bei einem Fehler bleibt das bisherige Logo unverändert.
  */
-export async function speichereLogo(k: Kontext, bytes: Uint8Array): Promise<Profil> {
+export async function speichereLogo(k: Kontext, bytes: Uint8Array, variante: LogoVariante = 'briefkopf'): Promise<Profil> {
 	if (!(bytes instanceof Uint8Array) || bytes.length === 0 || bytes.length > LOGO_MAX_BYTES) {
 		throw new ApiFehler(400, LOGO_MELDUNG);
 	}
@@ -211,34 +246,85 @@ export async function speichereLogo(k: Kontext, bytes: Uint8Array): Promise<Prof
 		);
 	}
 	const daten = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	const s = LOGO_SPALTEN[variante];
 	return mitBetrieb(k, async (tx) => {
 		await tx`
-			insert into app.betrieb_profil (betrieb_id, logo, logo_typ, logo_geaendert)
+			insert into app.betrieb_profil (betrieb_id, ${tx.unsafe(s.bytes)}, ${tx.unsafe(s.typ)}, ${tx.unsafe(s.geaendert)})
 			values (${k.betriebId}, ${daten}, ${info.typ}, clock_timestamp())
 			on conflict (betrieb_id) do update
-				set logo = excluded.logo, logo_typ = excluded.logo_typ, logo_geaendert = excluded.logo_geaendert`;
+				set ${tx.unsafe(s.bytes)} = excluded.${tx.unsafe(s.bytes)}, ${tx.unsafe(s.typ)} = excluded.${tx.unsafe(s.typ)},
+					${tx.unsafe(s.geaendert)} = excluded.${tx.unsafe(s.geaendert)}`;
+		// Akzentfarbe aus dem Logo (msg 3016): das Briefkopf-Logo bestimmt sie; die helle Variante nur, solange es
+		// keine gibt. Ist die Hausfarbe nicht von Hand gewählt, folgt sie automatisch.
+		const erkannt = farbeAusLogo(bytes);
+		if (variante === 'briefkopf') await tx`update app.betrieb_profil set logo_farbe = ${erkannt} where betrieb_id = ${k.betriebId}`;
+		else if (erkannt) await tx`update app.betrieb_profil set logo_farbe = coalesce(logo_farbe, ${erkannt}) where betrieb_id = ${k.betriebId}`;
+		await folgeLogoFarbe(tx, k);
 		const [z] = await tx`select ${tx.unsafe(AUSWAHL)} from app.betrieb_profil where betrieb_id = ${k.betriebId}`;
 		return zuProfil(z);
 	});
 }
 
-export async function holeLogo(k: Kontext): Promise<{ bytes: Uint8Array; typ: string } | null> {
+export async function holeLogo(k: Kontext, variante: LogoVariante = 'briefkopf'): Promise<{ bytes: Uint8Array; typ: string } | null> {
+	const s = LOGO_SPALTEN[variante];
 	return mitBetrieb(k, async (tx) => {
 		const [z] = await tx`
-			select logo, logo_typ from app.betrieb_profil where betrieb_id = ${k.betriebId} and logo is not null`;
+			select ${tx.unsafe(s.bytes)} as logo, ${tx.unsafe(s.typ)} as logo_typ from app.betrieb_profil
+			where betrieb_id = ${k.betriebId} and ${tx.unsafe(s.bytes)} is not null`;
 		if (!z) return null;
 		const buf = z.logo as Buffer;
 		return { bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), typ: z.logo_typ };
 	});
 }
 
-export async function loescheLogo(k: Kontext): Promise<Profil> {
+export async function loescheLogo(k: Kontext, variante: LogoVariante = 'briefkopf'): Promise<Profil> {
+	const s = LOGO_SPALTEN[variante];
 	return mitBetrieb(k, async (tx) => {
 		await tx`
-			update app.betrieb_profil set logo = null, logo_typ = null, logo_geaendert = clock_timestamp()
-			where betrieb_id = ${k.betriebId} and logo is not null`;
+			update app.betrieb_profil set ${tx.unsafe(s.bytes)} = null, ${tx.unsafe(s.typ)} = null, ${tx.unsafe(s.geaendert)} = clock_timestamp()
+			where betrieb_id = ${k.betriebId} and ${tx.unsafe(s.bytes)} is not null`;
+		// ohne jedes Logo keine Logo-Farbe mehr (dann Standard, solange nicht von Hand gewählt)
+		await tx`update app.betrieb_profil set logo_farbe = null where betrieb_id = ${k.betriebId} and logo is null and logo_dunkel is null`;
+		await folgeLogoFarbe(tx, k);
 		const [z] = await tx`select ${tx.unsafe(AUSWAHL)} from app.betrieb_profil where betrieb_id = ${k.betriebId}`;
 		return zuProfil(z);
+	});
+}
+
+/** Hausfarbe folgt der Logo-Farbe, solange sie nicht von Hand gewählt ist. */
+async function folgeLogoFarbe(tx: TransactionSql, k: Kontext): Promise<void> {
+	await tx`update app.betrieb_profil set farbe = logo_farbe where betrieb_id = ${k.betriebId} and not farbe_eigen and farbe is distinct from logo_farbe`;
+}
+
+/**
+ * Hausfarbe (msg 3016): `logo` = wieder der Logo-Farbe folgen, `standard` = Standard-Theme (Gold), sonst eine eigene
+ * Farbe (#rrggbb, Farbwähler).
+ */
+export async function setzeHausfarbe(k: Kontext, wahl: unknown): Promise<Profil> {
+	if (wahl !== 'logo' && wahl !== 'standard' && !(typeof wahl === 'string' && /^#[0-9a-fA-F]{6}$/.test(wahl))) {
+		throw new ApiFehler(400, 'Bitte eine Farbe wählen.');
+	}
+	return mitBetrieb(k, async (tx) => {
+		await tx`insert into app.betrieb_profil (betrieb_id) values (${k.betriebId}) on conflict (betrieb_id) do nothing`;
+		if (wahl === 'logo') await tx`update app.betrieb_profil set farbe_eigen = false where betrieb_id = ${k.betriebId}`;
+		else await tx`update app.betrieb_profil set farbe_eigen = true, farbe = ${wahl === 'standard' ? null : (wahl as string).toLowerCase()} where betrieb_id = ${k.betriebId}`;
+		await folgeLogoFarbe(tx, k);
+		const [z] = await tx`select ${tx.unsafe(AUSWAHL)} from app.betrieb_profil where betrieb_id = ${k.betriebId}`;
+		return zuProfil(z);
+	});
+}
+
+/**
+ * Logos für die App-Marke oben links (msg 3014): welche Varianten es gibt und wann sie zuletzt geändert wurden
+ * (Cache-Brecher). Für jeden angemeldeten Benutzer des Betriebs – ein Logo ist nicht vertraulich.
+ */
+export async function markenLogos(k: Kontext): Promise<{ hell: string | null; dunkel: string | null; name: string | null }> {
+	return mitBetrieb(k, async (tx) => {
+		const [z] = await tx`
+			select firmenname, case when logo is not null then coalesce(logo_geaendert, now())::text end as hell,
+				case when logo_dunkel is not null then coalesce(logo_dunkel_geaendert, now())::text end as dunkel
+			from app.betrieb_profil where betrieb_id = ${k.betriebId}`;
+		return { hell: z?.hell ?? null, dunkel: z?.dunkel ?? null, name: z?.firmenname ?? null };
 	});
 }
 

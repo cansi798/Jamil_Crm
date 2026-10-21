@@ -28,7 +28,11 @@ const PROFIL: Profil = {
 	titelGross: 'nein',
 	hatLogo: false,
 	logoTyp: null,
-	logoGeaendert: null
+	logoGeaendert: null,
+	hatLogoDunkel: false,
+	logoDunkelGeaendert: null,
+	logoFarbe: null,
+	farbeEigen: false
 };
 
 function position(i: number, menge: number, einzelpreisCent: number, bezeichnung: string, beschreibung: string | null = null): AngebotPosition {

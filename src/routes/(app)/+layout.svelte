@@ -23,6 +23,11 @@
 		const alle = [...(data.navigation?.haupt ?? []), ...(data.navigation?.mehr ?? [])].filter((e) => e.href);
 		return alle.filter((e) => istAktiv(e.href!, pfad)).sort((a, b) => b.href!.length - a.href!.length)[0] ?? null;
 	});
+	// Logo oben links (msg 3014): Seitenleiste (dunkel) bevorzugt die helle Variante, das Handy (hell) das Briefkopf-Logo
+	const markeName = $derived(data.marke?.name ?? 'CRM System');
+	const logoUrl = (variante: 'dunkel' | 'briefkopf', v: string) => `/api/marke/logo?variante=${variante}&v=${encodeURIComponent(v)}`;
+	const logoDunkel = $derived(data.marke?.dunkel ? logoUrl('dunkel', data.marke.dunkel) : data.marke?.hell ? logoUrl('briefkopf', data.marke.hell) : null);
+	const logoHell = $derived(data.marke?.hell ? logoUrl('briefkopf', data.marke.hell) : data.marke?.dunkel ? logoUrl('dunkel', data.marke.dunkel) : null);
 	const mitSuche = $derived((data.navigation?.haupt ?? []).some((e) => e.href === '/kunden'));
 	const mehrAktiv = $derived(
 		pfad === '/mehr' || [...(data.navigation?.haupt ?? []).slice(MOBIL_HAUPT), ...(data.navigation?.mehr ?? [])].some((e) => istAktiv(e.href, pfad))
@@ -51,6 +56,12 @@
 	<div class="huelle" style={data.farbStil}>
 		<!-- Unter 900 px: Leiste unten (Start, Kunden, Plantafel, Mehr); ab 900 px: Seitenleiste mit allen Einträgen. -->
 		<nav class="hauptnav" aria-label="Hauptnavigation">
+			{#if logoDunkel}
+				<!-- Logo des Betriebs (msg 3014): Seitenleiste dunkel → helle Variante, sonst Briefkopf-Logo auf weißem Feld -->
+				<a href="/" class="marke marke-mit-logo nur-breit" aria-label={`${markeName} – Start`}>
+					<span class="marke-logo" class:auf-weiss={!data.marke?.dunkel}><img src={logoDunkel} alt={markeName} height="40" /></span>
+				</a>
+			{:else}
 			<a href="/" class="marke nur-breit">
 				<span class="marke-zeichen" aria-hidden="true">
 					<!-- Haus mit Dachlinie, leicht handgezeichnet (Theme „Handwerk“) -->
@@ -58,6 +69,7 @@
 				</span>
 				<span class="marke-text"><span class="marke-klein">Handwerk</span>CRM System</span>
 			</a>
+			{/if}
 			<ul class="liste">
 				{#each data.navigation.haupt as e, i (e.name)}
 					<li class:nur-breit-li={i >= MOBIL_HAUPT}>
@@ -125,7 +137,15 @@
 				{#if data.erinnern}<div class="kopf-glocke"><Glocke start={data.ungelesen} /></div>{/if}
 			</header>
 			{#if data.laufendeZeit}<div class="nur-schmal-zeit"><LaufendeZeit laufend={data.laufendeZeit} schmal /></div>{/if}
-			{#if data.erinnern}<div class="nur-schmal-glocke"><Glocke start={data.ungelesen} schmal /></div>{/if}
+			{#if logoHell}
+				<!-- Handy: Logo oben links auf hellem Grund (Briefkopf-Logo, sonst helle Variante auf dunklem Feld), Glocke rechts -->
+				<div class="kopf-schmal">
+					<a href="/" class="marke-schmal" aria-label={`${markeName} – Start`}>
+						<span class="marke-logo" class:auf-dunkel={!data.marke?.hell}><img src={logoHell} alt={markeName} height="32" /></span>
+					</a>
+					{#if data.erinnern}<div class="nur-schmal-glocke"><Glocke start={data.ungelesen} schmal /></div>{/if}
+				</div>
+			{:else if data.erinnern}<div class="nur-schmal-glocke"><Glocke start={data.ungelesen} schmal /></div>{/if}
 			<NurLesenHinweis form={page.form} />
 			{@render children()}
 		</div>
@@ -141,6 +161,40 @@
 
 <style>
 	/* Theme „Handwerk“: Navigation und Kopfleiste in Anthrazit, aktiver Eintrag mit Akzent (Gold bzw. Hausfarbe) */
+	/* Handy: Logo-Zeile oben (heller Grund), Glocke rechts daneben */
+	.kopf-schmal {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		min-height: 3.25rem;
+		padding: calc(0.4rem + env(safe-area-inset-top)) 0.75rem 0;
+	}
+	.kopf-schmal .nur-schmal-glocke :global(.gl.schmal) {
+		padding: 0;
+		margin-bottom: 0;
+	}
+	.marke-schmal {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+		height: 40px;
+	}
+	.marke-schmal .marke-logo img {
+		display: block;
+		height: 32px;
+		width: auto;
+		max-width: min(60vw, 220px);
+		object-fit: contain;
+	}
+	.marke-logo.auf-dunkel {
+		padding: 3px 8px;
+		border-radius: 8px;
+		background: var(--ui-anthrazit-900);
+	}
+	.marke-logo.auf-dunkel img {
+		height: 26px;
+	}
 	.nur-schmal-zeit {
 		position: sticky;
 		top: 0;
@@ -388,6 +442,27 @@
 			background: var(--ui-anthrazit-900);
 			color: #fff;
 			text-decoration: none;
+		}
+		.marke-mit-logo {
+			padding: 0 1rem;
+		}
+		.marke-logo img {
+			display: block;
+			height: 40px;
+			width: auto;
+			max-width: calc(var(--seitenleiste) - 2.5rem);
+			object-fit: contain;
+		}
+		.marke-logo.auf-weiss {
+			padding: 3px 8px;
+			border-radius: 8px;
+			background: #fff;
+		}
+		.marke-logo.auf-weiss img {
+			height: 34px;
+		}
+		.kopf-schmal {
+			display: none !important;
 		}
 		.marke-text {
 			display: grid;
