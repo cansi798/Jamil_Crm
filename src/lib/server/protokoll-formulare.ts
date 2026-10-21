@@ -9,6 +9,8 @@ import { formularProtokollPdf, type PdfBild } from './pdf/formular-protokoll-pdf
 import {
 	alleFelder,
 	auswerten,
+	berechne,
+	expandiere,
 	bereinigeAntworten,
 	dateiIds,
 	fehlendeFelder,
@@ -38,8 +40,14 @@ import type { VerlaufZeile } from '../verlauf';
 export const FOTO_MAX_BYTES = 10 * 1024 * 1024;
 export const UNTERSCHRIFT_MAX_BYTES = 512 * 1000;
 
+/** Art einer Vorlage: Protokoll oder Aufmaß (msg 2842). */
+export const VORLAGEN_ARTEN = ['protokoll', 'aufmass'] as const;
+export type VorlagenArt = (typeof VORLAGEN_ARTEN)[number];
+export const istVorlagenArt = (w: unknown): w is VorlagenArt => typeof w === 'string' && (VORLAGEN_ARTEN as readonly string[]).includes(w);
+
 export type VorlageKurz = {
 	id: string;
+	art: VorlagenArt;
 	gruppeId: string;
 	version: number;
 	name: string;
@@ -72,6 +80,8 @@ export type ProtokollKurz = {
 export type ProtokollDatei = { id: string; feldId: string; art: 'foto' | 'unterschrift'; name: string; typ: string; groesse: number };
 
 export type Protokoll = ProtokollKurz & {
+	/** Art der Vorlage (Aufmaß: Mengen fürs Angebot, msg 2842) */
+	art: VorlagenArt;
 	schema: Schema;
 	antworten: Antworten;
 	schritt: number;
@@ -119,6 +129,7 @@ function zuVorlage(z: Record<string, any>): Vorlage {
 	const schema = z.schema as Schema;
 	return {
 		id: z.id,
+		art: z.art ?? 'protokoll',
 		gruppeId: z.gruppe_id,
 		version: z.version,
 		name: z.name,
@@ -136,13 +147,14 @@ function zuVorlage(z: Record<string, any>): Vorlage {
 // Vorlagen
 
 /** Aktuelle Version jeder Vorlage (ohne archivierte, außer `archivierte`), nach Name. */
-export async function listeVorlagen(k: Kontext, opts: { archivierte?: boolean } = {}): Promise<VorlageKurz[]> {
+export async function listeVorlagen(k: Kontext, opts: { archivierte?: boolean; art?: VorlagenArt } = {}): Promise<VorlageKurz[]> {
 	return mitBetrieb(k, async (tx) => {
 		const z = await tx`
 			select v.*, (select count(*) from app.protokolle p join app.protokoll_vorlagen pv on pv.id = p.vorlage_id
 				where pv.gruppe_id = v.gruppe_id and p.betrieb_id = v.betrieb_id) as protokolle
 			from app.protokoll_vorlagen v
 			where v.betrieb_id = ${k.betriebId} and v.aktuell ${opts.archivierte ? tx`` : tx`and not v.archiviert`}
+				${opts.art ? tx`and v.art = ${opts.art}` : tx``}
 			order by v.archiviert, lower(v.name), v.id`;
 		return z.map((r) => {
 			const { schema: _s, aktuell: _a, ...kurz } = zuVorlage(r);
@@ -164,10 +176,12 @@ export async function holeVorlage(k: Kontext, id: unknown): Promise<Vorlage> {
 	});
 }
 
-type VorlagenEingabe = { name?: unknown; beschreibung?: unknown; schema?: unknown };
+type VorlagenEingabe = { name?: unknown; beschreibung?: unknown; schema?: unknown; art?: unknown };
 
 function pruefeVorlagenEingabe(e: VorlagenEingabe) {
+	if (e.art !== undefined && e.art !== null && e.art !== '' && !istVorlagenArt(e.art)) throw new ApiFehler(400, 'Unbekannte Art der Vorlage.');
 	return {
+		art: (istVorlagenArt(e.art) ? e.art : 'protokoll') as VorlagenArt,
 		name: textFeld(e.name, 'Name', 200, true)!,
 		beschreibung: textFeld(e.beschreibung, 'Beschreibung', 1000, false),
 		schema: pruefeVorlagenSchema(e.schema)
@@ -176,9 +190,9 @@ function pruefeVorlagenEingabe(e: VorlagenEingabe) {
 
 async function fuegeEin(tx: TransactionSql, k: Kontext, gruppeId: string | null, version: number, w: ReturnType<typeof pruefeVorlagenEingabe>) {
 	const [z] = await tx`
-		insert into app.protokoll_vorlagen (betrieb_id, gruppe_id, version, name, beschreibung, schema, von_benutzer_id)
+		insert into app.protokoll_vorlagen (betrieb_id, gruppe_id, version, name, beschreibung, schema, von_benutzer_id, art)
 		values (${k.betriebId}, ${gruppeId ?? tx`gen_random_uuid()`}, ${version}, ${w.name}, ${w.beschreibung},
-			${tx.json(w.schema as never)}, ${k.benutzerId})
+			${tx.json(w.schema as never)}, ${k.benutzerId}, ${w.art})
 		returning id`;
 	return z.id as string;
 }
@@ -199,9 +213,11 @@ export async function speichereVorlage(k: Kontext, id: unknown, e: VorlagenEinga
 	const w = pruefeVorlagenEingabe(e);
 	const neueId = await mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select id, gruppe_id, version, name, beschreibung, schema, aktuell, archiviert from app.protokoll_vorlagen
+			select id, gruppe_id, version, name, beschreibung, schema, aktuell, archiviert, art from app.protokoll_vorlagen
 			where id = ${vid} and betrieb_id = ${k.betriebId} for update`;
 		if (!alt) throw nichtGefunden('Vorlage');
+		// Die Art bleibt über alle Versionen gleich
+		w.art = alt.art;
 		if (!alt.aktuell) throw new ApiFehler(409, 'Diese Version ist nicht mehr aktuell – bitte die Seite neu laden.');
 		if (alt.name === w.name && alt.beschreibung === w.beschreibung && geordnet(alt.schema) === geordnet(w.schema)) {
 			return alt.id as string;
@@ -219,7 +235,7 @@ export async function speichereVorlage(k: Kontext, id: unknown, e: VorlagenEinga
 export async function dupliziereVorlage(k: Kontext, id: unknown): Promise<Vorlage> {
 	const v = await holeVorlage(k, id);
 	const name = [...`${v.name} (Kopie)`].slice(0, 200).join('');
-	return legeVorlageAn(k, { name, beschreibung: v.beschreibung, schema: v.schema });
+	return legeVorlageAn(k, { name, beschreibung: v.beschreibung, schema: v.schema, art: v.art });
 }
 
 /** Archivieren bzw. wiederherstellen (aktuelle Version). Archivierte Vorlagen lassen sich nicht mehr starten. */
@@ -241,7 +257,7 @@ export async function uebernimmStartvorlagen(k: Kontext, schluessel?: string[]):
 			if (schluessel && !schluessel.includes(s.schluessel)) continue;
 			const [da] = await tx`select 1 from app.protokoll_vorlagen where betrieb_id = ${k.betriebId} and lower(name) = lower(${s.name})`;
 			if (da) continue;
-			await fuegeEin(tx, k, null, 1, { name: s.name, beschreibung: s.beschreibung, schema: pruefeSchema(s.schema) });
+			await fuegeEin(tx, k, null, 1, { name: s.name, beschreibung: s.beschreibung, schema: pruefeSchema(s.schema), art: s.art ?? 'protokoll' });
 			neu++;
 		}
 		return neu;
@@ -306,7 +322,7 @@ export async function holeProtokoll(k: Kontext, sicht: Sicht, id: unknown): Prom
 	const pid = idFeld(id, 'Protokoll');
 	const p = await mitBetrieb(k, async (tx) => {
 		const [z] = await tx`
-			select ${tx.unsafe(PROTOKOLL_SPALTEN)}, p.antworten, v.schema
+			select ${tx.unsafe(PROTOKOLL_SPALTEN)}, p.antworten, v.schema, v.art
 			from ${tx.unsafe(PROTOKOLL_VON)} where p.id = ${pid} and p.betrieb_id = ${k.betriebId}`;
 		if (!z) throw nichtGefunden();
 		const dateien = await tx`
@@ -323,6 +339,7 @@ export async function holeProtokoll(k: Kontext, sicht: Sicht, id: unknown): Prom
 		}
 		return {
 			...zuKurz(z),
+			art: z.art ?? 'protokoll',
 			schema: z.schema as Schema,
 			antworten: (z.antworten ?? {}) as Antworten,
 			schritt: z.schritt,
@@ -422,7 +439,7 @@ export async function speichereFoto(
 	await sichtVonProtokoll(k, sicht, pid);
 	return mitBetrieb(k, async (tx) => {
 		const { schema, antworten } = await sperreEntwurf(tx, k, pid);
-		const feld = feldVon(schema, feldId, 'foto');
+		const feld = feldVon(expandiere(schema, antworten), feldId, 'foto');
 		const bisher = dateiIds(feld, antworten[feld.id]);
 		if (bisher.length >= GRENZEN.fotos) throw new ApiFehler(400, `Höchstens ${GRENZEN.fotos} Fotos je Feld.`);
 		const [d] = await tx`
@@ -445,7 +462,7 @@ export async function loescheProtokollDatei(k: Kontext, sicht: Sicht, id: unknow
 		const { schema, antworten } = await sperreEntwurf(tx, k, pid);
 		const [d] = await tx`delete from app.protokoll_dateien where id = ${did} and protokoll_id = ${pid} and betrieb_id = ${k.betriebId} returning feld_id`;
 		if (!d) throw nichtGefunden('Datei');
-		const feld = alleFelder(schema).find((x) => x.feld.id === d.feld_id)?.feld;
+		const feld = alleFelder(expandiere(schema, antworten)).find((x) => x.feld.id === d.feld_id)?.feld;
 		const neu = { ...antworten };
 		if (feld?.typ === 'foto') {
 			const rest = dateiIds(feld, neu[feld.id]).filter((x) => x !== did);
@@ -473,7 +490,7 @@ export async function speichereUnterschrift(
 	await sichtVonProtokoll(k, sicht, pid);
 	return mitBetrieb(k, async (tx) => {
 		const { schema, antworten } = await sperreEntwurf(tx, k, pid);
-		const feld = feldVon(schema, feldId, 'unterschrift');
+		const feld = feldVon(expandiere(schema, antworten), feldId, 'unterschrift');
 		await tx`delete from app.protokoll_dateien where protokoll_id = ${pid} and betrieb_id = ${k.betriebId} and feld_id = ${feld.id}`;
 		const [d] = await tx`
 			insert into app.protokoll_dateien (betrieb_id, protokoll_id, feld_id, art, name, typ, groesse, inhalt, von_benutzer_id)
@@ -535,8 +552,9 @@ async function erzeugePdf(tx: TransactionSql, k: Kontext, pid: string): Promise<
 			...(p.anlage_bezeichnung ? [['Anlage', p.anlage_bezeichnung] as [string, string]] : []),
 			['Erstellt von', p.von_name ?? '–']
 		],
-		schema: p.schema as Schema,
-		antworten: (p.antworten ?? {}) as Antworten,
+		// Aufmaß (msg 2842): Räume aufgeklappt, berechnete Werte frisch gerechnet
+		schema: expandiere(p.schema as Schema, (p.antworten ?? {}) as Antworten),
+		antworten: berechne(p.schema as Schema, (p.antworten ?? {}) as Antworten),
 		bilder
 	});
 	return { pdf, titel: p.titel, auftragId: p.auftrag_id, abgeschlossen };
@@ -559,7 +577,7 @@ export async function schliesseAb(k: Kontext, sicht: Sicht, id: unknown): Promis
 		}
 		// Name der Kunden-Unterschrift fürs Protokoll
 		const zustand = auswerten(schema, antworten);
-		const kunde = alleFelder(schema).find(({ feld }) => feld.typ === 'unterschrift' && feld.wer === 'kunde' && zustand.get(feld.id)?.sichtbar && antworten[feld.id]);
+		const kunde = alleFelder(expandiere(schema, antworten)).find(({ feld }) => feld.typ === 'unterschrift' && feld.wer === 'kunde' && zustand.get(feld.id)?.sichtbar && antworten[feld.id]);
 		const unterschrieben = kunde ? ((antworten[kunde.feld.id] as { name?: string }).name ?? null) : null;
 		await tx`
 			update app.protokolle set status = 'abgeschlossen', abgeschlossen = now(), abgeschlossen_von = ${k.benutzerId},

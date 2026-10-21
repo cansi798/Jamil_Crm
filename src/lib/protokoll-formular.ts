@@ -14,6 +14,8 @@
  * nur Feldtypen aus `FRAGE_TYPEN`, Prüfung mit `pruefeSchema(…, { typen, maxSeiten: 1, leerErlaubt: true })`).
  */
 
+import { alsText, ersetzeNamen, FormelFehler, namen, parse, rechne, type Knoten } from './aufmass-formel';
+
 export const FELD_TYPEN = [
 	'hinweis',
 	'text',
@@ -27,7 +29,15 @@ export const FELD_TYPEN = [
 	'foto',
 	'checkliste',
 	'unterschrift',
-	'messwert'
+	'messwert',
+	// Aufmaß (Jamil msg 2842)
+	'mass',
+	'flaeche',
+	'umfang',
+	'volumen',
+	'abzug',
+	'stueck',
+	'formel'
 ] as const;
 export type FeldTyp = (typeof FELD_TYPEN)[number];
 
@@ -44,8 +54,29 @@ export const FELD_TYP_NAMEN: Record<FeldTyp, string> = {
 	foto: 'Foto',
 	checkliste: 'Checkliste',
 	unterschrift: 'Unterschrift',
-	messwert: 'Messwert mit Einheit'
+	messwert: 'Messwert mit Einheit',
+	mass: 'Maß (Länge/Breite/Höhe)',
+	flaeche: 'Fläche (m²)',
+	umfang: 'Umfang (m)',
+	volumen: 'Volumen (m³)',
+	abzug: 'Abzug (z. B. Tür, Fenster)',
+	stueck: 'Stückzahl',
+	formel: 'Formel (berechnet)'
 };
+
+/** Aufmaß-Feldtypen (Zahlen mit Einheit; Fläche/Umfang/Volumen wahlweise berechnet, Formel immer). */
+export const AUFMASS_TYPEN = ['mass', 'flaeche', 'umfang', 'volumen', 'abzug', 'stueck', 'formel'] as const satisfies readonly FeldTyp[];
+/** Alle Feldtypen mit Zahlenwert (Bedingungen „größer/kleiner“, Formeln). */
+export const ZAHL_TYPEN: readonly FeldTyp[] = ['zahl', 'messwert', ...AUFMASS_TYPEN];
+export const istZahlTyp = (t: FeldTyp) => ZAHL_TYPEN.includes(t);
+/** Feste Einheit je Aufmaß-Typ (Maß: m, cm oder mm; Formel: frei). */
+export const AUFMASS_EINHEIT: Partial<Record<FeldTyp, string>> = { flaeche: 'm²', umfang: 'm', volumen: 'm³', abzug: 'm²', stueck: 'Stk' };
+export const MASS_EINHEITEN = ['m', 'cm', 'mm'] as const;
+/** Wird das Feld berechnet (Wert kommt aus der Formel, nicht vom Nutzer)? */
+export const istBerechnet = (f: Pick<Feld, 'typ' | 'formel'>) => f.typ === 'formel' || (!!f.formel && (f.typ === 'flaeche' || f.typ === 'umfang' || f.typ === 'volumen'));
+/** Höchstens so viele Wiederholungen (z. B. Räume) je wiederholbarem Abschnitt. */
+export const MAX_WIEDERHOLUNGEN = 30;
+export const anzahlSchluessel = (abschnittId: string) => `_anzahl_${abschnittId}`;
 
 export const BEDINGUNG_OPS = ['gleich', 'ungleich', 'ausgefuellt', 'leer', 'groesser', 'kleiner'] as const;
 export type BedingungOp = (typeof BEDINGUNG_OPS)[number];
@@ -86,11 +117,32 @@ export type Feld = {
 	/** unterschrift: wer unterschreibt */
 	wer?: 'kunde' | 'monteur';
 	bedingung?: Bedingung;
+	/** Aufmaß: Kurzname für Formeln (z. B. „L“, „B“, „H“) */
+	kuerzel?: string;
+	/** Aufmaß: Formel (Pflicht bei „formel“, wahlweise bei Fläche/Umfang/Volumen) */
+	formel?: string;
+	/** Aufmaß: Nachkommastellen des Ergebnisses (Standard 2) */
+	nachkomma?: number;
+	/** Aufmaß: Katalog-Verknüpfung – Menge (Formel, Standard: der Wert des Felds) für eine Katalogposition */
+	katalog?: { positionId: string; menge?: string };
+	/** nach dem Aufklappen wiederholbarer Abschnitte: z. B. „Raum 2“ (für Meldungen) */
+	gruppe?: string;
 };
 
-export type Abschnitt = { id: string; titel?: string; felder: Feld[] };
+export type Abschnitt = {
+	id: string;
+	titel?: string;
+	felder: Feld[];
+	/** Aufmaß: Abschnitt wiederholbar (z. B. je Raum) */
+	wiederholbar?: boolean;
+	/** Name einer Wiederholung, z. B. „Raum“ */
+	wiederholName?: string;
+	/** nach dem Aufklappen: Herkunft und Nummer der Wiederholung (für „+ Raum“ / „Raum entfernen“) */
+	wdh?: { basis: string; nr: number; anzahl: number; name: string };
+};
 export type Seite = { id: string; titel: string; abschnitte: Abschnitt[] };
-export type Schema = { seiten: Seite[] };
+/** `expandiert`: wiederholbare Abschnitte sind schon aufgeklappt, Formeln aufgelöst (siehe `expandiere`). */
+export type Schema = { seiten: Seite[]; expandiert?: boolean };
 
 export type FotoWert = string[]; // IDs in app.protokoll_dateien
 export type UnterschriftWert = { dateiId: string; name?: string; zeit?: string };
@@ -167,6 +219,13 @@ export function opsFuer(typ: FeldTyp): BedingungOp[] {
 	switch (typ) {
 		case 'zahl':
 		case 'messwert':
+		case 'mass':
+		case 'flaeche':
+		case 'umfang':
+		case 'volumen':
+		case 'abzug':
+		case 'stueck':
+		case 'formel':
 			return ['gleich', 'ungleich', 'groesser', 'kleiner', 'ausgefuellt', 'leer'];
 		case 'janein':
 		case 'auswahl':
@@ -196,6 +255,12 @@ export type SchemaOptionen = {
 };
 
 export function pruefeSchema(roh: unknown, opts: SchemaOptionen = {}): Schema {
+	const schema = pruefeSchemaRoh(roh, opts);
+	pruefeAufmass(schema);
+	return schema;
+}
+
+function pruefeSchemaRoh(roh: unknown, opts: SchemaOptionen): Schema {
 	const maxSeiten = Math.min(opts.maxSeiten ?? GRENZEN.seiten, GRENZEN.seiten);
 	if (!istObjekt(roh) || !Array.isArray(roh.seiten)) throw new SchemaFehler('Die Vorlage hat keine Seiten.');
 	if (roh.seiten.length === 0 && !opts.leerErlaubt) throw new SchemaFehler('Die Vorlage braucht mindestens eine Seite.');
@@ -226,10 +291,18 @@ export function pruefeSchema(roh: unknown, opts: SchemaOptionen = {}): Schema {
 			const abschnitt: Abschnitt = { id: eindeutig(a.id, woA), felder: [] };
 			const titel = text(a.titel, `${woA}: Titel`, GRENZEN.titel, false);
 			if (titel) abschnitt.titel = titel;
+			if (a.wiederholbar === true) {
+				abschnitt.wiederholbar = true;
+				abschnitt.wiederholName = text(a.wiederholName, `${woA}: Name einer Wiederholung`, 40, false) ?? 'Bereich';
+				// IDs bekommen beim Aufklappen „__2“ … angehängt
+				if (abschnitt.id.length > 50) throw new SchemaFehler(`${woA}: ID zu lang für einen wiederholbaren Abschnitt.`);
+			}
 			abschnitt.felder = a.felder.map((f, fi) => {
 				anzahl++;
 				if (anzahl > GRENZEN.felder) throw new SchemaFehler(`Höchstens ${GRENZEN.felder} Felder je Vorlage.`);
 				const feld = pruefeFeld(f, `${woA}, Feld ${fi + 1}`, eindeutig, frueher, opts.typen);
+				if (abschnitt.wiederholbar && feld.id.length > 50) throw new SchemaFehler(`„${feld.label}“: ID zu lang für einen wiederholbaren Abschnitt.`);
+				if (abschnitt.wiederholbar && feld.typ === 'unterschrift') throw new SchemaFehler(`„${feld.label}“: Unterschriften gehören nicht in einen wiederholbaren Abschnitt.`);
 				// Bedingungen dürfen sich auf frühere Felder derselben Seite beziehen: gleich verfügbar machen
 				frueher.set(feld.id, feld);
 				return feld;
@@ -284,6 +357,15 @@ function pruefeFeld(
 		if (einheit) feld.einheit = einheit;
 	}
 	if (typ === 'unterschrift') feld.wer = f.wer === 'monteur' ? 'monteur' : 'kunde';
+	if ((AUFMASS_TYPEN as readonly string[]).includes(typ)) pruefeAufmassFeld(f, feld, woL);
+	else if (typ === 'zahl' || typ === 'messwert') {
+		// Kürzel auch für Zahl/Messwert (z. B. „verschnitt“ in Formeln)
+		const kuerzel = text(f.kuerzel, `${woL}: Kürzel`, 20, false);
+		if (kuerzel) {
+			if (!KUERZEL.test(kuerzel)) throw new SchemaFehler(`${woL}: Kürzel nur aus Buchstaben, Ziffern und _ (mit Buchstabe vorn).`);
+			feld.kuerzel = kuerzel;
+		}
+	}
 	if (f.bedingung !== undefined && f.bedingung !== null) {
 		const b = f.bedingung;
 		if (!istObjekt(b)) throw new SchemaFehler(`${woL}: ungültige Bedingung.`);
@@ -318,7 +400,7 @@ const leer = (w: unknown) =>
 /** Hat das Feld überhaupt einen Wert (für die Bedingung „ausgefüllt“)? */
 export function hatWert(feld: Feld, wert: unknown): boolean {
 	if (feld.typ === 'unterschrift') return istObjekt(wert) && typeof wert.dateiId === 'string';
-	if (feld.typ === 'zahl' || feld.typ === 'messwert') return typeof wert === 'number' && Number.isFinite(wert);
+	if (istZahlTyp(feld.typ)) return typeof wert === 'number' && Number.isFinite(wert);
 	if (feld.typ === 'janein') return typeof wert === 'boolean';
 	return !leer(wert);
 }
@@ -352,7 +434,7 @@ export function bedingungGilt(b: Bedingung, quelle: Feld, wert: unknown): boolea
 			if (!hatWert(quelle, wert)) gleich = false;
 			else if (quelle.typ === 'janein') gleich = (wert === true ? 'ja' : 'nein') === b.wert;
 			else if (Array.isArray(wert)) gleich = wert.includes(b.wert);
-			else if (quelle.typ === 'zahl' || quelle.typ === 'messwert') gleich = alsZahl(wert) === alsZahl(b.wert);
+			else if (istZahlTyp(quelle.typ)) gleich = alsZahl(wert) === alsZahl(b.wert);
 			else gleich = String(wert).trim().toLowerCase() === String(b.wert ?? '').trim().toLowerCase();
 			// „ist nicht“ gilt nur bei einem vorhandenen, anderen Wert (leer ist weder gleich noch ungleich)
 			return b.op === 'gleich' ? gleich : hatWert(quelle, wert) && !gleich;
@@ -363,7 +445,8 @@ export function bedingungGilt(b: Bedingung, quelle: Feld, wert: unknown): boolea
 export type FeldZustand = { sichtbar: boolean; pflicht: boolean };
 
 /** Sichtbarkeit und Pflicht aller Felder für die aktuellen Antworten (in Reihenfolge, Bedingungen kaskadieren). */
-export function auswerten(schema: Schema, antworten: Antworten): Map<string, FeldZustand> {
+export function auswerten(schemaRoh: Schema, antworten: Antworten): Map<string, FeldZustand> {
+	const schema = expandiere(schemaRoh, antworten);
 	const zustand = new Map<string, FeldZustand>();
 	const felder = new Map<string, Feld>();
 	for (const { feld } of alleFelder(schema)) {
@@ -376,7 +459,8 @@ export function auswerten(schema: Schema, antworten: Antworten): Map<string, Fel
 			gilt = quelle ? bedingungGilt(b, quelle, quelleSichtbar ? antworten[b.feld] : undefined) : false;
 		}
 		const sichtbar = b?.wirkung === 'zeigen' ? gilt : true;
-		const pflicht = feld.typ !== 'hinweis' && sichtbar && (!!feld.pflicht || (b?.wirkung === 'pflicht' && gilt));
+		// berechnete Felder füllt die Formel – nie „Pflicht“ für den Nutzer
+		const pflicht = feld.typ !== 'hinweis' && !istBerechnet(feld) && sichtbar && (!!feld.pflicht || (b?.wirkung === 'pflicht' && gilt));
 		zustand.set(feld.id, { sichtbar, pflicht });
 	}
 	return zustand;
@@ -391,10 +475,11 @@ export const minFotos = (f: Feld) => Math.max(1, f.minFotos ?? 1);
  */
 export function feldProblem(feld: Feld, wert: unknown, pflicht: boolean): string | null {
 	if (feld.typ === 'hinweis') return null;
-	if ((feld.typ === 'zahl' || feld.typ === 'messwert') && hatWert(feld, wert)) {
+	if (istZahlTyp(feld.typ) && !istBerechnet(feld) && hatWert(feld, wert)) {
 		const n = wert as number;
-		if (feld.min !== undefined && n < feld.min) return `mindestens ${feld.min}${feld.einheit ? ' ' + feld.einheit : ''}`;
-		if (feld.max !== undefined && n > feld.max) return `höchstens ${feld.max}${feld.einheit ? ' ' + feld.einheit : ''}`;
+		const e = einheitVon(feld);
+		if (feld.min !== undefined && n < feld.min) return `mindestens ${feld.min}${e ? ' ' + e : ''}`;
+		if (feld.max !== undefined && n > feld.max) return `höchstens ${feld.max}${e ? ' ' + e : ''}`;
 	}
 	if (!pflicht) return null;
 	if (feld.typ === 'foto') {
@@ -414,7 +499,8 @@ export function feldProblem(feld: Feld, wert: unknown, pflicht: boolean): string
 export type Fehlend = { feldId: string; label: string; grund: string; seite: number };
 
 /** Was einem Schritt (Seite `seite`) oder – ohne `seite` – dem ganzen Protokoll noch fehlt. */
-export function fehlendeFelder(schema: Schema, antworten: Antworten, seite?: number): Fehlend[] {
+export function fehlendeFelder(schemaRoh: Schema, antworten: Antworten, seite?: number): Fehlend[] {
+	const schema = expandiere(schemaRoh, antworten);
 	const zustand = auswerten(schema, antworten);
 	const aus: Fehlend[] = [];
 	for (const { feld, seite: s } of alleFelder(schema)) {
@@ -422,7 +508,7 @@ export function fehlendeFelder(schema: Schema, antworten: Antworten, seite?: num
 		const z = zustand.get(feld.id)!;
 		if (!z.sichtbar) continue;
 		const grund = feldProblem(feld, antworten[feld.id], z.pflicht);
-		if (grund) aus.push({ feldId: feld.id, label: feld.label, grund, seite: s });
+		if (grund) aus.push({ feldId: feld.id, label: feld.gruppe ? `${feld.gruppe}: ${feld.label}` : feld.label, grund, seite: s });
 	}
 	return aus;
 }
@@ -452,9 +538,18 @@ function wertFuer(feld: Feld, w: unknown): unknown {
 			return [...t].slice(0, feld.typ === 'text' ? GRENZEN.text : GRENZEN.textlang).join('');
 		}
 		case 'zahl':
-		case 'messwert': {
+		case 'messwert':
+		case 'mass':
+		case 'flaeche':
+		case 'umfang':
+		case 'volumen':
+		case 'abzug':
+		case 'stueck':
+		case 'formel': {
+			if (istBerechnet(feld)) return undefined; // rechnet der Server (berechne)
 			const n = alsZahl(w);
-			return n === null ? undefined : n;
+			if (n === null || Math.abs(n) > 1e9) return undefined;
+			return feld.typ === 'stueck' ? Math.round(n) : n;
 		}
 		case 'janein':
 			return typeof w === 'boolean' ? w : undefined;
@@ -474,9 +569,18 @@ function wertFuer(feld: Feld, w: unknown): unknown {
  * Antworten aus dem Browser: nur bekannte Felder mit passendem Typ (Unbekanntes und Unpassendes fällt weg). Werte von
  * Foto- und Unterschriftsfeldern kommen aus `bisher` (die setzt nur der Server beim Hochladen).
  */
-export function bereinigeAntworten(schema: Schema, roh: unknown, bisher: Antworten = {}): Antworten {
+export function bereinigeAntworten(schemaRoh: Schema, roh: unknown, bisher: Antworten = {}): Antworten {
 	const eingabe = istObjekt(roh) ? roh : {};
 	const aus: Antworten = {};
+	// Anzahl der Wiederholungen (Räume) – ganze Zahl 1 … MAX_WIEDERHOLUNGEN
+	for (const s of schemaRoh.seiten) {
+		for (const a of s.abschnitte) {
+			if (!a.wiederholbar) continue;
+			const n = alsZahl(eingabe[anzahlSchluessel(a.id)]);
+			if (n !== null && Number.isInteger(n) && n >= 1 && n <= MAX_WIEDERHOLUNGEN) aus[anzahlSchluessel(a.id)] = n;
+		}
+	}
+	const schema = expandiere(schemaRoh, aus);
 	for (const { feld } of alleFelder(schema)) {
 		if (DATEI_TYPEN.includes(feld.typ)) {
 			if (bisher[feld.id] !== undefined) aus[feld.id] = bisher[feld.id];
@@ -486,7 +590,7 @@ export function bereinigeAntworten(schema: Schema, roh: unknown, bisher: Antwort
 		const w = wertFuer(feld, eingabe[feld.id]);
 		if (w !== undefined && !(Array.isArray(w) && w.length === 0) && w !== '') aus[feld.id] = w;
 	}
-	return aus;
+	return berechne(schema, aus);
 }
 
 /** Gültige Datei-IDs eines Fotofelds / einer Unterschrift (für Server und PDF). */
@@ -516,6 +620,16 @@ export function wertText(feld: Feld, wert: unknown): string {
 			return String(wert).replace('.', ',');
 		case 'messwert':
 			return `${String(wert).replace('.', ',')}${feld.einheit ? ' ' + feld.einheit : ''}`;
+		case 'mass':
+		case 'flaeche':
+		case 'umfang':
+		case 'volumen':
+		case 'abzug':
+		case 'stueck':
+		case 'formel': {
+			const e = einheitVon(feld);
+			return `${(wert as number).toLocaleString('de-DE', { maximumFractionDigits: 3 })}${e ? ' ' + e : ''}`;
+		}
 		case 'foto': {
 			const n = (wert as unknown[]).length;
 			return `${n} Foto${n === 1 ? '' : 's'}`;
@@ -548,4 +662,266 @@ export function leeresSchema(): Schema {
 			}
 		]
 	};
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Aufmaß (Wunsch Jamil, Talk msg 2842): Maße, berechnete Felder, wiederholbare Abschnitte (Räume), Katalog-Mengen
+
+/** Einheit eines Felds (Messwert/Maß/Formel: eingestellt; sonst fest je Typ). */
+export function einheitVon(feld: Pick<Feld, 'typ' | 'einheit'>): string | undefined {
+	return AUFMASS_EINHEIT[feld.typ] ?? feld.einheit;
+}
+
+const KUERZEL = /^[A-Za-zÄÖÜäöüß][A-Za-z0-9ÄÖÜäöüß_]{0,19}$/;
+const UUID_KATALOG = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function formelPruefen(text: string, wo: string): string {
+	try {
+		parse(text);
+	} catch (e) {
+		if (e instanceof FormelFehler) throw new SchemaFehler(`${wo}: ${e.message}`);
+		throw e;
+	}
+	return text;
+}
+
+/** Felder eines Aufmaß-Typs: Kürzel, Einheit, Formel, Nachkommastellen, Grenzen, Katalog-Verknüpfung. */
+function pruefeAufmassFeld(f: Record<string, unknown>, feld: Feld, woL: string): void {
+	const kuerzel = text(f.kuerzel, `${woL}: Kürzel`, 20, false);
+	if (kuerzel) {
+		if (!KUERZEL.test(kuerzel)) throw new SchemaFehler(`${woL}: Kürzel nur aus Buchstaben, Ziffern und _ (mit Buchstabe vorn), z. B. „L“ oder „wand“.`);
+		feld.kuerzel = kuerzel;
+	}
+	if (feld.typ === 'mass') {
+		const e = f.einheit === undefined || f.einheit === '' ? 'm' : f.einheit;
+		if (!(MASS_EINHEITEN as readonly unknown[]).includes(e)) throw new SchemaFehler(`${woL}: Einheit m, cm oder mm.`);
+		feld.einheit = e as string;
+	}
+	if (feld.typ === 'formel') {
+		const e = text(f.einheit, `${woL}: Einheit`, GRENZEN.einheit, false);
+		if (e) feld.einheit = e;
+	}
+	const formel = text(f.formel, `${woL}: Formel`, 500, feld.typ === 'formel');
+	if (formel && (feld.typ === 'formel' || feld.typ === 'flaeche' || feld.typ === 'umfang' || feld.typ === 'volumen')) feld.formel = formelPruefen(formel, woL);
+	const nk = zahlOder(f.nachkomma, `${woL}: Nachkommastellen`);
+	if (nk !== undefined) {
+		if (!Number.isInteger(nk) || nk < 0 || nk > 4) throw new SchemaFehler(`${woL}: Nachkommastellen 0–4.`);
+		feld.nachkomma = nk;
+	}
+	if (!istBerechnet(feld)) {
+		const min = zahlOder(f.min, `${woL}: Minimum`);
+		const max = zahlOder(f.max, `${woL}: Maximum`);
+		if (min !== undefined && max !== undefined && min > max) throw new SchemaFehler(`${woL}: Minimum ist größer als Maximum.`);
+		if (min !== undefined) feld.min = min;
+		if (max !== undefined) feld.max = max;
+	}
+	if (f.katalog !== undefined && f.katalog !== null) {
+		const k = f.katalog;
+		if (!istObjekt(k) || typeof k.positionId !== 'string' || !UUID_KATALOG.test(k.positionId)) throw new SchemaFehler(`${woL}: ungültige Katalogposition.`);
+		feld.katalog = { positionId: k.positionId.toLowerCase() };
+		const menge = text(k.menge, `${woL}: Mengenformel`, 500, false);
+		if (menge) feld.katalog.menge = formelPruefen(menge, `${woL} (Mengenformel)`);
+	}
+}
+
+type Ort = { feld: Feld; abschnitt: Abschnitt };
+
+/** Name (Kürzel ohne Groß/klein oder Feld-ID) → Feld mit Abschnitt. */
+function namensRegister(schema: Schema): Map<string, Ort> {
+	const m = new Map<string, Ort>();
+	for (const s of schema.seiten) for (const a of s.abschnitte) for (const f of a.felder) {
+		m.set(f.id, { feld: f, abschnitt: a });
+		if (f.kuerzel) m.set(f.kuerzel.toLowerCase(), { feld: f, abschnitt: a });
+	}
+	return m;
+}
+
+/**
+ * Prüft alle Formeln einer Vorlage: Kürzel eindeutig, Namen bekannt und Zahlenfelder, Reichweite (im Raum: Felder
+ * desselben Raums oder außerhalb; außerhalb: nur Felder außerhalb – Räume nur über summe(…)), keine Kreise.
+ */
+function pruefeAufmass(schema: Schema): void {
+	const register = new Map<string, Ort>();
+	for (const s of schema.seiten) for (const a of s.abschnitte) for (const f of a.felder) {
+		register.set(f.id, { feld: f, abschnitt: a });
+	}
+	for (const { feld, abschnitt } of [...register.values()]) {
+		if (!feld.kuerzel) continue;
+		const k = feld.kuerzel.toLowerCase();
+		const da = register.get(k);
+		if (da && da.feld !== feld) throw new SchemaFehler(`Kürzel „${feld.kuerzel}“ ist doppelt (auch bei „${da.feld.label}“).`);
+		register.set(k, { feld, abschnitt });
+	}
+	const kanten = new Map<string, string[]>();
+	for (const s of schema.seiten) for (const a of s.abschnitte) for (const f of a.felder) {
+		// Formel und Mengenformel prüfen; nur die Formel zählt für Kreise (die Menge darf den eigenen Wert nutzen)
+		const formeln: [string, boolean][] = [];
+		if (f.formel) formeln.push([f.formel, true]);
+		if (f.katalog?.menge) formeln.push([f.katalog.menge, false]);
+		const ziele: string[] = [];
+		for (const [text, zaehlt] of formeln) {
+			const baum = parse(text);
+			for (const n of namen(baum)) {
+				const o = register.get(n) ?? register.get(n.toLowerCase());
+				if (!o) throw new SchemaFehler(`„${f.label}“: „${n}“ ist kein Feld bzw. Kürzel.`);
+				if (!istZahlTyp(o.feld.typ)) throw new SchemaFehler(`„${f.label}“: „${o.feld.label}“ ist kein Zahlenfeld.`);
+				if (o.abschnitt.wiederholbar && o.abschnitt !== a) {
+					throw new SchemaFehler(`„${f.label}“: „${o.feld.label}“ liegt in „${o.abschnitt.wiederholName ?? 'Bereich'}“ – dafür summe(${n}) verwenden.`);
+				}
+				if (zaehlt) ziele.push(o.feld.id);
+			}
+			for (const n of namen(baum, true)) {
+				const o = register.get(n) ?? register.get(n.toLowerCase());
+				if (!o) throw new SchemaFehler(`„${f.label}“: „${n}“ ist kein Feld bzw. Kürzel.`);
+				if (!istZahlTyp(o.feld.typ)) throw new SchemaFehler(`„${f.label}“: „${o.feld.label}“ ist kein Zahlenfeld.`);
+				if (!o.abschnitt.wiederholbar) throw new SchemaFehler(`„${f.label}“: summe(${n}) nur für Felder in wiederholbaren Abschnitten.`);
+				if (zaehlt) ziele.push(o.feld.id);
+			}
+		}
+		if (f.formel) kanten.set(f.id, ziele);
+	}
+	// Kreise (a = b + 1, b = a * 2) verbieten
+	const zustand = new Map<string, 1 | 2>();
+	const besuche = (id: string, pfad: string[]) => {
+		if (zustand.get(id) === 2) return;
+		if (zustand.get(id) === 1) {
+			const namen = [...pfad.slice(pfad.indexOf(id)), id].map((x) => register.get(x)?.feld.label ?? x);
+			throw new SchemaFehler(`Formeln im Kreis: ${namen.join(' → ')}.`);
+		}
+		zustand.set(id, 1);
+		for (const z of kanten.get(id) ?? []) besuche(z, [...pfad, id]);
+		zustand.set(id, 2);
+	};
+	for (const id of kanten.keys()) besuche(id, []);
+}
+
+const nrId = (id: string, nr: number) => (nr === 1 ? id : `${id}__${nr}`);
+
+/** Anzahl Wiederholungen eines Abschnitts aus den Antworten (1 … MAX). */
+export function anzahlVon(antworten: Antworten, abschnittId: string): number {
+	const n = alsZahl(antworten[anzahlSchluessel(abschnittId)]);
+	return n !== null && Number.isInteger(n) && n >= 1 && n <= MAX_WIEDERHOLUNGEN ? n : 1;
+}
+
+/**
+ * Klappt wiederholbare Abschnitte auf (Raum 1, Raum 2, …): Feld-IDs ab der 2. Wiederholung mit „__n“, Bedingungen und
+ * Formeln auf die Felder derselben Wiederholung umgeschrieben, summe(x) auf alle Wiederholungen. Formeln stehen danach
+ * mit Feld-IDs statt Kürzeln. Ohne wiederholbare Abschnitte und ohne Formeln: dasselbe Schema. Mehrfach aufrufbar.
+ */
+export function expandiere(schema: Schema, antworten: Antworten): Schema {
+	if (schema.expandiert) return schema;
+	const hatAufmass = schema.seiten.some((s) => s.abschnitte.some((a) => a.wiederholbar || a.felder.some((f) => f.formel || f.katalog)));
+	if (!hatAufmass) return schema;
+	const register = namensRegister(schema);
+	const ortVon = (n: string) => register.get(n) ?? register.get(n.toLowerCase());
+	const alleIds = (n: string): string[] => {
+		const o = ortVon(n);
+		if (!o) return [];
+		return o.abschnitt.wiederholbar ? Array.from({ length: anzahlVon(antworten, o.abschnitt.id) }, (_, i) => nrId(o.feld.id, i + 1)) : [o.feld.id];
+	};
+	const umschreiben = (text: string, a: Abschnitt, nr: number): string =>
+		alsText(
+			ersetzeNamen(
+				parse(text),
+				(n) => {
+					const o = ortVon(n);
+					if (!o) return n;
+					return o.abschnitt === a && a.wiederholbar ? nrId(o.feld.id, nr) : o.feld.id;
+				},
+				alleIds
+			)
+		);
+	const seiten: Seite[] = schema.seiten.map((s) => ({
+		...s,
+		abschnitte: s.abschnitte.flatMap((a): Abschnitt[] => {
+			const anzahl = a.wiederholbar ? anzahlVon(antworten, a.id) : 1;
+			return Array.from({ length: anzahl }, (_, i) => {
+				const nr = i + 1;
+				const name = `${a.wiederholName ?? 'Bereich'} ${nr}`;
+				const kopie: Abschnitt = {
+					id: a.wiederholbar ? nrId(a.id, nr) : a.id,
+					felder: a.felder.map((f) => {
+						const g: Feld = { ...f, id: a.wiederholbar ? nrId(f.id, nr) : f.id };
+						if (a.wiederholbar) g.gruppe = name;
+						if (f.formel) g.formel = umschreiben(f.formel, a, nr);
+						if (f.katalog) g.katalog = { positionId: f.katalog.positionId, menge: umschreiben(f.katalog.menge ?? f.id, a, nr) };
+						if (f.bedingung && a.wiederholbar && a.felder.some((x) => x.id === f.bedingung!.feld)) g.bedingung = { ...f.bedingung, feld: nrId(f.bedingung.feld, nr) };
+						return g;
+					})
+				};
+				if (a.titel || a.wiederholbar) kopie.titel = a.wiederholbar ? (a.titel ? `${a.titel} – ${name}` : name) : a.titel;
+				if (a.wiederholbar) kopie.wdh = { basis: a.id, nr, anzahl, name: a.wiederholName ?? 'Bereich' };
+				return kopie;
+			});
+		})
+	}));
+	return { seiten, expandiert: true };
+}
+
+/** Berechnete Felder ausrechnen (in Abhängigkeitsreihenfolge, gerundet); fehlt eine Angabe, bleibt das Feld leer. */
+export function berechne(schemaRoh: Schema, antworten: Antworten): Antworten {
+	const schema = expandiere(schemaRoh, antworten);
+	const felder = alleFelder(schema).map((x) => x.feld);
+	const rechnend = felder.filter((f) => istBerechnet(f) && f.formel);
+	if (rechnend.length === 0) return antworten;
+	const aus: Antworten = { ...antworten };
+	const baeume = new Map<string, Knoten>(rechnend.map((f) => [f.id, parse(f.formel!)]));
+	const zahl = (id: string) => {
+		const w = aus[id];
+		return typeof w === 'number' && Number.isFinite(w) ? w : null;
+	};
+	for (const f of rechnend) delete aus[f.id];
+	// höchstens so viele Durchläufe wie Formeln (Kreise verbietet pruefeSchema)
+	for (let lauf = 0; lauf <= rechnend.length; lauf++) {
+		let geaendert = false;
+		for (const f of rechnend) {
+			const w = rechne(baeume.get(f.id)!, zahl);
+			const n = f.nachkomma ?? 2;
+			const r = w === null || !Number.isFinite(w) ? null : Math.round(w * 10 ** n) / 10 ** n;
+			if (r !== zahl(f.id)) {
+				if (r === null) delete aus[f.id];
+				else aus[f.id] = r;
+				geaendert = true;
+			}
+		}
+		if (!geaendert) break;
+	}
+	return aus;
+}
+
+/** Mengen je Katalogposition (sichtbare, verknüpfte Felder über alle Räume summiert; nur positive Mengen). */
+export function aufmassMengen(schemaRoh: Schema, antworten: Antworten): { positionId: string; menge: number; felder: string[] }[] {
+	const schema = expandiere(schemaRoh, antworten);
+	const werte = berechne(schema, antworten);
+	const zustand = auswerten(schema, werte);
+	const zahl = (id: string) => {
+		const w = werte[id];
+		return typeof w === 'number' && Number.isFinite(w) ? w : null;
+	};
+	const je = new Map<string, { menge: number; felder: string[] }>();
+	for (const { feld } of alleFelder(schema)) {
+		if (!feld.katalog || !zustand.get(feld.id)?.sichtbar) continue;
+		const m = rechne(parse(feld.katalog.menge ?? feld.id), zahl);
+		if (m === null || m <= 0) continue;
+		const x = je.get(feld.katalog.positionId) ?? { menge: 0, felder: [] };
+		x.menge += m;
+		x.felder.push(feld.gruppe ? `${feld.gruppe}: ${feld.label}` : feld.label);
+		je.set(feld.katalog.positionId, x);
+	}
+	return [...je].map(([positionId, x]) => ({ positionId, menge: Math.round(x.menge * 1000) / 1000, felder: x.felder }));
+}
+
+/** „+ Raum“: eine Wiederholung mehr (höchstens MAX). */
+export function mitWiederholung(antworten: Antworten, abschnittId: string): Antworten {
+	return { ...antworten, [anzahlSchluessel(abschnittId)]: Math.min(MAX_WIEDERHOLUNGEN, anzahlVon(antworten, abschnittId) + 1) };
+}
+
+/** „Letzten Raum entfernen“: die letzte Wiederholung samt ihren Antworten (mindestens eine bleibt). */
+export function ohneLetzteWiederholung(schema: Schema, antworten: Antworten, abschnittId: string): Antworten {
+	const n = anzahlVon(antworten, abschnittId);
+	if (n <= 1) return antworten;
+	const a = schema.seiten.flatMap((s) => s.abschnitte).find((x) => x.id === abschnittId);
+	const aus: Antworten = { ...antworten, [anzahlSchluessel(abschnittId)]: n - 1 };
+	for (const f of a?.felder ?? []) delete aus[nrId(f.id, n)];
+	return aus;
 }

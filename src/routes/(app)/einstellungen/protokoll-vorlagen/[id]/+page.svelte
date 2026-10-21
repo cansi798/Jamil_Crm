@@ -9,6 +9,9 @@
 	import { beforeNavigate, goto } from '$app/navigation';
 	import '$lib/stil/kunden.css';
 	import Assistent from '$lib/components/protokoll/Assistent.svelte';
+	import { AUFMASS_TYPEN, FELD_TYPEN } from '$lib/protokoll-formular';
+	// Protokolle ohne Aufmaß-Felder; Aufmaß-Vorlagen mit allen (msg 2842)
+	const PROTOKOLL_TYPEN = FELD_TYPEN.filter((t) => !(AUFMASS_TYPEN as readonly string[]).includes(t));
 	import FormularBaukasten from '$lib/components/protokoll/FormularBaukasten.svelte';
 	import { pruefeSchema, SchemaFehler, type Antworten, type Schema } from '$lib/protokoll-formular';
 	import type { PageData } from './$types';
@@ -81,7 +84,7 @@
 <svelte:window onbeforeunload={(e) => geaendert && e.preventDefault()} />
 
 <main class="kd-seite breit pb-seite">
-	<a href="/einstellungen/protokoll-vorlagen" class="kd-zurueck">← Protokoll-Vorlagen</a>
+	<a href={data.vorlage.art === 'aufmass' ? '/einstellungen/protokoll-vorlagen?art=aufmass' : '/einstellungen/protokoll-vorlagen'} class="kd-zurueck">← {data.vorlage.art === 'aufmass' ? 'Aufmaß-Vorlagen' : 'Protokoll-Vorlagen'}</a>
 	<header class="pb-kopf">
 		<div class="pb-namen">
 			<label>Name der Vorlage<input type="text" bind:value={entwurf.name} maxlength="200" data-testid="vorlage-name" /></label>
@@ -99,7 +102,7 @@
 	</button>
 
 	<div class="pb-raster" class:zeige-vorschau={vorschauMobil}>
-		<FormularBaukasten bind:schema={entwurf.schema} />
+		<FormularBaukasten bind:schema={entwurf.schema} typen={data.vorlage.art === 'aufmass' ? FELD_TYPEN : PROTOKOLL_TYPEN} katalog={data.katalog} hinweisVorgabe={data.vorlage.art === 'aufmass' ? 'Hinweis zum Messen' : 'Text für den Monteur'} />
 
 		<aside class="pb-vorschau" aria-label="Live-Vorschau">
 			<div class="pb-handy">

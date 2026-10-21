@@ -131,7 +131,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			preiseSehen: preise,
 			buchungen,
 			protokolle,
-			protokollVorlagen: protokollVorlagen.map((v) => ({ id: v.id, name: v.name })),
+			protokollVorlagen: protokollVorlagen.map((v) => ({ id: v.id, name: v.art === 'aufmass' ? `Aufmaß: ${v.name}` : v.name })),
 			darfProtokollStarten: pr.ausfuellen,
 			todos,
 			mitarbeiter,

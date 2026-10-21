@@ -6,11 +6,11 @@
 	 * Schritt „Abschließen“. `alles`: alle Schritte untereinander (abgeschlossenes Protokoll, nur lesen).
 	 */
 	import FeldEingabe from './FeldEingabe.svelte';
-	import { auswerten, fehlendeFelder, feldProblem, type Antworten, type Schema } from '$lib/protokoll-formular';
+	import { anzahlSchluessel, auswerten, berechne, expandiere, fehlendeFelder, feldProblem, type Antworten, type Schema } from '$lib/protokoll-formular';
 
 	let {
-		schema,
-		antworten,
+		schema: schemaRoh,
+		antworten: antwortenRoh,
 		schritt = $bindable(0),
 		gesperrt = false,
 		alles = false,
@@ -36,6 +36,9 @@
 		abschliessenText?: string;
 	} = $props();
 
+	// Aufmaß (msg 2842): wiederholbare Abschnitte aufklappen, berechnete Felder live ausrechnen
+	const schema = $derived(expandiere(schemaRoh, antwortenRoh));
+	const antworten = $derived(berechne(schema, antwortenRoh));
 	const anzahl = $derived(schema.seiten.length);
 	const aktuell = $derived(Math.min(Math.max(0, schritt), anzahl - 1));
 	const zustand = $derived(auswerten(schema, antworten));
@@ -97,6 +100,23 @@
 					/>
 				{/if}
 			{/each}
+			{#if a.wdh && a.wdh.nr === a.wdh.anzahl && !gesperrt}
+				{@const w = a.wdh}
+				<div class="pa-wdh">
+					<button type="button" class="kd-knopf hell" onclick={() => onwert(anzahlSchluessel(w.basis), w.anzahl + 1)}>+ {w.name}</button>
+					{#if w.anzahl > 1}
+						<button
+							type="button"
+							class="knopf-subtil"
+							onclick={() => {
+								if (!confirm(`${w.name} ${w.anzahl} mit allen Angaben entfernen?`)) return;
+								for (const f of a.felder) if (antwortenRoh[f.id] !== undefined) onwert(f.id, undefined);
+								onwert(anzahlSchluessel(w.basis), w.anzahl - 1);
+							}}>{w.name} {w.anzahl} entfernen</button
+						>
+					{/if}
+				</div>
+			{/if}
 		</section>
 	{/each}
 {/snippet}
@@ -153,6 +173,12 @@
 </div>
 
 <style>
+	.pa-wdh {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
 	.pa {
 		display: flex;
 		flex-direction: column;

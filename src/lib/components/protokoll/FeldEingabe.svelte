@@ -6,7 +6,7 @@
 	 */
 	import { untrack } from 'svelte';
 	import Unterschrift from '$lib/components/Unterschrift.svelte';
-	import { minFotos, type Feld, type UnterschriftWert } from '$lib/protokoll-formular';
+	import { einheitVon, istBerechnet, istZahlTyp, minFotos, wertText, type Feld, type UnterschriftWert } from '$lib/protokoll-formular';
 
 	let {
 		feld,
@@ -104,10 +104,13 @@
 			<input id={fid} type="text" value={(wert as string) ?? ''} disabled={gesperrt} maxlength="5000" oninput={(e) => onwert(e.currentTarget.value)} />
 		{:else if feld.typ === 'textlang'}
 			<textarea id={fid} rows="4" disabled={gesperrt} maxlength="20000" value={(wert as string) ?? ''} oninput={(e) => onwert(e.currentTarget.value)}></textarea>
-		{:else if feld.typ === 'zahl' || feld.typ === 'messwert'}
+		{:else if istBerechnet(feld)}
+			<!-- Aufmaß (msg 2842): berechnet aus der Formel, nicht eintippbar -->
+			<output id={fid} class="pf-berechnet" aria-live="polite">{typeof wert === 'number' ? wertText(feld, wert) : '– (fehlende Angaben)'}</output>
+		{:else if istZahlTyp(feld.typ)}
 			<div class="pf-zahl">
 				<input id={fid} type="text" inputmode="decimal" autocomplete="off" disabled={gesperrt} value={zahlText} oninput={zahl} />
-				{#if feld.einheit}<span class="pf-einheit">{feld.einheit}</span>{/if}
+				{#if einheitVon(feld)}<span class="pf-einheit">{einheitVon(feld)}</span>{/if}
 			</div>
 			{#if zahlUngueltig}<p class="pf-meldung">Bitte eine Zahl eingeben (z. B. 1,8).</p>{/if}
 		{:else if feld.typ === 'janein'}
@@ -206,6 +209,14 @@
 {/if}
 
 <style>
+	.pf-berechnet {
+		display: block;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--ui-radius);
+		background: var(--ui-grau-hell);
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
 	.pf-hinweis {
 		padding: var(--ui-a3) var(--ui-a4);
 		border-left: 3px solid var(--ui-akzent);

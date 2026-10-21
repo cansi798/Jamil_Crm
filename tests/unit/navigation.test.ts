@@ -13,7 +13,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE, { nextcloud: true });
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Angebote', 'Plantafel', 'Karte', 'Aufgaben']);
 		expect(gruppen(nav)).toEqual({
-			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'E-Mail-Vorlagen'],
+			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
 			'Stammdaten & Kalkulation': ['Katalog', 'Kalkulation', 'Auftragsquellen', 'Briefkopf / Firmenprofil'],
 			'Personal & Zeiten': ['Zeiten', 'Abwesenheiten', 'Kolonnen'],
 			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen'],

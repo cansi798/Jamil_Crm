@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -308,6 +309,7 @@
 </svelte:head>
 
 <main class="kd-seite an-seite">
+	{#if page.url.searchParams.get('hinweis')}<p class="kt-hinweis warnung" role="status">{page.url.searchParams.get('hinweis')}</p>{/if}
 	{#if angebot.auftragId}
 		<a href={`/auftraege/${angebot.auftragId}`} class="kd-zurueck">← Auftrag {angebot.auftragNummer}</a>
 	{:else}

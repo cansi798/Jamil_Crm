@@ -242,6 +242,10 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 21. Links am Auftrag (Migration 088, `app.auftrag_links`): nur http/https (App und CHECK in der Datenbank), keine
     Zugangsdaten in der Adresse, Ausgabe mit `rel="noopener noreferrer"`; sichtbar wie der Auftrag, ändern mit
     „Aufträge bearbeiten“, „im Kundenportal“ nur mit `kundenportal.verwalten` (Standard aus, ohne Notiz).
+22. Aufmaß-Vorlagen (Migration 093, Art `aufmass` der Formular-Vorlagen): Maß-, Flächen-, Umfang-, Volumen-, Abzug-,
+    Stück- und Formelfelder; Formeln mit eigenem Parser (`src/lib/aufmass-formel.ts`, kein eval, Grenzen für Länge und
+    Tiefe); wiederholbare Abschnitte (Räume) werden vor jeder Prüfung aufgeklappt (`expandiere`), berechnete Werte setzt
+    nur der Server (`berechne`); Katalog-Verknüpfung → „Angebot aus Aufmaß“ (`src/lib/server/aufmass.ts`, Rechte wie Angebote).
 
 ## Installation auf einem eigenen Server
 

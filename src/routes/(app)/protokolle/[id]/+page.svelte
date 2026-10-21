@@ -4,10 +4,11 @@
 	import '$lib/stil/kunden.css';
 	import Assistent from '$lib/components/protokoll/Assistent.svelte';
 	import { verkleinereFoto } from '$lib/bild-verkleinern';
-	import { DATEI_TYPEN, alleFelder, type Antworten } from '$lib/protokoll-formular';
+	import { DATEI_TYPEN, alleFelder, aufmassMengen, expandiere, type Antworten } from '$lib/protokoll-formular';
+	import { enhance } from '$app/forms';
 	import type { PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: { angebotFehler?: string } | null } = $props();
 
 	const p = $derived(data.protokoll);
 	const id = untrack(() => data.protokoll.id);
@@ -22,7 +23,8 @@
 	let laufend: Promise<void> | null = null;
 	let offen = false; // ungespeicherte Änderungen
 
-	const dateiFelder = $derived(new Set(alleFelder(p.schema).filter((x) => DATEI_TYPEN.includes(x.feld.typ)).map((x) => x.feld.id)));
+	// Aufmaß: auch die Fotofelder weiterer Räume (raum_foto__2 …)
+	const dateiFelder = $derived(new Set(alleFelder(expandiere(p.schema, antworten)).filter((x) => DATEI_TYPEN.includes(x.feld.typ)).map((x) => x.feld.id)));
 
 	function lokalSichern() {
 		try {
@@ -74,6 +76,11 @@
 		lokalSichern();
 		clearTimeout(zeitgeber);
 		zeitgeber = setTimeout(() => (laufend = senden()), 700);
+	}
+	/** Speichern und melden, ob es geklappt hat (für „Angebot aus Aufmaß“). */
+	async function jetztSpeichernOk(): Promise<boolean> {
+		await jetztSpeichern();
+		return stand === 'gespeichert';
 	}
 	async function jetztSpeichern() {
 		clearTimeout(zeitgeber);
@@ -250,9 +257,66 @@
 			</div>
 		{/if}
 	{/if}
+
+	{#if data.katalog}
+		{@const mengen = aufmassMengen(p.schema, p.status === 'abgeschlossen' ? p.antworten : antworten)}
+		<section class="pw-mengen" aria-labelledby="pw-mengen-titel">
+			<h2 id="pw-mengen-titel">Mengen fürs Angebot</h2>
+			{#if mengen.length === 0}
+				<p class="kd-info">Noch keine Mengen: Felder mit Katalog-Verknüpfung sind leer – oder die Vorlage hat keine (Einstellungen → Aufmaß-Vorlagen).</p>
+			{:else}
+				<ul>
+					{#each mengen as m (m.positionId)}
+						{@const kat = data.katalog[m.positionId]}
+						<li>
+							<strong>{m.menge.toLocaleString('de-DE', { maximumFractionDigits: 3 })} {kat?.einheit ?? ''}</strong>
+							{kat?.bezeichnung ?? 'Katalogposition fehlt'}{kat && !kat.aktiv ? ' (abgeschaltet)' : ''}
+							<span class="kd-info">aus {m.felder.join(', ')}</span>
+						</li>
+					{/each}
+				</ul>
+				{#if data.darfAngebot}
+					<form
+						method="POST"
+						action="?/angebot"
+						use:enhance={async ({ cancel }) => {
+							// erst speichern, damit das Angebot genau diese Werte bekommt
+							if (p.status !== 'abgeschlossen' && !(await jetztSpeichernOk())) cancel();
+						}}
+					>
+						<button type="submit" class="kd-knopf">Angebot aus Aufmaß erstellen</button>
+					</form>
+					<p class="kd-info">Legt einen Angebots-Entwurf am Auftrag an; Preise und Texte kommen aus dem Katalog.</p>
+				{/if}
+			{/if}
+			{#if form?.angebotFehler}<p class="kd-fehler" role="alert">{form.angebotFehler}</p>{/if}
+		</section>
+	{/if}
 </main>
 
 <style>
+	.pw-mengen {
+		margin-top: 1.5rem;
+		padding: 1rem;
+		border: 1px solid var(--ui-rand);
+		border-radius: var(--ui-radius-karte);
+		background: var(--ui-flaeche);
+		display: grid;
+		gap: 0.6rem;
+	}
+	.pw-mengen h2 {
+		margin: 0;
+		font-size: var(--ui-schrift-l);
+	}
+	.pw-mengen ul {
+		margin: 0;
+		padding-left: 1.1rem;
+		display: grid;
+		gap: 0.35rem;
+	}
+	.pw-mengen li span {
+		display: block;
+	}
 	.pw-seite {
 		max-width: 46rem;
 	}

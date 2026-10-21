@@ -16,16 +16,23 @@
 		bedingungText,
 		neueId,
 		opsFuer,
+		AUFMASS_TYPEN,
+		MASS_EINHEITEN,
+		einheitVon,
+		istBerechnet,
+		istZahlTyp,
 		type Feld,
 		type FeldTyp,
 		type Schema
 	} from '$lib/protokoll-formular';
+	import { FormelFehler, parse } from '$lib/aufmass-formel';
 
 	let {
 		schema = $bindable(),
 		typen = FELD_TYPEN,
 		mehrereSchritte = true,
-		hinweisVorgabe = 'Text für den Monteur'
+		hinweisVorgabe = 'Text für den Monteur',
+		katalog = null
 	}: {
 		schema: Schema;
 		/** wählbare Feldtypen */
@@ -34,7 +41,23 @@
 		mehrereSchritte?: boolean;
 		/** Vorgabe für neue Hinweistexte */
 		hinweisVorgabe?: string;
+		/** Aufmaß-Vorlagen (msg 2842): Katalogpositionen für die Verknüpfung „Menge → Angebot“ (null = ohne) */
+		katalog?: { id: string; bezeichnung: string; einheit: string }[] | null;
 	} = $props();
+
+	// ---------- Aufmaß: Formeln ----------
+	const mitFormel = (t: FeldTyp) => t === 'formel' || t === 'flaeche' || t === 'umfang' || t === 'volumen';
+	/** Kürzel aller Zahlenfelder (für die Hilfe unter der Formel). */
+	const kuerzelListe = $derived(alleFelder(schema).filter((x) => istZahlTyp(x.feld.typ) && x.feld.kuerzel).map((x) => x.feld.kuerzel!));
+	function formelFehler(text: string | undefined): string | null {
+		if (!text || !text.trim()) return null;
+		try {
+			parse(text);
+			return null;
+		} catch (e) {
+			return e instanceof FormelFehler ? e.message : 'Ungültige Formel.';
+		}
+	}
 
 	let offenId = $state<string | null>(null);
 
@@ -47,6 +70,8 @@
 		if (typ === 'auswahl' || typ === 'mehrfach') f.optionen = ['Option 1', 'Option 2'];
 		if (typ === 'checkliste') f.optionen = ['Punkt 1', 'Punkt 2'];
 		if (typ === 'messwert') f.einheit = 'mm';
+		if (typ === 'mass') f.einheit = 'm';
+		if (typ === 'formel') ((f.formel = ''), (f.einheit = 'm²'));
 		if (typ === 'unterschrift') ((f.wer = 'kunde'), (f.label = 'Unterschrift Kunde'), (f.pflicht = true));
 		if (typ === 'foto') ((f.label = 'Foto'), (f.pflicht = true));
 		if (typ === 'hinweis') ((f.label = 'Hinweis'), (f.hilfe = hinweisVorgabe));
@@ -106,6 +131,10 @@
 			if (neu[k] === undefined) delete f[k];
 			else if (f[k] === undefined) (f as Record<string, unknown>)[k] = neu[k];
 		}
+		if (typ === 'mass' && !(MASS_EINHEITEN as readonly string[]).includes(f.einheit ?? '')) f.einheit = 'm';
+		if (!istZahlTyp(typ)) (delete f.kuerzel, delete f.katalog, delete f.nachkomma);
+		if (!mitFormel(typ)) delete f.formel;
+		else if (typ === 'formel' && f.formel === undefined) f.formel = '';
 		if (typ === 'hinweis') delete f.pflicht;
 		// Bedingungen anderer Felder auf dieses Feld passen evtl. nicht mehr
 		for (const { feld } of alleFelder(schema)) {
@@ -212,6 +241,18 @@
 							<button type="button" class="pb-x" aria-label="Abschnitt löschen" onclick={() => abschnittWeg(s, a)}>✕</button>
 						{/if}
 					</div>
+					{#if typen.some((t) => (AUFMASS_TYPEN as readonly string[]).includes(t))}
+						<div class="pb-wdh">
+							<Schalter
+								bind:an={() => !!abschnitt.wiederholbar, (v) => (v ? ((abschnitt.wiederholbar = true), (abschnitt.wiederholName ??= 'Raum')) : (delete abschnitt.wiederholbar, delete abschnitt.wiederholName))}
+								label="Wiederholbar (z. B. je Raum)"
+								hinweis="Beim Ausfüllen: „+ Raum“; Felder außerhalb rechnen mit summe(…)"
+							/>
+							{#if abschnitt.wiederholbar}
+								<label class="pb-kurz">Name einer Wiederholung<input type="text" bind:value={abschnitt.wiederholName} maxlength="40" placeholder="Raum" /></label>
+							{/if}
+						</div>
+					{/if}
 					<ol class="pb-felder">
 						{#each abschnitt.felder as f, i (f.id)}
 							{@const ort = { s, a, f: i }}
@@ -244,6 +285,9 @@
 										<span class="pb-marken">
 											{#if f.pflicht}<span class="badge badge-rot">Pflicht</span>{/if}
 											{#if f.bedingung}<span class="badge badge-blau" title={bedingungText(f.bedingung, feldNach(f.bedingung.feld))}>Bedingung</span>{/if}
+											{#if f.kuerzel}<span class="badge">{f.kuerzel}</span>{/if}
+											{#if istBerechnet(f)}<span class="badge badge-blau" title={f.formel}>= Formel</span>{/if}
+											{#if f.katalog}<span class="badge badge-gruen">Katalog</span>{/if}
 										</span>
 									</button>
 									<div class="pb-mini">
@@ -285,13 +329,75 @@
 												<label class="pb-kurz">Maximum<input type="number" step="any" value={f.max ?? ''} oninput={(e) => ((f.max = zahlOder(e.currentTarget.value)), f.max === undefined && delete f.max)} /></label>
 											</div>
 										{/if}
+										{#if istZahlTyp(f.typ)}
+											<div class="pb-reihe">
+												<label class="pb-kurz">Kürzel für Formeln<input type="text" value={f.kuerzel ?? ''} maxlength="20" placeholder="z. B. L, B, H, wand" oninput={(e) => (e.currentTarget.value.trim() ? (f.kuerzel = e.currentTarget.value.trim()) : delete f.kuerzel)} /></label>
+												{#if f.typ === 'mass'}
+													<label class="pb-kurz">Einheit<Auswahl bind:value={f.einheit}>{#each MASS_EINHEITEN as e (e)}<option value={e}>{e}</option>{/each}</Auswahl></label>
+												{:else if f.typ === 'formel'}
+													<label class="pb-kurz">Einheit<input type="text" bind:value={f.einheit} maxlength="20" placeholder="m², m, Stk …" /></label>
+												{:else if einheitVon(f) && f.typ !== 'zahl' && f.typ !== 'messwert'}
+													<span class="kd-info">Einheit: {einheitVon(f)}</span>
+												{/if}
+											</div>
+										{/if}
+										{#if mitFormel(f.typ)}
+											{@const fehler = formelFehler(f.formel)}
+											<label>
+												{f.typ === 'formel' ? 'Formel' : 'Formel (optional – sonst wird der Wert eingetragen)'}
+												<input
+													type="text"
+													value={f.formel ?? ''}
+													maxlength="500"
+													placeholder={f.typ === 'flaeche' ? 'z. B. L * B' : 'z. B. (2*(L+B))*H - abzug'}
+													oninput={(e) => (e.currentTarget.value.trim() || f.typ === 'formel' ? (f.formel = e.currentTarget.value) : delete f.formel)}
+													aria-invalid={!!fehler}
+												/>
+											</label>
+											{#if fehler}<p class="kd-fehler">{fehler}</p>{/if}
+											<p class="kd-info">
+												Rechnen mit + − * / und Klammern; min, max, runden(x; 2), aufrunden(x), summe(kürzel) über alle Räume.
+												{#if kuerzelListe.length}Kürzel: {kuerzelListe.join(', ')}{/if}
+											</p>
+											{#if istBerechnet(f)}
+												<label class="pb-kurz">Nachkommastellen<input type="number" min="0" max="4" value={f.nachkomma ?? 2} oninput={(e) => (f.nachkomma = Math.min(4, Math.max(0, Number(e.currentTarget.value) || 0)))} /></label>
+											{/if}
+										{/if}
+										{#if (AUFMASS_TYPEN as readonly string[]).includes(f.typ) && !istBerechnet(f)}
+											<div class="pb-reihe">
+												<label class="pb-kurz">Minimum<input type="number" step="any" value={f.min ?? ''} oninput={(e) => ((f.min = zahlOder(e.currentTarget.value)), f.min === undefined && delete f.min)} /></label>
+												<label class="pb-kurz">Maximum<input type="number" step="any" value={f.max ?? ''} oninput={(e) => ((f.max = zahlOder(e.currentTarget.value)), f.max === undefined && delete f.max)} /></label>
+											</div>
+										{/if}
+										{#if katalog && istZahlTyp(f.typ)}
+											<fieldset class="pb-bedingung">
+												<legend>Katalog-Verknüpfung (Menge → Angebot)</legend>
+												<Auswahl
+													value={f.katalog?.positionId ?? ''}
+													aria-label="Katalogposition"
+													onchange={(e) => (e.currentTarget.value ? (f.katalog = { ...(f.katalog ?? {}), positionId: e.currentTarget.value }) : delete f.katalog)}
+												>
+													<option value="">– keine –</option>
+													{#each katalog as kp (kp.id)}<option value={kp.id}>{kp.bezeichnung} ({kp.einheit})</option>{/each}
+												</Auswahl>
+												{#if f.katalog}
+													{@const kat = f.katalog}
+													{@const mfehler = formelFehler(kat.menge)}
+													<label>
+														Menge (optional – sonst der Wert dieses Felds)
+														<input type="text" value={kat.menge ?? ''} maxlength="500" placeholder={`z. B. ${f.kuerzel ?? 'wert'} * 1,1`} oninput={(e) => (e.currentTarget.value.trim() ? (kat.menge = e.currentTarget.value) : delete kat.menge)} />
+													</label>
+													{#if mfehler}<p class="kd-fehler">{mfehler}</p>{/if}
+												{/if}
+											</fieldset>
+										{/if}
 										{#if f.typ === 'unterschrift'}
 											<label class="pb-kurz">
 												Wer unterschreibt?
 												<Auswahl bind:value={f.wer}><option value="kunde">Kunde</option><option value="monteur">Monteur</option></Auswahl>
 											</label>
 										{/if}
-										{#if f.typ !== 'hinweis'}
+										{#if f.typ !== 'hinweis' && !istBerechnet(f)}
 											<Schalter
 												bind:an={() => !!f.pflicht, (v) => (v ? (f.pflicht = true) : delete f.pflicht)}
 												label="Pflichtfeld"
@@ -378,6 +484,13 @@
 </div>
 
 <style>
+	.pb-wdh {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--ui-a2) var(--ui-a3);
+		align-items: center;
+		margin: var(--ui-a2) 0;
+	}
 	.pb-seite-kopf,
 	.pb-abschnitt-kopf,
 	.pb-feld-kopf,

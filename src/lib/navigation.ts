@@ -73,6 +73,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (angeboteMitPreisen) g.vorlagen.push({ name: 'Angebots-Vorlagen', href: '/angebot-vorlagen', symbol: 'angebote' });
 		if (module.includes('protokolle') && hat('protokolle.vorlagen_bearbeiten')) {
 			g.vorlagen.push({ name: 'Protokoll-Vorlagen', href: '/einstellungen/protokoll-vorlagen', symbol: 'angebote' });
+			// Aufmaß-Vorlagen (Jamil msg 2842): gleicher Baukasten, eigene Liste
+			g.vorlagen.push({ name: 'Aufmaß-Vorlagen', href: '/einstellungen/protokoll-vorlagen?art=aufmass', symbol: 'katalog' });
 		}
 		// E-Mail-Vorlagen an einem Ort (Jamil msg 2789)
 		if (hat('vorlagen.verwalten')) g.vorlagen.push({ name: 'E-Mail-Vorlagen', href: '/einstellungen/mail-vorlagen', symbol: 'angebote' });

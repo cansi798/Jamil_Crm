@@ -9,22 +9,30 @@
 	const aktive = $derived(data.vorlagen.filter((v) => !v.archiviert));
 	const archivierte = $derived(data.vorlagen.filter((v) => v.archiviert));
 	const datum = (iso: string) => new Date(iso).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+	const aufmass = $derived(data.art === 'aufmass');
+	// Formular-Aktion mit der Art in der Adresse (SvelteKit: „?art=aufmass&/neu“)
+	const ziel = (name: string) => (aufmass ? `?art=aufmass&/${name}` : `?/${name}`);
 </script>
 
 <svelte:head>
-	<title>Protokoll-Vorlagen – CRM</title>
+	<title>{aufmass ? 'Aufmaß-Vorlagen' : 'Protokoll-Vorlagen'} – CRM</title>
 </svelte:head>
 
 <main class="kd-seite breit pv-seite">
 	<header class="seiten-kopf">
 		<div>
-			<h1>Protokoll-Vorlagen</h1>
+			<h1>{aufmass ? 'Aufmaß-Vorlagen' : 'Protokoll-Vorlagen'}</h1>
 			<p class="seiten-meta">
-				Formulare für Monteure: Schritte, Pflichtfelder, Fotos, Bedingungen und Unterschrift. Jede Änderung wird eine neue
-				Version – ausgefüllte Protokolle behalten ihre.
+				{#if aufmass}
+					Aufmaß vor Ort: Räume, Maße, berechnete Flächen und Mengen; verknüpft mit dem Katalog wird daraus mit einem Klick ein
+					Angebot. Jede Änderung wird eine neue Version – begonnene Aufmaße behalten ihre.
+				{:else}
+					Formulare für Monteure: Schritte, Pflichtfelder, Fotos, Bedingungen und Unterschrift. Jede Änderung wird eine neue
+					Version – ausgefüllte Protokolle behalten ihre.
+				{/if}
 			</p>
 		</div>
-		<form method="POST" action="?/neu" use:enhance>
+		<form method="POST" action={ziel('neu')} use:enhance>
 			<button type="submit" class="kd-knopf" data-testid="vorlage-neu">+ Neue Vorlage</button>
 		</form>
 	</header>
@@ -69,7 +77,7 @@
 					<li><span><strong>{b.name}</strong><span class="kd-info">{b.beschreibung}</span></span></li>
 				{/each}
 			</ul>
-			<form method="POST" action="?/beispiele" use:enhance>
+			<form method="POST" action={ziel('beispiele')} use:enhance>
 				<button type="submit" class="kd-knopf hell" data-testid="beispiele-uebernehmen">Beispiele übernehmen</button>
 			</form>
 		</Abschnitt>
