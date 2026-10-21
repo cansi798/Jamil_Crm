@@ -111,6 +111,12 @@
 	</button>
 	{#if offen}
 		<div class="ga-menue" role="dialog" aria-label="Gespeicherte Ansichten">
+			<!-- Jamil msg 3063: „Komplettansicht“ (alle, ohne Filter) ist immer wählbar und nicht löschbar -->
+			<ul class="ga-liste">
+				<li class:aktiv={jetzt === ''}>
+					<button type="button" class="ga-name" onclick={() => { offen = false; goto(page.url.pathname, { keepFocus: true, noScroll: true }); }}>Komplettansicht <small class="ga-marke">alle</small></button>
+				</li>
+			</ul>
 			{#if liste.length === 0}
 				<p class="ga-leer">Noch keine gespeicherten Ansichten. Filter wählen und hier speichern.</p>
 			{:else}
@@ -129,6 +135,8 @@
 									{#if a.geteilt}<small class="ga-marke">{a.eigene ? 'Team' : `von ${a.von ?? '–'}`}</small>{/if}
 								</button>
 								{#if a.eigene}
+									<!-- Jamil msg 3062: Löschen direkt sichtbar (im ⋯-Menü wurde es bei kurzer Liste abgeschnitten) -->
+									<button type="button" class="ga-weg" aria-label={`Ansicht „${a.name}“ löschen`} title="Ansicht löschen" onclick={() => { if (confirm(`Ansicht „${a.name}“ löschen?`)) senden('DELETE', `/api/ansichten/${a.id}`); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v5.5M13.5 10.5v5.5" /></svg></button>
 									<details class="ga-mehr">
 										<summary aria-label={`Ansicht „${a.name}“ bearbeiten`}>⋯</summary>
 										<div class="ga-aktionen">
@@ -140,6 +148,7 @@
 										</div>
 									</details>
 								{:else if darfTeilen && a.geteilt}
+									<button type="button" class="ga-weg" aria-label={`Team-Ansicht „${a.name}“ für alle löschen`} title="Für alle löschen" onclick={() => { if (confirm(`Team-Ansicht „${a.name}“ von ${a.von ?? '–'} für alle löschen?`)) senden('DELETE', `/api/ansichten/${a.id}`); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v5.5M13.5 10.5v5.5" /></svg></button>
 									<details class="ga-mehr">
 										<summary aria-label={`Ansicht „${a.name}“ bearbeiten`}>⋯</summary>
 										<div class="ga-aktionen">
@@ -264,6 +273,31 @@
 	}
 	.ga-mehr {
 		position: relative;
+	}
+	.ga-weg {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 44px;
+		height: 44px;
+		border: none;
+		border-radius: var(--ui-radius);
+		background: none;
+		color: var(--ui-text-leise);
+		cursor: pointer;
+	}
+	.ga-weg:hover {
+		background: color-mix(in srgb, var(--ui-rot) 10%, white);
+		color: var(--ui-rot);
+	}
+	.ga-weg svg {
+		width: 1.15rem;
+		height: 1.15rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.8;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 	.ga-mehr summary {
 		list-style: none;
