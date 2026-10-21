@@ -37,8 +37,6 @@
 			<h1>Zeiten</h1>
 			<p class="seiten-meta">Arbeitszeitnachweis {n.person.name} · {data.ansicht === 'tag' ? tagDeutsch(n.von) : data.ansicht === 'monat' ? monatText(data.monat) : `${tagDeutsch(n.von)} – ${tagDeutsch(n.bis)}`}</p>
 		</div>
-		<GespeicherteAnsichten seite="zeiten" />
-
 	</header>
 
 	<form method="GET" class="zt-filter filter-leiste" aria-label="Zeiten filtern">
@@ -78,6 +76,8 @@
 			<a class="kd-knopf hell" href={exportLink('pdf')} download>PDF</a>
 			{#if data.team}<a class="kd-knopf hell" href={`/zeiten/export?${new URLSearchParams({ format: 'csv', team: '1', von: n.von, bis: n.bis })}`} download>Team-CSV</a>{/if}
 		</div>
+		<!-- Gespeicherte Ansichten rechts in der Filterleiste (Seitenvorlage „Ruhe“: der Kopf bleibt überall gleich hoch) -->
+		<div class="fl-rechts"><GespeicherteAnsichten seite="zeiten" /></div>
 	</form>
 
 	{#if form?.erfolg}<p role="status" class="kd-info zt-ok">{form.erfolg}</p>{/if}

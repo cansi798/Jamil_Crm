@@ -114,7 +114,18 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
 - **Automatisch geprüft:** `tests/e2e/ruhe.spec.ts` misst auf allen Hauptseiten (1440 und 390 px), dass Titel,
   Filterleiste und Umschalter auf 1 px genau gleich stehen bzw. gleich hoch sind. Neue Hauptseite → in die Liste
   aufnehmen.
-- **Karte:** in der Filterleiste rechts ist der Platz für „Gespeicherte Ansichten“ (`data-slot="gespeicherte-ansichten"`).
+- **Gespeicherte Ansichten** stehen immer rechts in der Filterleiste (`FilterLeiste ansichten="<seite>"` bzw.
+  `div.fl-rechts` in eigenen Filterformularen) – nie im Seitenkopf, sonst wird der Kopf am Handy höher.
+- **Kennzahl-Kacheln** (`KennzahlKacheln`) direkt unter der Filterleiste: Zeitraum-Umschalter + Kacheln; Klick auf
+  eine Kachel filtert die Liste, zweiter Klick hebt den Filter auf.
+
+## 10a. Kundenportal
+
+- Gleiches Design wie die App: Anthrazit-Kopf mit Logo, Hausfarbe als Akzent (`farbStil`), Montserrat-Titel.
+- Animationen nur dort, wo sie etwas erklären (Fortschrittsweg, Haken der Arbeitsschritte, Pegel), alle mit
+  `prefers-reduced-motion` abschaltbar.
+- Der Kunde sieht nur Freigegebenes: keine Beschreibungen von Aufgaben, keine internen Aufgaben (ohne
+  Lautstärke/Schmutz), Namen nach Einstellung „Namen im Portal“.
 
 ## 11. Prüfen
 
