@@ -10,7 +10,11 @@
 	 * „Befehl tippen“ (oder ohne Mikrofon-Freigabe) → `/api/sprache/text`. Danach die Bestätigungskarte; gespeichert
 	 * wird erst mit „Ja, speichern“ über `/api/sprache/ausfuehren`. Die Aufnahme bleibt nur im Speicher des Browsers,
 	 * bis sie gesendet ist.
+	 *
+	 * Mit Schnellzugriff (msgs 3078/3079, `knopf={false}`): kein eigener Knopf – der Schnellzugriff ruft `oeffnen()`
+	 * auf, und beim Schließen geht der Fokus an `zurueck()` (seinen Hauptknopf).
 	 */
+	let { knopf = true, zurueck }: { knopf?: boolean; zurueck?: () => HTMLElement | null } = $props();
 
 	type Zustand = 'zu' | 'startet' | 'aufnahme' | 'versteht' | 'tippen' | 'karte' | 'fertig' | 'fehler';
 	type Ergebnis = { text: string; vorschlag: string | null; karte: Karte };
@@ -58,6 +62,11 @@
 			if (typeof MediaRecorder.isTypeSupported === 'function' && MediaRecorder.isTypeSupported(t)) return t;
 		}
 		return '';
+	}
+
+	/** Von außen (Schnellzugriff): Sprachsteuerung starten wie ein Tipp auf den Mikrofon-Knopf. */
+	export function oeffnen() {
+		if (zustand === 'zu') void starte();
 	}
 
 	function zuTippen(hinweis: string | null) {
@@ -318,16 +327,20 @@
 		}
 	}
 
-	// Fokus beim Öffnen in den Dialog setzen, beim Schließen zum Mikrofon zurück
+	// Fokus beim Öffnen in den Dialog setzen, beim Schließen zum Mikrofon (bzw. Schnellzugriff) zurück –
+	// nur nach einem echten Schließen, nicht schon beim Laden der Seite
+	let warOffen = false;
 	$effect(() => {
 		if (offen && dialogEl) {
+			warOffen = true;
 			const fokussierbar = dialogEl.querySelector<HTMLElement>(
 				'button:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 			);
 			queueMicrotask(() => (fokussierbar ?? dialogEl)?.focus());
-		} else if (!offen && mikroEl) {
-			const el = mikroEl;
-			queueMicrotask(() => el.focus());
+		} else if (!offen && warOffen) {
+			warOffen = false;
+			const el = mikroEl ?? zurueck?.();
+			if (el) queueMicrotask(() => el.focus());
 		}
 	});
 
@@ -340,23 +353,25 @@
 
 <svelte:window onkeydown={taste} />
 
-<button
-	type="button"
-	class="mikro"
-	class:aktiv={zustand === 'aufnahme'}
-	aria-label="Sprachbefehl"
-	aria-pressed={zustand === 'aufnahme'}
-	bind:this={mikroEl}
-	onpointerdown={druck}
-	onpointerup={loslassen}
-	onpointerleave={loslassen}
-	onclick={klick}
->
-	<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-		<path fill="currentColor" d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15Z" />
-		<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5M8.5 21.5h7" />
-	</svg>
-</button>
+{#if knopf}
+	<button
+		type="button"
+		class="mikro"
+		class:aktiv={zustand === 'aufnahme'}
+		aria-label="Sprachbefehl"
+		aria-pressed={zustand === 'aufnahme'}
+		bind:this={mikroEl}
+		onpointerdown={druck}
+		onpointerup={loslassen}
+		onpointerleave={loslassen}
+		onclick={klick}
+	>
+		<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+			<path fill="currentColor" d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15Z" />
+			<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5M8.5 21.5h7" />
+		</svg>
+	</button>
+{/if}
 
 {#if offen}
 	<button type="button" class="ui-schleier" tabindex="-1" aria-label="Dialog schließen" onclick={schliessen}></button>

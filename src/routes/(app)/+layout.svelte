@@ -4,7 +4,7 @@
 	import { istAktiv, MOBIL_HAUPT } from '$lib/navigation';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
-	import Mikrofon from '$lib/components/Mikrofon.svelte';
+	import Schnellzugriff from '$lib/components/Schnellzugriff.svelte';
 	import Glocke from '$lib/components/Glocke.svelte';
 	import LaufendeZeit from '$lib/components/zeit/LaufendeZeit.svelte';
 	import { loesche, merkeNutzer, nutzerKennung } from '$lib/heute-kopie';
@@ -123,7 +123,7 @@
 				</button>
 			</form>
 		</nav>
-		<div class="inhalt" class:mit-mikro={data.sprache} class:bereichs-start={bereichsStart}>
+		<div class="inhalt" class:mit-mikro={data.schnell.length > 0} class:bereichs-start={bereichsStart}>
 			<header class="kopfleiste nur-breit-flex">
 				<div class="kopf-bereich">
 					{#if bereich}
@@ -153,10 +153,9 @@
 			<NurLesenHinweis form={page.form} />
 			{@render children()}
 		</div>
-		{#if data.sprache}
-			<!-- Sprachsteuerung (Modul „sprache“): runder Knopf unten rechts über der Navigation -->
-			<Mikrofon />
-		{/if}
+		<!-- Schnellzugriff (msgs 3078/3079): runder Knopf unten rechts über der Navigation – Menü mit Sprachsteuerung und
+		     „Neu …“; nur Sprache erlaubt → Mikrofon-Knopf wie bisher; nichts erlaubt → kein Knopf -->
+		<Schnellzugriff eintraege={data.schnell} />
 	</div>
 {:else}
 	<!-- Vor-Sitzung (Einrichtung der Zwei-Faktor-Anmeldung): noch keine Navigation -->

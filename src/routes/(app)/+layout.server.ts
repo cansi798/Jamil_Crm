@@ -9,6 +9,7 @@ import { nextcloud } from '$lib/server/nextcloud/konfig';
 import { laufend } from '$lib/server/zeiterfassung';
 import { hausfarbe, markenLogos } from '$lib/server/betriebsprofil';
 import { farbStil } from '$lib/farbe';
+import { schnellzugriff, type SchnellEintrag } from '$lib/schnellzugriff';
 
 /** Einzige Seite der App, die ohne volle Sitzung erreichbar ist: Einrichtung der Zwei-Faktor-Anmeldung (Vor-Sitzung). */
 const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
@@ -22,7 +23,7 @@ const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
 export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const nutzer = locals.nutzer;
 	if (!nutzer) {
-		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, erinnern: false, ungelesen: 0, laufendeZeit: null, farbStil: farbStil(null), ansichtenTeilen: false, marke: null };
+		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, schnell: [] as SchnellEintrag[], erinnern: false, ungelesen: 0, laufendeZeit: null, farbStil: farbStil(null), ansichtenTeilen: false, marke: null };
 		redirect(303, '/anmelden');
 	}
 	const module = nutzer.betriebId
@@ -32,6 +33,7 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	// läuft im Hintergrund und bremst die Seite nicht)
 	if (nutzer.betriebId && module.includes('angebote')) void pruefeNachfassenGedrosselt({ betriebId: nutzer.betriebId, benutzerId: nutzer.id });
 	// Mikrofon-Knopf nur mit Modul „sprache“ UND Recht „Sprachsteuerung nutzen“ (msg 3011); geprüft wird zusätzlich in jedem Sprach-Endpunkt
+	// Schnellzugriff unten rechts (msgs 3078/3079): Sprache, neuer Kunde/Auftrag/Termin/Aufgabe – je nach Modul und Recht
 	// Erinnerungen (Wunsch Jamil msg 2679): Glocke mit Zahl der ungelesenen Benachrichtigungen
 	const erinnern = !!nutzer.betriebId && hatRecht(nutzer, 'erinnerungen.nutzen');
 	const ungelesen = nutzer.betriebId ? (await benachrichtigungen({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }, 1)).ungelesen : 0;
@@ -42,5 +44,5 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const farbe = nutzer.betriebId ? await hausfarbe({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }).catch(() => null) : null;
 	// Logo des Betriebs oben links (msg 3014): nur, welche Varianten es gibt (Bilder kommen über /api/marke/logo)
 	const marke = nutzer.betriebId ? await markenLogos({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }).catch(() => null) : null;
-	return { marke, navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache') && hatRecht(nutzer, 'sprache.nutzen'), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe), ansichtenTeilen: hatRecht(nutzer, 'auftraege.alle_lesen') };
+	return { marke, navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache') && hatRecht(nutzer, 'sprache.nutzen'), schnell: schnellzugriff(nutzer, module), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe), ansichtenTeilen: hatRecht(nutzer, 'auftraege.alle_lesen') };
 };

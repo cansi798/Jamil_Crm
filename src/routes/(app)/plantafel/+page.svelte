@@ -3,7 +3,7 @@
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import { untrack } from 'svelte';
-	import { goto, invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import EinsatzDialog from '$lib/components/EinsatzDialog.svelte';
 	import PlantafelRaster from '$lib/components/PlantafelRaster.svelte';
@@ -74,6 +74,17 @@
 	function neuerTermin(tag: string) {
 		dialog = { einsatz: null, vorbelegung: { tag, benutzerId: data.filter.ma[0] ?? aktive[0]?.id ?? '', kolonneId: data.filter.ko[0] } };
 	}
+	// Schnellzugriff „Neuer Termin“ (msgs 3078/3079): /plantafel?neu=1 öffnet den Einsatz-Dialog am gewählten Tag;
+	// danach verschwindet „neu“ aus der Adresse (sonst ginge der Dialog bei jedem Filterwechsel wieder auf)
+	$effect(() => {
+		if (page.url.searchParams.get('neu') !== '1') return;
+		untrack(() => {
+			if (data.darfPlanen) neuerTermin(gewaehlt || data.heute);
+			const u = new URL(page.url);
+			u.searchParams.delete('neu');
+			replaceState(u, page.state);
+		});
+	});
 	const einsatzAm = (t: KalTermin<Einsatz>, tag: string) => t.einsaetze.find((e) => berlinTag(new Date(e.beginn)) === tag) ?? t.einsaetze[0];
 	function kalenderVerschieben(t: KalTermin<Einsatz>, vonTag: string, nachTag: string) {
 		const e = einsatzAm(t, vonTag);

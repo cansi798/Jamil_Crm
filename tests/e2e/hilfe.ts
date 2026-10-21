@@ -66,6 +66,19 @@ export async function erwarteKeinQuerScrollen(page: Page, breite: number): Promi
 	expect(scrollBreite, `scrollWidth auf ${page.url()}`).toBeLessThanOrEqual(breite);
 }
 
+/**
+ * Öffnet die Sprachsteuerung: mit Schnellzugriff (msgs 3078/3079) über „Schnellzugriff“ → „Sprachsteuerung“, sonst
+ * (nur Sprache erlaubt) direkt über den Mikrofon-Knopf „Sprachbefehl“.
+ */
+export async function spracheOeffnen(page: Page): Promise<void> {
+	const knopf = page.getByRole('button', { name: /^(Schnellzugriff|Sprachbefehl)$/ });
+	await knopf.first().waitFor();
+	if ((await knopf.first().getAttribute('aria-label')) === 'Schnellzugriff') {
+		await knopf.first().click();
+		await page.getByRole('menuitem', { name: 'Sprachsteuerung' }).click();
+	} else await knopf.first().click();
+}
+
 export const hauptnavigation = (page: Page) => page.getByRole('navigation', { name: 'Hauptnavigation' });
 
 /**

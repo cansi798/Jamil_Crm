@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { anmelden } from './hilfe';
+import { anmelden, spracheOeffnen } from './hilfe';
 
 /**
  * Sprachbefehl über das Mikrofon mit Fake-Audiodatei (Chromium: Fake-Gerät + Datei als Mikrofon, Freigabe ohne
@@ -21,11 +21,10 @@ test.use({
 test('Mikrofon: antippen → „Ich höre zu …“ mit Countdown → Fertig → Bestätigungskarte', async ({ page }, info) => {
 	test.setTimeout(120_000);
 	await anmelden(page, 'buero@bauwelt.test');
-	await page.getByRole('button', { name: 'Sprachbefehl' }).click();
+	await spracheOeffnen(page);
 	const dialog = page.getByRole('dialog', { name: 'Sprachbefehl' });
 	await expect(dialog.getByRole('heading', { name: 'Ich höre zu …' })).toBeVisible();
 	await expect(dialog.getByText(/Noch 0:5\d|Noch 1:00/)).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Sprachbefehl' })).toHaveAttribute('aria-pressed', 'true');
 	await page.waitForTimeout(3000);
 	if (FOTOS) await page.screenshot({ path: `${FOTOS}/1d-aufnahme-${info.project.name}.png` });
 	await page.waitForTimeout(1500);

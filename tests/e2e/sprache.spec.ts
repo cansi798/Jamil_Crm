@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { anmelden, erwarteKeinQuerScrollen } from './hilfe';
+import { anmelden, erwarteKeinQuerScrollen, spracheOeffnen } from './hilfe';
 
 /**
  * Sprachsteuerung im Browser (Stufe 1d) mit FakeKi (CRM_KI_ANBIETER=fake): Befehl tippen → Bestätigungskarte →
@@ -33,7 +33,7 @@ const foto = async (page: Page, name: string, projekt: string) => {
 
 /** Öffnet den Sprach-Dialog und wechselt zur Texteingabe. */
 async function befehlTippen(page: Page, text: string) {
-	await page.getByRole('button', { name: 'Sprachbefehl' }).click();
+	await spracheOeffnen(page);
 	const dialog = page.getByRole('dialog', { name: 'Sprachbefehl' });
 	await expect(dialog).toBeVisible();
 	const tippen = dialog.getByRole('button', { name: 'Befehl tippen' });
@@ -74,9 +74,10 @@ test.describe('Sprachsteuerung', () => {
 		}
 	});
 
-	test('Mikrofon-Knopf nur mit Modul sprache, groß genug, ohne Querscrollen', async ({ page }, info) => {
+	test('Schnellzugriff-Knopf (mit Sprachsteuerung) groß genug, ohne Querscrollen', async ({ page }, info) => {
 		await anmelden(page, BUERO);
-		const knopf = page.getByRole('button', { name: 'Sprachbefehl' });
+		// Büro hat neben der Sprache auch „Neu …“-Rechte: runder Knopf = Schnellzugriff (msgs 3078/3079)
+		const knopf = page.getByRole('button', { name: 'Schnellzugriff' });
 		await expect(knopf).toBeVisible();
 		const box = (await knopf.boundingBox())!;
 		expect(box.width).toBeGreaterThanOrEqual(44);
@@ -87,7 +88,7 @@ test.describe('Sprachsteuerung', () => {
 
 	test('ohne Mikrofon-Freigabe: Hinweis „Kein Zugriff aufs Mikrofon“ + Texteingabe', async ({ page }, info) => {
 		await anmelden(page, BUERO);
-		await page.getByRole('button', { name: 'Sprachbefehl' }).click();
+		await spracheOeffnen(page);
 		const dialog = page.getByRole('dialog', { name: 'Sprachbefehl' });
 		await expect(dialog.getByText('Kein Zugriff aufs Mikrofon')).toBeVisible();
 		await expect(dialog.getByLabel('Befehl')).toBeVisible();
@@ -205,6 +206,7 @@ test.describe('Sprachsteuerung', () => {
 		await page.goto('/');
 		await expect(page.getByRole('navigation', { name: 'Hauptnavigation' }).first()).toBeAttached();
 		await expect(page.getByRole('button', { name: 'Sprachbefehl' })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Schnellzugriff' })).toHaveCount(0);
 		await page.goto('/todos');
 		await expect(page.getByRole('button', { name: 'Sprachbefehl' })).toHaveCount(0);
 		const r = await page.evaluate(async () => {

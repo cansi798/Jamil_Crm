@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import { untrack } from 'svelte';
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -41,6 +43,17 @@
 		['alle', 'Alle']
 	] as const;
 	let neuOffen = $state(untrack(() => !!form?.todoWerte || Object.values(data.vorbelegt ?? {}).some(Boolean)));
+	// Schnellzugriff „Neue Aufgabe“ (msgs 3078/3079): /todos?neu=1 klappt „Aufgabe hinzufügen“ auf; „neu“ verschwindet
+	// danach aus der Adresse (Filter-Links bauen auf ihr auf)
+	$effect(() => {
+		if (page.url.searchParams.get('neu') !== '1') return;
+		untrack(() => {
+			if (data.darfBearbeiten) neuOffen = true;
+			const u = new URL(page.url);
+			u.searchParams.delete('neu');
+			replaceState(u, page.state);
+		});
+	});
 	const aktionen = { umschalten: '?/umschalten', aendern: '?/aendern', loeschen: '?/loeschen', serieBeenden: '?/serieBeenden' };
 </script>
 
