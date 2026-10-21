@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { erwarteKeinQuerScrollen } from './hilfe';
+import { erwarteKeinQuerScrollen, bestaetigen } from './hilfe';
 
 /**
  * Zeiterfassung (Wunsch Jamil msgs 2770–2776): Monteur stempelt auf „Start“ mit einem Tipp (Start → Pause → Weiter →
@@ -66,6 +66,7 @@ test('Monteur: Start → Pause → Weiter → Fertig auf „Start“, Anzeige ob
 	await page.getByRole('button', { name: 'Korrigieren' }).first().click();
 	await page.locator('form[action="?/korrigieren"] input[name="grund"]').fill('E2E aufräumen');
 	await page.locator('form[action="?/korrigieren"]').getByRole('button', { name: 'Löschen' }).click();
+	await bestaetigen(page);
 	await expect(page.getByTestId('summe-arbeit')).toHaveText('0:00 h');
 	await page.context().close();
 });
@@ -119,6 +120,7 @@ test('Auftrag: Abfahrt → Angekommen → Fertig, Material hinzufügen und entfe
 	await expect(material.getByText(name)).toBeVisible();
 	await erwarteKeinQuerScrollen(page, viewport.width);
 	await material.getByRole('button', { name: `${name} entfernen` }).click();
+	await bestaetigen(page, 'Entfernen');
 	await expect(material.getByText(name)).toHaveCount(0);
 	await page.context().close();
 });

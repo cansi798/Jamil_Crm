@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import DateiUpload from '$lib/components/DateiUpload.svelte';
 	import Karte from '$lib/components/Karte.svelte';
@@ -80,7 +81,6 @@
 
 	// Notiz löschen
 	async function notizLoeschen(id: string) {
-		if (!confirm('Notiz löschen?')) return;
 		try {
 			const res = await fetch(`/api/notizen/${id}`, { method: 'DELETE' });
 			if (res.ok) notizen = notizen.filter((n) => n.id !== id);
@@ -243,7 +243,7 @@
 								{#if data.darfBearbeiten}
 									<div class="notiz-aktionen">
 										<button type="button" class="knopf-subtil" onclick={() => { editiertNotizId = n.id; editierterText = n.text; }}>Bearbeiten</button>
-										<button type="button" class="knopf-gefahr" onclick={() => notizLoeschen(n.id)}>Löschen</button>
+										<button type="button" class="knopf-gefahr" use:rueckfrage={'Notiz wirklich löschen?'} onclick={() => notizLoeschen(n.id)}>Löschen</button>
 									</div>
 								{/if}
 							{/if}

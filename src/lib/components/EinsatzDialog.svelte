@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -348,7 +349,7 @@
 					<label>Letzter Tag <input type="date" bind:value={gruppenEnde} min={einsatz.gruppe.vonTag} /></label>
 					<button type="button" class="kd-knopf hell" disabled={sendet || !gruppenEnde} onclick={() => gruppeAendern('ende')}>Termin bis dahin</button>
 				</div>
-				<button type="button" class="kd-knopf gefahr" disabled={sendet} onclick={() => gruppeAendern('loeschen')}>Ganzen Termin löschen</button>
+				<button use:rueckfrage={'Ganzen Termin mit allen Tagen und Personen wirklich löschen?'} type="button" class="kd-knopf gefahr" disabled={sendet} onclick={() => gruppeAendern('loeschen')}>Ganzen Termin löschen</button>
 			</div>
 		{/if}
 
@@ -424,7 +425,7 @@
 			<button type="button" class="kd-knopf hell" onclick={() => dialog?.close()}>Abbrechen</button>
 			<button type="submit" class="kd-knopf" disabled={sendet}>{einsatz ? 'Speichern' : 'Einsatz anlegen'}</button>
 			{#if einsatz}
-				<button type="button" class="kd-knopf gefahr" disabled={sendet} onclick={loeschen}>Einsatz löschen</button>
+				<button type="button" class="kd-knopf gefahr" disabled={sendet} onclick={loeschen} use:rueckfrage={'Einsatz wirklich löschen?'}>Einsatz löschen</button>
 			{/if}
 		</div>
 	</form>

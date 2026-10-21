@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { bestaetigen } from './hilfe';
 
 /**
  * Kennzahl-Kacheln (Jamil msgs 2799/2801/2803) und Start-Cockpit (msg 2813): Zeitraum umschalten, Klick auf eine
@@ -95,6 +96,7 @@ test('Start frei zusammenstellen: hinzufügen, verschieben, Größe, ziehen, spe
 	// Abbrechen verwirft, Standard wiederherstellen setzt zurück
 	await main.getByRole('button', { name: 'Start anpassen' }).click();
 	await main.getByRole('button', { name: 'Alle Kennzahlen entfernen' }).click();
+	await bestaetigen(page, 'Entfernen');
 	await main.getByRole('button', { name: 'Abbrechen' }).click();
 	expect(await reihenfolge()).toEqual(entwurf);
 	await main.getByRole('button', { name: 'Start anpassen' }).click();

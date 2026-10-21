@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	/**
 	 * Unterschrift-Komponente: HTML5 Canvas für Touch/Pointer-Events.zeichnet Linien auf dem Canvas (2px, schwarz,
 	 * runde Kappen), „Löschen" setzt zurück, „Fertig" exportiert als PNG (Uint8Array). Responsive: Canvas füllt
@@ -92,7 +93,7 @@
 		onpointercancel={pointerUp}
 	></canvas>
 	<div class="knopf-leiste">
-		<button type="button" class="kd-knopf hell" onclick={loeschen} disabled={!hatZeichnung}>Löschen</button>
+		<button type="button" class="kd-knopf hell" onclick={loeschen} disabled={!hatZeichnung} use:rueckfrage={'Unterschrift wirklich löschen?'}>Löschen</button>
 		<button type="button" class="kd-knopf" onclick={fertig} disabled={!hatZeichnung} data-testid="unterschrift-speichern">Fertig</button>
 	</div>
 </div>

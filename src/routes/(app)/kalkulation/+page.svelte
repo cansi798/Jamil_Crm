@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -198,7 +199,7 @@
 							{@render kostenFormular('?/kostenAendern', `ko-${z.id}`, kostenFelder(z), z.id)}
 							<form method="POST" action="?/kostenLoeschen" use:enhance class="kk-loeschen">
 								<input type="hidden" name="id" value={z.id} />
-								<button type="submit" class="kd-knopf hell">Zeile löschen</button>
+								<button type="submit" class="kd-knopf hell" use:rueckfrage={'Kostenzeile wirklich löschen?'}>Zeile löschen</button>
 							</form>
 						</details>
 					</li>
@@ -242,7 +243,7 @@
 						{@render mitarbeiterFormular('?/mitarbeiterAendern', `ma-${m.id}`, maFelder(ma.name, ma.benutzerId, ma.werte), m.id)}
 						<form method="POST" action="?/mitarbeiterLoeschen" use:enhance class="kk-loeschen">
 							<input type="hidden" name="id" value={m.id} />
-							<button type="submit" class="kd-knopf hell">Mitarbeiter entfernen</button>
+							<button type="submit" class="kd-knopf hell" use:rueckfrage={{ frage: 'Mitarbeiter wirklich aus der Kalkulation entfernen?', ja: 'Entfernen' }}>Mitarbeiter entfernen</button>
 						</form>
 					</details>
 				</li>

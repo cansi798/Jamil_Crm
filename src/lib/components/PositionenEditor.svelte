@@ -1,4 +1,5 @@
 <script module lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	/** Eine Zeile im Editor – Eingaben als Text (Komma-Eingabe), geprüft und gerechnet wird beim Anzeigen/Speichern. */
 	export type EditorZeile = {
 		schluessel: number;
@@ -138,7 +139,7 @@
 				<span class="pe-knoepfe">
 					<button type="button" class="knopf-ghost klein" onclick={() => verschiebe(i, -1)} disabled={i === 0} aria-label={`Position ${nr} nach oben`}>↑</button>
 					<button type="button" class="knopf-ghost klein" onclick={() => verschiebe(i, 1)} disabled={i === zeilen.length - 1} aria-label={`Position ${nr} nach unten`}>↓</button>
-					<button type="button" class="weg" onclick={() => entferne(i)} aria-label={`Position ${nr} entfernen`}>✕</button>
+					<button use:rueckfrage={{ frage: `Position ${nr} wirklich entfernen?`, ja: 'Entfernen' }} type="button" class="weg" onclick={() => entferne(i)} aria-label={`Position ${nr} entfernen`}>✕</button>
 				</span>
 			{/if}
 		</li>

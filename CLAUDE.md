@@ -61,9 +61,10 @@ gleiche Reihenfolge, gleiche Kacheln und Zeilen; Bildschirmfotos bei 1280 und 39
 
 ## Vor dem Löschen/Entfernen immer nachfragen (Regel von Jamil, Talk msg 3091)
 
-Jede Aktion, die etwas löscht oder entfernt (Datensatz, Logo, AGB-PDF, Datei …), fragt vorher nach: `LoeschenPanel`
-(für Dateien `ui/DateiFeld.svelte`: „hochladen“ und „entfernen“ nebeneinander, Rückfrage darunter). Kein Löschen mit
-einem Klick, kein `confirm()`.
+Jede Aktion, die etwas löscht, entfernt oder widerruft, fragt vorher nach – auch einzelne Zeilen. Ganzer Datensatz:
+`LoeschenKnopf`/`LoeschenPanel`; hinterlegte Dateien (Logo, AGB-PDF): `ui/DateiFeld.svelte`; alles andere (Zeilen,
+Positionen, Fotos, Geräte …): `use:rueckfrage` bzw. `frage()` aus `src/lib/rueckfrage.ts`. Kein Löschen mit einem
+Klick, kein `confirm()`. Details: `docs/design-regeln.md` 3b; in E2E-Tests `bestaetigen()` aus `tests/e2e/hilfe.ts`.
 
 ## Vorlagen-Seiten (Jamil msgs 3084, 3086)
 

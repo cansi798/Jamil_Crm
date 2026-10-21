@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	/**
 	 * Schritt-für-Schritt-Assistent eines Protokolls (Monteur, Handy zuerst) – auch die Live-Vorschau im Baukasten.
 	 * Fortschritt oben, Felder des Schritts, unten „Zurück“ / „Weiter“. „Weiter“ ist gesperrt, solange sichtbare
@@ -108,8 +109,8 @@
 						<button
 							type="button"
 							class="knopf-subtil"
+							use:rueckfrage={{ frage: `${w.name} ${w.anzahl} mit allen Angaben wirklich entfernen?`, ja: 'Entfernen' }}
 							onclick={() => {
-								if (!confirm(`${w.name} ${w.anzahl} mit allen Angaben entfernen?`)) return;
 								for (const f of a.felder) if (antwortenRoh[f.id] !== undefined) onwert(f.id, undefined);
 								onwert(anzahlSchluessel(w.basis), w.anzahl - 1);
 							}}>{w.name} {w.anzahl} entfernen</button

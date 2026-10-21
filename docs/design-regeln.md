@@ -63,6 +63,15 @@ Nichts verschwindet mit einem Klick: Datensätze über `LoeschenKnopf` + `Loesch
 Logo-Variante, AGB-PDF) über `components/ui/DateiFeld.svelte` – Vorschau, Dateifeld, darunter EINE Knopfzeile
 „… hochladen/Ersetzen“ und „… entfernen“ nebeneinander, Rückfrage („Ja, entfernen“) direkt darunter (msgs 3090, 3097).
 
+**Auch keine einzelne Zeile** (Notiz, Dokument, Position, Link, Kostenzeile, Foto, Ansicht, Gerät, Einsatz …) wird ohne
+Rückfrage gelöscht, entfernt oder widerrufen:
+
+- Zeilen und alles andere: die gemeinsame Rückfrage-Blase `src/lib/rueckfrage.ts` – `use:rueckfrage={'Notiz wirklich
+  löschen?'}` am Knopf (Formular- oder Klick-Knopf), `use:rueckfrage` am `<form>`, wenn der Knopf ein Baustein ist, oder
+  `await frage(knopf, …)` mitten im Ablauf. Text: „<Ding> wirklich löschen?“ bzw. `{ frage, ja: 'Entfernen' }`.
+- **Kein `confirm()`** für Löschen/Entfernen. Die Blase funktioniert auch in offenen Dialogen; Escape/Klick daneben = Abbrechen.
+- E2E: nach dem Klick `bestaetigen(page)` bzw. `bestaetigen(page, 'Entfernen')` aus `tests/e2e/hilfe.ts`.
+
 ### 3c. Vorlagen-Seiten (Jamil msgs 3084, 3086)
 
 Auftrags-, Angebots-, Protokoll-, Aufmaß- und E-Mail-Vorlagen sehen gleich aus:

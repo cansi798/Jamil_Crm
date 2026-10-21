@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AmpelPunkt from '$lib/components/ui/AmpelPunkt.svelte';
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import { flip } from 'svelte/animate';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
@@ -364,7 +365,7 @@
 							{/each}
 						</span>
 						<button type="button" aria-pressed={e.hoehe === 2} aria-label="Zwei Zeilen hoch" title="Höhe: 1 oder 2 Zeilen" onclick={() => setzeHoehe(e.id)}>↕</button>
-						<button type="button" class="st-weg" aria-label={`${titel(e.id)} entfernen`} onclick={() => entfernen(e.id)}>✕</button>
+						<button use:rueckfrage={{ frage: `„${titel(e.id)}“ wirklich von der Startseite entfernen?`, ja: 'Entfernen' }} type="button" class="st-weg" aria-label={`${titel(e.id)} entfernen`} onclick={() => entfernen(e.id)}>✕</button>
 					</div>
 				{/if}
 				<div class="st-inhalt" inert={bearbeiten}>{@render kachel(e.id)}</div>

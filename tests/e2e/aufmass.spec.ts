@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { erwarteKeinQuerScrollen } from './hilfe';
+import { erwarteKeinQuerScrollen, bestaetigen } from './hilfe';
 
 /**
  * Aufmaß-Vorlagen (Jamil msg 2842): Beispiel „Aufmaß Boden/Fliesen“ übernehmen, im Auftrag starten, zwei Räume messen
@@ -69,6 +69,7 @@ test('Aufmaß Boden/Fliesen: zwei Räume, Flächen und Summen werden berechnet',
 		// Raum 2 wieder entfernen: Summe nur noch Raum 1
 		await page.getByRole('button', { name: /Schritt 2|Räume/ }).first().click();
 		await page.getByRole('button', { name: 'Raum 2 entfernen' }).click();
+		await bestaetigen(page, 'Entfernen');
 		await expect(page.locator('#pf-raum_l__2')).toHaveCount(0);
 		await page.getByTestId('weiter').click();
 		await expect(page.locator('#pf-summe_flaeche')).toHaveText('20 m²');

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { bestaetigen } from './hilfe';
 
 /**
  * Nachfassen (Jamil msgs 2585, 2633, 2636) mit der Vorlagen-Bibliothek (msg 2789): Mail-Vorlage „Zahlungserinnerung“
@@ -50,6 +51,7 @@ test('Nachfassen: Vorlage in der Bibliothek anlegen, in einer Rechnungs-Stufe w�
 		if (await st.count()) {
 			await st.locator('summary').first().click();
 			await st.getByRole('button', { name: 'Stufe löschen' }).click();
+			await bestaetigen(page);
 			await expect(st).toHaveCount(0);
 		}
 		await page.goto('/einstellungen/mail-vorlagen');

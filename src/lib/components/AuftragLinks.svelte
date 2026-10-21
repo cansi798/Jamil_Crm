@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
@@ -65,7 +66,7 @@
 								<button type="button" class="kd-knopf hell klein" onclick={() => (bearbeiteId = l.id)} aria-label={`Link „${l.titel}“ bearbeiten`}>Bearbeiten</button>
 								<form method="POST" action="?/linkLoeschen" use:enhance={sofort}>
 									<input type="hidden" name="linkId" value={l.id} />
-									<button type="submit" class="kd-knopf hell klein" aria-label={`Link „${l.titel}“ entfernen`} onclick={(e) => { if (!confirm(`Link „${l.titel}“ entfernen?`)) e.preventDefault(); }}>Entfernen</button>
+									<button type="submit" class="kd-knopf hell klein" aria-label={`Link „${l.titel}“ entfernen`} use:rueckfrage={{ frage: `Link „${l.titel}“ wirklich entfernen?`, ja: 'Entfernen' }}>Entfernen</button>
 								</form>
 							{/if}
 						</div>

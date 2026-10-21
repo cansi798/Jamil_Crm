@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -36,7 +37,7 @@
 					{@render formular(ko)}
 					<form method="POST" action="?/loeschen" use:enhance class="ko-loeschen">
 						<input type="hidden" name="id" value={ko.id} />
-						<button type="submit" class="kd-knopf hell">Kolonne löschen</button>
+						<button type="submit" class="kd-knopf hell" use:rueckfrage={`Kolonne „${ko.name}“ wirklich löschen?`}>Kolonne löschen</button>
 					</form>
 				</details>
 			</li>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import DateiFeld from '$lib/components/ui/DateiFeld.svelte';
 	import { enhance } from '$app/forms';
@@ -108,7 +109,7 @@
 		{#if p.farbe}
 			<form method="POST" action="?/hausfarbe" use:enhance>
 				<input type="hidden" name="wahl" value="standard" />
-				<button type="submit" class="kd-knopf hell">Zurücksetzen auf Standard</button>
+				<button type="submit" class="kd-knopf hell" use:rueckfrage={{ frage: 'Hausfarbe wirklich auf Standard zurücksetzen?', ja: 'Zurücksetzen' }}>Zurücksetzen auf Standard</button>
 			</form>
 		{/if}
 	</div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	/**
 	 * Ein Feld eines Protokolls im Assistenten (und in der Live-Vorschau des Baukastens): passende Eingabe je Feldtyp,
 	 * große Tippziele für das Handy (Ja/Nein und Auswahl als Chips, Checkliste als Zeilen, Foto mit Kamera, Unterschrift
@@ -162,7 +163,7 @@
 					<figure class="pf-foto">
 						{#if fotoUrl(id)}<img src={fotoUrl(id)} alt={`${feld.label}`} loading="lazy" />{:else}<span class="pf-foto-platz">Foto</span>{/if}
 						{#if !gesperrt}
-							<button type="button" class="pf-foto-weg" aria-label="Foto entfernen" onclick={() => onfotoLoeschen(id)}>×</button>
+							<button use:rueckfrage={{ frage: 'Foto wirklich entfernen?', ja: 'Entfernen' }} type="button" class="pf-foto-weg" aria-label="Foto entfernen" onclick={() => onfotoLoeschen(id)}>×</button>
 						{/if}
 					</figure>
 				{/each}

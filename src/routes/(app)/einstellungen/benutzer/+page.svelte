@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { untrack } from 'svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -123,7 +124,7 @@
 					</div>
 					<form method="POST" action="?/widerrufen" use:enhance>
 						<input type="hidden" name="id" value={e.id} />
-						<button type="submit" class="kd-knopf gefahr">Widerrufen</button>
+						<button type="submit" class="kd-knopf gefahr" use:rueckfrage={{ frage: `Einladung für ${e.email} wirklich widerrufen?`, ja: 'Widerrufen' }}>Widerrufen</button>
 					</form>
 				</li>
 			{:else}
@@ -174,7 +175,7 @@
 								<form method="POST" action="?/aktiv" use:enhance>
 									<input type="hidden" name="id" value={b.id} />
 									<input type="hidden" name="aktiv" value={b.aktiv ? 'false' : 'true'} />
-									<button type="submit" class={b.aktiv ? 'kd-knopf gefahr' : 'kd-knopf hell'}>{b.aktiv ? 'Deaktivieren' : 'Wieder aktivieren'}</button>
+									<button type="submit" class={b.aktiv ? 'kd-knopf gefahr' : 'kd-knopf hell'} use:rueckfrage={{ frage: 'Benutzer wirklich deaktivieren? Er kann sich dann nicht mehr anmelden.', ja: 'Deaktivieren', aus: !b.aktiv }}>{b.aktiv ? 'Deaktivieren' : 'Wieder aktivieren'}</button>
 								</form>
 							{/if}
 						</div>

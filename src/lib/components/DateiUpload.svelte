@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	/**
 	 * Datei-Upload-Komponente: Datei per Ziehen ablegen oder auswählen (Bilder/PDFs),
 	 * Hochladen mit Fortschritt, Liste der Dateien mit Löschen.
@@ -107,7 +108,7 @@
 				<li>
 					<span>{datei.name}</span>
 					{#if zusatz}{@render zusatz(datei)}{/if}
-					<button type="button" class="knopf-gefahr" onclick={() => loeschen(datei.id)}>Löschen</button>
+					<button use:rueckfrage={'Datei wirklich löschen?'} type="button" class="knopf-gefahr" onclick={() => loeschen(datei.id)}>Löschen</button>
 				</li>
 			{/each}
 		</ul>

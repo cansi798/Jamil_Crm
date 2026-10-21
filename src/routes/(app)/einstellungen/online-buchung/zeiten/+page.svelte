@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { untrack } from 'svelte';
@@ -93,7 +94,7 @@
 									<input type="time" bind:value={z.von} aria-label={`${name} von`} step="900" />
 									<span aria-hidden="true">–</span>
 									<input type="time" bind:value={z.bis} aria-label={`${name} bis`} step="900" />
-									<button type="button" class="oz-x" aria-label={`${name}: Zeit entfernen`} onclick={() => zeiten.splice(i, 1)}>✕</button>
+									<button use:rueckfrage={{ frage: 'Zeit wirklich entfernen?', ja: 'Entfernen' }} type="button" class="oz-x" aria-label={`${name}: Zeit entfernen`} onclick={() => zeiten.splice(i, 1)}>✕</button>
 								</span>
 							{:else}
 								<span class="kd-info">nicht buchbar</span>
@@ -120,7 +121,7 @@
 							<span><strong>{tagKurz(a.tag)}</strong> {a.art === 'frei' ? (a.von ? `nicht buchbar ${a.von}–${a.bis}` : 'ganzer Tag nicht buchbar') : `zusätzlich ${a.von}–${a.bis}`}{a.notiz ? ` · ${a.notiz}` : ''}</span>
 							<form method="POST" action="?/ausnahmeLoeschen" use:enhance>
 								<input type="hidden" name="id" value={a.id} />
-								<button type="submit" class="knopf-subtil klein" aria-label="Ausnahme löschen">✕</button>
+								<button type="submit" class="knopf-subtil klein" aria-label="Ausnahme löschen" use:rueckfrage={'Ausnahme wirklich löschen?'}>✕</button>
 							</form>
 						</li>
 					{/each}

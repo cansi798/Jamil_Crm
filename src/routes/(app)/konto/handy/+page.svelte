@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import SeitenKopf from '$lib/components/ui/SeitenKopf.svelte';
@@ -177,7 +178,7 @@
 							<strong>{g.bezeichnung}</strong>
 							<span class="kd-info">erstellt {datum(g.angelegt)} · zuletzt abgeglichen {datum(g.zuletztBenutzt)}</span>
 						</div>
-						<form method="POST" action="?/entfernen" use:enhance>
+						<form method="POST" action="?/entfernen" use:enhance use:rueckfrage={{ frage: `Gerät „${g.bezeichnung}“ wirklich entfernen? Es gleicht dann nicht mehr ab.`, ja: 'Entfernen' }}>
 							<input type="hidden" name="id" value={g.id} />
 							<Knopf type="submit" art="gefahr" symbol="loeschen" klein aria-label={`${g.bezeichnung} entfernen`}>Entfernen</Knopf>
 						</form>

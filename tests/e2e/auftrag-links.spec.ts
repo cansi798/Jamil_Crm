@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { erwarteKeinQuerScrollen } from './hilfe';
+import { erwarteKeinQuerScrollen, bestaetigen } from './hilfe';
 
 /**
  * Links am Auftrag (Jamil msg 2850): anlegen (ohne https://), Domain sehen, neuer Tab ohne Referrer, ungültige Adresse
@@ -49,8 +49,8 @@ test('Chef: Link am Auftrag anlegen, öffnen, bearbeiten, entfernen', async ({ b
 	await expect(page.getByText(`Link „${titel}“ (partner-portal.example.org) hinzugefügt`)).toBeVisible();
 
 	// entfernen
-	page.once('dialog', (d) => d.accept());
 	await karte.getByRole('button', { name: `Link „${titel} neu“ entfernen` }).click();
+	await bestaetigen(page, 'Entfernen');
 	await expect(karte.getByRole('link', { name: new RegExp(titel) })).toHaveCount(0);
 	await ctx.close();
 });

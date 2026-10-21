@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -57,7 +58,7 @@
 				{#if darfBearbeiten}
 					<form method="POST" action="?/subunternehmerWeg" use:enhance={sofort}>
 						<input type="hidden" name="partnerId" value={s.id} />
-						<button type="submit" class="knopf-subtil klein" aria-label={`${s.name} entfernen`}>Entfernen</button>
+						<button type="submit" class="knopf-subtil klein" aria-label={`${s.name} entfernen`} use:rueckfrage={{ frage: `${s.name} wirklich vom Auftrag entfernen?`, ja: 'Entfernen' }}>Entfernen</button>
 					</form>
 				{/if}
 			</li>
@@ -99,7 +100,7 @@
 					{#if darfBearbeiten}
 						<form method="POST" action="?/fremdleistungWeg" use:enhance={sofort}>
 							<input type="hidden" name="id" value={f.id} />
-							<button type="submit" class="knopf-subtil klein" onclick={(e) => { if (!confirm('Fremdleistung löschen?')) e.preventDefault(); }}>Löschen</button>
+							<button type="submit" class="knopf-subtil klein" use:rueckfrage={'Fremdleistung wirklich löschen?'}>Löschen</button>
 						</form>
 					{/if}
 				</li>

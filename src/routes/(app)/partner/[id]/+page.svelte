@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -74,7 +75,7 @@
 						{#if n.dateiName}<a href={`/partner/${p.id}/nachweis/${n.id}`} target="_blank" rel="noopener">{n.dateiName}</a>{/if}
 						<form method="POST" action="?/nachweisLoeschen" use:enhance={sofort}>
 							<input type="hidden" name="nachweisId" value={n.id} />
-							<button type="submit" class="knopf-subtil klein" onclick={(e) => { if (!confirm('Nachweis löschen?')) e.preventDefault(); }}>Löschen</button>
+							<button type="submit" class="knopf-subtil klein" use:rueckfrage={'Nachweis wirklich löschen?'}>Löschen</button>
 						</form>
 					</span>
 				</li>
@@ -127,7 +128,7 @@
 							<button type="button" class="knopf-subtil klein" onclick={() => (bearbeiteKontakt = c.id)}>Bearbeiten</button>
 							<form method="POST" action="?/kontaktLoeschen" use:enhance={sofort}>
 								<input type="hidden" name="kontaktId" value={c.id} />
-								<button type="submit" class="knopf-subtil klein">Entfernen</button>
+								<button type="submit" class="knopf-subtil klein" use:rueckfrage={{ frage: `Ansprechpartner „${c.name}“ wirklich entfernen?`, ja: 'Entfernen' }}>Entfernen</button>
 							</form>
 						</span>
 					{/if}

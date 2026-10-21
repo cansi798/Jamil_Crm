@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { anmelden, erwarteKeinQuerScrollen } from './hilfe';
+import { anmelden, erwarteKeinQuerScrollen, bestaetigen } from './hilfe';
 
 /**
  * Phase 1 der Wünsche von Jamil (19.10.2026): Kundenakte (Notizen, Dokumente, Platzhalter Kundenportal) und
@@ -62,8 +62,10 @@ test('Kundenakte: Notiz schreiben, Dokument hochladen und herunterladen, lösche
 		await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 		// löschen
 		await dokumente.getByRole('button', { name: 'Dokument Grundriss Bad.pdf löschen' }).click();
+		await bestaetigen(page);
 		await expect(dokumente.getByText('Noch keine Dokumente.')).toBeVisible();
 		await notizen.getByRole('button', { name: /^Notiz vom .* löschen$/ }).click();
+		await bestaetigen(page);
 		await expect(notizen.getByText('Noch keine Notizen.')).toBeVisible();
 	} finally {
 		await api(page, 'DELETE', `/api/kunden/${kunde.id}`);

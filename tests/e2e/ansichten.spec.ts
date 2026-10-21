@@ -1,5 +1,5 @@
 import { expect, test, type Browser } from '@playwright/test';
-import { erwarteKeinQuerScrollen } from './hilfe';
+import { erwarteKeinQuerScrollen, bestaetigen } from './hilfe';
 
 /**
  * Gespeicherte Ansichten (Jamil msgs 2830, 2921) auf Auftragskarte und Plantafel: Filter speichern, aus dem Menü
@@ -63,6 +63,7 @@ for (const [seite, pfad, filter] of [
 		const m = page.getByRole('dialog', { name: 'Gespeicherte Ansichten' });
 		await m.locator('summary', { has: page.locator(`[aria-label="Ansicht „${name}“ bearbeiten"]`) }).or(m.getByLabel(`Ansicht „${name}“ bearbeiten`)).first().click();
 		await m.getByRole('button', { name: 'Löschen' }).click();
+		await bestaetigen(page);
 		await expect(m.getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
 		await ctx.close();
 	});

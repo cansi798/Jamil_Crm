@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -77,7 +78,7 @@
 							{@render stufenFormular(art, s)}
 							<form method="POST" action="?/stufeLoeschen" use:enhance class="nf-loeschen">
 								<input type="hidden" name="id" value={s.id} />
-								<button type="submit" class="kd-knopf hell">Stufe löschen</button>
+								<button type="submit" class="kd-knopf hell" use:rueckfrage={'Stufe wirklich löschen?'}>Stufe löschen</button>
 							</form>
 						</details>
 					</li>

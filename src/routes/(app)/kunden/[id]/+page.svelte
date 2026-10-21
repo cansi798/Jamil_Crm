@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import { STATUS_NAMEN } from '$lib/auftrag-status';
 	import { terminKurz } from '$lib/einsatz-art';
@@ -270,7 +271,7 @@
 					{#if data.darfBearbeiten}
 						<form method="POST" action="?/notizLoeschen" use:enhance class="ka-loeschen">
 							<input type="hidden" name="id" value={n.id} />
-							<button type="submit" class="kd-knopf gefahr klein" aria-label="Notiz vom {wann(n.angelegt)} löschen">Löschen</button>
+							<button type="submit" class="kd-knopf gefahr klein" aria-label="Notiz vom {wann(n.angelegt)} löschen" use:rueckfrage={'Notiz wirklich löschen?'}>Löschen</button>
 						</form>
 					{/if}
 				</li>
@@ -316,7 +317,7 @@
 					{#if data.darfBearbeiten}
 						<form method="POST" action="?/dokumentLoeschen" use:enhance class="ka-loeschen">
 							<input type="hidden" name="id" value={d.id} />
-							<button type="submit" class="kd-knopf gefahr klein" aria-label="Dokument {d.name} löschen">Löschen</button>
+							<button type="submit" class="kd-knopf gefahr klein" aria-label="Dokument {d.name} löschen" use:rueckfrage={`Dokument „${d.name}“ wirklich löschen?`}>Löschen</button>
 						</form>
 					{/if}
 				</li>

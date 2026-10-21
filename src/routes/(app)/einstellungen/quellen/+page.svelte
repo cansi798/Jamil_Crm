@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
@@ -59,7 +60,7 @@
 					</form>
 					<form method="POST" action="?/loeschen" use:enhance>
 						<input type="hidden" name="id" value={q.id} />
-						<button type="submit" class="kd-knopf hell klein" aria-label={`${q.name} löschen`}>✕</button>
+						<button type="submit" class="kd-knopf hell klein" aria-label={`${q.name} löschen`} use:rueckfrage={`Auftragsquelle „${q.name}“ wirklich löschen?`}>✕</button>
 					</form>
 				</div>
 				{#if fehlerIn(q.id)}<p role="alert" class="kd-fehler">{fehlerIn(q.id)}</p>{/if}

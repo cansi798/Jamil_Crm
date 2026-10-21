@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -307,7 +308,7 @@
 							<span class="kt-pfeile">
 								<button type="button" class="knopf-ghost klein" onclick={() => verschiebe(i, -1)} disabled={i === 0} aria-label={`Stopp ${i + 1} nach oben`}>↑</button>
 								<button type="button" class="knopf-ghost klein" onclick={() => verschiebe(i, 1)} disabled={i === stopps.length - 1} aria-label={`Stopp ${i + 1} nach unten`}>↓</button>
-								<button type="button" class="kd-knopf gefahr klein" onclick={() => (stopps = stopps.filter((_, j) => j !== i))} aria-label={`Stopp ${i + 1} entfernen`}>✕</button>
+								<button type="button" class="kd-knopf gefahr klein" use:rueckfrage={{ frage: `Stopp ${i + 1} wirklich entfernen?`, ja: 'Entfernen' }} onclick={() => (stopps = stopps.filter((_, j) => j !== i))} aria-label={`Stopp ${i + 1} entfernen`}>✕</button>
 							</span>
 						</li>
 					{/each}

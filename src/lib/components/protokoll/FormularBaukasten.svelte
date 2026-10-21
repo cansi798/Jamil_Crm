@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	/**
 	 * Baukasten für Formulare (gemeinsam: Protokoll-Vorlagen, Wunsch Jamil msg 2649, und Fragen der Online-Buchung,
@@ -85,9 +86,16 @@
 	function feldWeg(o: Ort) {
 		const f = felderVon(o.s, o.a)[o.f];
 		const abhaengig = alleFelder(schema).filter((x) => x.feld.bedingung?.feld === f.id);
-		if (abhaengig.length > 0 && !confirm(`„${f.label}“ steuert ${abhaengig.length} Bedingung(en). Trotzdem löschen? Die Bedingungen werden entfernt.`)) return;
 		for (const x of abhaengig) delete x.feld.bedingung;
 		felderVon(o.s, o.a).splice(o.f, 1);
+	}
+	/** Text der Rückfrage vor dem Löschen eines Felds (Jamil msg 3091: immer nachfragen) */
+	function feldFrage(o: Ort) {
+		const f = felderVon(o.s, o.a)[o.f];
+		const n = alleFelder(schema).filter((x) => x.feld.bedingung?.feld === f.id).length;
+		return n > 0
+			? `„${f.label}“ steuert ${n} Bedingung(en). Wirklich löschen? Die Bedingungen werden entfernt.`
+			: `Feld „${f.label}“ wirklich löschen?`;
 	}
 	function feldKopie(o: Ort) {
 		const f = structuredClone($state.snapshot(felderVon(o.s, o.a)[o.f])) as Feld;
@@ -147,7 +155,6 @@
 	}
 	function seiteWeg(s: number) {
 		if (schema.seiten.length === 1) return;
-		if (schema.seiten[s].abschnitte.some((a) => a.felder.length > 0) && !confirm('Schritt mit allen Feldern löschen?')) return;
 		schema.seiten.splice(s, 1);
 		bereinigeBedingungen();
 	}
@@ -164,7 +171,6 @@
 	function abschnittWeg(s: number, a: number) {
 		const seite = schema.seiten[s];
 		if (seite.abschnitte.length === 1) return;
-		if (seite.abschnitte[a].felder.length > 0 && !confirm('Abschnitt mit allen Feldern löschen?')) return;
 		seite.abschnitte.splice(a, 1);
 		bereinigeBedingungen();
 	}
@@ -229,7 +235,7 @@
 				<div class="pb-mini">
 					<button type="button" class="knopf-ghost klein" title="Schritt nach oben" aria-label="Schritt nach oben" disabled={s === 0} onclick={() => seiteSchieben(s, -1)}>↑</button>
 					<button type="button" class="knopf-ghost klein" title="Schritt nach unten" aria-label="Schritt nach unten" disabled={s === schema.seiten.length - 1} onclick={() => seiteSchieben(s, 1)}>↓</button>
-					<button type="button" class="kd-knopf gefahr klein" title="Schritt löschen" aria-label="Schritt löschen" disabled={schema.seiten.length === 1} onclick={() => seiteWeg(s)}>✕</button>
+					<button type="button" class="kd-knopf gefahr klein" title="Schritt löschen" aria-label="Schritt löschen" disabled={schema.seiten.length === 1} use:rueckfrage={'Schritt mit allen Feldern wirklich löschen?'} onclick={() => seiteWeg(s)}>✕</button>
 				</div>
 			</div>
 			{/if}
@@ -238,7 +244,7 @@
 					<div class="pb-abschnitt-kopf">
 						<input type="text" bind:value={abschnitt.titel} maxlength="200" placeholder="Abschnitt (Überschrift, optional)" aria-label="Abschnitt-Überschrift" />
 						{#if seite.abschnitte.length > 1}
-							<button type="button" class="pb-x" aria-label="Abschnitt löschen" onclick={() => abschnittWeg(s, a)}>✕</button>
+							<button type="button" class="pb-x" aria-label="Abschnitt löschen" use:rueckfrage={'Abschnitt mit allen Feldern wirklich löschen?'} onclick={() => abschnittWeg(s, a)}>✕</button>
 						{/if}
 					</div>
 					{#if typen.some((t) => (AUFMASS_TYPEN as readonly string[]).includes(t))}
@@ -294,7 +300,7 @@
 										<button type="button" class="knopf-ghost klein" aria-label="Nach oben" onclick={() => hoch(ort)}>↑</button>
 										<button type="button" class="knopf-ghost klein" aria-label="Nach unten" onclick={() => runter(ort)}>↓</button>
 										<button type="button" class="knopf-ghost klein" aria-label="Duplizieren" onclick={() => feldKopie(ort)}>⧉</button>
-										<button type="button" class="kd-knopf gefahr klein" aria-label="Feld löschen" onclick={() => feldWeg(ort)}>✕</button>
+										<button type="button" class="kd-knopf gefahr klein" aria-label="Feld löschen" use:rueckfrage={feldFrage(ort)} onclick={() => feldWeg(ort)}>✕</button>
 									</div>
 								</div>
 								{#if offenId === f.id}

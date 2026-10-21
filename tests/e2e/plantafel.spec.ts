@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { anmelden, personenWaehlen } from './hilfe';
+import { anmelden, personenWaehlen, bestaetigen } from './hilfe';
 import { berlinTag, berlinZeitpunkt, tagPlus, tagKurz } from '../../src/lib/zeit';
 
 /**
@@ -110,6 +110,7 @@ test.describe('Plantafel: Filter, Kolonnen, mehrtägig (Jamil msgs 2508, 2510, 2
 			// ganzen Termin löschen
 			await lane(montag).locator('.pt-karte').first().click();
 			await dlg.getByRole('button', { name: 'Ganzen Termin löschen' }).click();
+			await bestaetigen(page);
 			await expect(lane(montag)).not.toContainText(auftrag.nummer);
 		} finally {
 			await page.goto('/plantafel/kolonnen');
@@ -119,6 +120,7 @@ test.describe('Plantafel: Filter, Kolonnen, mehrtägig (Jamil msgs 2508, 2510, 2
 			if (await li.count()) {
 				await li.locator('summary').click();
 				await li.getByRole('button', { name: 'Kolonne löschen' }).click();
+				await bestaetigen(page);
 				await expect(li).toHaveCount(0);
 			}
 			await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`).catch(() => null);

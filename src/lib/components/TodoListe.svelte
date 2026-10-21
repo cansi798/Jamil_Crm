@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -163,12 +164,10 @@
 						<form
 							method="POST"
 							action={aktionen.loeschen}
-							use:enhance={({ cancel }) => {
-								if (!confirm(`Aufgabe „${t.titel}“ löschen?`)) cancel();
-							}}
+							use:enhance
 						>
 							<input type="hidden" name="id" value={t.id} />
-							<button type="submit" class="kd-knopf hell tl-loeschen">Löschen</button>
+							<button type="submit" class="kd-knopf hell tl-loeschen" use:rueckfrage={`Aufgabe „${t.titel}“ wirklich löschen?`}>Löschen</button>
 						</form>
 					</div>
 				{/if}

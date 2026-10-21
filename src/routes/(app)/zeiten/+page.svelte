@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import GespeicherteAnsichten from '$lib/components/ui/GespeicherteAnsichten.svelte';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -204,7 +205,7 @@
 								<div class="zt-knoepfe">
 									<button type="button" class="kd-knopf hell" onclick={() => (offen = null)}>Abbrechen</button>
 									<button type="submit" class="kd-knopf">Speichern</button>
-									<button type="submit" formaction="?/loeschen" class="kd-knopf hell gefahr">Löschen</button>
+									<button type="submit" formaction="?/loeschen" class="kd-knopf hell gefahr" use:rueckfrage={'Zeiteintrag wirklich löschen?'}>Löschen</button>
 								</div>
 							</form>
 						{:else}

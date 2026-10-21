@@ -113,3 +113,11 @@ export async function portalOeffnen(page: Page, token: string): Promise<void> {
 		await page.locator('#pp-passwort').waitFor({ state: 'detached' });
 	}
 }
+
+/** Rückfrage vor dem Löschen/Entfernen bestätigen (src/lib/rueckfrage.ts, Jamil msg 3091). */
+export async function bestaetigen(page: Page, ja = 'Löschen'): Promise<void> {
+	const blase = page.getByTestId('rueckfrage');
+	await expect(blase).toBeVisible();
+	await blase.getByRole('button', { name: ja, exact: true }).click();
+	await expect(blase).toHaveCount(0);
+}

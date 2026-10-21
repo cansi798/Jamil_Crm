@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -228,7 +229,7 @@
 							{#if data.darfBearbeiten}
 								<form method="POST" action="?/dateiLoeschen" use:enhance class="an-zeile-formular">
 									<input type="hidden" name="id" value={d.id} />
-									<button type="submit" class="kd-knopf hell klein" aria-label={`${d.name} löschen`}>löschen</button>
+									<button type="submit" class="kd-knopf hell klein" aria-label={`${d.name} löschen`} use:rueckfrage={`„${d.name}“ wirklich löschen?`}>löschen</button>
 								</form>
 							{/if}
 						</span>

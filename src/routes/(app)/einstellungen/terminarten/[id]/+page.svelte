@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -230,14 +231,14 @@
 							</label>
 							<label class="kd-haken"><input type="checkbox" name="aktiv" checked={l.aktiv} onchange={(e) => e.currentTarget.form?.requestSubmit()} /> aktiv</label>
 						</form>
-						<form method="POST" action="?/linkNeu" use:enhance={sofort} onsubmit={(e) => !confirm('Neuen Link erzeugen? Der bisherige Link funktioniert dann nicht mehr.') && e.preventDefault()}>
+						<form method="POST" action="?/linkNeu" use:enhance={sofort} use:rueckfrage={{ frage: 'Neuen Link erzeugen? Der bisherige Link funktioniert dann nicht mehr.', ja: 'Neu erzeugen' }}>
 							<input type="hidden" name="id" value={l.id} />
 							<button type="submit" class="knopf-subtil klein">Neuer Link</button>
 						</form>
 						{#if l.benutzerId}
 							<form method="POST" action="?/linkLoeschen" use:enhance={sofort}>
 								<input type="hidden" name="id" value={l.id} />
-								<button type="submit" class="knopf-subtil klein">Entfernen</button>
+								<button type="submit" class="knopf-subtil klein" use:rueckfrage={{ frage: 'Buchungslink wirklich entfernen?', ja: 'Entfernen' }}>Entfernen</button>
 							</form>
 						{/if}
 					</div>

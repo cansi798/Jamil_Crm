@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { STUFEN, STUFE_NAMEN } from '$lib/stufen';
@@ -289,7 +290,7 @@
 					<div class="af-todo-knoepfe">
 						<button type="button" class="knopf-ghost" aria-label="Aufgabe {i + 1} nach oben" onclick={() => todoVerschieben(i, -1)} disabled={i === 0}>↑</button>
 						<button type="button" class="knopf-ghost" aria-label="Aufgabe {i + 1} nach unten" onclick={() => todoVerschieben(i, 1)} disabled={i === todos.length - 1}>↓</button>
-						<button type="button" class="kd-knopf gefahr" aria-label="Aufgabe {i + 1} entfernen" onclick={() => todoEntfernen(i)}>×</button>
+						<button use:rueckfrage={{ frage: 'Aufgabe wirklich entfernen?', ja: 'Entfernen' }} type="button" class="kd-knopf gefahr" aria-label="Aufgabe {i + 1} entfernen" onclick={() => todoEntfernen(i)}>×</button>
 					</div>
 				</div>
 			{/each}

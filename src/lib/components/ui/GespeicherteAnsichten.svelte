@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -136,7 +137,7 @@
 								</button>
 								{#if a.eigene}
 									<!-- Jamil msg 3062: Löschen direkt sichtbar (im ⋯-Menü wurde es bei kurzer Liste abgeschnitten) -->
-									<button type="button" class="ga-weg" aria-label={`Ansicht „${a.name}“ löschen`} title="Ansicht löschen" onclick={() => { if (confirm(`Ansicht „${a.name}“ löschen?`)) senden('DELETE', `/api/ansichten/${a.id}`); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v5.5M13.5 10.5v5.5" /></svg></button>
+									<button type="button" class="ga-weg" aria-label={`Ansicht „${a.name}“ löschen`} title="Ansicht löschen" use:rueckfrage={`Ansicht „${a.name}“ wirklich löschen?`} onclick={() => senden('DELETE', `/api/ansichten/${a.id}`)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v5.5M13.5 10.5v5.5" /></svg></button>
 									<details class="ga-mehr">
 										<summary aria-label={`Ansicht „${a.name}“ bearbeiten`}>⋯</summary>
 										<div class="ga-aktionen">
@@ -144,15 +145,15 @@
 											{#if darfTeilen}<button type="button" onclick={() => senden('PATCH', `/api/ansichten/${a.id}`, { geteilt: !a.geteilt })}>{a.geteilt ? 'Nicht mehr teilen' : 'Fürs Team teilen'}</button>{/if}
 											<button type="button" onclick={() => senden('PATCH', `/api/ansichten/${a.id}`, { query: page.url.search })}>Mit aktuellen Filtern überschreiben</button>
 											<button type="button" onclick={() => { umbenennen = a.id; umbenennenName = a.name; }}>Umbenennen</button>
-											<button type="button" class="ga-gefahr" onclick={() => { if (confirm(`Ansicht „${a.name}“ löschen?`)) senden('DELETE', `/api/ansichten/${a.id}`); }}>Löschen</button>
+											<button type="button" class="ga-gefahr" use:rueckfrage={`Ansicht „${a.name}“ wirklich löschen?`} onclick={() => senden('DELETE', `/api/ansichten/${a.id}`)}>Löschen</button>
 										</div>
 									</details>
 								{:else if darfTeilen && a.geteilt}
-									<button type="button" class="ga-weg" aria-label={`Team-Ansicht „${a.name}“ für alle löschen`} title="Für alle löschen" onclick={() => { if (confirm(`Team-Ansicht „${a.name}“ von ${a.von ?? '–'} für alle löschen?`)) senden('DELETE', `/api/ansichten/${a.id}`); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v5.5M13.5 10.5v5.5" /></svg></button>
+									<button type="button" class="ga-weg" aria-label={`Team-Ansicht „${a.name}“ für alle löschen`} title="Für alle löschen" use:rueckfrage={`Team-Ansicht „${a.name}“ von ${a.von ?? '–'} wirklich für alle löschen?`} onclick={() => senden('DELETE', `/api/ansichten/${a.id}`)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v5.5M13.5 10.5v5.5" /></svg></button>
 									<details class="ga-mehr">
 										<summary aria-label={`Ansicht „${a.name}“ bearbeiten`}>⋯</summary>
 										<div class="ga-aktionen">
-											<button type="button" class="ga-gefahr" onclick={() => { if (confirm(`Team-Ansicht „${a.name}“ von ${a.von ?? '–'} für alle löschen?`)) senden('DELETE', `/api/ansichten/${a.id}`); }}>Für alle löschen</button>
+											<button type="button" class="ga-gefahr" use:rueckfrage={`Team-Ansicht „${a.name}“ von ${a.von ?? '–'} wirklich für alle löschen?`} onclick={() => senden('DELETE', `/api/ansichten/${a.id}`)}>Für alle löschen</button>
 										</div>
 									</details>
 								{/if}

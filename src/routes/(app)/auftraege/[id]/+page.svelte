@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { untrack } from 'svelte';
@@ -330,7 +331,7 @@
 										{#if m.id && !m.positionId}
 											<form method="POST" action="?/materialLoeschen" use:enhance>
 												<input type="hidden" name="id" value={m.id} />
-												<button type="submit" class="knopf-subtil" aria-label={`${m.bezeichnung} entfernen`}>✕</button>
+												<button type="submit" class="knopf-subtil" aria-label={`${m.bezeichnung} entfernen`} use:rueckfrage={{ frage: `„${m.bezeichnung}“ wirklich entfernen?`, ja: 'Entfernen' }}>✕</button>
 											</form>
 										{/if}
 									</li>

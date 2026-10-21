@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { untrack } from 'svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -76,7 +77,7 @@
 				</span>
 				<form method="POST" action="?/loeschen" use:enhance>
 					<input type="hidden" name="id" value={a.id} />
-					<button type="submit" class="kd-knopf gefahr klein" aria-label={`Abwesenheit von ${a.benutzerName} löschen`}>Löschen</button>
+					<button type="submit" class="kd-knopf gefahr klein" aria-label={`Abwesenheit von ${a.benutzerName} löschen`} use:rueckfrage={`Abwesenheit von ${a.benutzerName} wirklich löschen?`}>Löschen</button>
 				</form>
 			</li>
 		{:else}

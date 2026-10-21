@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import FormFuss from '$lib/components/ui/FormFuss.svelte';
@@ -70,7 +71,7 @@
 					<div class="av-knoepfe">
 						<button type="button" class="knopf-ghost klein" aria-label="Aufgabe {i + 1} nach oben" onclick={() => verschieben(i, -1)} disabled={i === 0}>↑</button>
 						<button type="button" class="knopf-ghost klein" aria-label="Aufgabe {i + 1} nach unten" onclick={() => verschieben(i, 1)} disabled={i === todos.length - 1}>↓</button>
-						<button type="button" class="kd-knopf gefahr klein" aria-label="Aufgabe {i + 1} entfernen" onclick={() => (todos = todos.filter((_, j) => j !== i))}>×</button>
+						<button type="button" class="kd-knopf gefahr klein" aria-label="Aufgabe {i + 1} entfernen" use:rueckfrage={{ frage: 'Aufgabe wirklich entfernen?', ja: 'Entfernen' }} onclick={() => (todos = todos.filter((_, j) => j !== i))}>×</button>
 					</div>
 				</li>
 			{/each}
