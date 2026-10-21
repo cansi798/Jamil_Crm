@@ -48,7 +48,7 @@
 			ton: STATUS_TON[st]
 		}));
 		l.push({ id: 'nachfassen', titel: 'Nachfassen fällig', wert: String(kz.nachfassenFaellig), info: 'jetzt', href: link({ nachfassen: !data.nachfassenFaellig }), ton: 'rot' });
-		if (kz.wertOffenCent !== null) l.push({ id: 'wert', titel: 'Auftragswert offen', wert: euro(kz.wertOffenCent), info: 'angenommen, nicht abgerechnet', ton: 'gruen' });
+		if (kz.wertOffenCent != null) l.push({ id: 'wert', titel: 'Auftragswert offen', wert: euro(kz.wertOffenCent), info: 'angenommen, nicht abgerechnet', ton: 'gruen' });
 		// Einstellungen je Kennzahl (Jamil msg 2946)
 		return mitEinstellungen(l, kz, (id) => (id === 'nachfassen' ? 'auftraege_nachfassen' : id === 'wert' ? 'auftraege_wert' : 'auftraege_status'));
 	});

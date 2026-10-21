@@ -13,6 +13,19 @@ import { GET as auftragGet } from '../../src/routes/api/auftraege/[id]/+server';
 import { GET as protokollGet } from '../../src/routes/api/protokoll/+server';
 import { load as auftragSeite } from '../../src/routes/(app)/auftraege/[id]/+page.server';
 import { load as katalogSeite } from '../../src/routes/(app)/katalog/+page.server';
+import { load as startSeite } from '../../src/routes/(app)/+page.server';
+import { load as kundenSeite } from '../../src/routes/(app)/kunden/+page.server';
+import { load as auftraegeSeite } from '../../src/routes/(app)/auftraege/+page.server';
+import { load as partnerSeite } from '../../src/routes/(app)/partner/+page.server';
+import { load as partnerEinzelSeite } from '../../src/routes/(app)/partner/[id]/+page.server';
+import { load as nachkalkulationSeite } from '../../src/routes/(app)/auswertung/nachkalkulation/+page.server';
+import { load as kennzahlenSeite } from '../../src/routes/(app)/auswertung/kennzahlen/+page.server';
+import { load as quellenSeite } from '../../src/routes/(app)/auswertung/quellen/+page.server';
+import { load as abSeite } from '../../src/routes/(app)/ausgangsbelege/auftragsbestaetigungen/+page.server';
+import { load as rechnungenSeite } from '../../src/routes/(app)/ausgangsbelege/rechnungen/+page.server';
+import { load as angeboteListe } from '../../src/routes/(app)/ausgangsbelege/angebote/+page.server';
+import { baueNavigation } from '../../src/lib/navigation';
+import { MODULE } from '../../src/lib/tarife';
 import { antwort, baueUmgebung, type Umgebung } from './hilfe-1c';
 
 describe('Preisschutz: Rollen ohne „Preise sehen“ bekommen nirgends Preise', () => {
@@ -20,6 +33,7 @@ describe('Preisschutz: Rollen ohne „Preise sehen“ bekommen nirgends Preise',
 	let root: postgres.Sql;
 	let angebotId: string;
 	let katalogId: string;
+	let partnerId: string;
 
 	const url = (pfad: string, params: Record<string, string> = {}) => {
 		const x = new URL(`http://localhost${pfad}`);
@@ -36,6 +50,11 @@ describe('Preisschutz: Rollen ohne „Preise sehen“ bekommen nirgends Preise',
 		const a = await legeAngebotAn(kA, u.auftragA);
 		await speicherePositionen(kA, a.id, [{ katalogPositionId: katalogId, menge: 10 }]);
 		angebotId = a.id;
+		// Partner mit Fremdleistung am Auftrag (Kosten – nur mit „Preise sehen“)
+		const [p] = await root`insert into app.partner (betrieb_id, name, art) values (${u.betriebA}, 'Elektro Preisschutz', 'subunternehmer') returning id`;
+		partnerId = p.id;
+		await root`insert into app.auftrag_subunternehmer (betrieb_id, auftrag_id, partner_id) values (${u.betriebA}, ${u.auftragA}, ${partnerId})`;
+		await root`insert into app.auftrag_fremdleistungen (betrieb_id, auftrag_id, partner_id, bezeichnung, betrag_cent) values (${u.betriebA}, ${u.auftragA}, ${partnerId}, 'Elektrik', 125000)`;
 		// Der Monteur hat einen Einsatz im Auftrag → „eigener Auftrag“
 		await root`
 			insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende)
@@ -105,5 +124,45 @@ describe('Preisschutz: Rollen ohne „Preise sehen“ bekommen nirgends Preise',
 		const ohne = (await auftragSeite({ locals: { nutzer: u.nurAngeboteA }, params: { id: u.auftragA }, url: url(`/auftraege/${u.auftragA}`) } as never)) as any;
 		expect(enthaeltPreisfeld(ohne)).toBe(false);
 		expect(ohne.darfAngebote).toBe(false);
+	});
+
+	it('Partner, Nachkalkulation, Kennzahlen, Ausgangsbelege: ohne „Preise sehen“ kein Geldfeld (…Cent) in Seiten-Daten', async () => {
+		const mod = [...MODULE];
+		const funde: string[] = [];
+		const ohneCent = (name: string, d: unknown) => {
+			const j = JSON.stringify(d ?? null);
+			for (const m of j.matchAll(/"(\w*Cent)"|125000|1\.250|€/g)) funde.push(`${name}: ${m[0]}`);
+			if (enthaeltPreisfeld(d) && !funde.some((f) => f.startsWith(name))) funde.push(`${name}: Preisfeld`);
+		};
+		const ev = (n: typeof u.monteurA, pfad: string, params: Record<string, string> = {}) =>
+			({ locals: { nutzer: n }, params, url: url(pfad), parent: async () => ({ navigation: baueNavigation(n, mod) }) }) as never;
+		const darf = async (name: string, fn: () => unknown) => {
+			try {
+				ohneCent(name, await fn());
+			} catch (e) {
+				// 403/404/Weiterleitung ist auch in Ordnung – Hauptsache keine Beträge
+				if ((e as { status?: number }).status && (e as { status: number }).status >= 300) return;
+				throw e;
+			}
+		};
+		for (const n of [u.monteurA, u.ohnePreiseA]) {
+			await darf('Auftrag', () => auftragSeite(ev(n, `/auftraege/${u.auftragA}`, { id: u.auftragA })));
+			await darf('Start', () => startSeite(ev(n, '/')));
+			await darf('Kunden', () => kundenSeite(ev(n, '/kunden')));
+			await darf('Aufträge', () => auftraegeSeite(ev(n, '/auftraege?ansicht=liste')));
+			await darf('Partner', () => partnerSeite(ev(n, '/partner')));
+			await darf('Partner einzeln', () => partnerEinzelSeite(ev(n, `/partner/${partnerId}`, { id: partnerId })));
+			await darf('Nachkalkulation', () => nachkalkulationSeite(ev(n, '/auswertung/nachkalkulation')));
+			await darf('Kennzahlen', () => kennzahlenSeite(ev(n, '/auswertung/kennzahlen')));
+			await darf('Quellen', () => quellenSeite(ev(n, '/auswertung/quellen')));
+			// Ausgangsbelege enthalten Preise → ohne „Preise sehen“ 403
+			for (const [name, f] of [['AB', abSeite], ['Rechnungen', rechnungenSeite], ['Angebote', angeboteListe]] as const) {
+				await expect((f as (e: never) => Promise<unknown>)(ev(n, '/ausgangsbelege/x')), name).rejects.toMatchObject({ status: 403 });
+			}
+		}
+		expect([...new Set(funde)]).toEqual([]);
+		// Gegenprobe: Chef sieht die Fremdleistung samt Summe
+		const chef = (await auftragSeite(ev(u.chefA, `/auftraege/${u.auftragA}`, { id: u.auftragA }))) as any;
+		expect(chef.partner).toMatchObject({ summeFremdCent: 125000, fremdleistungen: [expect.objectContaining({ betragCent: 125000 })] });
 	});
 });

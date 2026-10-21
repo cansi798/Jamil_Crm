@@ -38,7 +38,7 @@
 		<dl class="pt-zahlen">
 			<div><dt>Aufträge als Auftraggeber</dt><dd>{a.auftraegeAlsAuftraggeber}</dd></div>
 			<div><dt>Aufträge als Subunternehmer</dt><dd>{a.auftraegeAlsSubunternehmer}</dd></div>
-			{#if a.umsatzCent !== null}
+			{#if a.umsatzCent != null}
 				<div><dt>Umsatz (angenommene Angebote, netto)</dt><dd>{euro(a.umsatzCent)}</dd></div>
 				<div><dt>Provision{p.provisionProzent !== null ? ` (${String(p.provisionProzent).replace('.', ',')} %)` : ''}</dt><dd>{a.provisionCent === null ? '– (keine Provision eingetragen)' : euro(a.provisionCent)}</dd></div>
 				<div><dt>Fremdleistungen gesamt</dt><dd>{euro(a.fremdleistungCent ?? 0)}</dd></div>

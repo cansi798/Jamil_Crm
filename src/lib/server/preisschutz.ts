@@ -4,7 +4,15 @@
  * Antworten an solche Benutzer, `enthaeltPreisfeld` die Prüfung dafür (auch in Tests).
  */
 
-export const PREISFELDER = ['lohnCent', 'materialCent', 'einzelpreisCent', 'summeCent', 'nettoCent', 'mwstCent', 'bruttoCent'] as const;
+export const PREISFELDER = [
+	'lohnCent', 'materialCent', 'einzelpreisCent', 'summeCent', 'nettoCent', 'mwstCent', 'bruttoCent',
+	// Partner / Fremdleistungen (msg 2856), Nachkalkulation, Kennzahlen, Ausgangsbelege – ausdrücklich gelistet …
+	'betragCent', 'summeFremdCent', 'fremdleistungCent', 'umsatzCent', 'provisionCent', 'fremdCent', 'istFremdCent',
+	'summeOffenCent', 'summeAngenommenCent', 'durchschnittCent', 'wertOffenCent', 'erloesCent', 'kostenCent', 'dbCent'
+] as const;
+
+/** … und grundsätzlich: jedes Feld, dessen Name auf „Cent“ endet, ist ein Geldbetrag. */
+const istPreisfeld = (k: string, felder: readonly string[]) => felder.includes(k) || (felder === PREISFELDER && /Cent$/.test(k));
 
 /** Spalten mit Preisen im Änderungsprotokoll (`vorher`/`nachher` sind Zeilen der Tabellen, snake_case). */
 export const PREIS_SPALTEN = ['lohn_cent', 'material_cent', 'einzelpreis_cent'] as const;
@@ -16,7 +24,7 @@ function enthaeltFeld(wert: unknown, felder: readonly string[], gesehen = new Se
 	gesehen.add(wert);
 	if (Array.isArray(wert)) return wert.some((w) => enthaeltFeld(w, felder, gesehen));
 	for (const [k, v] of Object.entries(wert)) {
-		if (felder.includes(k)) return true;
+		if (istPreisfeld(k, felder)) return true;
 		if (enthaeltFeld(v, felder, gesehen)) return true;
 	}
 	return false;
@@ -27,7 +35,7 @@ function ohneFelder<T>(wert: T, felder: readonly string[]): T {
 	if (wert instanceof Date || wert instanceof Uint8Array) return wert;
 	if (Array.isArray(wert)) return wert.map((w) => ohneFelder(w, felder)) as T;
 	const neu: Record<string, unknown> = {};
-	for (const [k, v] of Object.entries(wert)) if (!felder.includes(k)) neu[k] = ohneFelder(v, felder);
+	for (const [k, v] of Object.entries(wert)) if (!istPreisfeld(k, felder)) neu[k] = ohneFelder(v, felder);
 	return neu as T;
 }
 

@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler, ApiFehler } from '$lib/server/fehler';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { hatRecht } from '$lib/server/rechte';
+import { ohnePreise } from '$lib/server/preisschutz';
 import { sichtVon } from '$lib/server/auftraege';
 import {
 	aenderePartner,
@@ -23,8 +24,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const nutzer = locals.nutzer!;
 	return alsSeitenFehler(async () => {
 		const partner = await holePartner(k, params.id);
-		const [auswertung, auftraege] = await Promise.all([partnerAuswertung(k, partner.id, hatRecht(nutzer, 'preise.sehen')), partnerAuftraege(k, sichtVon(nutzer), partner.id)]);
-		return { partner, auswertung, auftraege };
+		const preise = hatRecht(nutzer, 'preise.sehen');
+		const [auswertung, auftraege] = await Promise.all([partnerAuswertung(k, partner.id, preise), partnerAuftraege(k, sichtVon(nutzer), partner.id)]);
+		// Preisschutz: ohne „Preise sehen“ fehlen Umsatz, Provision und Fremdleistungen ganz
+		return { partner, auswertung: preise ? auswertung : ohnePreise(auswertung), auftraege };
 	});
 };
 

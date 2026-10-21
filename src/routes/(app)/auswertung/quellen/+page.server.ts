@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { hatRecht, betriebKontext } from '$lib/server/rechte';
+import { ohnePreise } from '$lib/server/preisschutz';
 import { alsSeitenFehler } from '$lib/server/seite';
 import { auswertung, standardZeitraum } from '$lib/server/quellen';
 import { istTag } from '$lib/zeit';
@@ -22,6 +23,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		von,
 		bis,
 		mitPreisen,
-		zeilen: mitPreisen ? zeilen : zeilen.map((z) => ({ ...z, umsatzCent: null, durchschnittCent: null }))
+		// Preisschutz: ohne „Preise sehen“ fehlen Umsatz und Ø-Wert ganz
+		zeilen: mitPreisen ? zeilen : ohnePreise(zeilen)
 	};
 };

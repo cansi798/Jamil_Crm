@@ -3,7 +3,15 @@ import { enthaeltPreisfeld, ohnePreise, ohnePreisSpalten, PREISFELDER } from '..
 
 describe('Preisschutz', () => {
 	it('kennt genau die Preisfelder der Antworten', () => {
-		expect(PREISFELDER).toEqual(['lohnCent', 'materialCent', 'einzelpreisCent', 'summeCent', 'nettoCent', 'mwstCent', 'bruttoCent']);
+		expect(PREISFELDER).toEqual(expect.arrayContaining(['lohnCent', 'materialCent', 'einzelpreisCent', 'summeCent', 'nettoCent', 'mwstCent', 'bruttoCent']));
+		// Partner/Fremdleistungen, Nachkalkulation, Kennzahlen (Preisschutz-Nachtrag)
+		expect(PREISFELDER).toEqual(expect.arrayContaining(['betragCent', 'summeFremdCent', 'fremdleistungCent', 'umsatzCent', 'provisionCent', 'wertOffenCent', 'durchschnittCent']));
+	});
+
+	it('jedes Feld, das auf „Cent“ endet, gilt als Preisfeld (auch künftige)', () => {
+		expect(enthaeltPreisfeld({ a: [{ irgendwasNeuesCent: null }] })).toBe(true);
+		expect(ohnePreise({ name: 'x', summeFremdCent: 5, partner: { provisionCent: 1, prozent: 3 } })).toEqual({ name: 'x', partner: { prozent: 3 } });
+		expect(enthaeltPreisfeld({ Centrum: 1, prozent: 2 })).toBe(false);
 	});
 
 	it('enthaeltPreisfeld sucht rekursiv in Objekten und Listen', () => {

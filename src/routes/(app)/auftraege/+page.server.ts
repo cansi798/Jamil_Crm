@@ -9,6 +9,7 @@ import { istStatus } from '$lib/auftrag-status';
 import { listeQuellen } from '$lib/server/quellen';
 import { UUID } from '$lib/server/kunden';
 import { auftragsKennzahlen, siehtKennzahlen } from '$lib/server/kennzahlen';
+import { ohnePreise } from '$lib/server/preisschutz';
 import { istZeitraumArt, zeitraum } from '$lib/kennzahlen';
 import { berlinTag } from '$lib/zeit';
 
@@ -40,7 +41,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const z = zeitraum(istZeitraumArt(zRoh) ? zRoh : 'monat', berlinTag(new Date()));
 	const module = await moduleDesBetriebs(k);
 	const preise = hatRecht(nutzer, 'preise.sehen') && module.includes('angebote');
-	const kennzahlen = siehtKennzahlen(nutzer, module) ? await alsSeitenFehler(() => auftragsKennzahlen(k, sicht, z, preise)) : null;
+	const kz = siehtKennzahlen(nutzer, module) ? await alsSeitenFehler(() => auftragsKennzahlen(k, sicht, z, preise)) : null;
+	// Preisschutz: ohne Preise fehlt „Auftragswert offen“ ganz (nicht nur null)
+	const kennzahlen = kz && !preise ? ohnePreise(kz) : kz;
 	const gemeinsam = {
 		kennzahlen,
 		zeitraum: z.art,

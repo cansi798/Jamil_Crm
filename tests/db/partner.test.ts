@@ -86,7 +86,9 @@ describe('Partner', () => {
 		const w = await fuegeSubunternehmerHinzu(kA(), ALLE(), a.id, sub.id, 'Elektro', HEUTE);
 		expect(w).toMatch(/Elektro Kaya: Nachweis abgelaufen/);
 		const ap = await auftragPartner(kA(), ALLE(), a.id, false, HEUTE);
-		expect(ap).toMatchObject({ auftraggeber: { name: 'OBI' }, subunternehmer: [{ name: 'Elektro Kaya', leistung: 'Elektro' }], fremdleistungen: null });
+		expect(ap).toMatchObject({ auftraggeber: { name: 'OBI' }, subunternehmer: [{ name: 'Elektro Kaya', leistung: 'Elektro' }] });
+		// Preisschutz: ohne „Preise sehen“ fehlen die Kosten-Felder ganz
+		expect(Object.keys(ap)).toEqual(['auftraggeber', 'subunternehmer']);
 		// Monteur sieht den Auftrag nicht → 404
 		await expect(auftragPartner({ betriebId: u.betriebA, benutzerId: u.ids.monteurA }, { alle: false, benutzerId: u.ids.monteurA }, a.id, false)).rejects.toMatchObject({ status: 404 });
 	});

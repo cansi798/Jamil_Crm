@@ -395,9 +395,9 @@ export async function partnerAuswertung(k: Kontext, partnerId: unknown, preise: 
 export type AuftragPartner = {
 	auftraggeber: { id: string; name: string } | null;
 	subunternehmer: { id: string; name: string; leistung: string | null; warnung: string | null }[];
-	/** null ohne „Preise sehen“ */
-	fremdleistungen: { id: string; bezeichnung: string; betragCent: number; partnerName: string | null; rechnungsnummer: string | null; datum: string | null }[] | null;
-	summeFremdCent: number | null;
+	/** Nur mit „Preise sehen“ – sonst fehlen beide Felder ganz (Preisschutz: keine Kosten-Felder an Monteure). */
+	fremdleistungen?: { id: string; bezeichnung: string; betragCent: number; partnerName: string | null; rechnungsnummer: string | null; datum: string | null }[];
+	summeFremdCent?: number;
 };
 
 async function auftragPruefen(tx: TransactionSql, k: Kontext, sicht: Sicht, auftragId: unknown): Promise<string> {
@@ -417,20 +417,18 @@ export async function auftragPartner(k: Kontext, sicht: Sicht, auftragId: string
 					where n.partner_id = p.id and n.betrieb_id = p.betrieb_id) as nachweise
 			from app.auftrag_subunternehmer s join app.partner p on p.id = s.partner_id and p.betrieb_id = s.betrieb_id
 			where s.auftrag_id = ${aid} and s.betrieb_id = ${k.betriebId} order by s.angelegt`;
-		let fremd: AuftragPartner['fremdleistungen'] = null;
-		if (preise) {
-			const f = await tx`
-				select f.id, f.bezeichnung, f.betrag_cent, p.name as partner_name, f.rechnungsnummer, to_char(f.datum, 'YYYY-MM-DD') as datum
-				from app.auftrag_fremdleistungen f left join app.partner p on p.id = f.partner_id and p.betrieb_id = f.betrieb_id
-				where f.auftrag_id = ${aid} and f.betrieb_id = ${k.betriebId} order by f.datum nulls last, f.angelegt`;
-			fremd = f.map((r) => ({ id: r.id, bezeichnung: r.bezeichnung, betragCent: Number(r.betrag_cent), partnerName: r.partner_name, rechnungsnummer: r.rechnungsnummer, datum: r.datum }));
-		}
-		return {
-			auftraggeber: ag ? { id: ag.id, name: ag.name } : null,
-			subunternehmer: su.map((r) => ({ id: r.id, name: r.name, leistung: r.leistung, warnung: warnungAus(r.nachweise, heute) })),
-			fremdleistungen: fremd,
-			summeFremdCent: fremd ? fremd.reduce((s, x) => s + x.betragCent, 0) : null
+		const basis = {
+			auftraggeber: ag ? { id: ag.id as string, name: ag.name as string } : null,
+			subunternehmer: su.map((r) => ({ id: r.id as string, name: r.name as string, leistung: r.leistung as string | null, warnung: warnungAus(r.nachweise, heute) }))
 		};
+		// ohne „Preise sehen“ weder Beträge noch Summen laden oder zurückgeben
+		if (!preise) return basis;
+		const f = await tx`
+			select f.id, f.bezeichnung, f.betrag_cent, p.name as partner_name, f.rechnungsnummer, to_char(f.datum, 'YYYY-MM-DD') as datum
+			from app.auftrag_fremdleistungen f left join app.partner p on p.id = f.partner_id and p.betrieb_id = f.betrieb_id
+			where f.auftrag_id = ${aid} and f.betrieb_id = ${k.betriebId} order by f.datum nulls last, f.angelegt`;
+		const fremd = f.map((r) => ({ id: r.id as string, bezeichnung: r.bezeichnung as string, betragCent: Number(r.betrag_cent), partnerName: r.partner_name as string | null, rechnungsnummer: r.rechnungsnummer as string | null, datum: r.datum as string | null }));
+		return { ...basis, fremdleistungen: fremd, summeFremdCent: fremd.reduce((s, x) => s + x.betragCent, 0) };
 	});
 }
 

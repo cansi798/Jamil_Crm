@@ -19,8 +19,8 @@
 		partner: {
 			auftraggeber: { id: string; name: string } | null;
 			subunternehmer: { id: string; name: string; leistung: string | null; warnung: string | null }[];
-			fremdleistungen: { id: string; bezeichnung: string; betragCent: number; partnerName: string | null; rechnungsnummer: string | null; datum: string | null }[] | null;
-			summeFremdCent: number | null;
+			fremdleistungen?: { id: string; bezeichnung: string; betragCent: number; partnerName: string | null; rechnungsnummer: string | null; datum: string | null }[];
+			summeFremdCent?: number;
 		};
 		auswahl: { id: string; name: string; art: PartnerArt; warnung: string | null }[];
 		darfBearbeiten: boolean;
