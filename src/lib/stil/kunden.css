@@ -251,6 +251,9 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: var(--tippziel);
+	/* Jamil msg 3042: Tippfläche bleibt groß, ragt aber gleichmäßig nach oben und unten – der Text steht auf einer
+	   Linie mit dem Text daneben (Telefon neben Ansprechpartner/Adresse). */
+	margin-block: calc((1lh - var(--tippziel)) / 2);
 	color: var(--ui-akzent-text);
 }
 .kd-verlauf {
