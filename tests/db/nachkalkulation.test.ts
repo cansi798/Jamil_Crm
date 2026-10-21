@@ -139,7 +139,7 @@ describe('Nachkalkulation', () => {
 		const nurPreise = nutzerVon(u.ids.monteurA, u.betriebA, ['auftraege.lesen', 'preise.sehen']);
 		expect((await _fuerTests.beantworteNachkalkulation(kM, nurPreise, 'Fliesen')).fehler).toMatch(/Berechtigung/);
 		// Planer ohne „Alle Aufträge ansehen“ findet per Sprache nur eigene Aufträge (Termin auf fremden Auftrag)
-		const planer = nutzerVon(u.ids.monteurA, u.betriebA, ['kunden.lesen', 'auftraege.lesen', 'plantafel.bearbeiten']);
+		const planer = nutzerVon(u.ids.monteurA, u.betriebA, ['kunden.lesen', 'auftraege.lesen', 'plantafel.bearbeiten', 'sprache.nutzen']);
 		const fremd = await u.neuerAuftrag('beauftragt', 'Geheimprojekt Zentrale');
 		const r = (await antwort(await textPost({ locals: { nutzer: planer }, request: jsonAnfrage('POST', { text: 'Termin bei Geheimprojekt morgen um 8 Uhr' }) } as never))).koerper;
 		expect(JSON.stringify(r)).not.toContain(fremd);

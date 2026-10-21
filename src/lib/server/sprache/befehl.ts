@@ -416,10 +416,18 @@ export function pruefeBefehlText(w: unknown): string {
 	return text;
 }
 
-/** Modul `sprache` (+ angemeldet, Betrieb) – vor jedem weiteren Schritt. */
+/** Fehlt das Recht „Sprachsteuerung nutzen“ (Jamil msg 3011). */
+export const MELDUNG_KEINE_SPRACHE = 'Die Sprachsteuerung ist für Ihre Rolle nicht freigeschaltet.';
+
+/**
+ * Modul `sprache` (+ angemeldet, Betrieb) und Recht `sprache.nutzen` – vor jedem weiteren Schritt, an allen
+ * Sprach-Endpunkten (Aufnahme, getippter Befehl, Ausführen – auch mehrere Schritte). Die Rechte je Aktion prüft
+ * danach jede Aktion wie bisher.
+ */
 export async function pruefeSprachZugang(locals: { nutzer: Nutzer | null }): Promise<void> {
 	betriebKontext(locals);
 	await pruefeModul(locals, 'sprache');
+	if (!hatRecht(locals.nutzer!, 'sprache.nutzen')) throw new ApiFehler(403, MELDUNG_KEINE_SPRACHE);
 }
 
 export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: string, jetzt = new Date()): Promise<Befehlsergebnis> {

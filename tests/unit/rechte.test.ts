@@ -36,6 +36,7 @@ describe('Rechte und Vorlagen', () => {
 			'vorlagen.verwalten',
 			'partner.verwalten',
 			'kennzahlen.verwalten',
+			'sprache.nutzen',
 			'benutzer.verwalten',
 			'einstellungen'
 		]);
@@ -45,6 +46,13 @@ describe('Rechte und Vorlagen', () => {
 	it('Vorlage monteur hat kein preise.sehen', () => {
 		expect(VORLAGEN.monteur).toEqual(['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen', 'erinnerungen.nutzen', 'zeiterfassung.nutzen']);
 		expect(VORLAGEN.monteur).not.toContain('preise.sehen');
+	});
+
+	it('Sprachsteuerung (msg 3011): eigenes Recht, Standard Chef und Büro ja, Monteur nein', () => {
+		expect(RECHTE['sprache.nutzen']).toBe('Sprachsteuerung nutzen');
+		expect(VORLAGEN.chef).toContain('sprache.nutzen');
+		expect(VORLAGEN.buero).toContain('sprache.nutzen');
+		expect(VORLAGEN.monteur).not.toContain('sprache.nutzen');
 	});
 
 	it('Vorlage chef hat alle Rechte', () => {

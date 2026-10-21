@@ -99,7 +99,7 @@ describe('Sprache – neue Aktionen', () => {
 		const plan = await text(u.monteurA, 'Was hat Kolonne A diese Woche?');
 		expect(plan.koerper.karte.fehler).toBeNull();
 		expect(plan.koerper.karte.titel).toBe('Tagesplan diese Woche – Kolonne A');
-		const fremd = await text(u.nurAngeboteA, 'Was hat Kolonne A diese Woche?'); // kein Mitglied, ohne „Alle Aufgaben ansehen“
+		const fremd = await text({ ...u.nurAngeboteA, rechte: [...u.nurAngeboteA.rechte, 'sprache.nutzen'] }, 'Was hat Kolonne A diese Woche?'); // kein Mitglied, ohne „Alle Aufgaben ansehen“
 		expect(fremd.koerper.karte.fehler ?? '').toMatch(/eigenen Tagesplan|Berechtigung/);
 	});
 

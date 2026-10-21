@@ -32,6 +32,9 @@ export const UNBEKANNT = '11111111-1111-4111-8111-111111111111';
 /** Rechte „Büro ohne Preise“: alles außer `preise.sehen` (Plan 1c Task 7). */
 export const OHNE_PREISE = ALLE_RECHTE.filter((r) => r !== 'preise.sehen');
 
+/** Monteur-Vorlage plus „Sprachsteuerung nutzen“ (im Betrieb pro Rolle freischaltbar, Jamil msg 3011). */
+export const MONTEUR_MIT_SPRACHE = [...VORLAGEN.monteur, 'sprache.nutzen'] as const;
+
 export type Umgebung = {
 	db: TestDb;
 	root: postgres.Sql;
@@ -41,7 +44,10 @@ export type Umgebung = {
 	ids: Record<'chefA' | 'bueroA' | 'monteurA' | 'ohnePreiseA' | 'nurAngeboteA' | 'chefB' | 'chefC', string>;
 	chefA: Nutzer;
 	bueroA: Nutzer;
+	/** Monteur, dem der Chef die Sprachsteuerung freigeschaltet hat (msg 3011) – so prüfen die Sprach-Tests weiter die Rechte je Aktion. */
 	monteurA: Nutzer;
+	/** Derselbe Monteur mit der Standard-Vorlage (ohne „Sprachsteuerung nutzen“). */
+	monteurOhneSpracheA: Nutzer;
 	/** Alle Rechte außer `preise.sehen`. */
 	ohnePreiseA: Nutzer;
 	/** `angebote.bearbeiten` ohne `preise.sehen` und ohne `katalog.bearbeiten`. */
@@ -84,7 +90,7 @@ export async function baueUmgebung(): Promise<Umgebung> {
 	const ids = {
 		chefA: await benutzer(betriebA, await rolle(betriebA, 'Chef', VORLAGEN.chef), 'chef-a@beispiel.test', 'Chef A'),
 		bueroA: await benutzer(betriebA, await rolle(betriebA, 'Büro', VORLAGEN.buero), 'buero-a@beispiel.test', 'Büro A'),
-		monteurA: await benutzer(betriebA, await rolle(betriebA, 'Monteur', VORLAGEN.monteur), 'monteur-a@beispiel.test', 'Ali Monteur'),
+		monteurA: await benutzer(betriebA, await rolle(betriebA, 'Monteur', MONTEUR_MIT_SPRACHE), 'monteur-a@beispiel.test', 'Ali Monteur'),
 		ohnePreiseA: await benutzer(betriebA, await rolle(betriebA, 'Büro ohne Preise', OHNE_PREISE), 'ohne@beispiel.test', 'Ohne Preise'),
 		nurAngeboteA: await benutzer(betriebA, await rolle(betriebA, 'Nur Angebote', NUR_ANGEBOTE), 'nur@beispiel.test', 'Nur Angebote'),
 		chefB: await benutzer(betriebB, await rolle(betriebB, 'Chef', VORLAGEN.chef), 'chef-b@beispiel.test', 'Chef B'),
@@ -118,7 +124,8 @@ export async function baueUmgebung(): Promise<Umgebung> {
 		ids,
 		chefA: nutzerVon(ids.chefA, betriebA, VORLAGEN.chef),
 		bueroA: nutzerVon(ids.bueroA, betriebA, VORLAGEN.buero),
-		monteurA: nutzerVon(ids.monteurA, betriebA, VORLAGEN.monteur),
+		monteurA: nutzerVon(ids.monteurA, betriebA, MONTEUR_MIT_SPRACHE),
+		monteurOhneSpracheA: nutzerVon(ids.monteurA, betriebA, VORLAGEN.monteur),
 		ohnePreiseA: nutzerVon(ids.ohnePreiseA, betriebA, OHNE_PREISE),
 		nurAngeboteA: nutzerVon(ids.nurAngeboteA, betriebA, NUR_ANGEBOTE),
 		chefB: nutzerVon(ids.chefB, betriebB, VORLAGEN.chef),

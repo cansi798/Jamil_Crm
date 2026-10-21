@@ -31,7 +31,7 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	// Automatisches Nachfassen: fällige Stufen anlegen, sobald jemand die App benutzt (höchstens alle 10 Min. je Betrieb;
 	// läuft im Hintergrund und bremst die Seite nicht)
 	if (nutzer.betriebId && module.includes('angebote')) void pruefeNachfassenGedrosselt({ betriebId: nutzer.betriebId, benutzerId: nutzer.id });
-	// Mikrofon-Knopf nur mit Modul „sprache“ (geprüft wird zusätzlich in jedem Sprach-Endpunkt)
+	// Mikrofon-Knopf nur mit Modul „sprache“ UND Recht „Sprachsteuerung nutzen“ (msg 3011); geprüft wird zusätzlich in jedem Sprach-Endpunkt
 	// Erinnerungen (Wunsch Jamil msg 2679): Glocke mit Zahl der ungelesenen Benachrichtigungen
 	const erinnern = !!nutzer.betriebId && hatRecht(nutzer, 'erinnerungen.nutzen');
 	const ungelesen = nutzer.betriebId ? (await benachrichtigungen({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }, 1)).ungelesen : 0;
@@ -40,5 +40,5 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const laufendeZeit = zeiten ? await laufend({ betriebId: nutzer.betriebId!, benutzerId: nutzer.id }, nutzer.id) : null;
 	// Hausfarbe des Betriebs (Briefkopf) als Akzent der ganzen App; ohne Angabe Gold (Theme „Handwerk“)
 	const farbe = nutzer.betriebId ? await hausfarbe({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }).catch(() => null) : null;
-	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe), ansichtenTeilen: hatRecht(nutzer, 'auftraege.alle_lesen') };
+	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache') && hatRecht(nutzer, 'sprache.nutzen'), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe), ansichtenTeilen: hatRecht(nutzer, 'auftraege.alle_lesen') };
 };

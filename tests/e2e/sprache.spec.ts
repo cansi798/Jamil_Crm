@@ -45,7 +45,8 @@ async function befehlTippen(page: Page, text: string) {
 
 test.describe('Sprachsteuerung', () => {
 	test('Frage „Was steht heute für mich an?“: Antwort ohne Speichern, mit Vorlesen und Links (msg 2647)', async ({ page }) => {
-		await anmelden(page, MONTEUR);
+		// Büro: Der Monteur hat seit msg 3011 standardmäßig keine Sprachsteuerung mehr
+		await anmelden(page, BUERO);
 		const dialog = await befehlTippen(page, 'Was steht heute für mich an?');
 		const karte = dialog.getByRole('region', { name: 'Bestätigung' });
 		await expect(karte.getByRole('heading', { name: 'Tagesplan heute' })).toBeVisible();
@@ -199,12 +200,20 @@ test.describe('Sprachsteuerung', () => {
 		}
 	});
 
-	test('Monteur: Angebot per Sprache → „Dafür fehlt Ihnen die Berechtigung“, kein Speichern', async ({ page }) => {
+	test('Monteur ohne „Sprachsteuerung nutzen“ (Standard, msg 3011): kein Mikrofon-Knopf, Sprach-API 403', async ({ page }, info) => {
 		await anmelden(page, MONTEUR);
-		const dialog = await befehlTippen(page, 'Erstelle ein Angebot für Schröder: 12 Quadratmeter Wandfliesen');
-		const karte = dialog.getByRole('region', { name: 'Bestätigung' });
-		await expect(karte.getByRole('alert')).toHaveText('Dafür fehlt Ihnen die Berechtigung');
-		await expect(karte.getByRole('button', { name: 'Ja, speichern' })).toHaveCount(0);
+		await page.goto('/');
+		await expect(page.getByRole('navigation', { name: 'Hauptnavigation' }).first()).toBeAttached();
+		await expect(page.getByRole('button', { name: 'Sprachbefehl' })).toHaveCount(0);
+		await page.goto('/todos');
+		await expect(page.getByRole('button', { name: 'Sprachbefehl' })).toHaveCount(0);
+		const r = await page.evaluate(async () => {
+			const a = await fetch('/api/sprache/text', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: 'Neue Aufgabe Test' }) });
+			return { status: a.status, koerper: await a.json() };
+		});
+		expect(r.status).toBe(403);
+		expect(r.koerper.fehler).toBe('Die Sprachsteuerung ist für Ihre Rolle nicht freigeschaltet.');
+		await foto(page, 'monteur-ohne-mikrofon', info.project.name);
 	});
 
 	test('nicht unterstützt → „Das kann ich noch nicht“', async ({ page }) => {

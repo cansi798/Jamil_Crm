@@ -250,6 +250,10 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Lieferanten mit Kontakten, Konditionen, Portal-Link (nur http/https, keine Zugangsdaten) und Nachweisen (Datei in der
     Datenbank, Typ an den ersten Bytes geprüft; 30 Tage vor Ablauf Aufgabe + Erinnerung). Auftraggeber per Trigger aus
     der Auftragsquelle; Fremdleistungen gehen in die Nachkalkulation; Beträge nur mit „Preise sehen“.
+24. Sprachsteuerung (Migration 099, Recht `sprache.nutzen` „Sprachsteuerung nutzen“): zusätzlich zum Tarif-Modul
+    `sprache`. Ohne das Recht kein Mikrofon-Knopf und 403 in `pruefeSprachZugang` (Aufnahme, getippter Befehl,
+    Ausführen inkl. mehrerer Schritte), bevor die KI etwas sieht; die Rechte je Aktion gelten danach wie bisher.
+    Standard: Chef und Büro ja, Monteur und eigene Rollen nein (in „Einstellungen → Rollen“ änderbar).
 
 ## Installation auf einem eigenen Server
 

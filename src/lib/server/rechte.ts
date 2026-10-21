@@ -25,6 +25,7 @@ export const RECHTE = {
 	'vorlagen.verwalten': 'E-Mail-Vorlagen und Signatur verwalten',
 	'partner.verwalten': 'Partner verwalten (Auftraggeber, Subunternehmer, Lieferanten, Nachweise)',
 	'kennzahlen.verwalten': 'Kennzahlen einstellen (an/aus, „Erfassen ab“)',
+	'sprache.nutzen': 'Sprachsteuerung nutzen',
 	'benutzer.verwalten': 'Benutzer verwalten',
 	einstellungen: 'Einstellungen verwalten'
 } as const;
@@ -42,6 +43,7 @@ export const VORLAGEN = {
 	// Online-Buchung (Wunsch Jamil msgs 2684/2686) standardmäßig nur der Chef; in „Rollen“ vergebbar
 	// Kennzahlen einstellen (Jamil msg 2946): Standard nur der Chef
 	buero: ALLE_RECHTE.filter((r) => r !== 'einstellungen' && r !== 'benutzer.verwalten' && r !== 'buchung.verwalten' && r !== 'kennzahlen.verwalten'),
+	// Sprachsteuerung (Jamil msg 3011): Chef und Büro ja, Monteur nicht
 	monteur: ['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen', 'erinnerungen.nutzen', 'zeiterfassung.nutzen']
 } as const satisfies Record<string, readonly Recht[]>;
 
