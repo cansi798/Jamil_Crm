@@ -36,7 +36,7 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 	let zeit: { laufend: Awaited<ReturnType<typeof laufend>>; auftraege: { id: string; nummer: string; titel: string; kunde: string; zeit: string }[] } | null = null;
 	// Start-Cockpit (Jamil msg 2813): Kennzahlen, Handlungsbedarf, Auslastung, Umsatz je Quelle – Chef/Büro
 	let cockpit: StartCockpit | null = null;
-	let monat: { satz: string; erreicht: boolean; kalkulationFehlt: boolean; link: string } | null = null;
+	let monat: { satz: string; erreicht: boolean; kalkulationFehlt: boolean; link: string; deckungProzent: number | null; geldText: string; auslastungProzent: number | null; geplant: number; verfuegbar: number | null; frei: number | null; ueberbucht: boolean } | null = null;
 	// Frei zusammenstellbarer Start (msg 2942): nur Daten für Kacheln laden, die im Layout stehen und erlaubt sind
 	let layout: StartLayout = [];
 	let eigenesLayout = false;
@@ -73,7 +73,15 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 				satz: gewinnSatz(a.geld!.ergebnisCent, a.kalkulationFehlt ? null : a.summe.frei),
 				erreicht: a.geld!.erreicht,
 				kalkulationFehlt: a.kalkulationFehlt,
-				link: '/plantafel/auslastung'
+				link: '/plantafel/auslastung',
+				// Balken (Jamil msg 3083): Deckung der Monatskosten und Auslastung der Stunden
+				deckungProzent: a.geld!.deckungProzent,
+				geldText: gewinnSatz(a.geld!.ergebnisCent, null),
+				auslastungProzent: a.kalkulationFehlt ? null : a.summe.auslastungProzent,
+				geplant: a.summe.geplant,
+				verfuegbar: a.kalkulationFehlt ? null : a.summe.verfuegbar,
+				frei: a.kalkulationFehlt ? null : a.summe.frei,
+				ueberbucht: a.summe.ueberbucht
 			};
 		}
 		if (brauche.has('zeiterfassung') && module.includes('zeiterfassung') && (hatRecht(nutzer, 'zeiterfassung.nutzen') || hatRecht(nutzer, 'zeiterfassung.alle_sehen'))) {

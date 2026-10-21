@@ -9,6 +9,7 @@
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
 	import { kennzahlText } from '$lib/kennzahlen';
 	import { euro } from '$lib/geld';
+	import { stundenText } from '$lib/auslastung';
 	import { GROESSEN, GROESSE_NAMEN, SPALTEN, kachelArt, verschiebe, zieheAuf, type Groesse, type StartLayout } from '$lib/start-kacheln';
 	import type { ActionData, PageData } from './$types';
 
@@ -104,7 +105,23 @@
 		{#if data.monat}
 			<a href={data.monat.link} class="heute-karte monat-kachel" class:erreicht={data.monat.erreicht} aria-label={`Diesen Monat: ${data.monat.satz} – Auslastung öffnen`}>
 				<span class="monat-titel">Diesen Monat</span>
-				<span class="monat-satz">{data.monat.satz}</span>
+				<!-- Jamil msg 3083: Stand als Balken statt nur als Satz -->
+				{#if data.monat.deckungProzent !== null}
+					<span class="monat-zeile">
+						<span class="monat-label"><b>Break-even</b><span>{data.monat.deckungProzent} % der Monatskosten gedeckt</span></span>
+						<span class="monat-balken" class:voll={data.monat.erreicht} role="presentation"><span style:width={`${Math.min(100, Math.max(0, data.monat.deckungProzent))}%`}></span></span>
+						<small>{data.monat.geldText}</small>
+					</span>
+				{:else}
+					<span class="monat-satz">{data.monat.geldText}</span>
+				{/if}
+				{#if data.monat.auslastungProzent !== null && data.monat.verfuegbar !== null}
+					<span class="monat-zeile">
+						<span class="monat-label"><b>Auslastung</b><span>{data.monat.auslastungProzent} % verplant</span></span>
+						<span class="monat-balken stunden" class:ueber={data.monat.ueberbucht} role="presentation"><span style:width={`${Math.min(100, Math.max(0, data.monat.auslastungProzent))}%`}></span></span>
+						<small>{stundenText(data.monat.geplant)} von {stundenText(data.monat.verfuegbar)} Stunden geplant{data.monat.frei !== null ? ` · ${stundenText(data.monat.frei)} frei` : ''}</small>
+					</span>
+				{/if}
 				{#if data.monat.kalkulationFehlt}<small>Kalkulation unvollständig – Kosten und freie Stunden fehlen.</small>{/if}
 			</a>
 		{:else}{@render leer('Diesen Monat: keine Daten.')}{/if}
@@ -684,6 +701,45 @@
 		font-size: 1.15rem;
 		font-weight: 700;
 		line-height: 1.5;
+	}
+	.monat-zeile {
+		display: grid;
+		gap: 0.3rem;
+		margin-top: 0.6rem;
+	}
+	.monat-label {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 0.25rem 0.75rem;
+		font-size: 0.875rem;
+	}
+	.monat-label span {
+		font-variant-numeric: tabular-nums;
+		color: var(--m365-text-leise);
+	}
+	.monat-balken {
+		display: block;
+		height: 0.7rem;
+		border-radius: 999px;
+		background: var(--ui-grau-hell);
+		overflow: hidden;
+	}
+	.monat-balken span {
+		display: block;
+		height: 100%;
+		border-radius: 999px;
+		background: var(--m365-fehler);
+		transition: width 0.6s ease-out;
+	}
+	.monat-balken.voll span {
+		background: #107c10;
+	}
+	.monat-balken.stunden span {
+		background: var(--ui-akzent);
+	}
+	.monat-balken.stunden.ueber span {
+		background: var(--m365-fehler);
 	}
 	.monat-kachel small {
 		color: var(--m365-text-leise);
