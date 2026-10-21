@@ -338,8 +338,8 @@ export function todosAusFormular(form: FormData): NeuesTodo[] {
 			beschreibung: text(`todo_beschreibung_${n}`),
 			lautstaerke: text(`todo_lautstaerke_${n}`),
 			schmutz: text(`todo_schmutz_${n}`),
-			vorlageId: text(`todo_vorlage_${n}`),
-			vorlageAufgabe: text(`todo_vorlage_titel_${n}`)
+			vorlageId: text(`todo_vorlage_${n}`) || undefined,
+			vorlageAufgabe: text(`todo_vorlage_titel_${n}`) || undefined
 		}))
 		.filter((t) => t.titel.trim() !== '' || t.beschreibung.trim() !== '');
 }
@@ -350,7 +350,7 @@ export function todosAusFormular(form: FormData): NeuesTodo[] {
  */
 export function pruefeTodoListe(
 	liste: readonly NeuesTodo[]
-): { titel: string; beschreibung: string | null; lautstaerke: number | null; schmutz: number | null; vorlageId: string | null; vorlageAufgabe: string | null }[] {
+): { titel: string; beschreibung: string | null; lautstaerke: number | null; schmutz: number | null; vorlageId?: string; vorlageAufgabe?: string }[] {
 	if (liste.length > MAX_TODOS_AUF_EINMAL) {
 		throw new ApiFehler(400, `Höchstens ${MAX_TODOS_AUF_EINMAL} Aufgaben auf einmal.`);
 	}
@@ -363,8 +363,8 @@ export function pruefeTodoListe(
 			lautstaerke: stufeFeld(t.lautstaerke, `Aufgabe ${i + 1}: Lautstärke`),
 			schmutz: stufeFeld(t.schmutz, `Aufgabe ${i + 1}: Schmutz`),
 			// Herkunft nur, wenn beides gültig ist (sonst einfach ohne Zeitmessung)
-			vorlageId: typeof t.vorlageId === 'string' && UUID.test(t.vorlageId) && typeof t.vorlageAufgabe === 'string' && t.vorlageAufgabe.trim() ? t.vorlageId.toLowerCase() : null,
-			vorlageAufgabe: typeof t.vorlageId === 'string' && UUID.test(t.vorlageId) && typeof t.vorlageAufgabe === 'string' && t.vorlageAufgabe.trim() ? t.vorlageAufgabe.trim().slice(0, 200) : null
+			vorlageId: typeof t.vorlageId === 'string' && UUID.test(t.vorlageId) && typeof t.vorlageAufgabe === 'string' && t.vorlageAufgabe.trim() ? t.vorlageId.toLowerCase() : undefined,
+			vorlageAufgabe: typeof t.vorlageId === 'string' && UUID.test(t.vorlageId) && typeof t.vorlageAufgabe === 'string' && t.vorlageAufgabe.trim() ? t.vorlageAufgabe.trim().slice(0, 200) : undefined
 		};
 	});
 }
@@ -393,8 +393,8 @@ export async function legeTodosAn(
 		for (const w of werte) {
 			const [z] = await tx`
 				insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, lautstaerke, schmutz, vorlage_id, vorlage_aufgabe)
-				select ${k.betriebId}, ${auftrag}, ${w.titel}, ${w.beschreibung}, ${w.lautstaerke}, ${w.schmutz}, v.id, case when v.id is null then null else ${w.vorlageAufgabe}::text end
-				from (select 1) x left join app.auftrag_vorlagen v on v.id = ${w.vorlageId}::uuid and v.betrieb_id = ${k.betriebId}
+				select ${k.betriebId}, ${auftrag}, ${w.titel}, ${w.beschreibung}, ${w.lautstaerke}, ${w.schmutz}, v.id, case when v.id is null then null else ${w.vorlageAufgabe ?? null}::text end
+				from (select 1) x left join app.auftrag_vorlagen v on v.id = ${w.vorlageId ?? null}::uuid and v.betrieb_id = ${k.betriebId}
 				returning id`;
 			ids.push(z.id as string);
 		}
