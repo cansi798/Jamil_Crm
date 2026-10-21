@@ -10,13 +10,16 @@ import {
 	aendereLink,
 	buchungZugriff,
 	holeDienst,
+	holeDienstMailVorlage,
 	holeEinstellungen,
 	kommendeBuchungen,
 	legeMitarbeiterLinkAn,
 	loescheDienst,
 	loescheLink,
-	mitarbeiterAus
+	mitarbeiterAus,
+	setzeDienstMailVorlage
 } from '$lib/server/buchung';
+import { alsWahl, listeMailVorlagen } from '$lib/server/mail-vorlagen';
 
 /** Ein Dienst der Online-Buchung: Angaben, Mitarbeiter, Fragen, Buchungslinks mit Einbett-Code. */
 export const load: PageServerLoad = async ({ locals, params, url }) => {
@@ -24,11 +27,13 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	await alsSeitenFehler(() => buchungZugriff(locals));
 	const k = betriebKontext(locals);
 	const dienst = await alsSeitenFehler(() => holeDienst(k, params.id));
-	const [mitarbeiter, quellen, einstellungen, buchungen] = await Promise.all([
+	const [mitarbeiter, quellen, einstellungen, buchungen, mailVorlagen, mailVorlageId] = await Promise.all([
 		aktiveMitarbeiter(k),
 		listeQuellen(k, true),
 		holeEinstellungen(k),
-		kommendeBuchungen(k, dienst.id, 20)
+		kommendeBuchungen(k, dienst.id, 20),
+		listeMailVorlagen(k),
+		holeDienstMailVorlage(k, dienst.id)
 	]);
 	return {
 		dienst,
@@ -36,6 +41,9 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		quellen: quellen.map((q) => ({ id: q.id, name: q.name })),
 		einstellungen,
 		buchungen,
+		// Terminbestätigung: Vorlage je Dienst (leer = Standard), Bibliothek Jamil msg 2789
+		mailVorlagen: alsWahl(mailVorlagen).filter((v) => v.zweck === 'buchungsbestaetigung' || v.zweck === 'allgemein'),
+		mailVorlageId,
 		// öffentliche Adresse der Anwendung (für Links und Einbett-Code)
 		basis: process.env.ORIGIN?.replace(/\/$/, '') || url.origin
 	};
@@ -54,6 +62,10 @@ async function mit(locals: App.Locals, bereich: string, fn: () => Promise<unknow
 }
 
 export const actions: Actions = {
+	mailVorlage: async ({ locals, request, params }) => {
+		const f = await request.formData();
+		return mit(locals, 'mailVorlage', () => setzeDienstMailVorlage(betriebKontext(locals), params.id, f.get('vorlageId')));
+	},
 	speichern: async ({ locals, request, params }) => {
 		const f = await request.formData();
 		const e: Record<string, unknown> = {};

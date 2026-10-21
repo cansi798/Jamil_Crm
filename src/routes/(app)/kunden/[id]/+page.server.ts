@@ -25,6 +25,7 @@ import {
  */
 import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachfassen';
 import { erzeugeLink, kundenPortal, portalZugriff, widerrufeLink } from '$lib/server/kundenportal';
+import { mailVorbereitung } from '$lib/server/mail-vorlagen';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'kunden', 'kunden.lesen');
@@ -45,7 +46,16 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		// Kundenportal (msg 2793): ein Link je Kunde – Modul kundenportal + Recht kundenportal.verwalten
 		const portalErlaubt = hatRecht(nutzer, 'kundenportal.verwalten') && hatRecht(nutzer, 'auftraege.alle_lesen') && (await hatModul(k.betriebId, 'kundenportal'));
 		const portal = portalErlaubt ? await kundenPortal(await portalZugriff(locals), kunde.id) : null;
+		// „Mail an Kunden“ und Portal-Link per Mail (Vorlagen-Bibliothek, msg 2789): wer Kunden oder Aufträge bearbeitet
+		const darfMail = hatRecht(nutzer, 'kunden.bearbeiten') || hatRecht(nutzer, 'auftraege.bearbeiten');
+		const preise = hatRecht(nutzer, 'preise.sehen');
+		const [mail, portalMail] = await Promise.all([
+			darfMail ? mailVorbereitung(k, { kundeId: kunde.id }, ['allgemein', 'bewertung'], { preise }) : null,
+			portal ? mailVorbereitung(k, { kundeId: kunde.id }, ['portal_link', 'allgemein'], { preise }) : null
+		]);
 		return {
+			mail,
+			portalMail,
 			kunde,
 			portal,
 			objekte,

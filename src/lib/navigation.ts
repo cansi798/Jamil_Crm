@@ -74,6 +74,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (module.includes('protokolle') && hat('protokolle.vorlagen_bearbeiten')) {
 			g.vorlagen.push({ name: 'Protokoll-Vorlagen', href: '/einstellungen/protokoll-vorlagen', symbol: 'angebote' });
 		}
+		// E-Mail-Vorlagen an einem Ort (Jamil msg 2789)
+		if (hat('vorlagen.verwalten')) g.vorlagen.push({ name: 'E-Mail-Vorlagen', href: '/einstellungen/mail-vorlagen', symbol: 'angebote' });
 
 		// Stammdaten & Kalkulation
 		if (module.includes('katalog') && (hat('katalog.bearbeiten') || hat('angebote.bearbeiten'))) {

@@ -14,9 +14,9 @@ async function chef(page: Page) {
 
 test('Mail-Vorlage: Live-Vorschau mit Betreff, Beispieldaten, Handy-Breite, Klartext; Vorlage kann kein Skript ausführen', async ({ page }) => {
 	await chef(page);
-	await page.goto('/einstellungen/nachfassen');
-	const liste = page.getByRole('list', { name: 'Mail-Vorlagen' });
-	test.skip((await liste.locator('details').count()) === 0, 'keine Mail-Vorlage in der Vorschau');
+	// Seit msg 2789: alle Vorlagen in Einstellungen → E-Mail-Vorlagen (je Zweck eine Liste, immer mit Standard)
+	await page.goto('/einstellungen/mail-vorlagen');
+	const liste = page.getByRole('list', { name: 'Vorlagen Nachfassen Angebot' });
 	await liste.locator('details summary').first().click();
 	const form = liste.locator('details[open] form').first();
 	const vorschau = form.getByRole('region', { name: /^Vorschau / });
@@ -26,12 +26,17 @@ test('Mail-Vorlage: Live-Vorschau mit Betreff, Beispieldaten, Handy-Breite, Klar
 	await expect(frame).toHaveAttribute('sandbox', '');
 	await form.getByLabel('Betreff').fill('Test {{angebot.nummer}} für {{kunde.name}}');
 	await expect(vorschau.locator('.mv-betreff')).toHaveText('Test AN-2026-0042 für Familie Müller');
+	// unbekannter Platzhalter wird sofort markiert
+	await form.getByLabel('Betreff').fill('Test {{kunde.nmae}}');
+	await expect(form.getByRole('alert')).toContainText('{{kunde.nmae}}');
+	await form.getByLabel('Betreff').fill('Test {{angebot.nummer}} für {{kunde.name}}');
+	await expect(form.getByRole('alert')).toHaveCount(0);
 
 	// Skript in der Vorlage: läuft nicht (sandbox ohne allow-scripts + CSP), App bleibt unberührt
 	const html = form.getByLabel('Text (HTML)');
 	await html.fill('<p>Hallo {{kunde.name}}</p><script>parent.document.title="GEHACKT"</script><img src="x" onerror="parent.document.title=\'GEHACKT\'">');
 	await expect(frame).toHaveAttribute('srcdoc', /Hallo Familie Müller/);
-	await expect(page.frameLocator('iframe[sandbox=""]').first().getByText('Hallo Familie Müller')).toBeVisible();
+	await expect(form.frameLocator('iframe[sandbox=""]').getByText('Hallo Familie Müller')).toBeVisible();
 	await page.waitForTimeout(500);
 	expect(await page.title()).not.toBe('GEHACKT');
 

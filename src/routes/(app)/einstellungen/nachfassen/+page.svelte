@@ -5,15 +5,8 @@
 	import '$lib/stil/kunden.css';
 	import Karte from '$lib/components/Karte.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
-	import MailVorschau from '$lib/components/MailVorschau.svelte';
-	import {
-		NACHFASS_ART_NAMEN,
-		NACHFASS_ARTEN,
-		PLATZHALTER,
-		ZUWEISUNG_NAMEN,
-		ZUWEISUNGEN,
-		type NachfassArt
-	} from '$lib/nachfassen';
+	import { NACHFASS_ART_NAMEN, NACHFASS_ARTEN, ZUWEISUNG_NAMEN, ZUWEISUNGEN, type NachfassArt } from '$lib/nachfassen';
+	import { MAIL_ZWECKE, ZWECK_NAMEN, type MailZweck } from '$lib/mail-vorlagen';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -35,18 +28,13 @@
 				: 'Zuständiger des Auftrags';
 	const stufenVon = (art: NachfassArt) => data.stufen.filter((s) => s.art === art);
 
-	// Live-Vorschau (Wunsch Jamil msg 2670): Entwürfe je Vorlage (Betreff, HTML, Klartext) und Signatur
-	let signatur = $state('');
-	$effect.pre(() => {
-		signatur = data.signatur ?? '';
-	});
-	const neuHtml = '<p>{{kunde.anrede}},</p>\n<p>…</p>\n<p>Mit freundlichen Grüßen</p>\n{{signatur}}';
-	type Entwurf = { betreff?: string; html?: string; text?: string };
-	let entwuerfe = $state<Record<string, Entwurf>>({});
-	const setze = (id: string, feld: keyof Entwurf, w: string) => (entwuerfe = { ...entwuerfe, [id]: { ...entwuerfe[id], [feld]: w } });
-	const aktuell = (id: string, feld: keyof Entwurf, gespeichert: string) => entwuerfe[id]?.[feld] ?? gespeichert;
-	// Beispiel-Mail für die Signatur-Vorschau: erste Vorlage, sonst ein kurzer Text
-	const signaturMail = $derived(data.vorlagen[0] ?? { betreff: 'Ihr Angebot {{angebot.nummer}}', html: '<p>{{kunde.anrede}},</p><p>vielen Dank für Ihre Anfrage.</p><p>Mit freundlichen Grüßen</p>', text: null });
+	// Vorlagen für die Stufen: die passenden zuerst (Angebot → „Nachfassen Angebot“, Rechnung → „Zahlungserinnerung“)
+	const vorlagenFuer = (art: NachfassArt) => {
+		const zuerst: MailZweck = art === 'angebot' ? 'nachfassen_angebot' : 'zahlungserinnerung';
+		return [zuerst, ...MAIL_ZWECKE.filter((z) => z !== zuerst)]
+			.map((z) => ({ zweck: z, liste: data.vorlagen.filter((v) => v.zweck === z) }))
+			.filter((g) => g.liste.length > 0);
+	};
 </script>
 
 <svelte:head>
@@ -102,49 +90,12 @@
 	{/each}
 
 	<Karte>
-		{#snippet titel()}Mail-Vorlagen{/snippet}
-		<details class="nf-platzhalter">
-			<summary>Platzhalter</summary>
-			<ul>
-				{#each PLATZHALTER as [p, text] (p)}<li><code>{`{{${p}}}`}</code> – {text}</li>{/each}
-			</ul>
-		</details>
-		<ul class="nf-stufen" aria-label="Mail-Vorlagen">
-			{#each data.vorlagen as v (v.id)}
-				<li>
-					<details open={!!fehlerIn(`vorlage-${v.id}`)}>
-						<summary><span class="nf-was"><strong>{v.name}</strong> <span class="kd-info">· {v.betreff}</span></span></summary>
-						{@render vorlageFormular(v.id, v.name, v.betreff, v.html, v.text ?? '')}
-						<form method="POST" action="?/vorlageLoeschen" use:enhance class="nf-loeschen">
-							{#if fehlerIn(`vorlage-${v.id}`)}<p role="alert" class="kd-fehler">{fehlerIn(`vorlage-${v.id}`)}</p>{/if}
-							<input type="hidden" name="id" value={v.id} />
-							<button type="submit" class="kd-knopf hell">Vorlage löschen</button>
-						</form>
-					</details>
-				</li>
-			{:else}
-				<li class="kd-leer">Noch keine Vorlagen.</li>
-			{/each}
-		</ul>
-		<AddPanel label="Vorlage hinzufügen" offen={!!fehlerIn('vorlage-neu')}>
-			{#snippet children(schliessen)}{@render vorlageFormular(null, '', '', neuHtml, '', schliessen)}{/snippet}
-		</AddPanel>
-	</Karte>
-
-	<Karte>
-		{#snippet titel()}Firmensignatur{/snippet}
-		<form method="POST" action="?/signatur" use:enhance={ohneReset} class="kd-formular nf-editor">
-			<div class="nf-eingabe">
-				{#if fehlerIn('signatur')}<p role="alert" class="kd-fehler">{fehlerIn('signatur')}</p>{/if}
-				<label>
-					Signatur (HTML) – wird in jede Mail eingesetzt
-					<textarea name="signatur" rows="10" maxlength="20000" bind:value={signatur} placeholder="<p>Viele Grüße<br>Ihr Team von …</p>"></textarea>
-				</label>
-				<p class="kd-info">Rechts: eine Beispiel-Mail{data.vorlagen[0] ? ` („${data.vorlagen[0].name}“)` : ''} mit dieser Signatur – so sieht sie der Kunde.</p>
-				<button type="submit" class="kd-knopf">Signatur speichern</button>
-			</div>
-			<MailVorschau titel="Vorschau Signatur" html={signaturMail.html} betreff={signaturMail.betreff} text={signaturMail.text} {signatur} beispiele={data.beispiele} />
-		</form>
+		{#snippet titel()}Mail-Vorlagen und Signatur{/snippet}
+		<p class="kd-info">
+			Die Texte der Mails und die Firmensignatur stehen jetzt an einem Ort: <a href="/einstellungen/mail-vorlagen">Einstellungen → E-Mail-Vorlagen</a>.
+			Hier wählen Sie je Stufe nur aus, welche Vorlage benutzt wird.
+		</p>
+		{#if data.darfVorlagen}<a class="kd-knopf hell" href="/einstellungen/mail-vorlagen">E-Mail-Vorlagen öffnen</a>{/if}
 	</Karte>
 </main>
 
@@ -180,7 +131,11 @@
 				Mail-Vorlage
 				<Auswahl name="mailVorlageId">
 					<option value="">– keine –</option>
-					{#each data.vorlagen as v (v.id)}<option value={v.id} selected={wert(b, 'mailVorlageId', s?.mailVorlageId ?? '') === v.id}>{v.name}</option>{/each}
+					{#each vorlagenFuer(art) as g (g.zweck)}
+						<optgroup label={ZWECK_NAMEN[g.zweck]}>
+							{#each g.liste as v (v.id)}<option value={v.id} selected={wert(b, 'mailVorlageId', s?.mailVorlageId ?? '') === v.id}>{v.name}{v.istStandard ? ' (Standard)' : ''}</option>{/each}
+						</optgroup>
+					{/each}
 				</Auswahl>
 			</label>
 			<label class="kd-haken"><input type="checkbox" name="todo" checked={wert(b, 'todo', s ? (s.todo ? 'on' : '') : 'on') !== ''} /><span>Aufgabe anlegen</span></label>
@@ -219,61 +174,10 @@
 	</form>
 {/snippet}
 
-{#snippet vorlageFormular(id: string | null, name: string, betreff: string, start: string, text: string, schliessen?: () => void)}
-	{@const b = id ? `vorlage-${id}` : 'vorlage-neu'}
-	{@const schluessel = id ?? 'neu'}
-	{@const jetztBetreff = aktuell(schluessel, 'betreff', wert(b, 'betreff', betreff))}
-	{@const jetztHtml = aktuell(schluessel, 'html', wert(b, 'html', start))}
-	{@const jetztText = aktuell(schluessel, 'text', wert(b, 'text', text))}
-	<form method="POST" action="?/vorlage" use:enhance={ohneReset} class="kd-formular nf-formular nf-editor">
-		<div class="nf-eingabe">
-			{#if fehlerIn(b)}<p role="alert" class="kd-fehler">{fehlerIn(b)}</p>{/if}
-			{#if id}<input type="hidden" name="id" value={id} />{/if}
-			<label>Name <input type="text" name="name" maxlength="200" required value={wert(b, 'name', name)} /></label>
-			<label>
-				Betreff
-				<input type="text" name="betreff" maxlength="300" required value={jetztBetreff} oninput={(ev) => setze(schluessel, 'betreff', ev.currentTarget.value)} />
-			</label>
-			<label>
-				Text (HTML)
-				<textarea name="html" rows="12" maxlength="50000" required value={jetztHtml} oninput={(ev) => setze(schluessel, 'html', ev.currentTarget.value)}></textarea>
-			</label>
-			<label>
-				Eigene Klartext-Fassung (optional – sonst automatisch aus dem HTML)
-				<textarea name="text" rows="3" maxlength="50000" value={jetztText} oninput={(ev) => setze(schluessel, 'text', ev.currentTarget.value)}></textarea>
-			</label>
-			<div class="nf-knoepfe">
-				{#if schliessen}<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>{/if}
-				<button type="submit" class="kd-knopf">{id ? 'Speichern' : 'Vorlage anlegen'}</button>
-			</div>
-		</div>
-		<MailVorschau titel={`Vorschau ${name || 'neue Vorlage'}`} html={jetztHtml} betreff={jetztBetreff} text={jetztText} {signatur} beispiele={data.beispiele} />
-	</form>
-{/snippet}
 
 <style>
 	.nf-seite {
 		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
-	}
-	/* Bearbeiten links, Live-Vorschau rechts; schmal untereinander */
-	.nf-editor {
-		display: grid;
-		gap: 1rem;
-		align-items: start;
-	}
-	@media (min-width: 64rem) {
-		.nf-editor {
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-		}
-	}
-	.nf-eingabe {
-		display: grid;
-		gap: 0.75rem;
-		min-width: 0;
-	}
-	.nf-eingabe textarea {
-		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size: 0.8125rem;
 	}
 	.nf-stufen {
 		list-style: none;
@@ -356,20 +260,5 @@
 	}
 	.nf-standard p {
 		margin: 0;
-	}
-	.nf-platzhalter {
-		margin-bottom: 0.75rem;
-	}
-	.nf-platzhalter summary {
-		cursor: pointer;
-		color: var(--ui-akzent-text);
-		font-weight: 600;
-	}
-	.nf-platzhalter ul {
-		margin: 0.5rem 0 0;
-		padding-left: 1.1rem;
-		font-size: 0.875rem;
-		display: grid;
-		gap: 0.2rem;
 	}
 </style>

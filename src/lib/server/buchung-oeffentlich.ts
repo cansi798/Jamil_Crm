@@ -1,8 +1,9 @@
-import { mitBetriebOeffentlich, systemAbfrage, type TransactionSql } from './db';
+import { mitBetriebOeffentlich, OEFFENTLICH, systemAbfrage, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { pruefeBild } from './bildpruefung';
 import { sendePush, type PushNachricht } from './erinnerungen';
 import { mailVersand } from './nachfassen';
+import { baueMail, holeSignatur, mailWerte, vorlageFuer } from './mail-vorlagen';
 import { ONLINE_QUELLE, startlisteFallsLeer } from './quellen';
 import {
 	globaleEinbettenDomains,
@@ -332,7 +333,7 @@ export async function bucheTermin(token: unknown, e: Buchungseingabe, o: { jetzt
 		if (!info) throw new ApiFehler(400, 'Bitte nur Fotos als JPEG oder PNG hochladen.');
 		return { ...f, typ: info.typ };
 	});
-	const { verwaltungToken, ergebnis, hinweise, mail } = await (async () => {
+	const { ergebnis, hinweise, mail } = await (async () => {
 		try {
 			return await mitBetriebOeffentlich(k.betriebId, async (tx) => {
 				const l = await ladeLink(tx, k);
@@ -399,11 +400,20 @@ export async function bucheTermin(token: unknown, e: Buchungseingabe, o: { jetzt
 					link: `/auftraege/${auftrag.id}`
 				});
 				const betrieb = await betriebsanzeige(tx, k.betriebId, l.dienst.farbe);
+				// Terminbestätigung aus der Vorlage des Dienstes bzw. dem Standard (Bibliothek, Jamil msg 2789)
+				let fertig: { betreff: string; html: string; text: string } | null = null;
+				if (mailVersand.verbunden && o.basisUrl) {
+					const kx = { betriebId: k.betriebId, benutzerId: OEFFENTLICH };
+					const [d] = await tx`select mail_vorlage_id from app.buchung_dienste where id = ${l.dienst.id} and betrieb_id = ${k.betriebId}`;
+					const { werte } = await mailWerte(tx, kx, { kundeId: kunde.id, auftragId: auftrag.id }, { preise: false });
+					const vorlage = await vorlageFuer(tx, kx, 'buchungsbestaetigung', d?.mail_vorlage_id);
+					fertig = baueMail(vorlage, { ...werte, termin: terminText(beginn), dienst: l.dienst.name, 'buchung.link': `${o.basisUrl}/buchung/${v.token}` }, await holeSignatur(kx, tx));
+				}
 				return {
 					verwaltungToken: v.token,
 					ergebnis: { verwaltungToken: v.token, beginn: beginn.toISOString(), ende: ende.toISOString() },
 					hinweise,
-					mail: { an: kontakt.email, name: kontakt.vorname, dienst: l.dienst.name, betrieb: betrieb.name, beginn, buchungId: buchung.id as string }
+					mail: { an: kontakt.email, name: kontakt.vorname, dienst: l.dienst.name, betrieb: betrieb.name, beginn, buchungId: buchung.id as string, fertig }
 				};
 			});
 		} catch (err) {
@@ -413,11 +423,9 @@ export async function bucheTermin(token: unknown, e: Buchungseingabe, o: { jetzt
 	})();
 	sendeHinweise(k.betriebId, hinweise);
 	// Bestätigung per E-Mail, sobald der Mailversand angebunden ist (Jamil 2589); bis dahin Bestätigung am Bildschirm + .ics
-	if (mailVersand.verbunden && o.basisUrl) {
-		const link = `${o.basisUrl}/buchung/${verwaltungToken}`;
-		const text = `Guten Tag ${mail.name},\n\nIhr Termin „${mail.dienst}“ bei ${mail.betrieb} ist gebucht: ${terminText(mail.beginn)}.\n\nTermin absagen oder verschieben: ${link}\n`;
+	if (mailVersand.verbunden && mail.fertig) {
 		void mailVersand
-			.senden({ an: mail.an, betreff: `Terminbestätigung: ${mail.dienst} am ${terminText(mail.beginn)}`, text, html: `<p>${text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!).replace(/\n/g, '<br>')}</p>` })
+			.senden({ an: mail.an, betreff: mail.fertig.betreff, text: mail.fertig.text, html: mail.fertig.html })
 			.catch((err) => console.error('Bestätigung per E-Mail:', err));
 	}
 	return ergebnis;

@@ -310,6 +310,29 @@ export async function aendereDienst(k: Kontext, id: unknown, e: Record<string, u
 	});
 }
 
+/** Mail-Vorlage der Terminbestätigung je Dienst (leer = Standard der Bibliothek, Jamil msg 2789). */
+export async function holeDienstMailVorlage(k: Kontext, id: unknown): Promise<string | null> {
+	const did = pruefeId(id);
+	return mitBetrieb(k, async (tx) => {
+		const [z] = await tx`select mail_vorlage_id from app.buchung_dienste where id = ${did} and betrieb_id = ${k.betriebId}`;
+		if (!z) throw nichtGefunden();
+		return (z.mail_vorlage_id as string | null) ?? null;
+	});
+}
+
+export async function setzeDienstMailVorlage(k: Kontext, id: unknown, vorlageId: unknown): Promise<void> {
+	const did = pruefeId(id);
+	const vid = vorlageId === undefined || vorlageId === null || vorlageId === '' ? null : pruefeId(vorlageId, () => new ApiFehler(400, 'Mail-Vorlage: ungültige Auswahl.'));
+	await mitBetrieb(k, async (tx) => {
+		if (vid) {
+			const [v] = await tx`select 1 from app.mail_vorlagen where id = ${vid} and betrieb_id = ${k.betriebId}`;
+			if (!v) throw new ApiFehler(400, 'Mail-Vorlage: ungültige Auswahl.');
+		}
+		const z = await tx`update app.buchung_dienste set mail_vorlage_id = ${vid} where id = ${did} and betrieb_id = ${k.betriebId} returning id`;
+		if (z.length === 0) throw nichtGefunden();
+	});
+}
+
 /** Löschen; mit Buchungen wird der Dienst nur ausgeschaltet (die Buchungen bleiben lesbar). */
 export async function loescheDienst(k: Kontext, id: unknown): Promise<'geloescht' | 'deaktiviert'> {
 	const did = pruefeId(id);

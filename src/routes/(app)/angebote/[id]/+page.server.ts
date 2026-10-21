@@ -10,6 +10,7 @@ import { sichtVon } from '$lib/server/auftraege';
 import { hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { ladeFirmensatz } from '$lib/server/kalkulation';
+import { mailVorbereitung } from '$lib/server/mail-vorlagen';
 
 /** Angebots-Editor. Gespeichert wird über die API (`PATCH`/`PUT …/positionen`, Status, neue Version, PDF). */
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -28,7 +29,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		vorlagen: angebot.status === 'entwurf' ? await listeAngebotVorlagen(k) : [],
 		satz: await ladeFirmensatz(k),
 		// Automatisches Nachfassen (Jamil msgs 2633/2636): Läufe mit fertigem Mailtext, Pause
-		nachfassen: await nachfassenZumAngebot(k, angebot.id)
+		nachfassen: await nachfassenZumAngebot(k, angebot.id),
+		// „Mail an Kunden“ zum Angebot (Vorlagen-Bibliothek, msg 2789) – nicht für Entwürfe
+		mail: angebot.status !== 'entwurf' ? await mailVorbereitung(k, { angebotId: angebot.id }, ['nachfassen_angebot', 'allgemein'], { preise: true }) : null
 	};
 };
 

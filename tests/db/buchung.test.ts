@@ -16,6 +16,9 @@ import {
 } from '../../src/lib/server/buchung';
 import { bucheTermin, freieTermine, ladeSeite, ladeVerwaltung, sageAb, termineZumVerschieben, verschiebe } from '../../src/lib/server/buchung-oeffentlich';
 import { benachrichtigungen } from '../../src/lib/server/erinnerungen';
+import { setzeMailVersand } from '../../src/lib/server/nachfassen';
+import { listeMailVorlagen, speichereMailVorlage } from '../../src/lib/server/mail-vorlagen';
+import { setzeDienstMailVorlage } from '../../src/lib/server/buchung';
 import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
 import { POST as ausfuehrenPost } from '../../src/routes/api/sprache/ausfuehren/+server';
 import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
@@ -302,5 +305,37 @@ describe('Online-Buchung', () => {
 		// Monteur darf das nicht
 		const m = await antwort(await textPost({ locals: { nutzer: u.monteurA }, request: jsonAnfrage('POST', { text: 'Buchungslink für Besichtigung' }) } as never));
 		expect(m.koerper.karte.fehler).toMatch(/Berechtigung|Tarif/);
+	});
+
+	it('Terminbestätigung aus der Mail-Vorlage des Dienstes (msg 2789) – nur mit angebundenem Mailversand', async () => {
+		const gesendet: { an: string; betreff: string; html: string; text: string }[] = [];
+		setzeMailVersand({ verbunden: true, senden: async (m) => void gesendet.push(m) });
+		try {
+			await listeMailVorlagen(kA()); // eingebaute Standards anlegen
+			const v = await speichereMailVorlage(kA(), null, {
+				name: 'Bestätigung kurz',
+				zweck: 'buchungsbestaetigung',
+				betreff: 'Bis bald: {{dienst}} am {{termin}}',
+				html: '<p>{{kunde.anrede}}, Ihr Termin: {{termin}}. Ändern: {{buchung.link}}</p>',
+				mitSignatur: ''
+			});
+			await setzeDienstMailVorlage(kA(), besichtigung.id, v.id);
+			const tag9 = tagPlus(tag, 9);
+			const beginn = berlinZeitpunkt(tag9, 10).toISOString();
+			await bucheTermin(standardLink(besichtigung), { beginn, kontakt: kontakt({ vorname: 'Erika', nachname: 'Muster' }), antworten: { art: 'Bad' }, datenschutz: true, fotos: [] }, { jetzt: JETZT, basisUrl: 'https://crm.test' });
+			await new Promise((r) => setTimeout(r, 50));
+			expect(gesendet).toHaveLength(1);
+			expect(gesendet[0].betreff).toMatch(/^Bis bald: Besichtigung am .+ 10:00 Uhr$/);
+			expect(gesendet[0].html).toMatch(/Guten Tag Erika Muster, Ihr Termin: .+ Ändern: https:\/\/crm\.test\/buchung\//);
+			// Standard (Dienst ohne Auswahl): eingebaute Terminbestätigung
+			await setzeDienstMailVorlage(kA(), besichtigung.id, '');
+			await bucheTermin(standardLink(besichtigung), { beginn: berlinZeitpunkt(tag9, 13).toISOString(), kontakt: kontakt(), antworten: { art: 'Bad' }, datenschutz: true, fotos: [] }, { jetzt: JETZT, basisUrl: 'https://crm.test' });
+			await new Promise((r) => setTimeout(r, 50));
+			expect(gesendet[1].betreff).toMatch(/^Terminbestätigung: Besichtigung am /);
+			// fremde Vorlage am Dienst: abgelehnt
+			await expect(setzeDienstMailVorlage(kB(), besichtigung.id, v.id)).rejects.toMatchObject({ status: 400 });
+		} finally {
+			setzeMailVersand(null);
+		}
 	});
 });

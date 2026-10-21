@@ -1,4 +1,5 @@
 <script lang="ts">
+	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { untrack } from 'svelte';
@@ -469,6 +470,7 @@
 				{angebot.status === 'entwurf' ? 'Startet, sobald das Angebot versendet ist.' : 'Beendet – das Angebot ist angenommen bzw. abgelehnt.'}
 			</p>
 		{/if}
+		{#if data.mail}<div class="an-nf-mail"><MailAnKunde vorbereitung={data.mail} /></div>{/if}
 		{#each data.nachfassen.laeufe as l (l.id)}
 			<article class="an-nf-lauf">
 				<header>
@@ -533,6 +535,9 @@
 </main>
 
 <style>
+	.an-nf-mail {
+		margin: 0.5rem 0;
+	}
 	.an-nachfassen {
 		margin: 1.5rem 0;
 		display: grid;

@@ -168,6 +168,19 @@
 		</div>
 	</form>
 
+	<Abschnitt titel="Terminbestätigung per E-Mail">
+		<form method="POST" action="?/mailVorlage" use:enhance={sofort} class="ob-inline">
+			{#if fehlerIn('mailVorlage')}<p class="kd-fehler" role="alert">{fehlerIn('mailVorlage')}</p>{/if}
+			<label>Mail-Vorlage
+				<Auswahl name="vorlageId" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+					<option value="" selected={!data.mailVorlageId}>Standard „Terminbestätigung“</option>
+					{#each data.mailVorlagen as v (v.id)}<option value={v.id} selected={data.mailVorlageId === v.id}>{v.name}</option>{/each}
+				</Auswahl>
+			</label>
+		</form>
+		<p class="kd-info">Texte bearbeiten unter <a href="/einstellungen/mail-vorlagen">E-Mail-Vorlagen</a>. Versendet wird automatisch, sobald der Mailversand angebunden ist.</p>
+	</Abschnitt>
+
 	<Abschnitt titel="Buchungslinks" anzahl={d.links.length}>
 		{#if fehlerIn('links')}<p class="kd-fehler" role="alert">{fehlerIn('links')}</p>{/if}
 		<ul class="ob-links">

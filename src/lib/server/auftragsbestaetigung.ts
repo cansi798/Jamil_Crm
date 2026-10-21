@@ -4,6 +4,7 @@ import { ladePdfDaten } from './angebote';
 import { holeLogo, holeProfil } from './betriebsprofil';
 import { angebotPdf } from './pdf/angebot-pdf';
 import { mailVersand } from './nachfassen';
+import { baueMail, holeSignatur, mailWerte, vorlageFuer } from './mail-vorlagen';
 import { UUID } from './kunden';
 import { berlinTag } from '../zeit';
 import type { AngebotAngenommen } from './ereignisse';
@@ -94,7 +95,6 @@ export async function beiAngebotAngenommen(e: AngebotAngenommen): Promise<string
 	return mitBetrieb(k, async (tx) => {
 		const nummer = await naechsteNummer(tx, k);
 		const heute = berlinTag(new Date());
-		const firma = profil.firmenname ?? 'Ihr Handwerksbetrieb';
 		const pdf = await angebotPdf({
 			profil,
 			logo,
@@ -110,27 +110,19 @@ export async function beiAngebotAngenommen(e: AngebotAngenommen): Promise<string
 				schluss: 'Wir melden uns zur Terminabstimmung. Bei Fragen erreichen Sie uns jederzeit.'
 			}
 		});
-		const [kd] = await tx`
-			select coalesce(k.email::text, a.einmal_email::text) as email, a.titel
-			from app.angebote an
-			left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
-			left join app.kunden k on k.id = coalesce(an.kunde_id, a.kunde_id) and k.betrieb_id = an.betrieb_id
-			where an.id = ${e.angebotId} and an.betrieb_id = ${k.betriebId}`;
-		const betreff = `Auftragsbestätigung ${nummer}${kd?.titel ? ` – ${kd.titel}` : ''}`.slice(0, 300);
-		const text = [
-			`Guten Tag ${daten.kunde.name ?? ''},`.replace(/\s+,/, ','),
-			'',
-			`vielen Dank für Ihren Auftrag. Anbei erhalten Sie unsere Auftragsbestätigung ${nummer} zu unserem Angebot ${daten.angebot.nummer}.`,
-			'',
-			'Mit freundlichen Grüßen',
-			firma
-		].join('\n');
+		// Mail aus der Vorlage „Auftragsbestätigung“ (Bibliothek, Jamil msg 2789) – Standard des Betriebs
+		const { an, werte } = await mailWerte(tx, k, { angebotId: e.angebotId, auftragId: e.auftragId }, { preise: true });
+		const vorlage = await vorlageFuer(tx, k, 'auftragsbestaetigung');
+		const mail = baueMail(vorlage, { ...werte, 'ab.nummer': nummer }, await holeSignatur(k, tx));
+		const kd = { email: an };
+		const betreff = mail.betreff.slice(0, 300);
+		const text = mail.text.slice(0, 5000);
 		const [ab] = await tx`
 			insert into app.auftragsbestaetigungen (betrieb_id, angebot_id, auftrag_id, nummer, pdf, mail_an, mail_betreff, mail_text, ausloeser)
 			values (${k.betriebId}, ${e.angebotId}, ${e.auftragId}, ${nummer}, ${Buffer.from(pdf)}, ${kd?.email ?? null}, ${betreff}, ${text}, ${e.quelle})
 			returning id`;
 		if (mailVersand.verbunden && kd?.email) {
-			await mailVersand.senden({ an: kd.email, betreff, html: text.replace(/\n/g, '<br>'), text, anhaenge: [{ name: `${nummer}.pdf`, typ: 'application/pdf', bytes: pdf }] });
+			await mailVersand.senden({ an: kd.email, betreff, html: mail.html, text, anhaenge: [{ name: `${nummer}.pdf`, typ: 'application/pdf', bytes: pdf }] });
 			await tx`update app.auftragsbestaetigungen set versand_status = 'gesendet', versendet_am = now() where id = ${ab.id} and betrieb_id = ${k.betriebId}`;
 			return `Auftragsbestätigung ${nummer} erstellt und an ${kd.email} gesendet.`;
 		}
@@ -186,4 +178,21 @@ export async function abEinstellung(k: Kontext, auftragId: string): Promise<{ au
 		from app.auftraege a left join app.portal_einstellungen e on e.betrieb_id = a.betrieb_id
 		where a.id = ${auftragId} and a.betrieb_id = ${k.betriebId}`);
 	return { auftrag: z?.auftrag ?? null, betrieb: z?.betrieb ?? true };
+}
+
+/**
+ * Mail einer noch nicht gesendeten Auftragsbestätigung mit einer anderen Vorlage neu aufbauen (Auswahl am Auftrag,
+ * Jamil msg 2789). Bereits gesendete bleiben, wie sie sind (409).
+ */
+export async function abMitVorlage(k: Kontext, auftragId: string, abId: unknown, vorlageId: unknown): Promise<void> {
+	if (typeof abId !== 'string' || !UUID.test(abId)) throw new ApiFehler(404, 'Auftragsbestätigung nicht gefunden.');
+	await mitBetrieb(k, async (tx) => {
+		const [ab] = await tx`select nummer, angebot_id, auftrag_id, versand_status from app.auftragsbestaetigungen where id = ${abId} and auftrag_id = ${auftragId} and betrieb_id = ${k.betriebId} for update`;
+		if (!ab) throw new ApiFehler(404, 'Auftragsbestätigung nicht gefunden.');
+		if (ab.versand_status === 'gesendet') throw new ApiFehler(409, 'Die Auftragsbestätigung ist schon gesendet.');
+		const { werte } = await mailWerte(tx, k, { angebotId: ab.angebot_id, auftragId: ab.auftrag_id }, { preise: true });
+		const vorlage = await vorlageFuer(tx, k, 'auftragsbestaetigung', vorlageId);
+		const mail = baueMail(vorlage, { ...werte, 'ab.nummer': ab.nummer }, await holeSignatur(k, tx));
+		await tx`update app.auftragsbestaetigungen set mail_betreff = ${mail.betreff.slice(0, 300)}, mail_text = ${mail.text.slice(0, 5000)} where id = ${abId} and betrieb_id = ${k.betriebId}`;
+	});
 }

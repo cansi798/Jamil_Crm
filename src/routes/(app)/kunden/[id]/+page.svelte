@@ -5,6 +5,7 @@
 	import { berlinTag, berlinUhrzeit, tagDeutsch } from '$lib/zeit';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
+	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -74,6 +75,7 @@
 				<div class="ka-breit"><dt>Notiz</dt><dd>{k.notiz}</dd></div>
 			{/if}
 		</dl>
+		{#if data.mail}<div class="ka-mail"><MailAnKunde vorbereitung={data.mail} /></div>{/if}
 	</Abschnitt>
 
 	<Abschnitt titel="Objekte" anzahl={data.objekte.length}>
@@ -109,6 +111,7 @@
 					<p><strong>Neuer Link</strong> – nur jetzt sichtbar, bitte gleich kopieren und dem Kunden schicken:</p>
 					<input readonly value={form.portalUrl} aria-label="Portal-Link" onfocus={(ev) => ev.currentTarget.select()} />
 					<button type="button" class="kd-knopf" onclick={() => navigator.clipboard?.writeText(form?.portalUrl ?? '')}>Kopieren</button>
+					{#if data.portalMail}<MailAnKunde vorbereitung={data.portalMail} extra={{ 'portal.link': form.portalUrl }} knopf="Per E-Mail senden" titel="Portal-Link per E-Mail" />{/if}
 				</div>
 			{/if}
 			{#each data.portal.links.filter((l) => l.gueltig) as l (l.id)}
@@ -340,6 +343,12 @@
 </main>
 
 <style>
+	.ka-mail {
+		margin-top: var(--ui-a3);
+	}
+	.kp-neu :global(.mk) {
+		flex: 1 1 100%;
+	}
 	.ka-notizen li,
 	.ka-dokumente li {
 		display: grid;

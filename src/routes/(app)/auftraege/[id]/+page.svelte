@@ -10,6 +10,7 @@
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import AuftragLinks from '$lib/components/AuftragLinks.svelte';
+	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
@@ -183,6 +184,17 @@
 										<form method="POST" action="?/abGesendet" use:enhance><input type="hidden" name="id" value={ab.id} /><button type="submit" class="kd-knopf">Als gesendet markieren</button></form>
 									{/if}
 								</div>
+								{#if ab.versandStatus === 'bereit' && data.abVorlagen.length > 1}
+									<form method="POST" action="?/abVorlage" use:enhance={sofort} class="af-inline">
+										<input type="hidden" name="id" value={ab.id} />
+										<label>Mail-Vorlage
+											<Auswahl name="vorlageId" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+												<option value="">Standard „Auftragsbestätigung“</option>
+												{#each data.abVorlagen as v (v.id)}<option value={v.id}>{v.name}</option>{/each}
+											</Auswahl>
+										</label>
+									</form>
+								{/if}
 								{#if ab.versandStatus === 'bereit'}<p class="kd-info">Der Mailversand ist noch nicht angebunden: PDF herunterladen, im Mailprogramm anhängen und senden.{#if !ab.mailAn} Beim Kunden ist keine E-Mail hinterlegt.{/if}</p>{/if}
 							</div>
 						{:else}
@@ -798,6 +810,15 @@
 				</div>
 			{/if}
 
+			{#if data.mail}
+				<div class="af-k k-mail">
+					<Karte>
+						{#snippet titel()}E-Mail an den Kunden{/snippet}
+						<MailAnKunde vorbereitung={data.mail} />
+					</Karte>
+				</div>
+			{/if}
+
 			<div class="af-k k-links" id="links">
 				<Karte>
 					{#snippet titel()}Links{/snippet}
@@ -874,6 +895,7 @@
 	.k-termine { order: 5; }
 	.k-protokolle { order: 5; }
 	.k-angebote { order: 6; }
+	.k-mail { order: 7; }
 	.k-links { order: 7; }
 	.k-doku { order: 7; }
 	.k-verlauf { order: 8; }

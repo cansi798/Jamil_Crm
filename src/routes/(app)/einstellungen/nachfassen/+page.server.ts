@@ -4,37 +4,19 @@ import { alsFormFehler } from '$lib/server/fehler';
 import { betriebKontext, hatRecht, pruefeRecht } from '$lib/server/rechte';
 import { formWerte } from '$lib/server/seite';
 import { aktiveMitarbeiter } from '$lib/server/todos';
-import {
-	holeSignatur,
-	loeseDrossel,
-	listeMailVorlagen,
-	listeStufen,
-	loescheMailVorlage,
-	loescheStufe,
-	rollenAuswahl,
-	speichereMailVorlage,
-	speichereSignatur,
-	speichereStufe,
-	STUFEN_FELDER,
-	uebernimmStandard,
-	VORLAGE_FELDER,
-	vorschauBeispiele
-} from '$lib/server/nachfassen';
+import { loeseDrossel, listeStufen, loescheStufe, rollenAuswahl, speichereStufe, STUFEN_FELDER, uebernimmStandard } from '$lib/server/nachfassen';
+import { alsWahl, listeMailVorlagen } from '$lib/server/mail-vorlagen';
 
-/** Einstellungen → Nachfassen (Jamil msgs 2585, 2633, 2636): Stufen je Art, Mail-Vorlagen, Signatur – nur „Einstellungen“. */
+/**
+ * Einstellungen → Nachfassen (Jamil msgs 2585, 2633, 2636): Stufen je Art – nur „Einstellungen“. Mail-Vorlagen und
+ * Signatur stehen seit msg 2789 in der Bibliothek (Einstellungen → E-Mail-Vorlagen); hier nur die Auswahl je Stufe.
+ */
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.nutzer) redirect(303, '/anmelden');
 	if (!hatRecht(locals.nutzer, 'einstellungen') || !locals.nutzer.betriebId) error(403, 'Keine Berechtigung');
 	const k = betriebKontext(locals);
-	const [stufen, vorlagen, signatur, mitarbeiter, rollen, beispiele] = await Promise.all([
-		listeStufen(k),
-		listeMailVorlagen(k),
-		holeSignatur(k),
-		aktiveMitarbeiter(k),
-		rollenAuswahl(k),
-		vorschauBeispiele(k, hatRecht(locals.nutzer, 'preise.sehen'))
-	]);
-	return { stufen, vorlagen, signatur, mitarbeiter, rollen, beispiele };
+	const [stufen, vorlagen, mitarbeiter, rollen] = await Promise.all([listeStufen(k), listeMailVorlagen(k), aktiveMitarbeiter(k), rollenAuswahl(k)]);
+	return { stufen, vorlagen: alsWahl(vorlagen), mitarbeiter, rollen, darfVorlagen: hatRecht(locals.nutzer, 'vorlagen.verwalten') };
 };
 
 async function ausfuehren(locals: App.Locals, bereich: string, werte: Record<string, string>, fn: () => Promise<unknown>) {
@@ -58,17 +40,5 @@ export const actions: Actions = {
 		const sid = String((await request.formData()).get('id') ?? '');
 		return ausfuehren(locals, `stufe-${sid}`, {}, () => loescheStufe(betriebKontext(locals), sid));
 	},
-	standard: async ({ locals }) => ausfuehren(locals, 'standard', {}, () => uebernimmStandard(betriebKontext(locals))),
-	vorlage: async ({ locals, request }) => {
-		const werte = formWerte(await request.formData(), [...VORLAGE_FELDER, 'id']);
-		return ausfuehren(locals, `vorlage-${werte.id || 'neu'}`, werte, () => speichereMailVorlage(betriebKontext(locals), werte.id || null, werte));
-	},
-	vorlageLoeschen: async ({ locals, request }) => {
-		const vid = String((await request.formData()).get('id') ?? '');
-		return ausfuehren(locals, `vorlage-${vid}`, {}, () => loescheMailVorlage(betriebKontext(locals), vid));
-	},
-	signatur: async ({ locals, request }) => {
-		const werte = formWerte(await request.formData(), ['signatur']);
-		return ausfuehren(locals, 'signatur', werte, () => speichereSignatur(betriebKontext(locals), werte.signatur));
-	}
+	standard: async ({ locals }) => ausfuehren(locals, 'standard', {}, () => uebernimmStandard(betriebKontext(locals)))
 };

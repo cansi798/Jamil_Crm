@@ -39,7 +39,8 @@ import { materialHinzufuegen, materialLoeschen, materialStand, materialWieGeplan
 import { lieferscheinAuslesen } from '$lib/server/ki/lieferschein';
 import { nachkalkulationAuftrag } from '$lib/server/nachkalkulation';
 import { portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe } from '$lib/server/kundenportal';
-import { abEinstellung, listeAuftragsbestaetigungen, markiereAbGesendet } from '$lib/server/auftragsbestaetigung';
+import { abEinstellung, abMitVorlage, listeAuftragsbestaetigungen, markiereAbGesendet } from '$lib/server/auftragsbestaetigung';
+import { alsWahl, listeMailVorlagen, mailVorbereitung } from '$lib/server/mail-vorlagen';
 import { aendereLink, legeLinkAn, linkVerlauf, listeLinks, loescheLink, setzeLinkImPortal } from '$lib/server/auftrag-links';
 
 /** Zeiterfassung nur mit Modul und Recht – sonst `null` (Bereich ausgeblendet). */
@@ -115,10 +116,14 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		return {
 			auftrag,
 			links,
+			// „Mail an Kunden“ (Vorlagen-Bibliothek, msg 2789): wer den Auftrag bearbeiten darf
+			mail: darfBearbeiten && (auftrag.kundeId || auftrag.einmalKunde) ? await mailVorbereitung(k, { auftragId: auftrag.id }, ['allgemein', 'bewertung'], { preise }) : null,
 			darfLinkPortal: darfBearbeiten && darfPortal,
 			nachkalkulation,
 			portal,
 			auftragsbestaetigungen,
+			// Vorlagen-Auswahl für noch nicht gesendete Auftragsbestätigungen (Bibliothek, msg 2789)
+			abVorlagen: auftragsbestaetigungen.some((x) => x.versandStatus === 'bereit') ? alsWahl(await listeMailVorlagen(k)) : [],
 			abAutomatischBearbeiten: darfBearbeiten && angeboteSichtbar,
 			abEinstellung: darfBearbeiten && angeboteSichtbar ? await abEinstellung(k, auftrag.id) : null,
 			zeit: zg ? { laufend: zeitLaufend, summe: zeitSumme!, verwalten: zg.verwalten } : null,
@@ -418,6 +423,17 @@ export const actions: Actions = {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 			const zg = await angeboteZugriff(locals);
 			await setzeAbAutomatisch({ k: betriebKontext(locals), sicht: zg.sicht }, params.id, w === 'an' ? true : w === 'aus' ? false : null);
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+	},
+	abVorlage: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await angeboteZugriff(locals);
+			const k = betriebKontext(locals);
+			await holeAuftrag(k, z.sicht, params.id);
+			await abMitVorlage(k, params.id, f.get('id'), f.get('vorlageId'));
 		} catch (e) {
 			return alsFormFehler(e);
 		}

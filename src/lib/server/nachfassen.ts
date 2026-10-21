@@ -8,10 +8,7 @@ import { berlinTag, tagDeutsch, tagPlus } from '../zeit';
 import {
 	faelligeStufe,
 	BEISPIEL_WERTE,
-	fertigeMail,
 	fuelle,
-	htmlZuText,
-	mitSignatur,
 	NACHFASS_ARTEN,
 	STANDARD_STUFEN,
 	STANDARD_VORLAGEN,
@@ -20,6 +17,19 @@ import {
 	type NachfassArt,
 	type Zuweisung
 } from '../nachfassen';
+import { baueMail, holeSignatur, listeMailVorlagen, type MailVorlage } from './mail-vorlagen';
+
+// Vorlagen und Signatur liegen in der Bibliothek (Jamil msg 2789) – hier für bisherige Aufrufer weitergereicht
+export {
+	holeSignatur,
+	listeMailVorlagen,
+	loescheMailVorlage,
+	speichereMailVorlage,
+	speichereSignatur,
+	VORLAGE_FELDER,
+	MAX_VORLAGEN,
+	type MailVorlage
+} from './mail-vorlagen';
 
 /**
  * Automatisches Nachfassen (Wünsche Jamil, msgs 2585, 2633, 2636; Migration 050) – ohne Mail-Anbindung (Jamil 2589).
@@ -43,8 +53,11 @@ export const KEIN_VERSAND: MailVersand = {
 	}
 };
 export let mailVersand: MailVersand = KEIN_VERSAND;
+/** Anbindung setzen (später echte Anbindung; in Tests eine Attrappe). */
+export function setzeMailVersand(v: MailVersand | null): void {
+	mailVersand = v ?? KEIN_VERSAND;
+}
 
-export type MailVorlage = { id: string; name: string; betreff: string; html: string; text: string | null };
 export type NachfassStufe = {
 	id: string;
 	art: NachfassArt;
@@ -78,9 +91,7 @@ export type NachfassLauf = {
 };
 
 export const STUFEN_FELDER = ['art', 'tage', 'todo', 'mail', 'todoTitel', 'mailVorlageId', 'zuweisung', 'benutzerId', 'rolleId', 'faelligVersatz', 'mahnstufe', 'aktiv'] as const;
-export const VORLAGE_FELDER = ['name', 'betreff', 'html', 'text'] as const;
 export const MAX_STUFEN = 20;
-export const MAX_VORLAGEN = 50;
 
 const nichtGefunden = (was: string) => new ApiFehler(404, `${was} nicht gefunden.`);
 const id = (w: unknown, was: string) => {
@@ -101,69 +112,6 @@ const ganz = (w: unknown, name: string, min: number, max: number, standard?: num
 const bool = (w: unknown) => w === true || w === 'true' || w === 'on' || w === '1';
 
 // ——— Einstellungen: Mail-Vorlagen, Signatur, Stufen ———
-
-const zuVorlage = (z: Record<string, any>): MailVorlage => ({ id: z.id, name: z.name, betreff: z.betreff, html: z.html, text: z.text ?? null });
-
-export async function listeMailVorlagen(k: Kontext): Promise<MailVorlage[]> {
-	return mitBetrieb(k, async (tx) =>
-		(await tx`select id, name, betreff, html, text from app.mail_vorlagen where betrieb_id = ${k.betriebId} order by public.unaccent(lower(name)), id`).map(zuVorlage)
-	);
-}
-
-function pruefeVorlage(e: Record<string, unknown>) {
-	const name = textFeld(e.name, 'Name', 200);
-	const betreff = textFeld(e.betreff, 'Betreff', 300);
-	if (!name) throw new ApiFehler(400, 'Name: Bitte einen Namen eingeben.');
-	if (!betreff) throw new ApiFehler(400, 'Betreff: Bitte einen Betreff eingeben.');
-	const html = textFeld(e.html, 'Text (HTML)', 50000);
-	if (!html) throw new ApiFehler(400, 'Text: Bitte einen Mailtext eingeben.');
-	return { name, betreff, html, text: textFeld(e.text, 'Klartext', 50000) };
-}
-
-export async function speichereMailVorlage(k: Kontext, vorlageId: unknown, e: Record<string, unknown>): Promise<MailVorlage> {
-	const w = pruefeVorlage(e);
-	return mitBetrieb(k, async (tx) => {
-		if (vorlageId === null || vorlageId === undefined || vorlageId === '') {
-			const [{ n }] = await tx`select count(*)::int as n from app.mail_vorlagen where betrieb_id = ${k.betriebId}`;
-			if (n >= MAX_VORLAGEN) throw new ApiFehler(400, `Höchstens ${MAX_VORLAGEN} Mail-Vorlagen.`);
-			const [z] = await tx`
-				insert into app.mail_vorlagen (betrieb_id, name, betreff, html, text) values (${k.betriebId}, ${w.name}, ${w.betreff}, ${w.html}, ${w.text})
-				returning id, name, betreff, html, text`;
-			return zuVorlage(z);
-		}
-		const [z] = await tx`
-			update app.mail_vorlagen set name = ${w.name}, betreff = ${w.betreff}, html = ${w.html}, text = ${w.text}
-			where id = ${id(vorlageId, 'Mail-Vorlage')} and betrieb_id = ${k.betriebId} returning id, name, betreff, html, text`;
-		if (!z) throw nichtGefunden('Mail-Vorlage');
-		return zuVorlage(z);
-	});
-}
-
-export async function loescheMailVorlage(k: Kontext, vorlageId: unknown): Promise<void> {
-	const vid = id(vorlageId, 'Mail-Vorlage');
-	await mitBetrieb(k, async (tx) => {
-		const [inUse] = await tx`select 1 from app.nachfass_stufen where mail_vorlage_id = ${vid} and betrieb_id = ${k.betriebId} and mail limit 1`;
-		if (inUse) throw new ApiFehler(409, 'Die Vorlage wird in einer Nachfass-Stufe verwendet – bitte dort zuerst eine andere wählen.');
-		const z = await tx`delete from app.mail_vorlagen where id = ${vid} and betrieb_id = ${k.betriebId} returning id`;
-		if (z.length === 0) throw nichtGefunden('Mail-Vorlage');
-	});
-}
-
-export async function holeSignatur(k: Kontext): Promise<string | null> {
-	return mitBetrieb(k, async (tx) => {
-		const [z] = await tx`select signatur_html from app.betrieb_profil where betrieb_id = ${k.betriebId}`;
-		return z?.signatur_html ?? null;
-	});
-}
-
-export async function speichereSignatur(k: Kontext, html: unknown): Promise<void> {
-	const s = textFeld(html, 'Signatur', 20000);
-	await mitBetrieb(k, async (tx) => {
-		await tx`
-			insert into app.betrieb_profil (betrieb_id, signatur_html) values (${k.betriebId}, ${s})
-			on conflict (betrieb_id) do update set signatur_html = excluded.signatur_html`;
-	});
-}
 
 const STUFE_SPALTEN = `id, art, pos, tage, todo, mail, todo_titel, mail_vorlage_id, zuweisung, benutzer_id, rolle_id, faellig_versatz, mahnstufe, aktiv`;
 const zuStufe = (z: Record<string, any>): NachfassStufe => ({
@@ -279,8 +227,12 @@ export async function uebernimmStandard(k: Kontext): Promise<void> {
 		if (da) throw new ApiFehler(409, 'Es gibt schon Stufen für Angebote.');
 		const vorlagen = new Map<string, string>();
 		for (const v of STANDARD_VORLAGEN) {
-			const [z] = await tx`
-				insert into app.mail_vorlagen (betrieb_id, name, betreff, html) values (${k.betriebId}, ${v.name}, ${v.betreff}, ${v.html}) returning id`;
+			// gleichnamige Vorlage (z. B. schon als Standard der Bibliothek angelegt) wiederverwenden
+			const [da] = await tx`select id from app.mail_vorlagen where betrieb_id = ${k.betriebId} and zweck = 'nachfassen_angebot' and name = ${v.name} order by angelegt limit 1`;
+			const [z] = da
+				? [da]
+				: await tx`
+					insert into app.mail_vorlagen (betrieb_id, name, betreff, html, zweck) values (${k.betriebId}, ${v.name}, ${v.betreff}, ${v.html}, 'nachfassen_angebot') returning id`;
 			vorlagen.set(v.schluessel, z.id);
 		}
 		// „Rolle“: die Chef-Rolle des Betriebs (Vorlage chef), sonst Zuständiger
@@ -421,7 +373,7 @@ export async function pruefeNachfassen(k: Kontext, heute = berlinTag(new Date())
 		if (!s) continue;
 		const { werte, an, auftragId } = await werteFuer(k, z.id, z.versendet_tag, heute, z);
 		const vorlage = s.mail ? vorlagen.find((v) => v.id === s.mailVorlageId) : undefined;
-		const mail = vorlage ? fertigeMail(vorlage, werte, signatur) : null;
+		const mail = vorlage ? baueMail(vorlage, werte, signatur) : null;
 		const html = mail?.html ?? null;
 		const text = mail?.text ?? null;
 		const betreff = mail?.betreff ?? null;

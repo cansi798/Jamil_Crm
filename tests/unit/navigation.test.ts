@@ -13,7 +13,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE, { nextcloud: true });
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Angebote', 'Plantafel', 'Karte', 'Aufgaben']);
 		expect(gruppen(nav)).toEqual({
-			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen'],
+			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'E-Mail-Vorlagen'],
 			'Stammdaten & Kalkulation': ['Katalog', 'Kalkulation', 'Auftragsquellen', 'Briefkopf / Firmenprofil'],
 			'Personal & Zeiten': ['Zeiten', 'Abwesenheiten', 'Kolonnen'],
 			Auswertungen: ['Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen'],
@@ -47,6 +47,11 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Benutzeradministration nur mit Rechten: benutzer.verwalten → Benutzer, einstellungen → Rollen', () => {
 		expect(gruppen(baueNavigation(betriebsNutzer(['benutzer.verwalten']), ALLE_MODULE))).toEqual({ Benutzeradministration: ['Benutzer'] });
 		expect(gruppen(baueNavigation(betriebsNutzer(['einstellungen']), ALLE_MODULE))['Benutzeradministration']).toEqual(['Rollen']);
+	});
+
+	it('E-Mail-Vorlagen (msg 2789) nur mit vorlagen.verwalten, in der Gruppe „Vorlagen“', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['vorlagen.verwalten']), ALLE_MODULE))).toEqual({ Vorlagen: ['E-Mail-Vorlagen'] });
+		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE).mehr)).not.toContain('E-Mail-Vorlagen');
 	});
 
 	it('Angebote, Angebots-Vorlagen nur mit angebote.bearbeiten UND preise.sehen; Kalkulation nur mit preise.sehen UND einstellungen', () => {
