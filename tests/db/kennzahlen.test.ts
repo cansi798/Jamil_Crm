@@ -11,6 +11,10 @@ import {
 	kundenKennzahlen,
 	vorlagenAufgabenZeiten
 } from '../../src/lib/server/kennzahlen';
+import { aendereTodo, legeTodosAn } from '../../src/lib/server/todos';
+import { korrigiere, trageNach, zeitZugriff } from '../../src/lib/server/zeiterfassung';
+import { load as cockpitLoad } from '../../src/routes/(app)/auswertung/kennzahlen/+page.server';
+import { load as vorlageLoad } from '../../src/routes/(app)/auftrag-vorlagen/[id]/+page.server';
 
 /** Kennzahlen (Jamil msgs 2799, 2801, 2803, 2858): Fakten aus der Datenbank, Sicht, Rechte, Zeitmessung. */
 describe('Kennzahlen', () => {
@@ -117,5 +121,38 @@ describe('Kennzahlen', () => {
 		expect(z.get('fliesen')).toEqual({ anzahl: 2, erledigt: 2, durchlaufTage: 2, warteTage: 0.5, bearbeitungTage: 1.5 });
 		// fremder Betrieb sieht nichts
 		expect((await vorlagenAufgabenZeiten({ betriebId: u.betriebB, benutzerId: u.ids.chefB }, v.id)).size).toBe(0);
+	});
+
+	it('Aufgaben aus der Auftrags-Vorlage merken Herkunft (fremde Vorlage wird ignoriert); Vorlagen-Seite zeigt Ø nur mit alle_lesen', async () => {
+		const [v] = await root`insert into app.auftrag_vorlagen (betrieb_id, name) values (${u.betriebA}, 'Küche') returning id`;
+		const [fremd] = await root`insert into app.auftrag_vorlagen (betrieb_id, name) values (${u.betriebB}, 'Fremd') returning id`;
+		const neu = await legeTodosAn(kA(), offen, [
+			{ titel: 'Arbeitsplatte setzen (geändert)', vorlageId: v.id, vorlageAufgabe: 'Arbeitsplatte setzen' },
+			{ titel: 'Fremd', vorlageId: fremd.id, vorlageAufgabe: 'X' },
+			{ titel: 'Ohne Vorlage' }
+		]);
+		const z = await root`select titel, vorlage_id, vorlage_aufgabe from app.todos where id = any(${neu.map((t) => t.id)}::uuid[]) order by angelegt`;
+		expect(z.map((r) => [r.vorlage_id, r.vorlage_aufgabe])).toEqual([[v.id, 'Arbeitsplatte setzen'], [null, null], [null, null]]);
+		await root`update app.todos set erledigt_am = angelegt + interval '2 days' where id = ${neu[0].id}`;
+		const chef = (await vorlageLoad({ locals: { nutzer: u.chefA }, params: { id: v.id } } as never)) as Record<string, any>;
+		expect(chef.zeiten['arbeitsplatte setzen']).toMatchObject({ anzahl: 1, erledigt: 1, durchlaufTage: 2 });
+		const m = (await vorlageLoad({ locals: { nutzer: u.monteurA }, params: { id: v.id } } as never)) as Record<string, any>;
+		expect(m.zeiten).toBeNull();
+	});
+
+	it('Nacharbeit an Zeiten (nachtragen/korrigieren) und Aufgaben; Cockpit-Seite nur mit alle_lesen', async () => {
+		const zm = await zeitZugriff({ nutzer: u.monteurA });
+		const e = await trageNach(zm, { art: 'arbeit', tag: '2026-10-12', von: '08:00', bis: '09:00', auftragId: fertig, grund: 'Nachbessern', nacharbeit: 'on' });
+		expect(e.nacharbeit).toBe(true);
+		expect((await korrigiere(zm, e.id, { art: 'arbeit', tag: '2026-10-12', von: '08:00', bis: '09:30', auftragId: fertig, grund: 'länger' })).nacharbeit).toBe(true);
+		expect((await korrigiere(zm, e.id, { art: 'arbeit', tag: '2026-10-12', von: '08:00', bis: '09:30', auftragId: fertig, grund: 'doch nicht', nacharbeit: '' })).nacharbeit).toBe(false);
+		const fahrt = await trageNach(zm, { art: 'fahrt', tag: '2026-10-12', von: '07:00', bis: '07:30', auftragId: fertig, grund: 'Fahrt', nacharbeit: 'on' });
+		expect(fahrt.nacharbeit).toBe(false); // nur Arbeit
+		const [t] = await legeTodosAn(kA(), fertig, [{ titel: 'Fuge nachbessern' }]);
+		expect((await aendereTodo(kA(), t.id, { nacharbeit: true })).nacharbeit).toBe(true);
+		await expect(cockpitLoad({ locals: { nutzer: u.monteurA }, url: new URL('http://t/auswertung/kennzahlen') } as never)).rejects.toMatchObject({ status: 403 });
+		const d = (await cockpitLoad({ locals: { nutzer: u.chefA }, url: new URL('http://t/auswertung/kennzahlen?zeitraum=monat') } as never)) as Record<string, any>;
+		expect(d.zeitraum.art).toBe('monat');
+		expect(d.kennzahlen).toHaveLength(7);
 	});
 });

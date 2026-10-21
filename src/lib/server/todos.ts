@@ -43,6 +43,8 @@ export type Todo = {
 	anlage: { id: string; bezeichnung: string } | null;
 	/** Automatisches Nachfassen: das Angebot mit dem fertigen Mailtext. */
 	nachfassAngebotId: string | null;
+	/** Nacharbeit (Jamil msg 2858, Nacharbeitsquote). */
+	nacharbeit: boolean;
 };
 
 /** Filter (Wunsch Jamil, msg 2500): `zustaendigId` (zugewiesen an), `status` offen/erledigt – kombinierbar mit `nur`. */
@@ -139,7 +141,7 @@ function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
 	};
 }
 
-const AUSWAHL = `t.id, t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
+const AUSWAHL = `t.id, t.titel, t.beschreibung, t.nacharbeit, t.lautstaerke, t.schmutz, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
 	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, to_char(t.faellig_zeit, 'HH24:MI') as faellig_zeit, t.erledigt_am,
 	t.serie_id, s.regel as serie_regel, s.intervall as serie_intervall, to_char(s.ende, 'YYYY-MM-DD') as serie_ende,
 	s.aktiv as serie_aktiv, t.anlage_id, an.bezeichnung as anlage_bezeichnung, nl.angebot_id as nachfass_angebot_id`;
@@ -156,6 +158,7 @@ function zuTodo(z: Record<string, any>): Todo {
 		id: z.id,
 		titel: z.titel,
 		beschreibung: z.beschreibung ?? null,
+		nacharbeit: z.nacharbeit === true,
 		lautstaerke: z.lautstaerke ?? null,
 		schmutz: z.schmutz ?? null,
 		auftragId: z.auftrag_id,
@@ -311,7 +314,8 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 	});
 }
 
-export type NeuesTodo = { titel: string; beschreibung?: string | null; lautstaerke?: unknown; schmutz?: unknown };
+/** `vorlageId`/`vorlageAufgabe`: Herkunft aus einer Auftrags-Vorlage (Zeitmessung je Vorlagen-Aufgabe, msg 2858). */
+export type NeuesTodo = { titel: string; beschreibung?: string | null; lautstaerke?: unknown; schmutz?: unknown; vorlageId?: unknown; vorlageAufgabe?: unknown };
 
 /**
  * Neue Aufgaben aus dem Auftrag-Formular (Felder `todo_<n>` und `todo_beschreibung_<n>`, n = 0, 1, …) in der
@@ -320,7 +324,7 @@ export type NeuesTodo = { titel: string; beschreibung?: string | null; lautstaer
 export function todosAusFormular(form: FormData): NeuesTodo[] {
 	const nummern = new Set<number>();
 	for (const schluessel of form.keys()) {
-		const treffer = /^todo_(?:beschreibung_|lautstaerke_|schmutz_)?(\d{1,4})$/.exec(schluessel);
+		const treffer = /^todo_(?:beschreibung_|lautstaerke_|schmutz_|vorlage_|vorlage_titel_)?(\d{1,4})$/.exec(schluessel);
 		if (treffer) nummern.add(Number(treffer[1]));
 	}
 	const text = (name: string) => {
@@ -333,7 +337,9 @@ export function todosAusFormular(form: FormData): NeuesTodo[] {
 			titel: text(`todo_${n}`),
 			beschreibung: text(`todo_beschreibung_${n}`),
 			lautstaerke: text(`todo_lautstaerke_${n}`),
-			schmutz: text(`todo_schmutz_${n}`)
+			schmutz: text(`todo_schmutz_${n}`),
+			vorlageId: text(`todo_vorlage_${n}`),
+			vorlageAufgabe: text(`todo_vorlage_titel_${n}`)
 		}))
 		.filter((t) => t.titel.trim() !== '' || t.beschreibung.trim() !== '');
 }
@@ -344,7 +350,7 @@ export function todosAusFormular(form: FormData): NeuesTodo[] {
  */
 export function pruefeTodoListe(
 	liste: readonly NeuesTodo[]
-): { titel: string; beschreibung: string | null; lautstaerke: number | null; schmutz: number | null }[] {
+): { titel: string; beschreibung: string | null; lautstaerke: number | null; schmutz: number | null; vorlageId: string | null; vorlageAufgabe: string | null }[] {
 	if (liste.length > MAX_TODOS_AUF_EINMAL) {
 		throw new ApiFehler(400, `Höchstens ${MAX_TODOS_AUF_EINMAL} Aufgaben auf einmal.`);
 	}
@@ -355,7 +361,10 @@ export function pruefeTodoListe(
 			titel,
 			beschreibung: textFeld(t.beschreibung, `Aufgabe ${i + 1}: Beschreibung`, 500),
 			lautstaerke: stufeFeld(t.lautstaerke, `Aufgabe ${i + 1}: Lautstärke`),
-			schmutz: stufeFeld(t.schmutz, `Aufgabe ${i + 1}: Schmutz`)
+			schmutz: stufeFeld(t.schmutz, `Aufgabe ${i + 1}: Schmutz`),
+			// Herkunft nur, wenn beides gültig ist (sonst einfach ohne Zeitmessung)
+			vorlageId: typeof t.vorlageId === 'string' && UUID.test(t.vorlageId) && typeof t.vorlageAufgabe === 'string' && t.vorlageAufgabe.trim() ? t.vorlageId.toLowerCase() : null,
+			vorlageAufgabe: typeof t.vorlageId === 'string' && UUID.test(t.vorlageId) && typeof t.vorlageAufgabe === 'string' && t.vorlageAufgabe.trim() ? t.vorlageAufgabe.trim().slice(0, 200) : null
 		};
 	});
 }
@@ -383,8 +392,9 @@ export async function legeTodosAn(
 		const ids: string[] = [];
 		for (const w of werte) {
 			const [z] = await tx`
-				insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, lautstaerke, schmutz)
-				values (${k.betriebId}, ${auftrag}, ${w.titel}, ${w.beschreibung}, ${w.lautstaerke}, ${w.schmutz})
+				insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, lautstaerke, schmutz, vorlage_id, vorlage_aufgabe)
+				select ${k.betriebId}, ${auftrag}, ${w.titel}, ${w.beschreibung}, ${w.lautstaerke}, ${w.schmutz}, v.id, case when v.id is null then null else ${w.vorlageAufgabe}::text end
+				from (select 1) x left join app.auftrag_vorlagen v on v.id = ${w.vorlageId}::uuid and v.betrieb_id = ${k.betriebId}
 				returning id`;
 			ids.push(z.id as string);
 		}
@@ -408,8 +418,10 @@ export async function aendereTodo(
 	const felder = AENDERBAR.filter((f) => Object.hasOwn(e, f));
 	const mitErledigt = Object.hasOwn(e, 'erledigt');
 	const erinnerungen = erinnerungenAusEingabe(e);
-	if (felder.length === 0 && !mitErledigt && !erinnerungen) throw new ApiFehler(400, 'Nichts zu ändern.');
+	const mitNacharbeit = Object.hasOwn(e, 'nacharbeit');
+	if (felder.length === 0 && !mitErledigt && !erinnerungen && !mitNacharbeit) throw new ApiFehler(400, 'Nichts zu ändern.');
 	const erledigt = mitErledigt ? erledigtWert(e.erledigt) : null;
+	const nacharbeit = mitNacharbeit ? e.nacharbeit === true || e.nacharbeit === 'true' || e.nacharbeit === 'on' : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
 			select t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, to_char(t.faellig_zeit, 'HH24:MI') as faellig_zeit, t.erledigt_am,
@@ -434,6 +446,7 @@ export async function aendereTodo(
 			update app.todos set titel = ${w.titel}, beschreibung = ${w.beschreibung},
 				lautstaerke = ${w.lautstaerke}, schmutz = ${w.schmutz}, zustaendig_id = ${w.zustaendigId}, faellig = ${w.faellig}, faellig_zeit = ${w.faelligZeit}
 				${erledigt === null ? tx`` : erledigt ? tx`, erledigt_am = coalesce(erledigt_am, now())` : tx`, erledigt_am = null`}
+				${nacharbeit === null ? tx`` : tx`, nacharbeit = ${nacharbeit}`}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		if (erledigt === true && alt.erledigt_am === null) await naechsteInstanz(tx, k, id);
 		if (erinnerungen) await setzeErinnerungen(tx, k, { todoId: id }, erinnerungen, todoFaelligUm(w.faellig, w.faelligZeit));

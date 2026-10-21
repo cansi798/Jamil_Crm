@@ -12,7 +12,8 @@
 	type Kunde = { id: string; name: string; adresse?: string | null };
 	type Objekt = { id: string; bezeichnung: string; adresse: string };
 	type Vorlage = { id: string; name: string };
-	type Todo = { titel: string; beschreibung: string; lautstaerke: string; schmutz: string };
+	// vorlageId/vorlageTitel: Herkunft aus der Auftrags-Vorlage – für die Zeitmessung je Vorlagen-Aufgabe (msg 2858)
+	type Todo = { titel: string; beschreibung: string; lautstaerke: string; schmutz: string; vorlageId?: string; vorlageTitel?: string };
 
 	/**
 	 * Formular für Aufträge (Neu und Bearbeiten). Kunde: vorbelegt (z. B. aus `?kunde=` oder beim Bearbeiten) oder über
@@ -104,7 +105,10 @@
 			const r = await fetch(`/api/auftrag-vorlagen/${vorlageWahl}`);
 			if (r.ok) {
 				const daten = await r.json();
+				const vorlageId = vorlageWahl;
 				todos = daten.todos.map((t: { titel: string; beschreibung: string | null; lautstaerke: number | null; schmutz: number | null }) => ({
+					vorlageId,
+					vorlageTitel: t.titel,
 					titel: t.titel,
 					beschreibung: t.beschreibung ?? '',
 					lautstaerke: t.lautstaerke ? String(t.lautstaerke) : '',
@@ -269,6 +273,7 @@
 				<div class="af-todo">
 					<div class="af-todo-felder">
 						<input type="text" name="todo_{i}" placeholder="Aufgabe {i + 1}" bind:value={todo.titel} maxlength="200" aria-label="Aufgabe {i + 1}" />
+						{#if todo.vorlageId && todo.vorlageTitel}<input type="hidden" name="todo_vorlage_{i}" value={todo.vorlageId} /><input type="hidden" name="todo_vorlage_titel_{i}" value={todo.vorlageTitel} />{/if}
 						<input type="text" name="todo_beschreibung_{i}" placeholder="Beschreibung (optional)" bind:value={todo.beschreibung} maxlength="500" aria-label="Beschreibung Aufgabe {i + 1}" />
 						<div class="af-todo-stufen">
 							<Auswahl name="todo_lautstaerke_{i}" bind:value={todo.lautstaerke} aria-label="Lautstärke Aufgabe {i + 1}">

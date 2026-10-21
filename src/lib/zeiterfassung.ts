@@ -42,6 +42,8 @@ export type ZeitEintrag = {
 	manuell: boolean;
 	korrekturGrund: string | null;
 	freigegeben: boolean;
+	/** Nacharbeit (Jamil msg 2858) – nur bei Arbeit. */
+	nacharbeit?: boolean;
 };
 
 type Abschnitt = { von: number; bis: number };

@@ -6,12 +6,16 @@ import { todosAusFormular } from '$lib/server/todos';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
 import { darf } from '$lib/server/tarif';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
+import { vorlagenAufgabenZeiten } from '$lib/server/kennzahlen';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const k = await seitenZugriff(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
 	const vorlage = await alsSeitenFehler(() => holeVorlage(k, params.id));
+	// Zeitmessung je Vorlagen-Aufgabe (Jamil msg 2858): über alle Aufträge – deshalb nur mit „Alle Aufträge ansehen“
+	const zeiten = hatRecht(locals.nutzer!, 'auftraege.alle_lesen') ? Object.fromEntries(await vorlagenAufgabenZeiten(k, vorlage.id)) : null;
 	return {
 		vorlage,
+		zeiten,
 		darfBearbeiten: hatRecht(locals.nutzer!, 'auftraege.bearbeiten')
 	};
 };

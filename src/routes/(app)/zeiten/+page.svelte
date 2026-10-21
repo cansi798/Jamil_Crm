@@ -172,6 +172,7 @@
 						<a href={`/auftraege/${e.auftragId}`}>{wasText(e)}</a>
 						{#if e.art === 'fahrt'}<span> · {e.km === null ? 'km offen' : `${km(e.km)} km`}{#if e.kmQuelle === 'luftlinie'} <small>(Luftlinie × Faktor)</small>{:else if e.kmQuelle === 'route'} <small>(Route)</small>{:else if e.kmQuelle === 'manuell'} <small>(von Hand)</small>{/if}</span>{/if}
 						{#if e.manuell}<span class="zt-abzeichen" title={e.korrekturGrund ?? ''}>korrigiert</span>{/if}
+						{#if e.nacharbeit}<span class="zt-abzeichen">Nacharbeit</span>{/if}
 						{#if e.freigegeben}<span class="zt-abzeichen gruen">freigegeben</span>{/if}
 					</div>
 					{#if e.notiz}<p class="zt-e-notiz">{e.notiz}</p>{/if}
@@ -194,6 +195,10 @@
 									</Auswahl>
 								</label>
 								<label>Notiz <input name="notiz" value={e.notiz ?? ''} maxlength="500" /></label>
+								{#if e.art === 'arbeit'}
+									<input type="hidden" name="nacharbeit" value="" />
+									<label class="zt-haken"><input type="checkbox" name="nacharbeit" checked={e.nacharbeit} /> Nacharbeit (Fehler beheben, nachbessern)</label>
+								{/if}
 								<label>Grund der Korrektur (Pflicht) <input name="grund" required minlength="3" maxlength="300" placeholder="z. B. Start vergessen" /></label>
 								{#if form?.korrekturFehler && form?.korrekturId === e.id}<p role="alert" class="kd-fehler">{form.korrekturFehler}</p>{/if}
 								<div class="zt-knoepfe">
@@ -229,6 +234,7 @@
 					<Auswahl name="auftragId" required><option value="">Bitte wählen …</option>{#each data.auftraege as a (a.id)}<option value={a.id}>{a.label}</option>{/each}</Auswahl>
 				</label>
 				<label>Notiz <input name="notiz" maxlength="500" /></label>
+				<label class="zt-haken"><input type="checkbox" name="nacharbeit" /> Nacharbeit (nur bei Arbeit)</label>
 				<label>Grund (Pflicht) <input name="grund" required minlength="3" maxlength="300" placeholder="z. B. Handy war leer" /></label>
 				{#if form?.nachtragenFehler}<p role="alert" class="kd-fehler">{form.nachtragenFehler}</p>{/if}
 				<div class="zt-knoepfe">
@@ -242,6 +248,13 @@
 </main>
 
 <style>
+	.zt-haken {
+		display: flex !important;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 44px;
+		font-weight: 500 !important;
+	}
 	.zt-filter {
 		display: flex;
 		flex-wrap: wrap;

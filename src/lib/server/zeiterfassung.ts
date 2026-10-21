@@ -61,7 +61,7 @@ function uebersetze(e: unknown): never {
 
 const AUSWAHL = `z.id, z.benutzer_id, b.name as benutzer_name, z.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel,
 	z.art, z.beginn, z.ende, z.pause_min, z.km, z.km_berechnet, z.km_quelle,
-	z.start_adresse, z.ziel_adresse, z.notiz, z.manuell, z.korrektur_grund, z.freigegeben_am`;
+	z.start_adresse, z.ziel_adresse, z.notiz, z.manuell, z.korrektur_grund, z.freigegeben_am, z.nacharbeit`;
 const VON = `app.zeit_eintraege z
 	join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
 	left join app.auftraege a on a.id = z.auftrag_id and a.betrieb_id = z.betrieb_id`;
@@ -89,7 +89,8 @@ export function zuEintrag(z: Record<string, any>): ZeitEintrag {
 		notiz: z.notiz,
 		manuell: z.manuell,
 		korrekturGrund: z.korrektur_grund,
-		freigegeben: z.freigegeben_am !== null
+		freigegeben: z.freigegeben_am !== null,
+		nacharbeit: z.nacharbeit === true
 	};
 }
 
@@ -389,6 +390,9 @@ function darfAendern(z: ZeitZugriff, r: Record<string, any>): void {
 	if (r.freigegeben_am) throw new ApiFehler(409, 'Diese Zeit ist schon freigegeben – Änderungen nur noch über Chef oder Büro.');
 }
 
+/** „Nacharbeit“ (Jamil msg 2858, für die Nacharbeitsquote) – Häkchen im Formular oder true in der API. */
+const istJa = (w: unknown) => w === true || w === 'on' || w === 'true' || w === 'ja';
+
 /** Zeit nachtragen (immer mit Grund); für andere Personen nur mit „Zeiten aller verwalten“. */
 export async function trageNach(z: ZeitZugriff, e: Record<string, unknown>): Promise<ZeitEintrag> {
 	const w = pruefeZeitEingabe(e);
@@ -403,9 +407,9 @@ export async function trageNach(z: ZeitZugriff, e: Record<string, unknown>): Pro
 		try {
 			const [r] = await tx`
 				insert into app.zeit_eintraege (betrieb_id, benutzer_id, auftrag_id, art, beginn, ende, pause_min, km, km_quelle,
-					notiz, manuell, korrektur_grund)
+					notiz, manuell, korrektur_grund, nacharbeit)
 				values (${z.k.betriebId}, ${fuer}, ${w.auftragId}, ${w.art}, ${w.beginn}, ${w.ende}, ${w.pauseMin}, ${w.km},
-					${w.km === null ? null : 'manuell'}, ${w.notiz}, true, ${grund})
+					${w.km === null ? null : 'manuell'}, ${w.notiz}, true, ${grund}, ${w.art === 'arbeit' && istJa(e.nacharbeit)})
 				returning id`;
 			return r.id as string;
 		} catch (err) {
@@ -440,7 +444,8 @@ export async function korrigiere(z: ZeitZugriff, id: unknown, e: Record<string, 
 					auftrag_id = ${w.auftragId}, km = ${kmNeu},
 					km_berechnet = ${w.art === 'fahrt' ? vorher.km_berechnet : null},
 					km_quelle = ${w.art !== 'fahrt' ? null : kmGeaendert ? (kmNeu === null ? null : 'manuell') : vorher.km_quelle},
-					notiz = ${w.notiz}, manuell = true, korrektur_grund = ${grund}
+					notiz = ${w.notiz}, manuell = true, korrektur_grund = ${grund},
+					nacharbeit = ${w.art === 'arbeit' && (e.nacharbeit === undefined ? vorher.nacharbeit === true : istJa(e.nacharbeit))}
 				where id = ${vorher.id} and betrieb_id = ${z.k.betriebId}`;
 		} catch (err) {
 			uebersetze(err);

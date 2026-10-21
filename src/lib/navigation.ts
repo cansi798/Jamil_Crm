@@ -99,6 +99,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		}
 
 		// Auswertungen
+		// Kennzahlen-Cockpit (Jamil msg 2858): über den ganzen Betrieb, deshalb „Alle Aufträge ansehen“
+		if (module.includes('auftraege') && hat('auftraege.alle_lesen')) g.auswertungen.push({ name: 'Kennzahlen', href: '/auswertung/kennzahlen', symbol: 'katalog' });
 		if (module.includes('zeiterfassung') && hat('preise.sehen') && hat('auftraege.alle_lesen')) {
 			g.auswertungen.push({ name: 'Nachkalkulation', href: '/auswertung/nachkalkulation', symbol: 'katalog' });
 		}

@@ -16,7 +16,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'E-Mail-Vorlagen'],
 			'Stammdaten & Kalkulation': ['Katalog', 'Kalkulation', 'Auftragsquellen', 'Briefkopf / Firmenprofil'],
 			'Personal & Zeiten': ['Zeiten', 'Abwesenheiten', 'Kolonnen'],
-			Auswertungen: ['Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen'],
+			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen'],
 			Automatisierung: ['Nachfassen', 'Kundenportal & Auftragsbestätigung', 'Online-Buchung', 'Erinnerungen'],
 			Benutzeradministration: ['Benutzer', 'Nextcloud', 'Rollen']
 		});
@@ -47,6 +47,11 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Benutzeradministration nur mit Rechten: benutzer.verwalten → Benutzer, einstellungen → Rollen', () => {
 		expect(gruppen(baueNavigation(betriebsNutzer(['benutzer.verwalten']), ALLE_MODULE))).toEqual({ Benutzeradministration: ['Benutzer'] });
 		expect(gruppen(baueNavigation(betriebsNutzer(['einstellungen']), ALLE_MODULE))['Benutzeradministration']).toEqual(['Rollen']);
+	});
+
+	it('Kennzahlen (msg 2858) zuerst in „Auswertungen“, nur mit „Alle Aufträge ansehen“', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE))['Auswertungen']).toEqual(['Kennzahlen', 'Auslastung']);
+		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE))['Auswertungen']).toBeUndefined();
 	});
 
 	it('E-Mail-Vorlagen (msg 2789) nur mit vorlagen.verwalten, in der Gruppe „Vorlagen“', () => {

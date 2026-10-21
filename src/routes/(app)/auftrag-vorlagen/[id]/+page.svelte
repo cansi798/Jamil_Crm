@@ -1,4 +1,6 @@
 <script lang="ts">
+	// Ø-Zeiten (msg 2858): Tage mit einer Nachkommastelle
+	const tageText = (t: number | null) => (t === null ? '–' : `${t.toLocaleString('de-DE', { maximumFractionDigits: 1 })} ${t === 1 ? 'Tag' : 'Tage'}`);
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
 	import { enhance } from '$app/forms';
@@ -73,6 +75,17 @@
 									{[todo.lautstaerke ? `Lautstärke: ${stufeName(todo.lautstaerke)}` : null, todo.schmutz ? `Schmutz: ${stufeName(todo.schmutz)}` : null]
 										.filter(Boolean)
 										.join(' · ')}
+								</p>
+							{/if}
+							{#if data.zeiten}
+								{@const z = data.zeiten[todo.titel.toLowerCase()]}
+								<p class="todo-zeit" data-testid="vorlage-zeit">
+									{#if z && z.erledigt > 0}
+										⏱ Ø {tageText(z.durchlaufTage)} bis erledigt · davon Ø {tageText(z.warteTage)} bis „In Arbeit“, Ø {tageText(z.bearbeitungTage)} in Arbeit
+										<span class="kd-info">({z.erledigt} von {z.anzahl} erledigt)</span>
+									{:else}
+										<span class="kd-info">⏱ Noch keine Messung{z ? ` (${z.anzahl} angelegt, noch keine erledigt)` : ' – entsteht, sobald Aufträge mit dieser Vorlage angelegt und Aufgaben erledigt sind'}</span>
+									{/if}
 								</p>
 							{/if}
 						</li>
@@ -152,6 +165,10 @@
 </div>
 
 <style>
+	.todo-zeit {
+		margin: 0.25rem 0 0;
+		font-size: 0.8125rem;
+	}
 	.seite {
 		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 		margin: 0;

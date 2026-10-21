@@ -61,7 +61,10 @@ export function todoAktionen(auftragAusPfad: boolean) {
 				// Nur gesendete Felder ändern: Das Kanban-Ziehen schickt z. B. nur `faellig` (und ggf. `erledigt`) –
 				// fehlende Felder dürfen Titel oder Beschreibung nicht leeren.
 				const gesendet = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'lautstaerke', 'schmutz', 'erledigt'].filter((f) => form.has(f));
-				await aendereTodo(betriebKontext(locals), id, formWerte(form, gesendet), todoSichtVon(locals.nutzer!));
+				const e: Record<string, unknown> = formWerte(form, gesendet);
+				// „Nacharbeit“ (msg 2858): Häkchen fehlt im Formular, wenn aus – das Feld `nacharbeitFeld` sagt, dass es da war
+				if (form.has('nacharbeitFeld')) e.nacharbeit = form.has('nacharbeit');
+				await aendereTodo(betriebKontext(locals), id, e, todoSichtVon(locals.nutzer!));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true });
 			}

@@ -9,6 +9,7 @@
 		id: string;
 		titel: string;
 		beschreibung?: string | null;
+		nacharbeit?: boolean;
 		lautstaerke?: number | null;
 		schmutz?: number | null;
 		serie?: { id: string; text: string; aktiv: boolean } | null;
@@ -100,6 +101,8 @@
 						<input type="hidden" name="id" value={t.id} />
 						<label>Titel <input type="text" name="titel" maxlength="200" required value={t.titel} /></label>
 						<label>Beschreibung <textarea name="beschreibung" maxlength="500" rows="2">{t.beschreibung ?? ''}</textarea></label>
+						<input type="hidden" name="nacharbeitFeld" value="1" />
+						<label class="tl-haken"><input type="checkbox" name="nacharbeit" checked={t.nacharbeit} /> Nacharbeit (Fehler beheben, nachbessern)</label>
 						<div class="tl-raster">
 							<div class="ui-feld">
 								Zuständig
@@ -169,6 +172,13 @@
 {/if}
 
 <style>
+	.tl-haken {
+		display: flex !important;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 44px;
+		font-weight: 500 !important;
+	}
 	.tl-liste {
 		list-style: none;
 		margin: 0;
