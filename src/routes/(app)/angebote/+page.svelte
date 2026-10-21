@@ -1,4 +1,5 @@
 <script lang="ts">
+	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import { ANGEBOT_STATUS, ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
@@ -7,7 +8,33 @@
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 
+	const aLink = (o: { status?: string | null; zeitraum?: string }) => {
+		const p = new URLSearchParams();
+		const st = o.status === undefined ? data.status : o.status;
+		if (st) p.set('status', st);
+		const z = o.zeitraum ?? data.zeitraum;
+		if (z !== 'monat') p.set('zeitraum', z);
+		const q = p.toString();
+		return q ? `/angebote?${q}` : '/angebote';
+	};
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+	const prozent = (w: number | null) => (w === null ? '–' : `${Math.round(w * 100)} %`);
+	const kacheln = $derived.by((): Kachel[] => {
+		const kz = data.kennzahlen;
+		if (!kz) return [];
+		const kl = (id: string, titel: string, wert: string, info: string, ton: Kachel['ton'], filter: boolean) => ({
+			id, titel, wert, info, ton, href: filter ? aLink({ status: data.status === id ? null : id }) : null
+		});
+		return [
+			kl('entwurf', 'Entwürfe', String(kz.entwurf), 'jetzt', 'grau', true),
+			kl('versendet', 'Offen', String(kz.offen), kz.summeOffenCent !== null ? euro(kz.summeOffenCent) : 'versendet, gültig', 'blau', true),
+			kl('angenommen', 'Angenommen', String(kz.angenommen), kz.summeAngenommenCent !== null ? euro(kz.summeAngenommenCent) : 'im Zeitraum', 'gruen', true),
+			kl('abgelehnt', 'Abgelehnt', String(kz.abgelehnt), 'im Zeitraum', 'rot', true),
+			kl('abgelaufen', 'Abgelaufen', String(kz.abgelaufen), 'ohne Antwort', 'orange', false),
+			kl('quote', 'Annahmequote', prozent(kz.quote.wert), kz.quote.fehlt ?? 'im Zeitraum', 'akzent', false),
+			...(kz.durchschnittCent !== null ? [kl('schnitt', 'Ø Angebotswert', euro(kz.durchschnittCent), 'im Zeitraum abgegeben', 'akzent', false)] : [])
+		];
+	});
 </script>
 
 <svelte:head>
@@ -33,10 +60,14 @@
 			<Umschalter
 				label="Status"
 				aktiv={data.status ?? 'alle'}
-				eintraege={[{ wert: 'alle', text: 'Alle', href: '/angebote' }, ...ANGEBOT_STATUS.map((st) => ({ wert: st, text: ANGEBOT_STATUS_NAMEN[st], href: `/angebote?status=${st}` }))]}
+				eintraege={[{ wert: 'alle', text: 'Alle', href: aLink({ status: null }) }, ...ANGEBOT_STATUS.map((st) => ({ wert: st, text: ANGEBOT_STATUS_NAMEN[st], href: aLink({ status: st }) }))]}
 			/>
 		{/snippet}
 	</FilterLeiste>
+
+	{#if kacheln.length > 0}
+		<KennzahlKacheln label="Angebote" {kacheln} zeitraum={data.zeitraum} zeitraumLink={(a) => aLink({ zeitraum: a })} aktiv={data.status} />
+	{/if}
 
 	<ul class="kd-liste">
 		{#each data.angebote as a (a.id)}

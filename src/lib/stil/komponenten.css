@@ -766,6 +766,12 @@ html .seiten-kopf h1 {
 	align-items: center;
 	gap: var(--ui-a2);
 }
+/* Am Handy: lange Umschalter (z. B. Angebots-Status) scrollen in sich statt die Seite zu verbreitern */
+.fl-filter,
+.fl-rechts {
+	min-width: 0;
+	max-width: 100%;
+}
 html .filter-leiste :is(.pill, .ui-chip) {
 	min-height: 2.25rem;
 }

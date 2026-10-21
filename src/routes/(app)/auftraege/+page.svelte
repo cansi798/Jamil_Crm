@@ -1,4 +1,6 @@
 <script lang="ts">
+	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
+	import { euro } from '$lib/geld';
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
@@ -13,7 +15,7 @@
 	let { data }: { data: PageData } = $props();
 
 	/** Link mit Ansicht, Status (nur Liste), „Meine“ und Suche (leere Werte entfallen). */
-	const link = (o: { ansicht?: 'board' | 'liste'; status?: string | null; meine?: boolean; nachfassen?: boolean } = {}) => {
+	const link = (o: { ansicht?: 'board' | 'liste'; status?: string | null; meine?: boolean; nachfassen?: boolean; zeitraum?: string } = {}) => {
 		const ansicht = o.ansicht ?? data.ansicht;
 		const status = o.status === undefined ? data.status : o.status;
 		const meine = o.meine ?? data.meine;
@@ -24,9 +26,29 @@
 		if (meine) p.set('meine', '1');
 		if (data.quelle) p.set('quelle', data.quelle);
 		if (o.nachfassen ?? data.nachfassenFaellig) p.set('nachfassen', 'faellig');
+		const z = o.zeitraum ?? data.zeitraum;
+		if (z !== 'monat') p.set('zeitraum', z);
 		const q = p.toString();
 		return q ? `/auftraege?${q}` : '/auftraege';
 	};
+	// Kennzahl-Kacheln (msg 2801): Status-Kachel öffnet die Liste mit diesem Status, nochmal klicken hebt ihn auf
+	const STATUS_TON = { anfrage: 'grau', angebot: 'lila', beauftragt: 'blau', in_arbeit: 'orange', abgenommen: 'gruen', abgerechnet: 'grau' } as const;
+	const aktiveKachel = $derived(data.nachfassenFaellig ? 'nachfassen' : data.ansicht === 'liste' && data.status ? data.status : null);
+	const kacheln = $derived.by((): Kachel[] => {
+		const kz = data.kennzahlen;
+		if (!kz) return [];
+		const l: Kachel[] = STATUS.map((st) => ({
+			id: st,
+			titel: STATUS_NAMEN[st],
+			wert: String(kz.jeStatus[st]),
+			info: 'neu im Zeitraum',
+			href: aktiveKachel === st ? link({ ansicht: 'liste', status: null }) : link({ ansicht: 'liste', status: st, nachfassen: false }),
+			ton: STATUS_TON[st]
+		}));
+		l.push({ id: 'nachfassen', titel: 'Nachfassen fällig', wert: String(kz.nachfassenFaellig), info: 'jetzt', href: link({ nachfassen: !data.nachfassenFaellig }), ton: 'rot' });
+		if (kz.wertOffenCent !== null) l.push({ id: 'wert', titel: 'Auftragswert offen', wert: euro(kz.wertOffenCent), info: 'angenommen, nicht abgerechnet', ton: 'gruen' });
+		return l;
+	});
 	const BEZUG = { zustaendig: 'zuständig', todo: 'eigene Aufgabe', termin: 'eigener Termin' } as const;
 </script>
 
@@ -92,6 +114,10 @@
 			/>
 		{/snippet}
 	</FilterLeiste>
+
+	{#if kacheln.length > 0}
+		<KennzahlKacheln label="Aufträge" {kacheln} zeitraum={data.zeitraum} zeitraumLink={(a) => link({ zeitraum: a })} aktiv={aktiveKachel} />
+	{/if}
 
 	{#if data.ansicht === 'board' && data.board}
 		{#if !data.darfBearbeiten}

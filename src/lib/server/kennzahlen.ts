@@ -404,3 +404,22 @@ export async function vorlagenAufgabenZeiten(k: Kontext, vorlageId: string): Pro
 	}
 	return new Map([...je].map(([s, l]) => [s, aufgabenZeiten(l)]));
 }
+
+// ——— Klick auf eine Kunden-Kachel filtert die Kundenliste (msg 2799) ———
+
+export const KUNDEN_GRUPPEN = ['aktiv', 'angenommen', 'abgelehnt', 'abgelaufen'] as const;
+export type KundenGruppe = (typeof KUNDEN_GRUPPEN)[number];
+export const istKundenGruppe = (w: unknown): w is KundenGruppe => typeof w === 'string' && (KUNDEN_GRUPPEN as readonly string[]).includes(w);
+
+/** Kunden-IDs hinter einer Kachel – gleiche Regeln wie `rechneKunden` (damit Zahl und gefilterte Liste passen). */
+export async function kundenIdsFuer(k: Kontext, sicht: Sicht, z: Zeitraum, gruppe: KundenGruppe, heute = berlinTag(new Date())): Promise<Set<string>> {
+	return mitBetrieb(k, async (tx) => {
+		const ids = (l: readonly { kundeId: string | null }[]) => new Set(l.map((x) => x.kundeId).filter((x): x is string => !!x));
+		if (gruppe === 'aktiv') return ids((await ladeAuftraege(tx, k, sicht)).filter((a) => a.status !== 'abgenommen' && a.status !== 'abgerechnet'));
+		const g = grenzenVon(z.spanne);
+		const l = (await ladeAngebote(tx, k, sicht)).filter(gezaehlt);
+		if (gruppe === 'angenommen') return ids(l.filter((a) => a.status === 'angenommen' && drin(a.angenommenAm, g)));
+		if (gruppe === 'abgelehnt') return ids(l.filter((a) => a.status === 'abgelehnt' && drin(a.abgelehntAm, g)));
+		return ids(l.filter((a) => istAbgelaufen(a, heute) && tagDrin(a.gueltigBis, z.spanne)));
+	});
+}

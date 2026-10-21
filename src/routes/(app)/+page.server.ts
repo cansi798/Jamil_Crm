@@ -10,6 +10,8 @@ import { gewinnSatz } from '$lib/auslastung';
 import { laufend } from '$lib/server/zeiterfassung';
 import { linksZuAuftraegen } from '$lib/server/auftrag-links';
 import { sichtVon } from '$lib/server/auftraege';
+import { siehtKennzahlen } from '$lib/server/kennzahlen';
+import { startCockpit, type StartCockpit } from '$lib/server/start-cockpit';
 
 /**
  * Startseite. Plattform-Admins haben keinen Betrieb und damit keine fachliche Startseite – sie landen in der
@@ -27,6 +29,8 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 	let personen: { id: string; name: string }[] = [];
 	// Zeiterfassung auf „Heute“ (Wunsch Jamil msgs 2770–2774): Start/Abfahrt je Auftrag von heute
 	let zeit: { laufend: Awaited<ReturnType<typeof laufend>>; auftraege: { id: string; nummer: string; titel: string; kunde: string; zeit: string }[] } | null = null;
+	// Start-Cockpit (Jamil msg 2813): Kennzahlen, Handlungsbedarf, Auslastung, Umsatz je Quelle – Chef/Büro
+	let cockpit: StartCockpit | null = null;
 	let monat: { satz: string; erreicht: boolean; kalkulationFehlt: boolean; link: string } | null = null;
 	if (nutzer?.betriebId && (hatRecht(nutzer, 'auftraege.lesen') || hatRecht(nutzer, 'auftraege.alle_lesen') || hatRecht(nutzer, 'auftraege.bearbeiten'))) {
 		const k = { betriebId: nutzer.betriebId, benutzerId: nutzer.id };
@@ -64,6 +68,9 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 			}
 			zeit = { laufend: lauf, auftraege };
 		}
+		if (siehtKennzahlen(nutzer, module)) {
+			cockpit = await startCockpit(k, sichtVon(nutzer), { preise: hatRecht(nutzer, 'preise.sehen') && module.includes('angebote') }, jetzt);
+		}
 		// Kachel „Heute“ (Wunsch Jamil msg 2647): Termine, Aufgaben, Nachfassen – Chef/Büro mit Personenwahl
 		if (module.includes('auftraege')) {
 			personen = await planPersonen(k, nutzer);
@@ -79,6 +86,7 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 		plan,
 		monat,
 		zeit,
+		cockpit,
 		personen: personen.length > 1 ? personen : [],
 		heuteTag: berlinTag(jetzt),
 		benutzerId: nutzer?.id ?? null

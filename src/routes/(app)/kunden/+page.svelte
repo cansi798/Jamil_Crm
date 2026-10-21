@@ -1,4 +1,5 @@
 <script lang="ts">
+	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
 	import type { PageData } from './$types';
@@ -6,6 +7,29 @@
 
 	let { data }: { data: PageData } = $props();
 
+	// Kennzahl-Kacheln (msg 2799): Zeitraum und Gruppe stehen in der Adresse, Suche bleibt erhalten
+	const kLink = (o: { zeitraum?: string; gruppe?: string | null }) => {
+		const p = new URLSearchParams();
+		if (data.suche) p.set('suche', data.suche);
+		const z = o.zeitraum ?? data.zeitraum;
+		if (z !== 'monat') p.set('zeitraum', z);
+		const g = o.gruppe === undefined ? data.gruppe : o.gruppe;
+		if (g) p.set('gruppe', g);
+		const q = p.toString();
+		return q ? `/kunden?${q}` : '/kunden';
+	};
+	const kacheln = $derived.by((): Kachel[] => {
+		const kz = data.kennzahlen;
+		if (!kz) return [];
+		const umschalten = (id: string) => kLink({ gruppe: data.gruppe === id ? null : id });
+		const l: Kachel[] = [{ id: 'aktiv', titel: 'Aktive Kunden', wert: String(kz.kundenAktiv), info: 'mit offenem Auftrag', href: umschalten('aktiv'), ton: 'blau' }];
+		if (kz.kundenMitAngenommen !== null) {
+			l.push({ id: 'angenommen', titel: 'Angebot angenommen', wert: String(kz.kundenMitAngenommen), info: 'Kunden im Zeitraum', href: umschalten('angenommen'), ton: 'gruen' });
+			l.push({ id: 'abgelehnt', titel: 'Angebot abgelehnt', wert: String(kz.kundenMitAbgelehnt ?? 0), info: 'Kunden im Zeitraum', href: umschalten('abgelehnt'), ton: 'rot' });
+			l.push({ id: 'abgelaufen', titel: 'Angebot abgelaufen', wert: String(kz.kundenMitAbgelaufen ?? 0), info: 'ohne Antwort', href: umschalten('abgelaufen'), ton: 'orange' });
+		}
+		return l;
+	});
 	const zeile = (k: PageData['kunden'][number]) =>
 		[k.art === 'firma' ? [k.vorname, k.nachname].filter(Boolean).join(' ') : '', k.ort, k.telefon]
 			.filter(Boolean)
@@ -32,6 +56,11 @@
 			<span class="kd-info">{data.kunden.length} {data.kunden.length === 1 ? 'Kunde' : 'Kunden'}</span>
 		{/snippet}
 	</FilterLeiste>
+
+	{#if kacheln.length > 0}
+		<KennzahlKacheln label="Kunden" {kacheln} zeitraum={data.zeitraum} zeitraumLink={(a) => kLink({ zeitraum: a })} aktiv={data.gruppe} />
+		{#if data.gruppe}<p class="kd-info">Gefiltert nach Kachel – <a href={kLink({ gruppe: null })}>Filter aufheben</a></p>{/if}
+	{/if}
 
 	<ul class="kd-liste">
 		{#each data.kunden as kunde (kunde.id)}

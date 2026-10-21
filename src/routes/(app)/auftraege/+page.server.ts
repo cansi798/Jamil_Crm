@@ -8,6 +8,9 @@ import { moduleDesBetriebs } from '$lib/server/tarif';
 import { istStatus } from '$lib/auftrag-status';
 import { listeQuellen } from '$lib/server/quellen';
 import { UUID } from '$lib/server/kunden';
+import { auftragsKennzahlen, siehtKennzahlen } from '$lib/server/kennzahlen';
+import { istZeitraumArt, zeitraum } from '$lib/kennzahlen';
+import { berlinTag } from '$lib/zeit';
 
 /**
  * Aufträge als Board (Standard: Kacheln je Status, verschiebbar) oder als Liste (`?ansicht=liste`, mit Status-Reitern
@@ -32,7 +35,15 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const quelle = rohQuelle === 'ohne' || (UUID.test(rohQuelle) && quellen.some((q) => q.id === rohQuelle)) ? rohQuelle : null;
 	// Filter „Nachfassen fällig“ (Wunsch Jamil msg 2674): ?nachfassen=faellig
 	const nachfassenFaellig = url.searchParams.get('nachfassen') === 'faellig';
+	// Kennzahl-Kacheln (Jamil msg 2801): nur mit „Alle Aufträge ansehen“, Zeitraum `?zeitraum=`
+	const zRoh = url.searchParams.get('zeitraum');
+	const z = zeitraum(istZeitraumArt(zRoh) ? zRoh : 'monat', berlinTag(new Date()));
+	const module = await moduleDesBetriebs(k);
+	const preise = hatRecht(nutzer, 'preise.sehen') && module.includes('angebote');
+	const kennzahlen = siehtKennzahlen(nutzer, module) ? await alsSeitenFehler(() => auftragsKennzahlen(k, sicht, z, preise)) : null;
 	const gemeinsam = {
+		kennzahlen,
+		zeitraum: z.art,
 		quellen: quellen.map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv })),
 		quelle,
 		nachfassenFaellig,
@@ -49,7 +60,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		);
 		return { ...gemeinsam, auftraege, board: null, maxTreffer: MAX_AUFTRAEGE, mitPreisen: false };
 	}
-	const mitPreisen = hatRecht(nutzer, 'preise.sehen') && (await moduleDesBetriebs(k)).includes('angebote');
+	const mitPreisen = preise;
 	const board = await alsSeitenFehler(() => ladeBoard(k, sicht, { suche, meine, mitPreisen, quelleId: quelle ?? undefined, nachfassenFaellig }));
 	return { ...gemeinsam, auftraege: [], board, maxTreffer: MAX_JE_SPALTE, mitPreisen };
 };
