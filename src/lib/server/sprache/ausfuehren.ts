@@ -6,7 +6,7 @@ import { legeKundeAn, UUID } from '../kunden';
 import { aendereEinsatz, holeEinsatz, legeEinsatzAn, ABWESENHEIT_NAMEN, type Einsatz } from '../plantafel';
 import { legeTodoAn, todoSichtVon } from '../todos';
 import { entwirfAngebot, entwurfHinweise } from '../ki/angebot-entwurf';
-import { AKTIONEN, type AktionsName } from './aktionen';
+import { AKTIONEN, istSchrittAktion, MAX_SCHRITTE, type AktionsName } from './aktionen';
 import { neueZeiten, type Auswahl } from './aufloesen';
 import { pruefeSprachZugang } from './befehl';
 import { pruefeAktionsRechte } from './rechte';
@@ -19,7 +19,18 @@ import { gibFrei, markiereBenutzt, pruefeVorschlag } from './vorschlag';
  * Transaktion mit `app.quelle = 'sprache'` (Änderungsprotokoll).
  */
 
-export type Ausfuehrung = { meldung: string; link: string | null; warnungen: string[]; status: 200 | 201 };
+export type SchrittErgebnis = { nr: number; titel: string; status: 'erledigt' | 'fehler' | 'offen'; meldung: string | null; link: string | null };
+export type Ausfuehrung = {
+	meldung: string;
+	link: string | null;
+	warnungen: string[];
+	status: 200 | 201;
+	/** Neu angelegt (für spätere Schritte eines Befehls mit mehreren Schritten). */
+	ergebnis?: { kundeId?: string; auftragId?: string };
+	/** Mehrere Schritte: Stand je Schritt; `fehlgeschlagen` = ein Schritt ging schief, danach wurde abgebrochen. */
+	schritte?: SchrittErgebnis[];
+	fehlgeschlagen?: boolean;
+};
 
 /** Ergänzt die Werte um die Auswahl des Nutzers; nur signierte Optionen, jede offene Auswahl ist Pflicht. */
 export function wendeAuswahlAn(werte: Record<string, any>, offen: Auswahl[], auswahl: unknown): Record<string, any> {
@@ -77,13 +88,9 @@ export async function fuehreAus(locals: { nutzer: Nutzer | null }, token: unknow
 	const nutzer = locals.nutzer!;
 	if (typeof token !== 'string' || token === '') throw new ApiFehler(400, 'Der Vorschlag fehlt.');
 	const geprueft = pruefeVorschlag(token, nutzer.id, k.betriebId);
+	if (geprueft.vorschau?.aktion === 'mehrere_schritte') return fuehreSchritteAus(locals, k, nutzer, geprueft, auswahl);
 	const inhalt = pruefeInhalt(geprueft.vorschau);
-	const mitEinsaetze = inhalt.aktion === 'auftrag_anlegen' && Array.isArray(inhalt.werte.einsaetze) && inhalt.werte.einsaetze.length > 0;
-	// Eigener Termin nur für sich selbst: reicht das Recht „Erinnerungen nutzen“ (msg 2682)
-	const eigenerTermin =
-		inhalt.aktion === 'einsatz_anlegen' && inhalt.werte.eigen === true && Array.isArray(inhalt.werte.einsaetze) &&
-		inhalt.werte.einsaetze.length > 0 && inhalt.werte.einsaetze.every((e: { benutzerId: string | null }) => e.benutzerId === nutzer.id);
-	await pruefeAktionsRechte(locals, inhalt.aktion, { mitEinsaetzen: mitEinsaetze, eigenerTermin, formular: inhalt.aktion === 'protokoll_ausfuellen' ? !!inhalt.werte.formular : undefined });
+	await pruefeAktionsRechte(locals, inhalt.aktion, rechteOptionen(inhalt, nutzer));
 	const w = wendeAuswahlAn(inhalt.werte, inhalt.auswahl, auswahl);
 	markiereBenutzt(geprueft);
 	try {
@@ -99,6 +106,95 @@ export async function fuehreAus(locals: { nutzer: Nutzer | null }, token: unknow
 	}
 }
 
+/** Rechte-Optionen wie beim Vorschlag: eingeplante Mitarbeiter, eigener Termin, Protokoll-Formular. */
+function rechteOptionen(inhalt: Inhalt, nutzer: Nutzer) {
+	const mitEinsaetzen = inhalt.aktion === 'auftrag_anlegen' && Array.isArray(inhalt.werte.einsaetze) && inhalt.werte.einsaetze.length > 0;
+	// Eigener Termin nur für sich selbst: reicht das Recht „Erinnerungen nutzen“ (msg 2682)
+	const eigenerTermin =
+		inhalt.aktion === 'einsatz_anlegen' && inhalt.werte.eigen === true && Array.isArray(inhalt.werte.einsaetze) &&
+		inhalt.werte.einsaetze.length > 0 && inhalt.werte.einsaetze.every((e: { benutzerId: string | null }) => e.benutzerId === nutzer.id);
+	return { mitEinsaetzen, eigenerTermin, formular: inhalt.aktion === 'protokoll_ausfuellen' ? !!inhalt.werte.formular : undefined };
+}
+
+/**
+ * Mehrere Schritte (Jamil msg 2983): erst ALLE Rechte und Auswahlen prüfen (fehlt etwas, passiert nichts), dann die
+ * Schritte der Reihe nach – jeder in seiner eigenen Transaktion, wie ein einzelner Befehl. Schlägt ein Schritt fehl,
+ * wird dort abgebrochen; die Antwort sagt genau, was erledigt ist, was fehlschlug und was nicht mehr lief.
+ */
+async function fuehreSchritteAus(
+	locals: { nutzer: Nutzer | null },
+	k: { betriebId: string; benutzerId: string },
+	nutzer: Nutzer,
+	geprueft: ReturnType<typeof pruefeVorschlag>,
+	auswahl: unknown
+): Promise<Ausfuehrung> {
+	const { ersetzePlatzhalter, schrittFeld } = await import('./mehrschritt');
+	const roh = geprueft.vorschau?.schritte;
+	if (!Array.isArray(roh) || roh.length < 2 || roh.length > MAX_SCHRITTE) throw new ApiFehler(400, 'Der Vorschlag ist ungültig – bitte noch einmal sprechen.');
+	const schritte = roh.map((x: any) => {
+		if (!istSchrittAktion(x?.aktion)) throw new ApiFehler(400, 'Der Vorschlag ist ungültig – bitte noch einmal sprechen.');
+		return { ...pruefeInhalt(x), titel: typeof x.titel === 'string' ? x.titel : x.aktion };
+	});
+	// Auswahl je Schritt („2:kunde“ → Schritt 2, Feld „kunde“); unbekannte Felder → 400
+	if (auswahl !== undefined && auswahl !== null && (typeof auswahl !== 'object' || Array.isArray(auswahl))) throw new ApiFehler(400, 'Ungültige Auswahl.');
+	const gewaehlt = (auswahl ?? {}) as Record<string, unknown>;
+	const bekannt = new Set(schritte.flatMap((s, i) => s.auswahl.map((a) => schrittFeld(i + 1, a.feld))));
+	for (const f of Object.keys(gewaehlt)) if (!bekannt.has(f)) throw new ApiFehler(400, 'Ungültige Auswahl.');
+	const werte = schritte.map((s, i) => {
+		const eigene = Object.fromEntries(s.auswahl.map((a) => [a.feld, gewaehlt[schrittFeld(i + 1, a.feld)]]).filter(([, v]) => v !== undefined));
+		try {
+			return wendeAuswahlAn(s.werte, s.auswahl, eigene);
+		} catch (e) {
+			if (e instanceof ApiFehler) throw new ApiFehler(e.status, `Schritt ${i + 1}: ${e.message}`);
+			throw e;
+		}
+	});
+	for (const [i, s] of schritte.entries()) {
+		try {
+			await pruefeAktionsRechte(locals, s.aktion, rechteOptionen({ ...s, werte: werte[i] }, nutzer));
+		} catch (e) {
+			if (e instanceof ApiFehler) throw new ApiFehler(e.status, `Schritt ${i + 1} (${s.titel}): ${e.message}`);
+			throw e;
+		}
+	}
+	markiereBenutzt(geprueft);
+	const ergebnisse = new Map<number, { kundeId?: string; auftragId?: string }>();
+	const stand: SchrittErgebnis[] = schritte.map((s, i) => ({ nr: i + 1, titel: s.titel, status: 'offen', meldung: null, link: null }));
+	const warnungen: string[] = [];
+	let fehlerBei: number | null = null;
+	for (const [i, s] of schritte.entries()) {
+		const nr = i + 1;
+		try {
+			const w = ersetzePlatzhalter(werte[i], ergebnisse);
+			const a = await inEinerTransaktion(k, 'sprache', () => ausfuehrenJe(k, nutzer, s.aktion, w));
+			ergebnisse.set(nr, a.ergebnis ?? {});
+			stand[i] = { ...stand[i], status: 'erledigt', meldung: a.meldung, link: a.link };
+			for (const x of a.warnungen) warnungen.push(`Schritt ${nr}: ${x}`);
+		} catch (e) {
+			const meldung = e instanceof ApiFehler ? e.message : 'Interner Fehler – dieser Schritt wurde nicht gespeichert.';
+			if (!(e instanceof ApiFehler)) console.error(`Sprache, Schritt ${nr} (${s.aktion}) fehlgeschlagen:`, e);
+			stand[i] = { ...stand[i], status: 'fehler', meldung };
+			fehlerBei = nr;
+			break;
+		}
+	}
+	// Nichts gespeichert → derselbe Vorschlag darf noch einmal versucht werden
+	if (fehlerBei === 1) gibFrei(geprueft);
+	const erledigt = stand.filter((x) => x.status === 'erledigt');
+	const letzter = erledigt.at(-1);
+	return {
+		status: fehlerBei === null ? 201 : 200,
+		meldung:
+			fehlerBei === null
+				? `Alle ${stand.length} Schritte erledigt`
+				: `${erledigt.length} von ${stand.length} Schritten erledigt – Schritt ${fehlerBei} ist fehlgeschlagen, danach wurde abgebrochen`,
+		link: letzter?.link ?? null,
+		warnungen,
+		schritte: stand,
+		...(fehlerBei === null ? {} : { fehlgeschlagen: true })
+	};
+}
+
 async function ausfuehrenJe(
 	k: { betriebId: string; benutzerId: string },
 	nutzer: Nutzer,
@@ -108,7 +204,7 @@ async function ausfuehrenJe(
 	switch (aktion) {
 		case 'kunde_anlegen': {
 			const kd = await legeKundeAn(k, w.kunde ?? {});
-			return { status: 201, meldung: `Kunde „${kd.name}“ angelegt`, link: `/kunden/${kd.id}`, warnungen: [] };
+			return { status: 201, meldung: `Kunde „${kd.name}“ angelegt`, link: `/kunden/${kd.id}`, warnungen: [], ergebnis: { kundeId: kd.id } };
 		}
 		case 'auftrag_anlegen': {
 			const a = await legeAuftragAn(k, {
@@ -123,7 +219,13 @@ async function ausfuehrenJe(
 			for (const e of (w.einsaetze ?? []) as { benutzerId: string; beginn: string; ende: string }[]) {
 				einsaetze.push(await legeEinsatzAn(k, { auftragId: a.id, benutzerId: e.benutzerId, beginn: e.beginn, ende: e.ende }));
 			}
-			return { status: 201, meldung: `Auftrag ${a.nummer} „${a.titel}“ angelegt`, link: `/auftraege/${a.id}`, warnungen: warnTexte(einsaetze) };
+			return {
+				status: 201,
+				meldung: `Auftrag ${a.nummer} „${a.titel}“ angelegt`,
+				link: `/auftraege/${a.id}`,
+				warnungen: warnTexte(einsaetze),
+				ergebnis: { auftragId: a.id, kundeId: w.kundeId ?? undefined }
+			};
 		}
 		case 'todo_anlegen': {
 			const t = await legeTodoAn(

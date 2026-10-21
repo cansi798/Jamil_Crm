@@ -46,7 +46,32 @@ export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastun
 	'abfrage_nachkalkulation', 'abfrage_verlust', 'portallink_zeigen'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
-export type WerkzeugName = AktionsName | 'unbekannt';
+export type WerkzeugName = AktionsName | 'unbekannt' | 'mehrere_schritte';
+
+/**
+ * Mehrere Schritte in einem Satz (Jamil msg 2983): „Leg Kunde Müller an, mach einen Auftrag Badsanierung und plan Murat
+ * für Montag ein.“ Erlaubt sind nur speichernde Aktionen – keine Fragen, kein Angebotsentwurf (eigene KI-Anfrage).
+ */
+export const MAX_SCHRITTE = 8;
+export const SCHRITT_AKTIONEN = [
+	'kunde_anlegen',
+	'auftrag_anlegen',
+	'todo_anlegen',
+	'einsatz_anlegen',
+	'einsatz_verschieben',
+	'protokoll_ausfuellen',
+	'mitarbeiter_zuweisen',
+	'status_aendern',
+	'todo_abhaken',
+	'anlage_anlegen',
+	'nachfassen_pausieren',
+	'quelle_setzen',
+	'dienst_anlegen',
+	'angebot_entscheidung',
+	'vorlage_anwenden'
+] as const satisfies readonly AktionsName[];
+export type SchrittName = (typeof SCHRITT_AKTIONEN)[number];
+export const istSchrittAktion = (w: unknown): w is SchrittName => typeof w === 'string' && (SCHRITT_AKTIONEN as readonly string[]).includes(w);
 
 export const WOCHENTAGE = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag'] as const;
 export type Wochentag = (typeof WOCHENTAGE)[number];
@@ -167,7 +192,11 @@ export type KiAktion =
 	| { aktion: 'portallink_zeigen'; daten: { auftrag: string } }
 	| { aktion: 'angebot_entscheidung'; daten: { angebot: string; status: 'angenommen' | 'abgelehnt' } }
 	| { aktion: 'vorlage_anwenden'; daten: VorlageAnwendenDaten }
-	| { aktion: 'unbekannt'; daten: Record<string, never> };
+	| { aktion: 'unbekannt'; daten: Record<string, never> }
+	| { aktion: 'mehrere_schritte'; daten: { schritte: SchrittAktion[] } };
+
+/** Ein Schritt eines Befehls mit mehreren Schritten. Verweise auf frühere Schritte: „#1“ statt Name. */
+export type SchrittAktion = Extract<KiAktion, { aktion: SchrittName }>;
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
 export type KiEntwurf = { positionen: { schluessel: string; menge: number; unsicher: boolean }[] };
@@ -489,7 +518,33 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		required: ['vorlage', 'auftrag'],
 		additionalProperties: false
 	},
-	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
+	unbekannt: { type: 'object', properties: {}, additionalProperties: false },
+	mehrere_schritte: {
+		type: 'object',
+		properties: {
+			schritte: {
+				type: 'array',
+				minItems: 2,
+				maxItems: MAX_SCHRITTE,
+				description: 'Die Schritte in der gesprochenen Reihenfolge',
+				items: {
+					type: 'object',
+					properties: {
+						aktion: { type: 'string', enum: SCHRITT_AKTIONEN, description: 'Name des Werkzeugs für diesen Schritt' },
+						daten: {
+							type: 'object',
+							description:
+								'Parameter genau wie beim gleichnamigen Werkzeug. Verweis auf einen früheren Schritt: „#<Nummer>“ statt des Namens (z. B. kunde.name „#1“, auftrag „#2“).'
+						}
+					},
+					required: ['aktion', 'daten'],
+					additionalProperties: false
+				}
+			}
+		},
+		required: ['schritte'],
+		additionalProperties: false
+	}
 };
 
 const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
@@ -526,6 +581,8 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 		'Frage nach dem Tagesplan beantworten: Termine und Aufgaben für eine Person (ich oder Name) heute, morgen, diese Woche oder ein Datum; auch „überfällige Aufgaben“.',
 	protokoll_ausfuellen:
 		'Protokoll zu einem Auftrag: eine Protokoll-Vorlage starten („Protokoll Abdichtung für Auftrag Müller starten“ → vorlage) oder ein Baustellen-Protokoll (Abnahme, Regiebericht, Aufmaß, Mängelliste) ausfüllen (typ).',
+	mehrere_schritte:
+		'Befehl mit MEHREREN Schritten in einem Satz („Leg Kunde Müller an, mach einen Auftrag Badsanierung und plan Murat für Montag ein“): alle Schritte als Liste in der gesprochenen Reihenfolge (höchstens 8).',
 	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. andere Fragen, Rechnungen, Löschen).'
 };
 
@@ -619,6 +676,7 @@ export function pruefeAktion(x: unknown): KiAktion {
 	if (extra.length > 0) throw new SchemaFehler(`Aktion: unbekanntes Feld ${extra[0]}`);
 	if (!istWerkzeugName(x.aktion)) throw new SchemaFehler('Aktion: unbekannte Aktion');
 	if (!Object.hasOwn(x, 'daten')) throw new SchemaFehler('Aktion: daten fehlt');
+	if (x.aktion === 'mehrere_schritte') return pruefeSchritte(x.daten);
 	const daten = pruefe(AKTIONS_SCHEMAS[x.aktion], x.daten) as Record<string, any>;
 	pruefeZeit(daten.start, 'daten.start');
 	pruefeZeit(daten.faellig, 'daten.faellig');
@@ -626,6 +684,31 @@ export function pruefeAktion(x: unknown): KiAktion {
 	pruefeZeit(daten.nach, 'daten.nach');
 	pruefeZeit(daten.bis, 'daten.bis');
 	return { aktion: x.aktion, daten } as KiAktion;
+}
+
+/** Obergrenze beim Prüfen (mehr als MAX_SCHRITTE lehnt die Sprachsteuerung freundlich ab, statt „ungültig“). */
+const MAX_SCHRITTE_PRUEFEN = 20;
+
+/**
+ * `mehrere_schritte`: jeder Schritt wird wie eine einzelne Aktion geprüft (nur speichernde Aktionen, nicht
+ * verschachtelt). Ein einziger Schritt wird zur normalen Aktion.
+ */
+function pruefeSchritte(daten: unknown): KiAktion {
+	if (!istObjekt(daten) || !Array.isArray(daten.schritte)) throw new SchemaFehler('daten.schritte: Liste erwartet');
+	const extra = Object.keys(daten).filter((k) => k !== 'schritte');
+	if (extra.length > 0) throw new SchemaFehler(`daten.${extra[0]}: unbekanntes Feld`);
+	const liste = daten.schritte as unknown[];
+	if (liste.length === 0) throw new SchemaFehler('daten.schritte: leer');
+	if (liste.length > MAX_SCHRITTE_PRUEFEN) throw new SchemaFehler(`daten.schritte: höchstens ${MAX_SCHRITTE_PRUEFEN} Einträge`);
+	const schritte = liste.map((s, i) => {
+		if (!istObjekt(s) || !istSchrittAktion(s.aktion)) throw new SchemaFehler(`daten.schritte[${i}].aktion: nicht erlaubt`);
+		try {
+			return pruefeAktion(s) as SchrittAktion;
+		} catch (e) {
+			throw new SchemaFehler(`Schritt ${i + 1}: ${(e as Error).message}`);
+		}
+	});
+	return schritte.length === 1 ? schritte[0] : { aktion: 'mehrere_schritte', daten: { schritte } };
 }
 
 /** Höchste Menge einer Angebotsposition (wie Plan 1c). */

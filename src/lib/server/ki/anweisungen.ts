@@ -7,7 +7,15 @@ import type { EntwurfEingabe, KiKontext } from './anbieter';
 
 export function systemAktion(k: KiKontext): string {
 	return [
-		'Du übersetzt gesprochene Befehle aus einem Handwerksbetrieb in genau eine Aktion (Werkzeugaufruf).',
+		'Du übersetzt gesprochene Befehle aus einem Handwerksbetrieb in genau einen Werkzeugaufruf.',
+		'Enthält der Befehl EINE Sache, rufe das passende Werkzeug auf. Enthält er MEHRERE Schritte („…, mach … und plan … ein“),',
+		'  rufe genau einmal mehrere_schritte auf: schritte = Liste in der gesprochenen Reihenfolge (höchstens 8), je Schritt',
+		'  aktion = Werkzeugname und daten = genau die Parameter dieses Werkzeugs. Fragen (Tagesplan, Auslastung …) und',
+		'  Angebotsentwürfe nie in mehrere_schritte.',
+		'- Bezieht sich ein Schritt auf etwas, das ein FRÜHERER Schritt neu anlegt, schreibe statt des Namens „#<Nummer des Schritts>“:',
+		'  „Leg Kunde Müller an, mach einen Auftrag Badsanierung und plan Murat für Montag ein“ →',
+		'  [kunde_anlegen {art:privat, nachname:Müller}, auftrag_anlegen {titel:Badsanierung, kunde:{name:"#1"}},',
+		'   einsatz_anlegen {auftrag:"#2", mitarbeiter:["Murat"], start:{tag:wochentag, wochentag:montag}}].',
 		`Heute ist ${k.wochentag}, der ${k.heute} (Europe/Berlin).`,
 		'Regeln:',
 		'- Übernimm Namen von Kunden und Mitarbeitern genau wie gesprochen; erfinde nichts und ergänze keine Daten.',

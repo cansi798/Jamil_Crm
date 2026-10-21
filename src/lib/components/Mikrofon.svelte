@@ -14,7 +14,8 @@
 
 	type Zustand = 'zu' | 'startet' | 'aufnahme' | 'versteht' | 'tippen' | 'karte' | 'fertig' | 'fehler';
 	type Ergebnis = { text: string; vorschlag: string | null; karte: Karte };
-	type Gespeichert = { meldung: string; link: string | null; warnungen: string[] };
+	type SchrittStand = { nr: number; titel: string; status: 'erledigt' | 'fehler' | 'offen'; meldung: string | null; link: string | null };
+	type Gespeichert = { meldung: string; link: string | null; warnungen: string[]; schritte?: SchrittStand[]; fehlgeschlagen?: boolean };
 
 	const MAX_SEKUNDEN = 60;
 	const HALTEN_MS = 600;
@@ -439,11 +440,23 @@
 			/>
 		{:else if zustand === 'fertig' && gespeichert}
 			<div class="mk-fertig" role="status">
+{#if !gespeichert.fehlgeschlagen}
 				<span class="mk-ok" aria-hidden="true"
 					><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg></span
 				>
-				<h2 class="ui-dialog-titel">Gespeichert</h2>
+				{/if}
+				<h2 class="ui-dialog-titel">{gespeichert.fehlgeschlagen ? 'Nicht alles gespeichert' : 'Gespeichert'}</h2>
 				<p>{gespeichert.meldung}</p>
+				{#if gespeichert.schritte}
+					<ol class="mk-schritte" aria-label="Ergebnis der Schritte">
+						{#each gespeichert.schritte as st (st.nr)}
+							<li class={`mk-schritt ${st.status}`}>
+								<span class="mk-schritt-status">{st.status === 'erledigt' ? '✓ erledigt' : st.status === 'fehler' ? '✗ fehlgeschlagen' : '– nicht ausgeführt'}</span>
+								<span><strong>{st.nr}. {st.titel}</strong>{#if st.meldung}: {st.meldung}{/if}</span>
+							</li>
+						{/each}
+					</ol>
+				{/if}
 				{#if gespeichert.warnungen.length > 0}
 					<ul class="mk-warnungen">
 						{#each gespeichert.warnungen as w, i (i)}<li>{w}</li>{/each}
@@ -657,6 +670,39 @@
 	.mk-ok svg {
 		width: 1.75rem;
 		height: 1.75rem;
+	}
+	.mk-schritte {
+		width: 100%;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		gap: 0.4rem;
+		text-align: left;
+	}
+	.mk-schritt {
+		display: grid;
+		gap: 0.1rem;
+		padding: 0.5rem 0.7rem;
+		border-radius: var(--ui-radius);
+		background: var(--ui-band);
+		overflow-wrap: anywhere;
+	}
+	.mk-schritt-status {
+		font-size: var(--ui-schrift-s);
+		font-weight: 600;
+	}
+	.mk-schritt.erledigt .mk-schritt-status {
+		color: var(--ui-gruen);
+	}
+	.mk-schritt.fehler {
+		background: var(--ui-rot-hell);
+	}
+	.mk-schritt.fehler .mk-schritt-status {
+		color: var(--ui-rot);
+	}
+	.mk-schritt.offen .mk-schritt-status {
+		color: var(--ui-text-leise);
 	}
 	.mk-warnungen {
 		margin: 0;

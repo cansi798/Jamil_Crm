@@ -2,6 +2,7 @@ import { ApiFehler } from '../fehler';
 import { ENTWURF_WERKZEUG, pruefeAktion, pruefeEntwurf, werkzeuge, type KiAktion, type KiEntwurf } from '../sprache/aktionen';
 import type { BildAnfrage, EntwurfEingabe, KiAnbieter, KiKontext } from './anbieter';
 import { systemAktion, systemEntwurf } from './anweisungen';
+import { mehrereAufrufe } from './openai-kompatibel';
 
 /**
  * Mistral AI (EU) über die Chat-Completions-API mit Function Calling (`tools` + `tool_choice: "any"` → genau ein
@@ -113,6 +114,13 @@ export class MistralKi implements KiAnbieter {
 			tool_choice: 'any',
 			parallel_tool_calls: false
 		});
+		try {
+			// Mehrere Werkzeugaufrufe (je Schritt einer) → mehrere_schritte
+			const mehrere = mehrereAufrufe(antwort);
+			if (mehrere) return pruefeAktion(mehrere);
+		} catch {
+			throw new ApiFehler(502, UNGUELTIG);
+		}
 		const { name, args } = MistralKi.#werkzeugAufruf(antwort);
 		try {
 			return pruefeAktion({ aktion: name, daten: args });

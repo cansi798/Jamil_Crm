@@ -148,6 +148,29 @@ function werkzeugAusAntwort(antwort: Record<string, any>, standardName?: string)
 	throw new UngueltigeAntwort('JSON ohne Feld „aktion“');
 }
 
+/**
+ * Mehrere Werkzeugaufrufe in einer Antwort (manche Modelle rufen je Schritt ein Werkzeug auf statt mehrere_schritte)
+ * → als `mehrere_schritte` zusammenfassen; sonst `null`.
+ */
+export function mehrereAufrufe(antwort: Record<string, any>): { aktion: 'mehrere_schritte'; daten: { schritte: unknown[] } } | null {
+	const aufrufe = antwort?.choices?.[0]?.message?.tool_calls;
+	if (!Array.isArray(aufrufe) || aufrufe.length < 2) return null;
+	const schritte = aufrufe.map((a) => {
+		const f = a?.function;
+		if (!f || typeof f.name !== 'string') throw new UngueltigeAntwort('Werkzeugaufruf ohne Namen');
+		let args: unknown = f.arguments ?? {};
+		if (typeof args === 'string') {
+			try {
+				args = args.trim() === '' ? {} : JSON.parse(args);
+			} catch {
+				throw new UngueltigeAntwort('Argumente sind kein gültiges JSON');
+			}
+		}
+		return { aktion: f.name, daten: args };
+	});
+	return { aktion: 'mehrere_schritte', daten: { schritte } };
+}
+
 export class OpenAiKompatibelKi implements KiAnbieter {
 	readonly name = 'openai-kompatibel' as const;
 	readonly modell: string;
@@ -282,6 +305,8 @@ export class OpenAiKompatibelKi implements KiAnbieter {
 			],
 			werkzeuge(),
 			(antwort) => {
+				const mehrere = mehrereAufrufe(antwort);
+				if (mehrere) return pruefeAktion(mehrere);
 				const { name, args } = werkzeugAusAntwort(antwort);
 				return pruefeAktion({ aktion: name, daten: args });
 			}

@@ -92,6 +92,27 @@ describe('OpenAiKompatibelKi – Aktion aus Text', () => {
 		expect(anfragen).toHaveLength(2);
 	});
 
+	it('Mehrere Schritte (msg 2983): mehrere_schritte, mehrere Werkzeugaufrufe oder JSON im Text', async () => {
+		const schritte = [
+			{ aktion: 'kunde_anlegen', daten: { art: 'privat', nachname: 'Müller' } },
+			{ aktion: 'einsatz_anlegen', daten: { auftrag: '#1', start: { tag: 'morgen' } } }
+		];
+		const erwartet = { aktion: 'mehrere_schritte', daten: { schritte } };
+		antworten.push({ koerper: toolAntwort('mehrere_schritte', { schritte }) });
+		expect(await ki().aktionAusText('…', KONTEXT)).toEqual(erwartet);
+		expect(anfragen[0].koerper.tools.map((t: any) => t.function.name)).toContain('mehrere_schritte');
+		// je Schritt ein eigener Werkzeugaufruf
+		antworten.push({
+			koerper: antwort(
+				{ content: '', tool_calls: schritte.map((x, i) => ({ id: `c${i}`, type: 'function', function: { name: x.aktion, arguments: JSON.stringify(x.daten) } })) },
+				'tool_calls'
+			)
+		});
+		expect(await ki().aktionAusText('…', KONTEXT)).toEqual(erwartet);
+		antworten.push({ koerper: textAntwort(JSON.stringify({ aktion: 'mehrere_schritte', daten: { schritte } })) });
+		expect(await ki().aktionAusText('…', KONTEXT)).toEqual(erwartet);
+	});
+
 	it('ungültige Antwort → genau ein zweiter Versuch (Hauptmodell, mit Hinweis) → Erfolg', async () => {
 		antworten.push(
 			{ koerper: toolAntwort('todo_anlegen', { titel: 'x', preis: 3 }) },

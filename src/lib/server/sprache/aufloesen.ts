@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { mitBetrieb, type Kontext } from '../db';
 import { ApiFehler } from '../fehler';
 import { listeAuftraege, sichtVon, type Auftrag } from '../auftraege';
@@ -27,8 +28,13 @@ export type Option = { id: string; label: string };
 export type Auswahl = { feld: string; frage: string; optionen: Option[] };
 export type Zeile = { label: string; wert: string };
 
+/** Ein Schritt eines Befehls mit mehreren Schritten (nummerierte Vorschau). */
+export type KartenSchritt = { nr: number; aktion: AktionsName; titel: string; zeilen: Zeile[]; warnungen: string[]; fehler: string | null };
+
 export type Karte = {
-	aktion: AktionsName | 'unbekannt';
+	aktion: AktionsName | 'unbekannt' | 'mehrere_schritte';
+	/** Mehrere Schritte (Jamil msg 2983): Vorschau je Schritt in der gesprochenen Reihenfolge. */
+	schritte?: KartenSchritt[];
 	titel: string;
 	zeilen: Zeile[];
 	auswahl: Auswahl[];
@@ -113,8 +119,36 @@ function ohneAnrede(name: string): string {
 	return n.trim();
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Mehrere Schritte (Jamil msg 2983): Verweise auf Kunden/Aufträge, die ein früherer Schritt erst anlegt
+
+/** Ein früherer Schritt, der einen Kunden bzw. Auftrag anlegt – beim Auflösen nur mit Platzhalter-ID („$auftrag:2“). */
+export type FruehererSchritt = { nr: number; art: 'kunde' | 'auftrag'; platzhalter: string; namen: string[]; titel: string; kundeName: string };
+type Verweise = { schritte: FruehererSchritt[]; kunde: boolean; auftrag: boolean };
+const verweise = new AsyncLocalStorage<Verweise>();
+
+/**
+ * Löst `fn` mit Verweisen auf frühere Schritte auf: „#2“ (oder der Name/Titel) findet den dort angelegten Auftrag.
+ * `kunde`/`auftrag`: ob diese Aktion solche Verweise nutzen darf (sonst „nicht gefunden“ wie ohne Verweise).
+ */
+export const mitVerweisen = <T>(v: Verweise, fn: () => Promise<T>): Promise<T> => verweise.run(v, fn);
+
+function verweisAuf(art: 'kunde' | 'auftrag', text: string): FruehererSchritt | null {
+	const v = verweise.getStore();
+	if (!v || !v[art]) return null;
+	const kandidaten = v.schritte.filter((s) => s.art === art);
+	const nr = /^\s*(?:schritt\s*)?#?\s*(\d{1,2})\s*$/i.exec(text);
+	if (nr && /#|schritt/i.test(text)) return kandidaten.find((s) => s.nr === Number(nr[1])) ?? null;
+	const gesucht = woerter(ohneAnrede(text)).filter((w) => !['auftrag', 'kunde', 'kunden', 'neuen', 'neue', 'neuer', 'den', 'dem', 'der', 'die', 'das'].includes(w));
+	if (gesucht.length === 0) return null;
+	const passt = kandidaten.filter((s) => s.namen.some((n) => gesucht.every((w) => woerter(n).includes(w))));
+	return passt.at(-1) ?? null;
+}
+
 /** Kunden zum gesprochenen Namen (+ Ort). Exakte Wortgleichheit im Namen schlägt Teiltreffer. */
 async function findeKunden(k: Kontext, name: string, ort?: string): Promise<{ treffer: Kunde[]; ortIgnoriert: boolean }> {
+	const neu = verweisAuf('kunde', name);
+	if (neu) return { treffer: [{ id: neu.platzhalter, name: `${neu.kundeName} (neu, Schritt ${neu.nr})`, ort: null } as unknown as Kunde], ortIgnoriert: false };
 	const n = ohneAnrede(name).slice(0, 80);
 	if (n === '' || n === '?') return { treffer: [], ortIgnoriert: false };
 	const exakt = (liste: Kunde[]) => {
@@ -158,6 +192,8 @@ function findeMitarbeiter(alle: MitarbeiterTreffer[], gesprochen: string, nutzer
 }
 
 async function findeAuftraege(k: Kontext, nutzer: Nutzer, text: string, alle: boolean): Promise<Auftrag[]> {
+	const neu = verweisAuf('auftrag', text);
+	if (neu) return [{ id: neu.platzhalter, nummer: `(neu, Schritt ${neu.nr})`, titel: neu.titel, kundeName: neu.kundeName, status: 'anfrage' } as unknown as Auftrag];
 	const suche = ohneAnrede(text)
 		.replace(/\b(?:auftrag|kunde|kundin|familie|firma|baustelle|bei|für|von|der|die|das|den)\b/gi, ' ')
 		.replace(/\s+/g, ' ')
@@ -662,7 +698,8 @@ async function vorlageAnwenden(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, 
 		const v = treffer[0];
 		bau.werte.vorlageId = v.id;
 		bau.zeilen.push({ label: 'Vorlage', wert: `${v.name} (${v.todos.length} ${v.todos.length === 1 ? 'Aufgabe' : 'Aufgaben'})` });
-		if (bau.werte.auftragId) {
+		// Neuer Auftrag aus einem früheren Schritt (Platzhalter): dort gibt es noch keine Aufgaben
+		if (bau.werte.auftragId && !String(bau.werte.auftragId).startsWith('$')) {
 			const { listeTodos, todoSichtVon } = await import('../todos');
 			const vorhanden = (await listeTodos(k, todoSichtVon(nutzer), { auftragId: bau.werte.auftragId })).map((t) => t.titel);
 			const { neu, doppelt } = vorlageAufteilen(v.todos, vorhanden, bau.werte.modus);
@@ -979,7 +1016,7 @@ export async function loeseAuf(
 	nutzer: Nutzer,
 	aktion: Exclude<
 		KiAktion,
-		{ aktion: 'unbekannt' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' }
+		{ aktion: 'unbekannt' | 'mehrere_schritte' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' }
 	>,
 	jetzt: Date
 ): Promise<Vorschau> {

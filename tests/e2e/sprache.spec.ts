@@ -110,8 +110,10 @@ test.describe('Sprachsteuerung', () => {
 		await expect(dialog.getByRole('status')).toContainText(`Aufgabe „${titel}“ angelegt`);
 		let id: string | null = null;
 		try {
-			await page.goto('/todos?person=alle');
-			await expect(page.getByText(titel).first()).toBeVisible();
+			// Listenansicht: Das Board zeigt am Handy nur eine Spalte (Reiter) – die Aufgabe mit Fälligkeit steht unter
+			// „In Arbeit“, nicht im ersten Reiter. Die Liste zeigt alle offenen Aufgaben auf jeder Breite.
+			await page.goto('/todos?person=alle&ansicht=liste');
+			await expect(page.getByRole('list', { name: 'Offene Aufgaben' }).getByText(titel).first()).toBeVisible();
 			const todos = await api(page, 'GET', '/api/todos?nur=alle');
 			const t = todos.find((x: any) => x.titel === titel);
 			expect(t).toBeTruthy();
@@ -152,6 +154,48 @@ test.describe('Sprachsteuerung', () => {
 			if (auftragId) await api(page, 'DELETE', `/api/auftraege/${auftragId}`);
 			await api(page, 'DELETE', `/api/kunden/${kiel.id}`);
 			await api(page, 'DELETE', `/api/kunden/${luebeck.id}`);
+		}
+	});
+
+	test('Mehrere Schritte in einem Satz: Kunde → Auftrag → Termin, nummerierte Vorschau, einmal bestätigen (msg 2983)', async ({ page }, info) => {
+		await anmelden(page, BUERO);
+		// Nur Buchstaben (Namenserkennung): „Mehrschritt“ + Projekt + Zeit als Buchstaben
+		const name = `Mehrschritt${info.project.name === 'mobil' ? 'm' : 'd'}${String(Date.now()).slice(-6).replace(/\d/g, (z) => 'abcdefghij'[Number(z)])}`;
+		let kundeId: string | null = null;
+		let auftragId: string | null = null;
+		try {
+			const dialog = await befehlTippen(page, `Leg Kunde ${name} an, mach einen Auftrag Badsanierung und plan Murat für Montag ein.`);
+			const karte = dialog.getByRole('region', { name: 'Bestätigung' });
+			await expect(karte.getByRole('heading', { name: '3 Schritte' })).toBeVisible();
+			const schritte = karte.getByRole('list', { name: 'Schritte' }).getByRole('listitem');
+			await expect(schritte).toHaveCount(3);
+			await expect(schritte.nth(0)).toContainText('Kunde anlegen');
+			await expect(schritte.nth(0)).toContainText(name);
+			await expect(schritte.nth(1)).toContainText('Auftrag anlegen');
+			await expect(schritte.nth(1)).toContainText('(neu, Schritt 1)');
+			await expect(schritte.nth(2)).toContainText('Termin einplanen');
+			await expect(schritte.nth(2)).toContainText('Murat Öztürk');
+			await expect(schritte.nth(2)).toContainText('(neu, Schritt 2)');
+			await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
+			await foto(page, 'mehrere-schritte', info.project.name);
+			await karte.getByRole('button', { name: 'Ja, speichern' }).click();
+			const status = dialog.getByRole('status');
+			await expect(status).toContainText('Alle 3 Schritte erledigt');
+			await expect(status.getByRole('list', { name: 'Ergebnis der Schritte' }).getByRole('listitem')).toHaveCount(3);
+			await expect(status).not.toContainText('fehlgeschlagen');
+			const kunden = await api(page, 'GET', `/api/kunden?suche=${name}`);
+			expect(kunden).toHaveLength(1);
+			kundeId = kunden[0].id;
+			const auftraege = await api(page, 'GET', `/api/auftraege?kunde=${kundeId}`);
+			expect(auftraege.map((x: any) => x.titel)).toEqual(['Badsanierung']);
+			auftragId = auftraege[0].id;
+			const a = await api(page, 'GET', `/api/auftraege/${auftragId}`);
+			expect(a.kommenderTermin?.art ?? 'montage').toBeTruthy();
+			const plan = await api(page, 'GET', `/api/plantafel?tag=${a.kommenderTermin.beginn.slice(0, 10)}`);
+			expect(plan.einsaetze.some((e: any) => e.auftragId === auftragId && e.benutzerName === 'Murat Öztürk')).toBe(true);
+		} finally {
+			if (auftragId) await api(page, 'DELETE', `/api/auftraege/${auftragId}`);
+			if (kundeId) await api(page, 'DELETE', `/api/kunden/${kundeId}`);
 		}
 	});
 

@@ -147,6 +147,22 @@ describe('MistralKi gegen lokalen Test-Server', () => {
 		await expect(ki().aktionAusText('x', kontext)).rejects.toMatchObject({ status: 502 });
 	});
 
+	it('Mehrere Schritte (msg 2983): Werkzeug mehrere_schritte wird angeboten und als Liste geprüft', async () => {
+		const kontext = { heute: '2026-10-17', wochentag: 'Samstag' };
+		const schritte = [
+			{ aktion: 'kunde_anlegen', daten: { art: 'privat', nachname: 'Müller' } },
+			{ aktion: 'auftrag_anlegen', daten: { titel: 'Badsanierung', kunde: { name: '#1' } } }
+		];
+		antworten.push({ status: 200, koerper: toolAntwort('mehrere_schritte', { schritte }) });
+		expect(await ki().aktionAusText('Leg Kunde Müller an und mach einen Auftrag Badsanierung', kontext)).toEqual({ aktion: 'mehrere_schritte', daten: { schritte } });
+		const k = anfragen[0].koerper as { tools: { function: { name: string } }[]; messages: { content: string }[] };
+		expect(k.tools.map((t) => t.function.name)).toContain('mehrere_schritte');
+		expect(k.messages[0].content).toMatch(/mehrere_schritte/);
+		// Schritt ungültig → 502 wie bei einer einzelnen Aktion
+		antworten.push({ status: 200, koerper: toolAntwort('mehrere_schritte', { schritte: [schritte[0], { aktion: 'abfrage_verlust', daten: {} }] }) });
+		await expect(ki().aktionAusText('x', kontext)).rejects.toMatchObject({ status: 502 });
+	});
+
 	it('Angebotsentwurf: Katalog ohne Preise im Prompt, Werkzeug angebot_positionen, Foto nur an das Bild-Modell', async () => {
 		const katalog = [
 			{ schluessel: 'K1', bezeichnung: 'Wandfliesen verlegen', einheit: 'm²', gewerk: 'fliesen' },

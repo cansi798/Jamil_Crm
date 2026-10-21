@@ -8,8 +8,11 @@
 	 */
 	type Option = { id: string; label: string };
 	type Auswahl = { feld: string; frage: string; optionen: Option[] };
+	export type KartenSchritt = { nr: number; aktion: string; titel: string; zeilen: { label: string; wert: string }[]; warnungen: string[]; fehler: string | null };
 	export type Karte = {
 		aktion: string;
+		/** Mehrere Schritte in einem Satz (Jamil msg 2983): nummerierte Vorschau, EIN „Ja, speichern“ für alle. */
+		schritte?: KartenSchritt[];
 		titel: string;
 		zeilen: { label: string; wert: string }[];
 		auswahl: Auswahl[];
@@ -154,6 +157,24 @@
 		</dl>
 	{/if}
 
+	{#if karte.schritte && karte.schritte.length > 0}
+		<ol class="bk-schritte" aria-label="Schritte">
+			{#each karte.schritte as st (st.nr)}
+				<li class="bk-schritt" class:fehlt={!!st.fehler}>
+					<span class="bk-nr" aria-hidden="true">{st.nr}</span>
+					<div class="bk-schritt-inhalt">
+						<p class="bk-schritt-titel"><span class="unsichtbar">Schritt {st.nr}: </span>{st.titel}</p>
+						{#if st.zeilen.length > 0}
+							<p class="bk-schritt-zeilen">{st.zeilen.map((z) => `${anzeigeLabel(z.label)}: ${z.wert}`).join(' · ')}</p>
+						{/if}
+						{#each st.warnungen as w, i (i)}<p class="bk-schritt-warnung">{w}</p>{/each}
+						{#if st.fehler}<p class="bk-schritt-fehler">{st.fehler}</p>{/if}
+					</div>
+				</li>
+			{/each}
+		</ol>
+	{/if}
+
 	{#if karte.antwort}
 		<p class="bk-antwort-text">{karte.antwort.vorlesen}</p>
 		{#if karte.antwort.kopieren}
@@ -240,6 +261,63 @@
 </section>
 
 <style>
+	.bk-schritte {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.5rem;
+	}
+	.bk-schritt {
+		display: flex;
+		gap: 0.65rem;
+		align-items: flex-start;
+		padding: 0.6rem 0.75rem;
+		border: 1px solid var(--ui-rand);
+		border-radius: var(--ui-radius-karte);
+		background: var(--ui-flaeche);
+	}
+	.bk-schritt.fehlt {
+		border-color: var(--ui-rot);
+	}
+	.bk-nr {
+		flex: 0 0 auto;
+		display: inline-grid;
+		place-items: center;
+		width: 1.6rem;
+		height: 1.6rem;
+		border-radius: 50%;
+		background: var(--ui-akzent);
+		color: var(--ui-akzent-auf);
+		font-family: var(--ui-schrift-titel);
+		font-weight: 700;
+		font-size: 0.85rem;
+	}
+	.bk-schritt-inhalt {
+		min-width: 0;
+		display: grid;
+		gap: 0.2rem;
+	}
+	.bk-schritt-inhalt p {
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+	.bk-schritt-titel {
+		font-weight: 600;
+	}
+	.bk-schritt-zeilen {
+		color: var(--ui-text-leise);
+		font-size: var(--ui-schrift-s);
+	}
+	.bk-schritt-warnung {
+		color: var(--ui-orange);
+		font-size: var(--ui-schrift-s);
+	}
+	.bk-schritt-fehler {
+		color: var(--ui-rot);
+		font-size: var(--ui-schrift-s);
+		font-weight: 600;
+	}
 	.bk {
 		display: flex;
 		flex-direction: column;

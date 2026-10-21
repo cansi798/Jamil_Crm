@@ -31,10 +31,10 @@ describe('Aktions-Schema', () => {
 			'angebot_entscheidung',
 			'vorlage_anwenden'
 		]);
-		expect(Object.keys(AKTIONS_SCHEMAS).sort()).toEqual([...AKTIONEN, 'unbekannt'].sort());
+		expect(Object.keys(AKTIONS_SCHEMAS).sort()).toEqual([...AKTIONEN, 'unbekannt', 'mehrere_schritte'].sort());
 		// Werkzeuge für Function Calling: je Aktion eine Funktion mit Parametern = Schema
 		const w = werkzeuge();
-		expect(w.map((x) => x.function.name).sort()).toEqual([...AKTIONEN, 'unbekannt'].sort());
+		expect(w.map((x) => x.function.name).sort()).toEqual([...AKTIONEN, 'unbekannt', 'mehrere_schritte'].sort());
 		for (const x of w) {
 			expect(x.type).toBe('function');
 			expect(x.function.parameters).toBe(AKTIONS_SCHEMAS[x.function.name as keyof typeof AKTIONS_SCHEMAS]);

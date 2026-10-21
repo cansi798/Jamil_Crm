@@ -338,9 +338,14 @@ function dienstAnlegen(t: string): { aktion: string; daten: Record<string, unkno
 	};
 }
 
-export function deute(text: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } {
+export function deute(text: string, kontext: KiKontext, einzeln = false): { aktion: string; daten: Record<string, unknown> } {
 	const t = bereinige(text);
 	const l = t.toLowerCase();
+	// Mehrere Schritte in einem Satz (Jamil msg 2983)
+	if (!einzeln) {
+		const mehrere = mehrereSchritte(t, kontext);
+		if (mehrere) return mehrere;
+	}
 	const er = erinnerungsKlausel(t, kontext);
 	if (er) {
 		const r = deute(er.rest, kontext);
@@ -425,6 +430,41 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 	return { aktion: 'unbekannt', daten: {} };
 }
 
+
+// ——— Mehrere Schritte (Jamil msg 2983) ———
+
+/** Trennstelle zwischen zwei Befehlen: Komma/„und“/„dann“ vor einem Befehlswort. */
+const SCHRITT_TRENNER =
+	/\s*(?:[,;]\s*(?:und\s+)?(?:dann\s+)?|\s+(?:und\s+)?dann\s+|\s+und\s+)(?=(?:leg|lege|mach|mache|erstell|erstelle|plan|plane|weise|setz|setze|hak|hake|trag|trage|wende|neue[nrs]?)\b)/gi;
+const ERLAUBT = new Set([
+	'kunde_anlegen', 'auftrag_anlegen', 'todo_anlegen', 'einsatz_anlegen', 'einsatz_verschieben', 'protokoll_ausfuellen',
+	'mitarbeiter_zuweisen', 'status_aendern', 'todo_abhaken', 'anlage_anlegen', 'nachfassen_pausieren', 'quelle_setzen',
+	'dienst_anlegen', 'angebot_entscheidung', 'vorlage_anwenden'
+]);
+
+/**
+ * „Leg Kunde Müller an, mach einen Auftrag Badsanierung und plan Murat für Montag ein“ → mehrere_schritte. Fehlt
+ * in einem späteren Schritt der Kunde bzw. Auftrag, verweist er auf den zuletzt neu angelegten („#1“, „#2“).
+ */
+function mehrereSchritte(t: string, kontext: KiKontext): { aktion: string; daten: Record<string, unknown> } | null {
+	const teile = t.split(SCHRITT_TRENNER).map((x) => x.trim()).filter(Boolean);
+	if (teile.length < 2) return null;
+	const schritte = teile.map((x) => deute(x, kontext, true));
+	if (schritte.some((s) => !ERLAUBT.has(s.aktion))) return null;
+	let kundeNr = 0;
+	let auftragNr = 0;
+	const leer = (w: unknown) => w === undefined || w === '?' || w === '';
+	schritte.forEach((s, i) => {
+		const d = s.daten as Record<string, any>;
+		if (s.aktion === 'auftrag_anlegen' && kundeNr && leer(d.kunde?.name)) d.kunde = { name: `#${kundeNr}` };
+		if (auftragNr && !d.eigener_titel && ['einsatz_anlegen', 'todo_anlegen', 'mitarbeiter_zuweisen', 'status_aendern', 'quelle_setzen', 'vorlage_anwenden'].includes(s.aktion) && leer(d.auftrag)) {
+			d.auftrag = `#${auftragNr}`;
+		}
+		if (s.aktion === 'kunde_anlegen') kundeNr = i + 1;
+		if (s.aktion === 'auftrag_anlegen') auftragNr = i + 1;
+	});
+	return { aktion: 'mehrere_schritte', daten: { schritte } };
+}
 
 // ——— Neue Aktionen (Wunsch Jamil msgs 2645/2647) ———
 
@@ -611,6 +651,8 @@ function anlage(t: string): { aktion: string; daten: Record<string, unknown> } {
 
 function kunde(t: string): { aktion: string; daten: Record<string, unknown> } {
 	let rest = t.replace(/^.*?\b(?:kunden|kundin|kunde)\b(?:\s+an\b)?\s*[:,]?\s*/i, '');
+	// „Leg Kunde Müller an“: abschließendes „an“ gehört zum Verb
+	rest = rest.replace(/\s+an\s*[.!]?\s*$/i, '');
 	const daten: Record<string, unknown> = {};
 	const email = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/.exec(rest);
 	if (email) {

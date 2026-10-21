@@ -430,6 +430,12 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	if (aktion.aktion === 'unbekannt') {
 		return { text, vorschlag: null, karte: hinweisKarte('unbekannt', UNBEKANNT_HINWEIS) };
 	}
+	// Mehrere Schritte in einem Satz (Jamil msg 2983): je Schritt Rechte + Auflösen, EIN Vorschlag für alle
+	if (aktion.aktion === 'mehrere_schritte') {
+		const { schritteVorschau } = await import('./mehrschritt');
+		const { vorschau, karte } = await schritteVorschau(locals, k, nutzer, aktion.daten.schritte, jetzt);
+		return { text, vorschlag: vorschau ? signiere(vorschau, nutzer.id, k.betriebId) : null, karte };
+	}
 	// Eigener Termin für mich (msg 2682): Vorab-Prüfung mit dem schwächeren Recht; endgültig prüft das Ausführen
 	const fuerMich = (m?: string[]) => !m || m.length === 0 || m.every((x) => /^(ich|mich|mir)$/i.test(x.trim()));
 	const eigenerTermin = aktion.aktion === 'einsatz_anlegen' && (!!aktion.daten.eigener_titel || !aktion.daten.auftrag) && fuerMich(aktion.daten.mitarbeiter);
