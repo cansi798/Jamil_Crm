@@ -1,19 +1,13 @@
 <script lang="ts">
 	import AngebotVorlageEditor from '$lib/components/AngebotVorlageEditor.svelte';
+	import SeitenKopf from '$lib/components/ui/SeitenKopf.svelte';
 </script>
 
 <svelte:head>
-	<title>Neue Angebots-Vorlage</title>
+	<title>Neue Angebots-Vorlage – CRM</title>
 </svelte:head>
 
-<main class="kd-seite an-seite">
-	<a href="/angebot-vorlagen" class="kd-zurueck">← Angebots-Vorlagen</a>
-	<h1>Neue Angebots-Vorlage</h1>
+<main class="kd-seite breit">
+	<SeitenKopf titel="Neue Angebots-Vorlage" zurueck={{ href: '/angebot-vorlagen', text: 'Angebots-Vorlagen' }} />
 	<AngebotVorlageEditor />
 </main>
-
-<style>
-	.an-seite {
-		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
-	}
-</style>

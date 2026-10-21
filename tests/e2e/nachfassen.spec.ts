@@ -17,8 +17,9 @@ test('Nachfassen: Vorlage in der Bibliothek anlegen, in einer Rechnungs-Stufe w�
 	try {
 		await page.goto('/einstellungen/mail-vorlagen');
 		await expect(page.getByRole('heading', { level: 1, name: 'E-Mail-Vorlagen' })).toBeVisible();
-		await page.getByRole('button', { name: 'Vorlage hinzufügen' }).click();
-		const f = page.locator('form[action="?/vorlage"]').filter({ hasNot: page.locator('input[name="id"]') });
+		await page.getByRole('link', { name: '+ Neue Vorlage' }).click();
+		await page.waitForURL(/\/einstellungen\/mail-vorlagen\/neu/);
+		const f = page.locator('form[action="?/vorlage"]');
 		await f.locator('input[name="name"]').fill(name);
 		await f.locator('select[name="zweck"]').selectOption('zahlungserinnerung');
 		await f.locator('input[name="betreff"]').fill('Zahlungserinnerung {{angebot.nummer}}');
@@ -28,6 +29,8 @@ test('Nachfassen: Vorlage in der Bibliothek anlegen, in einer Rechnungs-Stufe w�
 		await expect(vorschau.locator('body')).toContainText('Sehr geehrte Familie Müller');
 		await expect(vorschau.locator('body')).toContainText('12.480,00');
 		await f.getByRole('button', { name: 'Vorlage anlegen' }).click();
+		await page.waitForURL(/\/einstellungen\/mail-vorlagen\/[0-9a-f-]{36}\?angelegt=1$/);
+		await page.goto('/einstellungen/mail-vorlagen');
 		await expect(page.getByRole('list', { name: 'Vorlagen Zahlungserinnerung / Mahnung' }).locator('li', { hasText: name })).toBeVisible();
 
 		// Rechnungs-Stufe: Tag 10, Mail mit dieser Vorlage + Aufgabe
@@ -50,11 +53,14 @@ test('Nachfassen: Vorlage in der Bibliothek anlegen, in einer Rechnungs-Stufe w�
 			await expect(st).toHaveCount(0);
 		}
 		await page.goto('/einstellungen/mail-vorlagen');
-		const v = page.locator('.mvl-liste li', { hasText: name });
+		const v = page.getByRole('link', { name: new RegExp(name) });
 		if (await v.count()) {
-			await v.locator('summary').first().click();
-			await v.getByRole('button', { name: 'Löschen' }).click();
-			await expect(v).toHaveCount(0);
+			// Löschen oben rechts mit Rückfrage (msgs 3043, 3091)
+			await v.first().click();
+			await page.getByRole('button', { name: 'Vorlage löschen' }).click();
+			await page.getByRole('button', { name: 'Endgültig löschen' }).click();
+			await page.waitForURL(/\/einstellungen\/mail-vorlagen$/);
+			await expect(page.getByRole('link', { name: new RegExp(name) })).toHaveCount(0);
 		}
 	}
 });

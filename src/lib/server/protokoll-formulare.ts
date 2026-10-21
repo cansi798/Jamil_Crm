@@ -249,6 +249,27 @@ export async function archiviereVorlage(k: Kontext, id: unknown, archiviert: boo
 	});
 }
 
+/**
+ * Vorlage endgültig löschen (alle Versionen) – nur, solange kein Protokoll bzw. Aufmaß sie benutzt (Fremdschlüssel
+ * `restrict`). Sonst 409 mit Hinweis aufs Archivieren: ausgefüllte Protokolle behalten ihre Version.
+ */
+export async function loescheVorlage(k: Kontext, id: unknown): Promise<{ art: VorlagenArt }> {
+	const vid = idFeld(id, 'Vorlage');
+	return mitBetrieb(k, async (tx) => {
+		const [v] = await tx`select gruppe_id, art from app.protokoll_vorlagen where id = ${vid} and betrieb_id = ${k.betriebId} for update`;
+		if (!v) throw nichtGefunden('Vorlage');
+		const [{ n }] = await tx`
+			select count(*)::int as n from app.protokolle p join app.protokoll_vorlagen pv on pv.id = p.vorlage_id and pv.betrieb_id = p.betrieb_id
+			where pv.gruppe_id = ${v.gruppe_id} and p.betrieb_id = ${k.betriebId}`;
+		if (n > 0) {
+			const was = v.art === 'aufmass' ? (n === 1 ? 'einem Aufmaß' : `${n} Aufmaßen`) : n === 1 ? 'einem Protokoll' : `${n} Protokollen`;
+			throw new ApiFehler(409, `Die Vorlage wird schon in ${was} benutzt und lässt sich nicht löschen. Archivieren Sie sie stattdessen – dann ist sie nicht mehr wählbar.`);
+		}
+		await tx`delete from app.protokoll_vorlagen where gruppe_id = ${v.gruppe_id} and betrieb_id = ${k.betriebId}`;
+		return { art: (istVorlagenArt(v.art) ? v.art : 'protokoll') as VorlagenArt };
+	});
+}
+
 /** Beispielvorlagen übernehmen (nur die, deren Name es im Betrieb noch nicht gibt). Liefert die Anzahl neuer. */
 export async function uebernimmStartvorlagen(k: Kontext, schluessel?: string[]): Promise<number> {
 	return mitBetrieb(k, async (tx) => {

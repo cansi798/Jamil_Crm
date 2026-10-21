@@ -14,11 +14,15 @@ async function chef(page: Page) {
 
 test('Mail-Vorlage: Live-Vorschau mit Betreff, Beispieldaten, Handy-Breite, Klartext; Vorlage kann kein Skript ausführen', async ({ page }) => {
 	await chef(page);
-	// Seit msg 2789: alle Vorlagen in Einstellungen → E-Mail-Vorlagen (je Zweck eine Liste, immer mit Standard)
+	// Seit msg 2789: alle Vorlagen in Einstellungen → E-Mail-Vorlagen (je Zweck eine Liste, immer mit Standard);
+	// seit msg 3086 wie alle Vorlagen: Liste → Detailseite mit Editor und Vorschau
 	await page.goto('/einstellungen/mail-vorlagen');
 	const liste = page.getByRole('list', { name: 'Vorlagen Nachfassen Angebot' });
-	await liste.locator('details summary').first().click();
-	const form = liste.locator('details[open] form').first();
+	await expect(liste.getByText('Standard')).toBeVisible();
+	await liste.getByRole('link').first().click();
+	await page.waitForURL(/\/einstellungen\/mail-vorlagen\/[0-9a-f-]{36}$/);
+	await expect(page.getByRole('button', { name: 'Vorlage löschen' })).toBeVisible();
+	const form = page.locator('form[action="?/vorlage"]');
 	const vorschau = form.getByRole('region', { name: /^Vorschau / });
 	await expect(vorschau).toBeVisible();
 
@@ -49,7 +53,8 @@ test('Mail-Vorlage: Live-Vorschau mit Betreff, Beispieldaten, Handy-Breite, Klar
 		await daten.selectOption({ index: 1 });
 		await expect(vorschau.getByLabel(/\(Klartext\)$/)).not.toContainText('Familie Müller');
 	}
-	// Signatur hat dieselbe Vorschau
+	// Signatur hat dieselbe Vorschau (Liste); nichts gespeichert – Seite ohne Speichern verlassen
+	await page.goto('/einstellungen/mail-vorlagen');
 	await expect(page.getByRole('region', { name: 'Vorschau Signatur' }).locator('iframe')).toHaveAttribute('sandbox', '');
 });
 

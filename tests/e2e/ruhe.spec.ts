@@ -7,7 +7,9 @@ import { expect, test, type Page } from '@playwright/test';
  */
 const SEITEN = [
 	'/', '/kunden', '/auftraege', '/todos', '/plantafel', '/karte', '/ausgangsbelege/angebote', '/ausgangsbelege/auftragsbestaetigungen', '/ausgangsbelege/rechnungen', '/katalog', '/kalkulation', '/zeiten',
-	'/einstellungen/benutzer', '/einstellungen/rollen', '/einstellungen/briefkopf', '/auftrag-vorlagen', '/angebot-vorlagen', '/plantafel/abwesenheiten'
+	'/einstellungen/benutzer', '/einstellungen/rollen', '/einstellungen/briefkopf', '/auftrag-vorlagen', '/angebot-vorlagen', '/plantafel/abwesenheiten',
+	// alle Vorlagen-Seiten gleich (Jamil msgs 3084, 3086)
+	'/einstellungen/protokoll-vorlagen', '/einstellungen/aufmass-vorlagen', '/einstellungen/mail-vorlagen'
 ];
 
 type Mass = { pfad: string; h1: number | null; titelVersteckt: boolean; filter: number | null; umschalter: number[] };

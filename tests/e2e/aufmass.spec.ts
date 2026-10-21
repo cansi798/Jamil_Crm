@@ -29,7 +29,7 @@ test('Aufmaß Boden/Fliesen: zwei Räume, Flächen und Summen werden berechnet',
 	page.on('dialog', (d) => d.accept());
 
 	// Vorlage bereitstellen (Beispiel übernehmen, falls noch nicht da)
-	await page.goto('/einstellungen/protokoll-vorlagen?art=aufmass');
+	await page.goto('/einstellungen/aufmass-vorlagen');
 	await expect(page.getByRole('heading', { level: 1, name: 'Aufmaß-Vorlagen' })).toBeVisible();
 	const uebernehmen = page.getByTestId('beispiele-uebernehmen');
 	if (await uebernehmen.count()) await uebernehmen.click();

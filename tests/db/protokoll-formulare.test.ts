@@ -12,6 +12,7 @@ import {
 	listeVorlagen,
 	loescheEntwurf,
 	loescheProtokollDatei,
+	loescheVorlage,
 	protokollPdf,
 	protokollVerlauf,
 	schliesseAb,
@@ -104,6 +105,21 @@ describe('Protokoll-Formulare', () => {
 		await expect(starteProtokoll(kA(), alle(), { vorlageId: kopie.id, auftragId: u.auftragA })).rejects.toMatchObject({ status: 400 });
 		// ungültiges Schema → 400 mit Meldung
 		await expect(legeVorlageAn(kA(), { name: 'X', schema: { seiten: [] } })).rejects.toMatchObject({ status: 400, message: /mindestens eine Seite/ });
+	});
+
+	it('Vorlage löschen (msg 3084): alle Versionen, nur solange kein Protokoll sie benutzt (409), fremder Betrieb 404', async () => {
+		const frei = await legeVorlageAn(kA(), { name: 'Frei', schema: abdichtung.schema });
+		const schema2 = structuredClone(abdichtung.schema);
+		schema2.seiten[0].titel = 'Neu';
+		const frei2 = await speichereVorlage(kA(), frei.id, { name: 'Frei', schema: schema2 });
+		await expect(loescheVorlage(kB(), frei2.id)).rejects.toMatchObject({ status: 404 });
+		// über die alte Version gelöscht → beide Versionen weg
+		expect(await loescheVorlage(kA(), frei.id)).toEqual({ art: 'protokoll' });
+		await expect(holeVorlage(kA(), frei2.id)).rejects.toMatchObject({ status: 404 });
+		const benutzt = await legeVorlageAn(kA(), { name: 'Benutzt', schema: abdichtung.schema });
+		await starteProtokoll(kA(), alle(), { vorlageId: benutzt.id, auftragId: u.auftragA });
+		await expect(loescheVorlage(kA(), benutzt.id)).rejects.toMatchObject({ status: 409, message: /einem Protokoll .*Archivieren/ });
+		expect((await listeVorlagen(kA())).map((v) => v.name)).toEqual(['Benutzt']);
 	});
 
 	it('Beispielvorlagen übernehmen ist idempotent', async () => {

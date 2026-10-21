@@ -11,7 +11,7 @@
 	 *   gefahr    – Löschen, Deaktivieren
 	 */
 	type Art = 'primaer' | 'sekundaer' | 'ghost' | 'gefahr';
-	type Symbol = 'plus' | 'speichern' | 'zurueck' | 'weiter' | 'loeschen' | 'bearbeiten' | 'suchen' | 'filter' | 'kalender' | 'person';
+	type Symbol = 'plus' | 'speichern' | 'zurueck' | 'weiter' | 'loeschen' | 'bearbeiten' | 'suchen' | 'filter' | 'kalender' | 'person' | 'kopieren' | 'archiv' | 'wiederherstellen' | 'stern';
 	let {
 		art = 'primaer',
 		symbol,
@@ -45,7 +45,11 @@
 		suchen: 'M7 2.8a4.2 4.2 0 1 0 0 8.4 4.2 4.2 0 0 0 0-8.4ZM10.2 10.2 13.5 13.5',
 		filter: 'M2.5 3.5h11L9.5 8.5v4l-3 1.5V8.5Z',
 		kalender: 'M3 4.5h10v8.5H3ZM3 7h10M5.5 3v2.5M10.5 3v2.5',
-		person: 'M8 8.2a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2ZM3.2 13.2c.9-2.2 2.7-3.3 4.8-3.3s3.9 1.1 4.8 3.3'
+		person: 'M8 8.2a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2ZM3.2 13.2c.9-2.2 2.7-3.3 4.8-3.3s3.9 1.1 4.8 3.3',
+		kopieren: 'M5.5 5.5h7v7.5h-7ZM3.5 10.5V3h7',
+		archiv: 'M2.5 3.5h11v3h-11ZM3.5 6.5V13h9V6.5M6.5 9h3',
+		wiederherstellen: 'M3.5 8a4.5 4.5 0 1 0 1.3-3.2M3.5 3v2.5H6',
+		stern: 'M8 2.8l1.6 3.3 3.6.5-2.6 2.5.6 3.6L8 11l-3.2 1.7.6-3.6-2.6-2.5 3.6-.5Z'
 	};
 	const klasse = $derived([KLASSE[art], voll ? 'ui-voll' : '', klein ? 'klein' : '', (rest.class as string) ?? ''].filter(Boolean).join(' '));
 </script>

@@ -18,7 +18,9 @@
 		onbestaetigen,
 		arbeitet = false,
 		felder,
-		children
+		children,
+		id = 'loeschen-oben',
+		knopf = 'Endgültig löschen'
 	}: {
 		ding: string;
 		offen?: boolean;
@@ -31,6 +33,10 @@
 		felder?: Snippet;
 		/** Warnungstext */
 		children?: Snippet;
+		/** eigene id, wenn eine Seite mehrere Rückfragen hat (passend zu `LoeschenKnopf ziel`) */
+		id?: string;
+		/** Text des Bestätigungsknopfs, z. B. „Ja, entfernen“ */
+		knopf?: string;
 	} = $props();
 
 	$effect(() => {
@@ -39,7 +45,7 @@
 </script>
 
 {#if offen}
-	<section id="loeschen-oben" class="lo-oben" aria-label={`${ding} löschen`}>
+	<section {id} class="lo-oben" aria-label={`${ding} löschen`}>
 		<form
 			method="POST"
 			action={aktion}
@@ -61,7 +67,7 @@
 			</p>
 			<div class="lo-knoepfe">
 				<button type="button" class="kd-knopf hell" onclick={() => (offen = false)}>Abbrechen</button>
-				<button type="submit" class="kd-knopf gefahr" disabled={arbeitet}>Endgültig löschen</button>
+				<button type="submit" class="kd-knopf gefahr" disabled={arbeitet}>{knopf}</button>
 			</div>
 		</form>
 	</section>

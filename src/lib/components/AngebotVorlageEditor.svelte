@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
+	import Abschnitt from '$lib/components/Abschnitt.svelte';
+	import FormFuss from '$lib/components/ui/FormFuss.svelte';
 	import KatalogSuche, { type KatalogTreffer } from '$lib/components/KatalogSuche.svelte';
 	import PositionenEditor, { neuerSchluessel, type EditorZeile } from '$lib/components/PositionenEditor.svelte';
 	import { centAlsEingabe, mengeText } from '$lib/geld';
@@ -115,39 +117,45 @@
 	}
 </script>
 
-<section aria-label="Angaben" class="kd-formular">
-	<label>Name * <input type="text" bind:value={name} maxlength="100" required placeholder="z. B. Bad komplett" /></label>
-	<label>Einleitung (optional) <textarea bind:value={einleitung} maxlength="2000" rows="2"></textarea></label>
-</section>
+<!-- Aufbau wie alle Vorlagen (Jamil msg 3084): Abschnitte „Vorlage“, „Positionen“, Fuß mit Aktionen unten rechts -->
+<div class="av-form">
+	<Abschnitt titel="Vorlage">
+		<section aria-label="Angaben" class="kd-formular">
+			<label>Name * <input type="text" bind:value={name} maxlength="100" required placeholder="z. B. Bad komplett" /></label>
+			<label>Einleitung (optional) <textarea bind:value={einleitung} maxlength="2000" rows="2"></textarea></label>
+		</section>
+	</Abschnitt>
 
-<h2>Positionen</h2>
-<PositionenEditor bind:zeilen katalogPreisFest />
+	<Abschnitt titel="Positionen" anzahl={zeilen.length}>
+		<PositionenEditor bind:zeilen katalogPreisFest />
 
-<div class="av-hinzu">
-	<button type="button" class="kd-knopf hell" onclick={() => (katalogOffen = !katalogOffen)} aria-expanded={katalogOffen}>+ Aus Katalog</button>
-	<button type="button" class="kd-knopf hell" onclick={freiePosition}>+ Freie Position</button>
-</div>
-{#if katalogOffen}
-	<section class="an-katalog" aria-label="Aus Katalog wählen">
-		<h3>Aus Katalog wählen</h3>
-		{#if zuletztHinzu}<p role="status" class="kd-info">Hinzugefügt: {zuletztHinzu}</p>{/if}
-		<KatalogSuche onwaehle={ausKatalog} onschliessen={() => (katalogOffen = false)} />
-	</section>
-{/if}
+		<div class="av-hinzu">
+			<button type="button" class="kd-knopf hell" onclick={() => (katalogOffen = !katalogOffen)} aria-expanded={katalogOffen}>+ Aus Katalog</button>
+			<button type="button" class="kd-knopf hell" onclick={freiePosition}>+ Freie Position</button>
+		</div>
+		{#if katalogOffen}
+			<section class="an-katalog" aria-label="Aus Katalog wählen">
+				<h3>Aus Katalog wählen</h3>
+				{#if zuletztHinzu}<p role="status" class="kd-info">Hinzugefügt: {zuletztHinzu}</p>{/if}
+				<KatalogSuche onwaehle={ausKatalog} onschliessen={() => (katalogOffen = false)} />
+			</section>
+		{/if}
 
-<label class="av-schluss">Schlusstext (optional) <textarea bind:value={schluss} maxlength="2000" rows="2"></textarea></label>
+		<label class="av-schluss">Schlusstext (optional) <textarea bind:value={schluss} maxlength="2000" rows="2"></textarea></label>
 
-<p class="kd-info">
-	Positionen aus dem Katalog bekommen beim Einfügen ins Angebot immer den dann aktuellen Katalogpreis. Freie Positionen behalten
-	ihren Preis. Im Angebot ist danach alles änderbar.
-</p>
+		<p class="kd-info">
+			Positionen aus dem Katalog bekommen beim Einfügen ins Angebot immer den dann aktuellen Katalogpreis. Freie Positionen behalten
+			ihren Preis. Im Angebot ist danach alles änderbar.
+		</p>
+	</Abschnitt>
 
-{#if fehler}<p role="alert" class="kd-fehler">{fehler}</p>{/if}
-{#if meldung}<p role="status" class="kt-hinweis ok">{meldung}</p>{/if}
+	{#if fehler}<p role="alert" class="kd-fehler">{fehler}</p>{/if}
+	{#if meldung}<p role="status" class="kt-hinweis ok">{meldung}</p>{/if}
 
-<div class="av-aktionen">
-	<button type="button" class="kd-knopf" onclick={speichern} disabled={arbeitet}>{vorlage ? 'Speichern' : 'Vorlage anlegen'}</button>
-	<a href="/angebot-vorlagen" class="kd-knopf hell">Zurück</a>
+	<FormFuss>
+		<a href="/angebot-vorlagen" class="kd-knopf hell">{vorlage ? 'Zurück' : 'Abbrechen'}</a>
+		<button type="button" class="kd-knopf" onclick={speichern} disabled={arbeitet}>{vorlage ? 'Speichern' : 'Vorlage anlegen'}</button>
+	</FormFuss>
 </div>
 
 <style>
@@ -162,24 +170,22 @@
 		gap: 0.25rem;
 		margin: 0.75rem 0;
 	}
-	.av-aktionen {
+	.av-form {
 		display: grid;
-		gap: 0.5rem;
-		margin: 1rem 0 2rem;
+		gap: var(--ui-abstand-block, var(--ui-a4));
 	}
 	.an-katalog {
 		padding: 0.75rem;
-		border: 1px solid var(--primaer);
-		border-radius: 0.5rem;
-		background: var(--primaer-hell);
+		border: 1px solid var(--ui-akzent-rand);
+		border-radius: var(--ui-radius);
+		background: var(--ui-akzent-zart);
 	}
 	.an-katalog h3 {
 		margin: 0 0 0.5rem;
 		font-size: 1rem;
 	}
 	@media (min-width: 700px) {
-		.av-hinzu,
-		.av-aktionen {
+		.av-hinzu {
 			display: flex;
 			flex-wrap: wrap;
 		}

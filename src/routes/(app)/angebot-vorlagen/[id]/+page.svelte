@@ -9,6 +9,7 @@
 	let { data }: { data: PageData } = $props();
 
 	/** Jamil msg 3043: „Vorlage löschen“ oben rechts, Rückfrage unter dem Kopf; Fehler bleiben dort. */
+	const positionen = $derived(data.vorlage.positionen.length === 1 ? '1 Position' : `${data.vorlage.positionen.length} Positionen`);
 	let loeschenOffen = $state(false);
 	let loeschFehler = $state<string | null>(null);
 	let arbeitet = $state(false);
@@ -35,8 +36,8 @@
 	<title>{data.vorlage.name} – Angebots-Vorlage</title>
 </svelte:head>
 
-<main class="kd-seite an-seite">
-	<SeitenKopf titel="Angebots-Vorlage" meta={data.vorlage.name} zurueck={{ href: '/angebot-vorlagen', text: 'Angebots-Vorlagen' }}>
+<main class="kd-seite breit">
+	<SeitenKopf ueberzeile="Angebots-Vorlage" titel={data.vorlage.name} meta={positionen} zurueck={{ href: '/angebot-vorlagen', text: 'Angebots-Vorlagen' }}>
 		{#snippet aktionen()}
 			<LoeschenKnopf ding="Vorlage" bind:offen={loeschenOffen} />
 		{/snippet}
@@ -50,8 +51,3 @@
 	{/key}
 </main>
 
-<style>
-	.an-seite {
-		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
-	}
-</style>
