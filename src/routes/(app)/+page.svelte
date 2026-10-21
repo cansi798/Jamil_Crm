@@ -167,7 +167,10 @@
 	{#if data.cockpit}
 		{#if zeigen('kennzahlen')}
 			<section class="heute-karte st-kennzahlen" aria-labelledby="st-kz">
-				<div class="plan-kopf"><h2 id="st-kz">Kennzahlen <small>Dieser Monat</small></h2></div>
+				<div class="plan-kopf">
+					<h2 id="st-kz">Kennzahlen <small>Dieser Monat</small></h2>
+					<a href="/auswertung/kennzahlen" class="zeit-link">Alle Kennzahlen</a>
+				</div>
 				<ul class="st-kz-liste">
 					{#each data.cockpit.kennzahlen as kz (kz.id)}
 						<li class={`st-kz ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
