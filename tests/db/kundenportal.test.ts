@@ -339,7 +339,7 @@ describe('Kundenportal', () => {
 		expect(v1.hash).toMatch(/^[0-9a-f]{64}$/);
 		expect((await ladePortal(token, IP))!.agbPdf).toEqual({ stand: v1.hochgeladen });
 		// Portal-Abruf: PDF mit sicheren Kopfzeilen; falscher Token → 404; anderer Betrieb nie
-		const r = await agbGet({ params: { token }, request: new Request('http://t/'), getClientAddress: () => IP } as never);
+		const r = await agbGet({ params: { token }, locals: { portalAngemeldet: true }, request: new Request('http://t/'), getClientAddress: () => IP } as never);
 		expect(r.headers.get('content-type')).toBe('application/pdf');
 		expect(r.headers.get('x-content-type-options')).toBe('nosniff');
 		expect(r.headers.get('referrer-policy')).toBe('no-referrer');
@@ -382,7 +382,7 @@ describe('Logos und Dateien: kein SVG/HTML vom App-Ursprung', () => {
 			on conflict (betrieb_id) do update set logo = excluded.logo, logo_typ = excluded.logo_typ`;
 		const { token } = await erzeugeLink({ k: { betriebId: u2.betriebA, benutzerId: u2.ids.chefA }, sicht: { alle: true, benutzerId: u2.ids.chefA }, preise: true }, u2.kundeA);
 		const { GET } = await import('../../src/routes/portal/[token]/logo/+server');
-		const r = await GET({ params: { token }, getClientAddress: () => '192.0.2.1' } as never);
+		const r = await GET({ params: { token }, locals: { portalAngemeldet: true }, getClientAddress: () => '192.0.2.1' } as never);
 		expect(r.headers.get('content-type')).toBe('image/png');
 		expect(r.headers.get('x-content-type-options')).toBe('nosniff');
 		expect(r.headers.get('content-security-policy')).toMatch(/sandbox/);

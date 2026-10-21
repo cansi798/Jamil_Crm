@@ -96,31 +96,45 @@ const pruefeZugang: Handle = async ({ event, resolve }) => {
  * Jede Antwort – auch Weiterleitungen und die Sperr-Antworten oben – bekommt die Grundschutz-Kopfzeilen
  * (`sicherheit.ts`); die Content-Security-Policy der Seiten setzt SvelteKit selbst (`kit.csp` in `svelte.config.js`).
  */
-/** /portal/<Token>[/…] → Token und Rest des Pfads. */
-const PORTAL_PFAD = /^\/portal\/([A-Za-z0-9_-]{43})(\/.*)?$/;
+/** Unterseiten des Portals, die ohne Portal-Cookie erreichbar sind (Passwort-Abfrage und Anmelden). */
+const PORTAL_SEITE = '/portal/[token]';
+const PORTAL_ANMELDEN = '/portal/[token]/anmelden';
+
+/** Gehört die Anfrage zum Kundenportal? Nach der aufgelösten Route (nie nach dem rohen Pfad) – oder Pfad unter /portal. */
+const istPortal = (event: Parameters<Handle>[0]['event']) =>
+	event.route?.id?.startsWith(PORTAL_SEITE) === true || /^\/portal(\/|$)/i.test(event.url.pathname);
 
 /**
  * Kundenportal mit Passwort (Jamil msg 3037): Ohne gültiges Portal-Cookie dieses Links gibt es nur die Portal-Seite
  * selbst (sie zeigt dann die Passwort-Abfrage) und das Anmelden. Alles andere unter /portal/<Token> – Dokumente, Logo,
  * AGB, Annahme/Ablehnung (Formular-Aktionen) und künftige Unterseiten – leitet zur Passwort-Abfrage um.
+ *
+ * Entscheidend ist die von SvelteKit AUFGELÖSTE Route (`event.route.id`, `event.params.token`), nicht der rohe Pfad:
+ * kodierte Varianten (`/portal/%54oken…/agb`) landen auf derselben Route und damit hier. Zusätzlich werden Portal-Pfade
+ * mit „%“ ganz abgelehnt (echte Tokens enthalten nur A–Z, a–z, 0–9, „-“ und „_“). Jede Portal-Route prüft
+ * `locals.portalAngemeldet` außerdem selbst (Absicherung in der Tiefe).
  */
 const pruefePortal: Handle = async ({ event, resolve }) => {
-	const m = PORTAL_PFAD.exec(event.url.pathname);
-	if (!m) return resolve(event);
 	// Das Portal ist öffentlich: nie mit einer Mitarbeiter-Sitzung (wer dort handelt, handelt als Kunde)
 	event.locals.nutzer = null;
-	const token = m[1];
-	const rest = m[2] ?? '';
+	event.locals.portalAngemeldet = false;
+	const keinZugang = () => new Response('Nicht gefunden', { status: 404, headers: { 'cache-control': 'private, no-store' } });
+	if (event.url.pathname.includes('%')) return keinZugang();
+	const token = event.params.token;
+	const routeId = event.route?.id ?? null;
+	// Unbekannte Pfade unter /portal (keine Route): SvelteKit antwortet selbst mit 404
+	if (!routeId) return resolve(event);
+	if (!routeId.startsWith(PORTAL_SEITE) || typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) return keinZugang();
 	event.locals.portalAngemeldet = await sitzungGueltig(token, event.cookies.get(PORTAL_COOKIE), ipVon(event)).catch(() => false);
 	if (event.locals.portalAngemeldet) return resolve(event);
-	const seite = rest === '' || rest === '/' || rest === '/__data.json';
-	const formularAktion = event.request.method !== 'GET' && event.request.method !== 'HEAD' && [...event.url.searchParams.keys()].some((k) => k.startsWith('/'));
-	if ((seite && !formularAktion) || (rest === '/anmelden' && event.request.method === 'POST')) return resolve(event);
+	const lesend = event.request.method === 'GET' || event.request.method === 'HEAD';
+	const formularAktion = !lesend && [...event.url.searchParams.keys()].some((k) => k.startsWith('/'));
+	if ((routeId === PORTAL_SEITE && lesend && !formularAktion) || (routeId === PORTAL_ANMELDEN && event.request.method === 'POST')) return resolve(event);
 	return new Response(null, { status: 303, headers: { location: `/portal/${token}`, 'cache-control': 'private, no-store' } });
 };
 
 export const handle: Handle = async (eingabe) => {
-	const antwort = await (PORTAL_PFAD.test(eingabe.event.url.pathname) ? pruefePortal(eingabe) : pruefeZugang(eingabe));
+	const antwort = await (istPortal(eingabe.event) ? pruefePortal(eingabe) : pruefeZugang(eingabe));
 	// Online-Buchung: die Seite (load) legt fest, wo sie eingebettet werden darf (CSP frame-ancestors)
 	return mitSicherheitsKopfzeilen(antwort, eingabe.event.locals.einbettenErlaubt);
 };

@@ -18,7 +18,11 @@ import {
 	zugangsStand
 } from '../../src/lib/server/portal-zugang';
 import { handle } from '../../src/hooks.server';
-import { load as portalSeite } from '../../src/routes/portal/[token]/+page.server';
+import { actions as portalAktionen, load as portalSeite } from '../../src/routes/portal/[token]/+page.server';
+import { load as portalLayout } from '../../src/routes/portal/[token]/+layout.server';
+import { GET as agbGet } from '../../src/routes/portal/[token]/agb/+server';
+import { GET as logoGet } from '../../src/routes/portal/[token]/logo/+server';
+import { GET as dokumentGet } from '../../src/routes/portal/[token]/dokument/[art]/[id]/+server';
 import { POST as anmeldenPost } from '../../src/routes/portal/[token]/anmelden/+server';
 import { actions as kundenAktionen } from '../../src/routes/(app)/kunden/[id]/+page.server';
 
@@ -155,12 +159,30 @@ describe('Kundenportal: Passwort und Link', () => {
 	it('Alle Portal-Pfade brauchen das Cookie: ohne → Umleitung zur Passwort-Seite; Seite lädt nichts (401); Anmelden setzt das Cookie nur für den Link', async () => {
 		const { token } = await erzeugeLink(zA(), u.kundeA);
 		const gesetzt: Record<string, { wert: string; opt: any }> = {};
+		// Route wie SvelteKit: Pfad DEKODIERT gegen die Portal-Routen – so landen auch kodierte Varianten auf der Route
+		const ROUTEN: [RegExp, string][] = [
+			[/^\/portal\/([^/]+)$/, '/portal/[token]'],
+			[/^\/portal\/([^/]+)\/anmelden$/, '/portal/[token]/anmelden'],
+			[/^\/portal\/([^/]+)\/agb$/, '/portal/[token]/agb'],
+			[/^\/portal\/([^/]+)\/logo$/, '/portal/[token]/logo'],
+			[/^\/portal\/([^/]+)\/dokument\/[^/]+\/[^/]+$/, '/portal/[token]/dokument/[art]/[id]']
+		];
+		const route = (pfad: string) => {
+			const roh = new URL(`https://crm.test${pfad}`).pathname;
+			const dekodiert = roh.split('/').map((t) => decodeURIComponent(t)).join('/');
+			for (const [re, id] of ROUTEN) {
+				const m = re.exec(dekodiert);
+				if (m) return { id, token: m[1] };
+			}
+			return { id: null, token: undefined };
+		};
 		const ereignis = (pfad: string, methode = 'GET', cookie?: string, body?: BodyInit) => ({
+			route: { id: route(pfad).id },
 			url: new URL(`https://crm.test${pfad}`),
 			request: new Request(`https://crm.test${pfad}`, { method: methode, body, headers: body ? { 'content-type': 'application/x-www-form-urlencoded' } : undefined }),
 			cookies: { get: (n: string) => (n === PORTAL_COOKIE ? cookie : undefined), set: (n: string, w: string, o: unknown) => (gesetzt[n] = { wert: w, opt: o }), delete: () => {} },
 			locals: {} as App.Locals,
-			params: { token },
+			params: { token: route(pfad).token ?? token },
 			getClientAddress: () => IP,
 			setHeaders: () => {}
 		});
@@ -184,12 +206,31 @@ describe('Kundenportal: Passwort und Link', () => {
 		expect(ok).toMatchObject({ status: 303, location: `/portal/${token}` });
 		const c = gesetzt[PORTAL_COOKIE];
 		expect(c.opt).toMatchObject({ path: `/portal/${token}`, httpOnly: true, secure: true, sameSite: 'strict' });
+		// Kodierte Pfade (gleiche Route nach dem Dekodieren) kommen nie am Passwort vorbei – auch nicht mit Cookie
+		const kodiert = `/portal/%${token.charCodeAt(0).toString(16).toUpperCase()}${token.slice(1)}/agb`;
+		expect(route(kodiert)).toEqual({ id: '/portal/[token]/agb', token });
+		expect(await durch(ereignis(kodiert))).toMatchObject({ weiter: false, status: 404 });
+		expect(await durch(ereignis(kodiert, 'GET', c.wert))).toMatchObject({ weiter: false, status: 404 });
+		expect(await durch(ereignis(`/portal/${token}/dokument/angebot/%41bc`))).toMatchObject({ weiter: false, status: 404 });
 		// mit Cookie: alles erlaubt
 		expect(await durch(ereignis(`/portal/${token}/logo`, 'GET', c.wert))).toMatchObject({ weiter: true, angemeldet: true });
 		// Cookie eines anderen Links gilt nicht
 		const [k2] = await root`insert into app.kunden (betrieb_id, art, vorname, nachname, plz) values (${u.betriebA}, 'privat', 'Zweit', 'Kunde', '22846') returning id`;
 		const zweiter = await erzeugeLink(zA(), k2.id);
 		expect(await durch(ereignis(`/portal/${zweiter.token}/logo`, 'GET', c.wert))).toMatchObject({ weiter: false, status: 303 });
+	});
+
+	it('Absicherung in der Tiefe: jede Portal-Route ohne Portal-Cookie → 401 (auch wenn der Hook umgangen würde)', async () => {
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		const ev = (extra: Record<string, unknown> = {}) =>
+			({ params: { token, art: 'angebot', id: '00000000-0000-4000-8000-000000000000' }, locals: {}, getClientAddress: () => IP, setHeaders: () => {}, request: new Request('https://crm.test/x', { method: 'POST', body: new URLSearchParams({ angebotId: 'x' }) }), ...extra }) as never;
+		for (const get of [agbGet, logoGet, dokumentGet]) {
+			await expect(Promise.resolve(get(ev()))).rejects.toMatchObject({ status: 401 });
+		}
+		await expect(portalSeite(ev())).rejects.toMatchObject({ status: 401 });
+		expect(await portalAktionen.entscheiden(ev())).toMatchObject({ status: 401 });
+		// Layout ohne Cookie: nur die Passwort-Abfrage
+		expect(await portalLayout({ ...(ev() as object), url: new URL(`https://crm.test/portal/${token}`) } as never)).toMatchObject({ passwortNoetig: true });
 	});
 
 	it('Kundenseite: Passwort setzen nur mit Portal-Recht (Monteur 403); Passwort steht nirgends im Klartext', async () => {

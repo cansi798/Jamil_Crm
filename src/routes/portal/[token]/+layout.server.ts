@@ -10,7 +10,7 @@ import { ApiFehler } from '$lib/server/fehler';
  */
 export const load: LayoutServerLoad = async (event) => {
 	// Kopfzeilen setzt sonst die Seite (doppelt setzen ist in SvelteKit ein Fehler)
-	if (event.locals.portalAngemeldet) return { passwortNoetig: false as const };
+	if (event.locals.portalAngemeldet === true) return { passwortNoetig: false as const };
 	// „same-origin“ statt „no-referrer“: sonst schickt der Browser beim Absenden „Origin: null“ und SvelteKit lehnt das
 	// Formular als Cross-Site ab. Das Token verlässt die eigene Adresse trotzdem nie (kein Referrer nach außen).
 	event.setHeaders({ ...OEFFENTLICHE_KOPFZEILEN, 'referrer-policy': 'same-origin' });

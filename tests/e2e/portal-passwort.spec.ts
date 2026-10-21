@@ -55,6 +55,22 @@ test('Passwort-Seite → Portal, falsches Passwort, „Kundenportal öffnen“, 
 		await expect(passwortFeld(tab)).toBeVisible();
 		await tab.close();
 
+		// Ohne Cookie: jede Unterseite → Passwort-Seite; kodierte Pfade (Sicherheitsprüfung) → 404, nie die Datei
+		const roh = await browser.newContext();
+		const token = pfad.split('/').pop()!;
+		for (const unter of ['/agb', '/logo', '/dokument/angebot/00000000-0000-4000-8000-000000000000']) {
+			const r = await roh.request.get(`${pfad}${unter}`, { maxRedirects: 0 });
+			expect(r.status(), unter).toBe(303);
+			expect(r.headers()['location']).toBe(pfad);
+		}
+		const kodiert = `/portal/%${token.charCodeAt(0).toString(16).toUpperCase()}${token.slice(1)}/agb`;
+		const rk = await roh.request.get(kodiert, { maxRedirects: 0 });
+		expect(rk.status()).toBe(404);
+		expect(rk.headers()['content-type'] ?? '').not.toContain('pdf');
+		const aktion = await roh.request.post(`${pfad}?/entscheiden`, { form: { angebotId: 'x' }, headers: { origin: new URL(url).origin }, maxRedirects: 0 });
+		expect(aktion.status()).toBe(303);
+		await roh.close();
+
 		// Als Kunde: falsches Passwort, dann die PLZ
 		const gast = await browser.newContext({ viewport, locale: 'de-DE' });
 		const kunde = await gast.newPage();

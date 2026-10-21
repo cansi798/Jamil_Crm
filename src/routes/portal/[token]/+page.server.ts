@@ -27,6 +27,8 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions: Actions = {
 	entscheiden: async (event) => {
+		// Ohne Portal-Passwort keine Annahme/Ablehnung (zusätzlich zu hooks.server.ts)
+		if (event.locals.portalAngemeldet !== true) return fail(401, { fehler: 'Bitte geben Sie zuerst Ihr Passwort ein.', angebotId: null });
 		const f = await event.request.formData();
 		const angebotId = f.get('angebotId');
 		try {

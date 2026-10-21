@@ -139,6 +139,14 @@ async function zugangsDaten(p: LinkKontext): Promise<{ plz: string | null; hash:
 	);
 }
 
+/**
+ * Absicherung in der Tiefe: jede Portal-Route (Seite, Aktionen, Dokumente, Logo, AGB …) verlangt zusätzlich zur
+ * Prüfung in hooks.server.ts das gültige Portal-Cookie (`locals.portalAngemeldet`) – sonst 401.
+ */
+export function pruefePortalSitzung(locals: { portalAngemeldet?: boolean }): void {
+	if (locals.portalAngemeldet !== true) throw new ApiFehler(401, 'Bitte geben Sie zuerst Ihr Passwort ein.');
+}
+
 /** Gilt das Cookie für diesen (noch gültigen) Link? */
 export async function sitzungGueltig(token: string, wert: string | undefined, ip: string): Promise<boolean> {
 	if (!wert) return false;

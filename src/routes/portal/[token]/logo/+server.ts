@@ -4,10 +4,12 @@ import type { RequestHandler } from './$types';
 import { portalLogo } from '$lib/server/kundenportal-oeffentlich';
 import { ipVon, OEFFENTLICHE_KOPFZEILEN } from '$lib/server/buchung-anfrage';
 import { ApiFehler } from '$lib/server/fehler';
+import { pruefePortalSitzung } from '$lib/server/portal-zugang';
 
 /** Logo des Betriebs für das Kundenportal. */
 export const GET: RequestHandler = async (event) => {
 	try {
+		pruefePortalSitzung(event.locals);
 		const logo = await portalLogo(event.params.token, ipVon(event));
 		// Nur Rasterbilder (nie SVG/HTML vom App-Ursprung – gespeichertes XSS)
 		if (!logo || !RASTERBILD.test(logo.typ)) error(404, 'Kein Logo');
