@@ -3,6 +3,7 @@ import { cockpit, kennzahlenZugriff } from '$lib/server/kennzahlen';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { istZeitraumArt, zeitraum } from '$lib/kennzahlen';
 import { berlinTag } from '$lib/zeit';
+import { hatRecht } from '$lib/server/rechte';
 
 /**
  * Auswertungen → Kennzahlen (Jamil msg 2858): sieben Kennzahlen mit Formel, Zeitraum, Trend zum Vorzeitraum und Ampel
@@ -15,6 +16,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		const roh = url.searchParams.get('zeitraum');
 		const art = istZeitraumArt(roh) ? roh : 'jahr';
 		const z = zeitraum(art, berlinTag(new Date()));
-		return { zeitraum: z, kennzahlen: await cockpit(k, z, preise), preise };
+		return { zeitraum: z, kennzahlen: await cockpit(k, z, preise), preise, darfEinstellen: hatRecht(locals.nutzer!, 'kennzahlen.verwalten') };
 	});
 };

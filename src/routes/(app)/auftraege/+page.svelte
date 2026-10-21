@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { mitEinstellungen } from '$lib/kennzahlen';
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import { euro } from '$lib/geld';
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
@@ -48,7 +49,8 @@
 		}));
 		l.push({ id: 'nachfassen', titel: 'Nachfassen fällig', wert: String(kz.nachfassenFaellig), info: 'jetzt', href: link({ nachfassen: !data.nachfassenFaellig }), ton: 'rot' });
 		if (kz.wertOffenCent !== null) l.push({ id: 'wert', titel: 'Auftragswert offen', wert: euro(kz.wertOffenCent), info: 'angenommen, nicht abgerechnet', ton: 'gruen' });
-		return l;
+		// Einstellungen je Kennzahl (Jamil msg 2946)
+		return mitEinstellungen(l, kz, (id) => (id === 'nachfassen' ? 'auftraege_nachfassen' : id === 'wert' ? 'auftraege_wert' : 'auftraege_status'));
 	});
 	const BEZUG = { zustaendig: 'zuständig', todo: 'eigene Aufgabe', termin: 'eigener Termin' } as const;
 </script>

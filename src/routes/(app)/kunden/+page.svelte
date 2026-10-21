@@ -1,5 +1,6 @@
 <script lang="ts">
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
+	import { mitEinstellungen } from '$lib/kennzahlen';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
 	import type { PageData } from './$types';
@@ -28,7 +29,8 @@
 			l.push({ id: 'abgelehnt', titel: 'Angebot abgelehnt', wert: String(kz.kundenMitAbgelehnt ?? 0), info: 'Kunden im Zeitraum', href: umschalten('abgelehnt'), ton: 'rot' });
 			l.push({ id: 'abgelaufen', titel: 'Angebot abgelaufen', wert: String(kz.kundenMitAbgelaufen ?? 0), info: 'ohne Antwort', href: umschalten('abgelaufen'), ton: 'orange' });
 		}
-		return l;
+		// Einstellungen je Kennzahl (Jamil msg 2946): aus → weg, „Erfassen ab“ → Hinweis
+		return mitEinstellungen(l, kz, (id) => `kunden_${id}`);
 	});
 	const zeile = (k: PageData['kunden'][number]) =>
 		[k.art === 'firma' ? [k.vorname, k.nachname].filter(Boolean).join(' ') : '', k.ort, k.telefon]

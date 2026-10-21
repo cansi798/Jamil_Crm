@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { mitEinstellungen } from '$lib/kennzahlen';
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
@@ -25,7 +26,9 @@
 		const kl = (id: string, titel: string, wert: string, info: string, ton: Kachel['ton'], filter: boolean) => ({
 			id, titel, wert, info, ton, href: filter ? aLink({ status: data.status === id ? null : id }) : null
 		});
-		return [
+		// Einstellungen je Kennzahl (Jamil msg 2946)
+		const KONFIG: Record<string, string> = { entwurf: 'angebote_entwurf', versendet: 'angebote_offen', angenommen: 'angebote_angenommen', abgelehnt: 'angebote_abgelehnt', abgelaufen: 'angebote_abgelaufen', quote: 'angebote_quote', schnitt: 'angebote_schnitt' };
+		return mitEinstellungen([
 			kl('entwurf', 'Entwürfe', String(kz.entwurf), 'jetzt', 'grau', true),
 			kl('versendet', 'Offen', String(kz.offen), kz.summeOffenCent !== null ? euro(kz.summeOffenCent) : 'versendet, gültig', 'blau', true),
 			kl('angenommen', 'Angenommen', String(kz.angenommen), kz.summeAngenommenCent !== null ? euro(kz.summeAngenommenCent) : 'im Zeitraum', 'gruen', true),
@@ -33,7 +36,7 @@
 			kl('abgelaufen', 'Abgelaufen', String(kz.abgelaufen), 'ohne Antwort', 'orange', false),
 			kl('quote', 'Annahmequote', prozent(kz.quote.wert), kz.quote.fehlt ?? 'im Zeitraum', 'akzent', false),
 			...(kz.durchschnittCent !== null ? [kl('schnitt', 'Ø Angebotswert', euro(kz.durchschnittCent), 'im Zeitraum abgegeben', 'akzent', false)] : [])
-		];
+		], kz, (id) => KONFIG[id] ?? id);
 	});
 </script>
 

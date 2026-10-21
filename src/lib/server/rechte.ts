@@ -24,6 +24,7 @@ export const RECHTE = {
 	'kundenportal.verwalten': 'Kundenportal verwalten (Links für Kunden, Freigaben)',
 	'vorlagen.verwalten': 'E-Mail-Vorlagen und Signatur verwalten',
 	'partner.verwalten': 'Partner verwalten (Auftraggeber, Subunternehmer, Lieferanten, Nachweise)',
+	'kennzahlen.verwalten': 'Kennzahlen einstellen (an/aus, „Erfassen ab“)',
 	'benutzer.verwalten': 'Benutzer verwalten',
 	einstellungen: 'Einstellungen verwalten'
 } as const;
@@ -39,7 +40,8 @@ export const istRecht = (wert: unknown): wert is Recht =>
 export const VORLAGEN = {
 	chef: ALLE_RECHTE,
 	// Online-Buchung (Wunsch Jamil msgs 2684/2686) standardmäßig nur der Chef; in „Rollen“ vergebbar
-	buero: ALLE_RECHTE.filter((r) => r !== 'einstellungen' && r !== 'benutzer.verwalten' && r !== 'buchung.verwalten'),
+	// Kennzahlen einstellen (Jamil msg 2946): Standard nur der Chef
+	buero: ALLE_RECHTE.filter((r) => r !== 'einstellungen' && r !== 'benutzer.verwalten' && r !== 'buchung.verwalten' && r !== 'kennzahlen.verwalten'),
 	monteur: ['kunden.lesen', 'auftraege.lesen', 'protokolle.ausfuellen', 'erinnerungen.nutzen', 'zeiterfassung.nutzen']
 } as const satisfies Record<string, readonly Recht[]>;
 

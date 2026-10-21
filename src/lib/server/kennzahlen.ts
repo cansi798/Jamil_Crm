@@ -16,6 +16,7 @@
  * Nutzers (`auftragsSicht(locals)`), dem Zeitraum (`zeitraum(art, heute)` aus `$lib/kennzahlen`) und `preise`.
  */
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
+import { ApiFehler } from './fehler';
 import { angebotSichtbar } from './angebote';
 import { NACHFASSEN_FAELLIG_SQL, sichtbar, type Sicht } from './auftraege';
 import { planIstMinuten } from './nachkalkulation';
@@ -35,8 +36,18 @@ import {
 	type KennzahlId,
 	type KennzahlWert,
 	type Spanne,
-	type Zeitraum
+	type Zeitraum,
+	abTag,
+	istAktiv,
+	istKonfigId,
+	KONFIG_KENNZAHLEN,
+	seit,
+	seitText,
+	STANDARD_EINSTELLUNG,
+	type KennzahlEinstellung,
+	type KennzahlEinstellungen
 } from '../kennzahlen';
+import { istTag } from '../zeit';
 import type { AuftragStatus } from '../auftrag-status';
 
 // ——— Fakten ———
@@ -82,6 +93,18 @@ const statusZeit = (tabelle: 'angebote' | 'auftraege', alias: string, status: st
 	where e.betrieb_id = ${alias}.betrieb_id and e.tabelle = '${tabelle}' and e.datensatz_id = ${alias}.id
 		and e.nachher->>'status' in (${status.map((s) => `'${s}'`).join(', ')})
 		and (e.vorher->>'status') is distinct from (e.nachher->>'status'))`;
+
+/** Welche der genannten Kennzahlen aus sind und seit wann die übrigen erfasst werden (für Kacheln). */
+export type KonfigInfo = { aus: string[]; seit: Record<string, string> };
+function konfigInfo(e: KennzahlEinstellungen | undefined, ids: readonly string[]): KonfigInfo {
+	const seitMap: Record<string, string> = {};
+	for (const id of ids) {
+		const t = seitText(e, id);
+		if (t && istAktiv(e, id)) seitMap[id] = t;
+	}
+	return { aus: ids.filter((id) => !istAktiv(e, id)), seit: seitMap };
+}
+const angelegtAn = (x: { angelegt: Date }) => x.angelegt;
 
 async function ladeAngebote(tx: TransactionSql, k: Kontext, sicht: Sicht): Promise<AngebotFakt[]> {
 	const z = await tx`
@@ -216,7 +239,8 @@ export const ZAHLUNGSDAUER_FEHLT: KennzahlWert = { wert: null, fehlt: 'Daten feh
 
 // ——— Kacheln: Kunden (msg 2799) ———
 
-export type KundenKennzahlen = {
+export const KUNDEN_IDS = ['kunden_aktiv', 'kunden_angenommen', 'kunden_abgelehnt', 'kunden_abgelaufen'] as const;
+export type KundenKennzahlen = KonfigInfo & {
 	/** Kunden mit mindestens einem offenen Auftrag (nicht abgenommen/abgerechnet) – aktueller Stand. */
 	kundenAktiv: number;
 	/** Kunden mit im Zeitraum angenommenem / abgelehntem / abgelaufenem Angebot; null ohne Angebotsrechte. */
@@ -225,23 +249,29 @@ export type KundenKennzahlen = {
 	kundenMitAbgelaufen: number | null;
 };
 
-export function rechneKunden(auftraege: readonly AuftragFakt[], angebote: readonly AngebotFakt[] | null, z: Zeitraum, heute: string): KundenKennzahlen {
+export function rechneKunden(auftraege: readonly AuftragFakt[], angebote: readonly AngebotFakt[] | null, z: Zeitraum, heute: string, e?: KennzahlEinstellungen): KundenKennzahlen {
 	const g = grenzenVon(z.spanne);
 	const kunden = (l: readonly { kundeId: string | null }[]) => new Set(l.map((x) => x.kundeId).filter(Boolean)).size;
-	const aktiv = kunden(auftraege.filter((a) => a.status !== 'abgenommen' && a.status !== 'abgerechnet'));
-	if (!angebote) return { kundenAktiv: aktiv, kundenMitAngenommen: null, kundenMitAbgelehnt: null, kundenMitAbgelaufen: null };
-	const l = angebote.filter(gezaehlt);
+	// je Kennzahl nur Datensätze ab ihrem „Erfassen ab“; ausgeschaltete werden nicht gerechnet (0)
+	const ag = (id: string) => seit(auftraege, abTag(e, id), angelegtAn);
+	const an = (id: string) => seit(angebote ?? [], abTag(e, id), angelegtAn).filter(gezaehlt);
+	const wenn = (id: string, f: () => number) => (istAktiv(e, id) ? f() : 0);
+	const info = konfigInfo(e, KUNDEN_IDS);
+	const aktiv = wenn('kunden_aktiv', () => kunden(ag('kunden_aktiv').filter((a) => a.status !== 'abgenommen' && a.status !== 'abgerechnet')));
+	if (!angebote) return { ...info, kundenAktiv: aktiv, kundenMitAngenommen: null, kundenMitAbgelehnt: null, kundenMitAbgelaufen: null };
 	return {
+		...info,
 		kundenAktiv: aktiv,
-		kundenMitAngenommen: kunden(l.filter((a) => a.status === 'angenommen' && drin(a.angenommenAm, g))),
-		kundenMitAbgelehnt: kunden(l.filter((a) => a.status === 'abgelehnt' && drin(a.abgelehntAm, g))),
-		kundenMitAbgelaufen: kunden(l.filter((a) => istAbgelaufen(a, heute) && tagDrin(a.gueltigBis, z.spanne)))
+		kundenMitAngenommen: wenn('kunden_angenommen', () => kunden(an('kunden_angenommen').filter((a) => a.status === 'angenommen' && drin(a.angenommenAm, g)))),
+		kundenMitAbgelehnt: wenn('kunden_abgelehnt', () => kunden(an('kunden_abgelehnt').filter((a) => a.status === 'abgelehnt' && drin(a.abgelehntAm, g)))),
+		kundenMitAbgelaufen: wenn('kunden_abgelaufen', () => kunden(an('kunden_abgelaufen').filter((a) => istAbgelaufen(a, heute) && tagDrin(a.gueltigBis, z.spanne))))
 	};
 }
 
 // ——— Kacheln: Aufträge (msg 2801) ———
 
-export type AuftragsKennzahlen = {
+export const AUFTRAG_IDS = ['auftraege_status', 'auftraege_nachfassen', 'auftraege_wert'] as const;
+export type AuftragsKennzahlen = KonfigInfo & {
 	/** Aufträge je Status (im Zeitraum angelegt; „Gesamt“ = alle). */
 	jeStatus: Record<AuftragStatus, number>;
 	/** Aufträge mit fälligem Nachfassen (aktueller Stand). */
@@ -252,27 +282,34 @@ export type AuftragsKennzahlen = {
 	neuJeQuelle: { quelleId: string | null; anzahl: number }[];
 };
 
-export function rechneAuftraege(auftraege: readonly AuftragFakt[], angebote: readonly AngebotFakt[] | null, z: Zeitraum): AuftragsKennzahlen {
+export function rechneAuftraege(auftraege: readonly AuftragFakt[], angebote: readonly AngebotFakt[] | null, z: Zeitraum, e?: KennzahlEinstellungen): AuftragsKennzahlen {
 	const g = grenzenVon(z.spanne);
 	const jeStatus: Record<AuftragStatus, number> = { anfrage: 0, angebot: 0, beauftragt: 0, in_arbeit: 0, abgenommen: 0, abgerechnet: 0 };
-	const neu = auftraege.filter((a) => drin(a.angelegt, g));
-	for (const a of neu) jeStatus[a.status]++;
 	const quellen = new Map<string | null, number>();
-	for (const a of neu) quellen.set(a.quelleId, (quellen.get(a.quelleId) ?? 0) + 1);
-	const offeneAuftraege = new Set(auftraege.filter((a) => a.status !== 'abgerechnet').map((a) => a.id));
+	if (istAktiv(e, 'auftraege_status')) {
+		const neu = seit(auftraege, abTag(e, 'auftraege_status'), angelegtAn).filter((a) => drin(a.angelegt, g));
+		for (const a of neu) jeStatus[a.status]++;
+		for (const a of neu) quellen.set(a.quelleId, (quellen.get(a.quelleId) ?? 0) + 1);
+	}
+	let wertOffenCent: number | null = null;
+	if (angebote && istAktiv(e, 'auftraege_wert')) {
+		const ab = abTag(e, 'auftraege_wert');
+		const offeneAuftraege = new Set(seit(auftraege, ab, angelegtAn).filter((a) => a.status !== 'abgerechnet').map((a) => a.id));
+		wertOffenCent = seit(angebote, ab, angelegtAn).filter((a) => gezaehlt(a) && a.status === 'angenommen' && a.auftragId && offeneAuftraege.has(a.auftragId)).reduce((s, a) => s + a.nettoCent, 0);
+	}
 	return {
+		...konfigInfo(e, AUFTRAG_IDS),
 		jeStatus,
-		nachfassenFaellig: auftraege.filter((a) => a.nachfassenFaellig).length,
-		wertOffenCent: angebote
-			? angebote.filter((a) => gezaehlt(a) && a.status === 'angenommen' && a.auftragId && offeneAuftraege.has(a.auftragId)).reduce((s, a) => s + a.nettoCent, 0)
-			: null,
+		nachfassenFaellig: istAktiv(e, 'auftraege_nachfassen') ? seit(auftraege, abTag(e, 'auftraege_nachfassen'), angelegtAn).filter((a) => a.nachfassenFaellig).length : 0,
+		wertOffenCent,
 		neuJeQuelle: [...quellen].map(([quelleId, anzahl]) => ({ quelleId, anzahl })).sort((a, b) => b.anzahl - a.anzahl)
 	};
 }
 
 // ——— Kacheln: Angebote (msg 2803) ———
 
-export type AngebotsKennzahlen = {
+export const ANGEBOT_IDS = ['angebote_entwurf', 'angebote_offen', 'angebote_angenommen', 'angebote_abgelehnt', 'angebote_abgelaufen', 'angebote_quote', 'angebote_schnitt', 'auftraege_nachfassen'] as const;
+export type AngebotsKennzahlen = KonfigInfo & {
 	/** Aktueller Stand (ohne Zeitraum): Entwürfe; versendet und noch gültig. */
 	entwurf: number;
 	offen: number;
@@ -289,41 +326,96 @@ export type AngebotsKennzahlen = {
 	nachfassenFaellig: number;
 };
 
-export function rechneAngebote(angebote: readonly AngebotFakt[], auftraege: readonly AuftragFakt[], z: Zeitraum, heute: string, preise: boolean): AngebotsKennzahlen {
+export function rechneAngebote(angebote: readonly AngebotFakt[], auftraege: readonly AuftragFakt[], z: Zeitraum, heute: string, preise: boolean, e?: KennzahlEinstellungen): AngebotsKennzahlen {
 	const g = grenzenVon(z.spanne);
-	const l = angebote.filter(gezaehlt);
-	const offen = l.filter((a) => a.status === 'versendet' && a.gueltigBis >= heute);
-	const angenommen = l.filter((a) => a.status === 'angenommen' && drin(a.angenommenAm, g));
-	const abgegeben = l.filter((a) => drin(a.abgegebenAm, g));
+	const l = (id: string) => (istAktiv(e, id) ? seit(angebote, abTag(e, id), angelegtAn).filter(gezaehlt) : []);
+	const offen = l('angebote_offen').filter((a) => a.status === 'versendet' && a.gueltigBis >= heute);
+	const angenommen = l('angebote_angenommen').filter((a) => a.status === 'angenommen' && drin(a.angenommenAm, g));
+	const abgegeben = l('angebote_schnitt').filter((a) => drin(a.abgegebenAm, g));
 	const summe = (x: readonly AngebotFakt[]) => x.reduce((s, a) => s + a.nettoCent, 0);
 	const d = schnitt(abgegeben.map((a) => a.nettoCent));
 	return {
-		entwurf: l.filter((a) => a.status === 'entwurf').length,
+		...konfigInfo(e, ANGEBOT_IDS),
+		entwurf: l('angebote_entwurf').filter((a) => a.status === 'entwurf').length,
 		offen: offen.length,
 		angenommen: angenommen.length,
-		abgelehnt: l.filter((a) => a.status === 'abgelehnt' && drin(a.abgelehntAm, g)).length,
-		abgelaufen: l.filter((a) => istAbgelaufen(a, heute) && tagDrin(a.gueltigBis, z.spanne)).length,
-		quote: rechneAbschlussquote(angebote, g),
+		abgelehnt: l('angebote_abgelehnt').filter((a) => a.status === 'abgelehnt' && drin(a.abgelehntAm, g)).length,
+		abgelaufen: l('angebote_abgelaufen').filter((a) => istAbgelaufen(a, heute) && tagDrin(a.gueltigBis, z.spanne)).length,
+		quote: istAktiv(e, 'angebote_quote') ? rechneAbschlussquote(seit(angebote, abTag(e, 'angebote_quote'), angelegtAn), g) : { wert: null, fehlt: 'ausgeschaltet' },
 		summeOffenCent: preise ? summe(offen) : null,
 		summeAngenommenCent: preise ? summe(angenommen) : null,
 		durchschnittCent: preise && d !== null ? Math.round(d) : null,
-		nachfassenFaellig: auftraege.filter((a) => a.nachfassenFaellig).length
+		nachfassenFaellig: istAktiv(e, 'auftraege_nachfassen') ? seit(auftraege, abTag(e, 'auftraege_nachfassen'), angelegtAn).filter((a) => a.nachfassenFaellig).length : 0
 	};
 }
 
 // ——— Öffentliche Funktionen (Server) ———
 
 export async function kundenKennzahlen(k: Kontext, sicht: Sicht, z: Zeitraum, opt: { angebote: boolean }, heute = berlinTag(new Date())): Promise<KundenKennzahlen> {
-	return mitBetrieb(k, async (tx) => rechneKunden(await ladeAuftraege(tx, k, sicht), opt.angebote ? await ladeAngebote(tx, k, sicht) : null, z, heute));
+	return mitBetrieb(k, async (tx) => rechneKunden(await ladeAuftraege(tx, k, sicht), opt.angebote ? await ladeAngebote(tx, k, sicht) : null, z, heute, await ladeEinstellungen(tx, k)));
 }
 
 export async function auftragsKennzahlen(k: Kontext, sicht: Sicht, z: Zeitraum, preise: boolean): Promise<AuftragsKennzahlen> {
-	return mitBetrieb(k, async (tx) => rechneAuftraege(await ladeAuftraege(tx, k, sicht), preise ? await ladeAngebote(tx, k, sicht) : null, z));
+	return mitBetrieb(k, async (tx) => rechneAuftraege(await ladeAuftraege(tx, k, sicht), preise ? await ladeAngebote(tx, k, sicht) : null, z, await ladeEinstellungen(tx, k)));
 }
 
 /** Angebote sieht nur, wer `angebote.bearbeiten` + `preise.sehen` hat – `preise` steuert trotzdem die Beträge. */
 export async function angebotsKennzahlen(k: Kontext, sicht: Sicht, z: Zeitraum, preise: boolean, heute = berlinTag(new Date())): Promise<AngebotsKennzahlen> {
-	return mitBetrieb(k, async (tx) => rechneAngebote(await ladeAngebote(tx, k, sicht), await ladeAuftraege(tx, k, sicht), z, heute, preise));
+	return mitBetrieb(k, async (tx) => rechneAngebote(await ladeAngebote(tx, k, sicht), await ladeAuftraege(tx, k, sicht), z, heute, preise, await ladeEinstellungen(tx, k)));
+}
+
+// ——— Einstellungen je Kennzahl (Jamil msg 2946) ———
+
+/** Einstellungen des Betriebs (nur vom Standard abweichende stehen in der Tabelle). */
+async function ladeEinstellungen(tx: TransactionSql, k: Kontext): Promise<KennzahlEinstellungen> {
+	const z = await tx`select kennzahl, aktiv, to_char(ab, 'YYYY-MM-DD') as ab from app.kennzahl_einstellungen where betrieb_id = ${k.betriebId}`;
+	return Object.fromEntries(z.filter((r) => istKonfigId(r.kennzahl)).map((r) => [r.kennzahl as string, { aktiv: r.aktiv as boolean, ab: (r.ab as string | null) ?? null }]));
+}
+
+/**
+ * Für alle, die Kennzahlen anzeigen (Cockpit, Kacheln, Start-Bausteine): welche Kennzahlen an sind und ab wann sie
+ * erfasst werden. `aktiv` in der Reihenfolge von KONFIG_KENNZAHLEN.
+ */
+export async function aktiveKennzahlen(k: Kontext): Promise<{ aktiv: string[]; einstellungen: KennzahlEinstellungen }> {
+	const e = await mitBetrieb(k, (tx) => ladeEinstellungen(tx, k));
+	return { aktiv: KONFIG_KENNZAHLEN.map((x) => x.id).filter((id) => istAktiv(e, id)), einstellungen: e };
+}
+
+/** Einstellungsseite: Recht `kennzahlen.verwalten` (Standard: Chef). */
+export function kennzahlEinstellungenZugriff(locals: { nutzer: Nutzer | null }): Kontext {
+	pruefeRecht(locals, 'kennzahlen.verwalten');
+	const n = locals.nutzer!;
+	return { betriebId: n.betriebId!, benutzerId: n.id };
+}
+
+/** Alle Kennzahlen mit ihrer Einstellung (fehlende = Standard: an, ohne Datum). */
+export async function holeKennzahlEinstellungen(k: Kontext): Promise<((typeof KONFIG_KENNZAHLEN)[number] & KennzahlEinstellung)[]> {
+	const e = await mitBetrieb(k, (tx) => ladeEinstellungen(tx, k));
+	return KONFIG_KENNZAHLEN.map((x) => ({ ...x, ...(e[x.id] ?? STANDARD_EINSTELLUNG) }));
+}
+
+/** Speichert die Einstellungen (nur bekannte Kennzahlen; Datum JJJJ-MM-TT, nicht in der Zukunft). */
+export async function speichereKennzahlEinstellungen(k: Kontext, eingabe: Record<string, { aktiv?: unknown; ab?: unknown }>, heute = berlinTag(new Date())): Promise<void> {
+	const zeilen: { id: string; aktiv: boolean; ab: string | null }[] = [];
+	for (const [id, w] of Object.entries(eingabe)) {
+		if (!istKonfigId(id)) throw new ApiFehler(400, `Unbekannte Kennzahl „${id}“.`);
+		const ab = w.ab === undefined || w.ab === null || w.ab === '' ? null : w.ab;
+		const titel = KONFIG_KENNZAHLEN.find((x) => x.id === id)!.titel;
+		if (ab !== null && !istTag(ab)) throw new ApiFehler(400, `${titel}: bitte ein gültiges Datum wählen.`);
+		if (ab !== null && (ab as string) > heute) throw new ApiFehler(400, `${titel}: „Erfassen ab“ darf nicht in der Zukunft liegen.`);
+		zeilen.push({ id, aktiv: w.aktiv === true || w.aktiv === 'on' || w.aktiv === 'true', ab: ab as string | null });
+	}
+	await mitBetrieb(k, async (tx) => {
+		for (const z of zeilen) {
+			if (z.aktiv && z.ab === null) {
+				await tx`delete from app.kennzahl_einstellungen where betrieb_id = ${k.betriebId} and kennzahl = ${z.id}`;
+				continue;
+			}
+			await tx`
+				insert into app.kennzahl_einstellungen (betrieb_id, kennzahl, aktiv, ab) values (${k.betriebId}, ${z.id}, ${z.aktiv}, ${z.ab})
+				on conflict (betrieb_id, kennzahl) do update set aktiv = excluded.aktiv, ab = excluded.ab`;
+		}
+	});
 }
 
 // ——— Cockpit ———
@@ -339,8 +431,10 @@ export async function kennzahlenZugriff(locals: { nutzer: Nutzer | null }): Prom
 export const siehtKennzahlen = (nutzer: Nutzer, module: readonly string[]) => module.includes('auftraege') && hatRecht(nutzer, 'auftraege.alle_lesen');
 
 /** Arbeitsminuten im Zeitraum, je Person vereinigt und dann summiert: gesamt und davon Nacharbeit. */
-async function nacharbeitMinuten(tx: TransactionSql, k: Kontext, s: Spanne | null, jetzt: Date): Promise<{ gesamt: number; nacharbeit: number; jeMarkiert: boolean }> {
+async function nacharbeitMinuten(tx: TransactionSql, k: Kontext, s: Spanne | null, jetzt: Date, abErfassen: string | null = null): Promise<{ gesamt: number; nacharbeit: number; jeMarkiert: boolean }> {
 	const g = grenzenVon(s);
+	// „Erfassen ab“: Zeiten davor zählen nicht
+	if (abErfassen) g.ab = Math.max(g.ab, grenzenVon({ von: abErfassen, bis: abErfassen }).ab);
 	const ab = Number.isFinite(g.ab) ? new Date(g.ab) : new Date('2000-01-01T00:00:00Z');
 	const bis = Number.isFinite(g.bis) ? new Date(g.bis) : new Date(jetzt.getTime() + MS_TAG);
 	const z = await tx`
@@ -360,18 +454,33 @@ async function nacharbeitMinuten(tx: TransactionSql, k: Kontext, s: Spanne | nul
 	return { gesamt, nacharbeit: nach, jeMarkiert: m.ja };
 }
 
-async function cockpitWerte(k: Kontext, s: Spanne | null, preise: boolean, d: { angebote: AngebotFakt[]; auftraege: AuftragFakt[]; minuten: Map<string, { planMin: number; istMin: number }>; mitarbeiter: number }, jetzt: Date): Promise<Record<KennzahlId, KennzahlWert>> {
+/** Werte der Cockpit-Kennzahlen – je Kennzahl mit ihrem „Erfassen ab“; ausgeschaltete werden nicht gerechnet. */
+export async function cockpitWerte(
+	k: Kontext,
+	s: Spanne | null,
+	preise: boolean,
+	d: { angebote: AngebotFakt[]; auftraege: AuftragFakt[]; minuten: Map<string, { planMin: number; istMin: number }>; mitarbeiter: number },
+	jetzt: Date,
+	e?: KennzahlEinstellungen
+): Promise<Partial<Record<KennzahlId, KennzahlWert>>> {
 	const g = grenzenVon(s);
-	const na = await mitBetrieb(k, (tx) => nacharbeitMinuten(tx, k, s, jetzt));
-	return {
-		abschlussquote: rechneAbschlussquote(d.angebote, g),
-		durchlaufzeit: rechneDurchlaufzeit(d.auftraege, g),
-		termintreue: rechneTermintreue(d.auftraege, g),
-		produktivitaet: rechneProduktivitaet(d.auftraege, d.minuten, g),
-		nacharbeit: rechneNacharbeit(na.gesamt, na.nacharbeit, na.jeMarkiert),
-		zahlungsdauer: ZAHLUNGSDAUER_FEHLT,
-		umsatz_mitarbeiter: rechneUmsatzProMitarbeiter(d.angebote, d.mitarbeiter, g, preise)
+	const an = (id: KennzahlId) => seit(d.angebote, abTag(e, id), angelegtAn);
+	const ag = (id: KennzahlId) => seit(d.auftraege, abTag(e, id), angelegtAn);
+	const aus: Partial<Record<KennzahlId, KennzahlWert>> = {};
+	const wenn = (id: KennzahlId, f: () => KennzahlWert) => {
+		if (istAktiv(e, id)) aus[id] = f();
 	};
+	wenn('abschlussquote', () => rechneAbschlussquote(an('abschlussquote'), g));
+	wenn('durchlaufzeit', () => rechneDurchlaufzeit(ag('durchlaufzeit'), g));
+	wenn('termintreue', () => rechneTermintreue(ag('termintreue'), g));
+	wenn('produktivitaet', () => rechneProduktivitaet(ag('produktivitaet'), d.minuten, g));
+	if (istAktiv(e, 'nacharbeit')) {
+		const na = await mitBetrieb(k, (tx) => nacharbeitMinuten(tx, k, s, jetzt, abTag(e, 'nacharbeit')));
+		aus.nacharbeit = rechneNacharbeit(na.gesamt, na.nacharbeit, na.jeMarkiert);
+	}
+	wenn('zahlungsdauer', () => ZAHLUNGSDAUER_FEHLT);
+	wenn('umsatz_mitarbeiter', () => rechneUmsatzProMitarbeiter(an('umsatz_mitarbeiter'), d.mitarbeiter, g, preise));
+	return aus;
 }
 
 /** Alle Cockpit-Kennzahlen für den Zeitraum, mit Vorzeitraum (Trend) und Ampel. Sicht: der ganze Betrieb. */
@@ -380,13 +489,13 @@ export async function cockpit(k: Kontext, z: Zeitraum, preise: boolean, jetzt = 
 	const d = await mitBetrieb(k, async (tx) => {
 		const [angebote, auftraege] = [await ladeAngebote(tx, k, alle), await ladeAuftraege(tx, k, alle)];
 		const [ma] = await tx`select count(*)::int as n from app.kalkulation_mitarbeiter where betrieb_id = ${k.betriebId}`;
-		return { angebote, auftraege, mitarbeiter: ma.n as number };
+		return { angebote, auftraege, mitarbeiter: ma.n as number, e: await ladeEinstellungen(tx, k) };
 	});
 	const fertig = d.auftraege.filter((a) => a.abgenommenAm !== null).map((a) => a.id);
-	const minuten = await planIstMinuten(k, fertig, jetzt);
-	const jetztW = await cockpitWerte(k, z.spanne, preise, { ...d, minuten }, jetzt);
-	const vorherW = z.vorher ? await cockpitWerte(k, z.vorher, preise, { ...d, minuten }, jetzt) : null;
-	return KENNZAHL_IDS.map((id) => baueKennzahl(id, jetztW[id], vorherW ? vorherW[id] : null));
+	const minuten = istAktiv(d.e, 'produktivitaet') ? await planIstMinuten(k, fertig, jetzt) : new Map();
+	const jetztW = await cockpitWerte(k, z.spanne, preise, { ...d, minuten }, jetzt, d.e);
+	const vorherW = z.vorher ? await cockpitWerte(k, z.vorher, preise, { ...d, minuten }, jetzt, d.e) : null;
+	return KENNZAHL_IDS.filter((id) => istAktiv(d.e, id)).map((id) => ({ ...baueKennzahl(id, jetztW[id]!, vorherW ? (vorherW[id] ?? null) : null), seit: seitText(d.e, id) }));
 }
 
 // ——— Zeitmessung je Vorlagen-Aufgabe (msg 2858) ———
@@ -415,11 +524,27 @@ export const istKundenGruppe = (w: unknown): w is KundenGruppe => typeof w === '
 export async function kundenIdsFuer(k: Kontext, sicht: Sicht, z: Zeitraum, gruppe: KundenGruppe, heute = berlinTag(new Date())): Promise<Set<string>> {
 	return mitBetrieb(k, async (tx) => {
 		const ids = (l: readonly { kundeId: string | null }[]) => new Set(l.map((x) => x.kundeId).filter((x): x is string => !!x));
-		if (gruppe === 'aktiv') return ids((await ladeAuftraege(tx, k, sicht)).filter((a) => a.status !== 'abgenommen' && a.status !== 'abgerechnet'));
+		// gleiche Einstellungen wie die Kachel (Jamil msg 2946): aus → leer, sonst ab „Erfassen ab“
+		const e = await ladeEinstellungen(tx, k);
+		const id = `kunden_${gruppe}`;
+		if (!istAktiv(e, id)) return new Set<string>();
+		if (gruppe === 'aktiv') return ids(seit(await ladeAuftraege(tx, k, sicht), abTag(e, id), angelegtAn).filter((a) => a.status !== 'abgenommen' && a.status !== 'abgerechnet'));
 		const g = grenzenVon(z.spanne);
-		const l = (await ladeAngebote(tx, k, sicht)).filter(gezaehlt);
+		const l = seit(await ladeAngebote(tx, k, sicht), abTag(e, id), angelegtAn).filter(gezaehlt);
 		if (gruppe === 'angenommen') return ids(l.filter((a) => a.status === 'angenommen' && drin(a.angenommenAm, g)));
 		if (gruppe === 'abgelehnt') return ids(l.filter((a) => a.status === 'abgelehnt' && drin(a.abgelehntAm, g)));
 		return ids(l.filter((a) => istAbgelaufen(a, heute) && tagDrin(a.gueltigBis, z.spanne)));
 	});
+}
+
+/**
+ * Start-Kacheln (Katalog und Layout) ohne ausgeschaltete Kennzahlen (Jamil msg 2946): Einzel-Kennzahlen `kz-<id>`,
+ * „Nachfassen fällig“ und „Alle Kennzahlen“ (wenn keine Cockpit-Kennzahl mehr an ist). Ändert `erlaubt` und gibt es zurück.
+ */
+export async function ohneAusgeschalteteKacheln(k: Kontext, erlaubt: Set<string>): Promise<Set<string>> {
+	const { einstellungen: e } = await aktiveKennzahlen(k);
+	for (const id of KENNZAHL_IDS) if (!istAktiv(e, id)) erlaubt.delete(`kz-${id}`);
+	if (!istAktiv(e, 'auftraege_nachfassen')) erlaubt.delete('nachfassen');
+	if (!KENNZAHL_IDS.some((id) => istAktiv(e, id))) erlaubt.delete('kennzahlen');
+	return erlaubt;
 }

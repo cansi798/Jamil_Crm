@@ -10,7 +10,7 @@ import { gewinnSatz } from '$lib/auslastung';
 import { laufend } from '$lib/server/zeiterfassung';
 import { linksZuAuftraegen } from '$lib/server/auftrag-links';
 import { sichtVon } from '$lib/server/auftraege';
-import { siehtKennzahlen } from '$lib/server/kennzahlen';
+import { ohneAusgeschalteteKacheln, siehtKennzahlen } from '$lib/server/kennzahlen';
 import { startCockpit, type StartCockpit } from '$lib/server/start-cockpit';
 import { ablaufendeNachweise, erlaubteKacheln, ladeStartLayout, loescheStartLayout, neueBuchungen, speichereStartLayout, startRolle, type AblaufenderNachweis, type NeueBuchung } from '$lib/server/start-layout';
 import { KACHEL_ARTEN, LayoutFehler, pruefeLayout, standardLayout, type StartLayout } from '$lib/start-kacheln';
@@ -47,7 +47,8 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 	if (nutzer?.betriebId) {
 		const k0 = { betriebId: nutzer.betriebId, benutzerId: nutzer.id };
 		const module0 = await moduleDesBetriebs(k0);
-		const erlaubt = erlaubteKacheln(nutzer, module0);
+		// ausgeschaltete Kennzahlen (Einstellungen → Kennzahlen, msg 2946) weder im Katalog noch im Layout
+		const erlaubt = await ohneAusgeschalteteKacheln(k0, erlaubteKacheln(nutzer, module0));
 		const rolle = startRolle(nutzer);
 		({ layout, eigenes: eigenesLayout } = await ladeStartLayout(k0, erlaubt, rolle));
 		standard = standardLayout(rolle, erlaubt);
@@ -128,7 +129,7 @@ async function startKontext(locals: App.Locals) {
 	const nutzer = locals.nutzer;
 	if (!nutzer?.betriebId) return null;
 	const k = { betriebId: nutzer.betriebId, benutzerId: nutzer.id };
-	return { k, erlaubt: erlaubteKacheln(nutzer, await moduleDesBetriebs(k)) };
+	return { k, erlaubt: await ohneAusgeschalteteKacheln(k, erlaubteKacheln(nutzer, await moduleDesBetriebs(k))) };
 }
 
 export const actions: Actions = {

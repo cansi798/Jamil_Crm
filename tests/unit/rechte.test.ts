@@ -35,6 +35,7 @@ describe('Rechte und Vorlagen', () => {
 			'kundenportal.verwalten',
 			'vorlagen.verwalten',
 			'partner.verwalten',
+			'kennzahlen.verwalten',
 			'benutzer.verwalten',
 			'einstellungen'
 		]);
@@ -50,11 +51,12 @@ describe('Rechte und Vorlagen', () => {
 		expect([...VORLAGEN.chef].sort()).toEqual(Object.keys(RECHTE).sort());
 	});
 
-	it('Vorlage buero hat alle außer einstellungen, benutzer.verwalten und buchung.verwalten', () => {
+	it('Vorlage buero hat alle außer einstellungen, benutzer.verwalten, buchung.verwalten und kennzahlen.verwalten', () => {
 		expect(VORLAGEN.buero).not.toContain('einstellungen');
 		expect(VORLAGEN.buero).not.toContain('benutzer.verwalten');
 		expect(VORLAGEN.buero).not.toContain('buchung.verwalten');
-		expect(VORLAGEN.buero).toHaveLength(Object.keys(RECHTE).length - 3);
+		expect(VORLAGEN.buero).not.toContain('kennzahlen.verwalten');
+		expect(VORLAGEN.buero).toHaveLength(Object.keys(RECHTE).length - 4);
 		for (const r of VORLAGEN.buero) expect(Object.keys(RECHTE)).toContain(r);
 	});
 

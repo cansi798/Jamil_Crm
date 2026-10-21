@@ -204,6 +204,8 @@ export type KennzahlWert = {
 
 export type Kennzahl = KennzahlWert & {
 	id: KennzahlId;
+	/** „erfasst seit TT.MM.JJJJ“, wenn ein Startdatum gesetzt ist (Jamil msg 2946) */
+	seit?: string | null;
 	info: KennzahlInfo;
 	vorher: number | null;
 	ampel: Ampel | null;
@@ -250,4 +252,74 @@ export function aufgabenZeiten(liste: readonly AufgabenMessung[]): AufgabenZeite
 		warteTage: r1(schnitt(fertig.map((a) => tage(a.angelegt, a.begonnen ?? a.angelegt)))),
 		bearbeitungTage: r1(schnitt(fertig.map((a) => tage(a.begonnen ?? a.angelegt, a.erledigt!))))
 	};
+}
+
+// ——— Einstellungen je Kennzahl (Jamil msg 2946): an/aus und „Erfassen ab“ ———
+
+export type KonfigBereich = 'Cockpit' | 'Kunden' | 'Aufträge' | 'Angebote';
+export type KonfigEintrag = { id: string; bereich: KonfigBereich; titel: string; erklaerung: string };
+
+/** Alle einstellbaren Kennzahlen: die sieben des Cockpits und die Kacheln der Übersichtsseiten (auch auf „Start“). */
+export const KONFIG_KENNZAHLEN: readonly KonfigEintrag[] = [
+	...KENNZAHL_IDS.map((id) => ({ id, bereich: 'Cockpit' as const, titel: KENNZAHLEN[id].titel, erklaerung: KENNZAHLEN[id].formel })),
+	{ id: 'kunden_aktiv', bereich: 'Kunden', titel: 'Aktive Kunden', erklaerung: 'Kunden mit offenem Auftrag' },
+	{ id: 'kunden_angenommen', bereich: 'Kunden', titel: 'Kunden mit angenommenem Angebot', erklaerung: 'im gewählten Zeitraum' },
+	{ id: 'kunden_abgelehnt', bereich: 'Kunden', titel: 'Kunden mit abgelehntem Angebot', erklaerung: 'im gewählten Zeitraum' },
+	{ id: 'kunden_abgelaufen', bereich: 'Kunden', titel: 'Kunden mit abgelaufenem Angebot', erklaerung: 'versendet, ohne Antwort, Gültigkeit vorbei' },
+	{ id: 'auftraege_status', bereich: 'Aufträge', titel: 'Aufträge je Status', erklaerung: 'neue Aufträge im Zeitraum, je Status' },
+	{ id: 'auftraege_nachfassen', bereich: 'Aufträge', titel: 'Nachfassen fällig', erklaerung: 'auch unter „Handlungsbedarf“ auf Start' },
+	{ id: 'auftraege_wert', bereich: 'Aufträge', titel: 'Auftragswert offen', erklaerung: 'angenommen, noch nicht abgerechnet (nur mit Preisen)' },
+	{ id: 'angebote_entwurf', bereich: 'Angebote', titel: 'Angebots-Entwürfe', erklaerung: 'auch unter „Handlungsbedarf“ auf Start' },
+	{ id: 'angebote_offen', bereich: 'Angebote', titel: 'Offene Angebote', erklaerung: 'versendet und noch gültig' },
+	{ id: 'angebote_angenommen', bereich: 'Angebote', titel: 'Angenommene Angebote', erklaerung: 'im Zeitraum' },
+	{ id: 'angebote_abgelehnt', bereich: 'Angebote', titel: 'Abgelehnte Angebote', erklaerung: 'im Zeitraum' },
+	{ id: 'angebote_abgelaufen', bereich: 'Angebote', titel: 'Abgelaufene Angebote', erklaerung: 'auch unter „Handlungsbedarf“ auf Start' },
+	{ id: 'angebote_quote', bereich: 'Angebote', titel: 'Annahmequote', erklaerung: 'wie die Abschlussquote im Cockpit' },
+	{ id: 'angebote_schnitt', bereich: 'Angebote', titel: 'Ø Angebotswert', erklaerung: 'abgegebene Angebote im Zeitraum (nur mit Preisen)' }
+];
+export const KONFIG_IDS = KONFIG_KENNZAHLEN.map((k) => k.id);
+export const istKonfigId = (w: unknown): w is string => typeof w === 'string' && KONFIG_IDS.includes(w);
+
+/** Einstellung einer Kennzahl; fehlt sie, gilt: an, ohne Startdatum. */
+export type KennzahlEinstellung = { aktiv: boolean; ab: string | null };
+export type KennzahlEinstellungen = Record<string, KennzahlEinstellung>;
+export const STANDARD_EINSTELLUNG: KennzahlEinstellung = { aktiv: true, ab: null };
+export const einstellung = (e: KennzahlEinstellungen | null | undefined, id: string): KennzahlEinstellung => e?.[id] ?? STANDARD_EINSTELLUNG;
+export const istAktiv = (e: KennzahlEinstellungen | null | undefined, id: string) => einstellung(e, id).aktiv;
+export const abTag = (e: KennzahlEinstellungen | null | undefined, id: string) => einstellung(e, id).ab;
+
+/** Nur Datensätze, die am oder nach dem „Erfassen ab“-Tag angelegt wurden (Berliner Tag); ohne Datum: alle. */
+export function seit<T>(liste: readonly T[], ab: string | null, angelegt: (x: T) => Date): T[] {
+	if (!ab) return [...liste];
+	const grenze = Date.parse(`${ab}T00:00:00Z`) - 3 * 3_600_000; // vorsichtig: frühester möglicher Berliner Tagesbeginn (UTC+2)
+	return liste.filter((x) => {
+		const t = angelegt(x).getTime();
+		if (t < grenze) return false;
+		return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' }).format(angelegt(x)) >= ab;
+	});
+}
+
+/** „erfasst seit TT.MM.JJJJ“ für die Anzeige (oder null). */
+export function seitText(e: KennzahlEinstellungen | null | undefined, id: string): string | null {
+	const ab = abTag(e, id);
+	if (!ab) return null;
+	const [j, m, t] = ab.split('-');
+	return `erfasst seit ${t}.${m}.${j}`;
+}
+
+/**
+ * Kacheln einer Seite an die Einstellungen anpassen: ausgeschaltete weglassen, bei „Erfassen ab“ den Hinweis
+ * „erfasst seit …“ an die Info hängen. `konfigId` ordnet die Kachel-ID der Kennzahl zu.
+ */
+export function mitEinstellungen<T extends { id: string; info?: string | null }>(
+	kacheln: readonly T[],
+	konfig: { aus: readonly string[]; seit: Readonly<Record<string, string>> },
+	konfigId: (kachelId: string) => string
+): T[] {
+	return kacheln
+		.filter((k) => !konfig.aus.includes(konfigId(k.id)))
+		.map((k) => {
+			const s = konfig.seit[konfigId(k.id)];
+			return s ? { ...k, info: k.info ? `${k.info} · ${s}` : s } : k;
+		});
 }

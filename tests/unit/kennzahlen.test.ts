@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ampel, aufgabenZeiten, baueKennzahl, kennzahlText, quote, trend, zeitraum } from '../../src/lib/kennzahlen';
+import { ampel, aufgabenZeiten, baueKennzahl, kennzahlText, KONFIG_IDS, quote, seit, seitText, trend, zeitraum } from '../../src/lib/kennzahlen';
 import {
 	grenzenVon,
 	rechneAbschlussquote,
@@ -172,7 +172,7 @@ describe('Kacheln Kunden / Aufträge / Angebote', () => {
 	];
 
 	it('Kunden: aktiv = offene Aufträge; angenommen/abgelehnt/abgelaufen je Kunde; ohne Angebotsrechte null', () => {
-		expect(rechneKunden(auftraege, angebote, OKT, heute)).toEqual({ kundenAktiv: 2, kundenMitAngenommen: 2, kundenMitAbgelehnt: 1, kundenMitAbgelaufen: 1 });
+		expect(rechneKunden(auftraege, angebote, OKT, heute)).toEqual({ kundenAktiv: 2, kundenMitAngenommen: 2, kundenMitAbgelehnt: 1, kundenMitAbgelaufen: 1, aus: [], seit: {} });
 		expect(rechneKunden(auftraege, null, OKT, heute).kundenMitAngenommen).toBeNull();
 	});
 
@@ -204,5 +204,56 @@ describe('Zeitmessung je Vorlagen-Aufgabe', () => {
 		]);
 		expect(z).toEqual({ anzahl: 3, erledigt: 2, durchlaufTage: 2, warteTage: 0.5, bearbeitungTage: 1.5 });
 		expect(aufgabenZeiten([])).toMatchObject({ anzahl: 0, durchlaufTage: null });
+	});
+});
+
+describe('Einstellungen je Kennzahl (Jamil msg 2946): „Erfassen ab“ und an/aus', () => {
+	const heute = '2026-10-21';
+	const alt = d('2026-08-15T10:00:00Z');
+	const neu = d('2026-10-05T10:00:00Z');
+	const auftraege = [
+		auftrag({ id: 'alt', kundeId: 'kA', status: 'in_arbeit', angelegt: alt, nachfassenFaellig: true }),
+		auftrag({ id: 'neu', kundeId: 'kN', status: 'beauftragt', angelegt: neu, nachfassenFaellig: true })
+	];
+	const angebote = [
+		angebot({ kundeId: 'kA', auftragId: 'alt', status: 'angenommen', angelegt: alt, abgegebenAm: alt, angenommenAm: d('2026-10-02T08:00:00Z'), nettoCent: 100_000 }),
+		angebot({ kundeId: 'kN', auftragId: 'neu', status: 'angenommen', angelegt: neu, abgegebenAm: neu, angenommenAm: d('2026-10-06T08:00:00Z'), nettoCent: 50_000 }),
+		angebot({ status: 'entwurf', angelegt: alt, abgegebenAm: null }),
+		angebot({ status: 'entwurf', angelegt: neu, abgegebenAm: null })
+	];
+	const GESAMT = zeitraum('alle', heute);
+
+	it('seit(): Berliner Tag zählt (Mitternacht), ohne Datum alles', () => {
+		const l = [{ a: d('2026-09-30T21:59:00Z') }, { a: d('2026-09-30T22:00:00Z') }]; // 23:59 bzw. 00:00 Berliner Zeit
+		expect(seit(l, '2026-10-01', (x) => x.a)).toHaveLength(1);
+		expect(seit(l, null, (x) => x.a)).toHaveLength(2);
+		expect(seitText({ x: { aktiv: true, ab: '2026-10-01' } }, 'x')).toBe('erfasst seit 01.10.2026');
+		expect(seitText({}, 'x')).toBeNull();
+	});
+
+	it('Datum je Kennzahl: nur die betroffene Kennzahl ignoriert ältere Daten', () => {
+		const e = { kunden_aktiv: { aktiv: true, ab: '2026-10-01' } };
+		const r = rechneKunden(auftraege, angebote, GESAMT, heute, e);
+		expect(r).toMatchObject({ kundenAktiv: 1, kundenMitAngenommen: 2, seit: { kunden_aktiv: 'erfasst seit 01.10.2026' } });
+		const a = rechneAngebote(angebote, auftraege, GESAMT, heute, true, { angebote_entwurf: { aktiv: true, ab: '2026-10-01' }, angebote_quote: { aktiv: true, ab: '2026-10-01' } });
+		expect(a.entwurf).toBe(1);
+		expect(a.angenommen).toBe(2); // ohne eigenes Datum
+		expect(a.quote).toMatchObject({ zaehler: 1, nenner: 1 });
+		const au = rechneAuftraege(auftraege, angebote, GESAMT, { auftraege_wert: { aktiv: true, ab: '2026-10-01' }, auftraege_nachfassen: { aktiv: true, ab: '2026-10-01' } });
+		expect(au).toMatchObject({ wertOffenCent: 50_000, nachfassenFaellig: 1, jeStatus: { in_arbeit: 1, beauftragt: 1 } });
+	});
+
+	it('aus: nicht gerechnet (0/leer) und in „aus“ gemeldet, damit die Seite die Kachel weglässt', () => {
+		const r = rechneKunden(auftraege, angebote, GESAMT, heute, { kunden_angenommen: { aktiv: false, ab: null } });
+		expect(r).toMatchObject({ kundenMitAngenommen: 0, aus: ['kunden_angenommen'] });
+		const au = rechneAuftraege(auftraege, angebote, GESAMT, { auftraege_wert: { aktiv: false, ab: null }, auftraege_status: { aktiv: false, ab: null } });
+		expect(au).toMatchObject({ wertOffenCent: null, aus: ['auftraege_status', 'auftraege_wert'] });
+		expect(Object.values(au.jeStatus).every((n) => n === 0)).toBe(true);
+		expect(rechneAngebote(angebote, auftraege, GESAMT, heute, true, { angebote_quote: { aktiv: false, ab: null } }).quote.wert).toBeNull();
+	});
+
+	it('alle Kacheln der Seiten und alle Cockpit-Kennzahlen sind einstellbar (keine doppelten IDs)', () => {
+		expect(new Set(KONFIG_IDS).size).toBe(KONFIG_IDS.length);
+		for (const id of ['abschlussquote', 'zahlungsdauer', 'kunden_aktiv', 'auftraege_status', 'angebote_schnitt']) expect(KONFIG_IDS).toContain(id);
 	});
 });

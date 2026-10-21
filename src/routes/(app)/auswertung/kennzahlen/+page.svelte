@@ -72,6 +72,7 @@
 					{/if}
 				{/if}
 				{#if k.hinweis}<p class="kzc-hinweis">{k.hinweis}</p>{/if}
+				{#if k.seit}<p class="kzc-hinweis">{k.seit}</p>{/if}
 				<p class="kzc-formel"><span class="kd-info">Formel:</span> {k.info.formel}</p>
 				<details class="kzc-warum">
 					<summary>Warum wichtig?</summary>
@@ -81,7 +82,9 @@
 			</li>
 		{/each}
 	</ul>
+	{#if data.kennzahlen.length === 0}<p class="kd-leer">Alle Kennzahlen sind ausgeschaltet (Einstellungen → Kennzahlen).</p>{/if}
 	<p class="kd-info">
+		{#if data.darfEinstellen}<a href="/einstellungen/kennzahlen">Kennzahlen einstellen (an/aus, „Erfassen ab“)</a> ·{/if}
 		Zeitmessung je Aufgabe aus Auftrags-Vorlagen: unter <a href="/auftrag-vorlagen">Auftrags-Vorlagen</a> bei der jeweiligen Vorlage.
 		Nacharbeit markieren Sie in der Zeiterfassung (beim Nachtragen/Korrigieren) und an Aufgaben.
 	</p>

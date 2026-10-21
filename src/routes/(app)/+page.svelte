@@ -163,7 +163,7 @@
 					<li class={`st-kz ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
 						<strong>{kz.fehlt ? '–' : kennzahlText(kz.info.einheit, kz.wert)}</strong>
 						<span class="st-kz-titel">{kz.info.titel}</span>
-						<small>{kz.fehlt ?? kz.ampelText ?? kz.info.richtwert ?? ''}</small>
+						<small>{kz.fehlt ?? kz.ampelText ?? kz.info.richtwert ?? ''}{kz.seit ? ` · ${kz.seit}` : ''}</small>
 					</li>
 				{/each}
 			</ul>
@@ -173,7 +173,7 @@
 		<a href="/auswertung/kennzahlen" class={`heute-karte st-kz einzeln ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
 			<strong>{kz.fehlt ? '–' : kennzahlText(kz.info.einheit, kz.wert)}</strong>
 			<span class="st-kz-titel">{kz.info.titel}</span>
-			<small>{kz.fehlt ?? kz.ampelText ?? 'Dieser Monat'}</small>
+			<small>{kz.fehlt ?? kz.ampelText ?? 'Dieser Monat'}{kz.seit ? ` · ${kz.seit}` : ''}</small>
 		</a>
 	{:else if id === 'handlung' && data.cockpit}
 		<section class="heute-karte" aria-labelledby="st-hb">

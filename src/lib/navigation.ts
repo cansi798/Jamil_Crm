@@ -115,6 +115,9 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 			g.auswertungen.push({ name: 'Auswertung Auftragsquellen', href: '/auswertung/quellen', symbol: 'auftraege' });
 		}
 
+		// Kennzahlen einstellen (Jamil msg 2946): bei den Auswertungen, weil es deren Inhalt steuert
+		if (module.includes('auftraege') && hat('kennzahlen.verwalten')) g.auswertungen.push({ name: 'Kennzahlen einstellen', href: '/einstellungen/kennzahlen', symbol: 'katalog' });
+
 		// Automatisierung
 		if (hat('einstellungen') && module.includes('angebote')) {
 			g.automatisierung.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
