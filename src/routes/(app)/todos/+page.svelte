@@ -60,7 +60,7 @@
 		{/if}
 	</header>
 
-	<FilterLeiste label="Aufgaben filtern">
+	<FilterLeiste ansichten="todos" label="Aufgaben filtern">
 		{#snippet suche()}
 			{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
 			{#if !data.personFilter && data.nur !== 'meine'}<input type="hidden" name="nur" value={data.nur} />{/if}

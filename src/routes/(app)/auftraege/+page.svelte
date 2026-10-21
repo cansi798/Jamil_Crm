@@ -64,7 +64,7 @@
 		{/if}
 	</header>
 
-	<FilterLeiste label="Aufträge filtern">
+	<FilterLeiste ansichten="auftraege" label="Aufträge filtern">
 		{#snippet suche()}
 			{#if data.ansicht === 'liste'}<input type="hidden" name="ansicht" value="liste" />{/if}
 			{#if data.ansicht === 'liste' && data.status}<input type="hidden" name="status" value={data.status} />{/if}

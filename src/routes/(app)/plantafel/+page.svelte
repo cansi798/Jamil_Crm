@@ -206,7 +206,7 @@
 		</div>
 	</header>
 
-	<FilterLeiste form={false} label="Plantafel filtern">
+	<FilterLeiste ansichten="plantafel" form={false} label="Plantafel filtern">
 		{#snippet filter()}
 			<nav class="pt-wochen" aria-label="Zeitraum wählen">
 				<a href={schritt(-1)} class="kd-knopf hell" aria-label={SCHRITT_NAMEN[data.ansicht][0]}>‹</a>

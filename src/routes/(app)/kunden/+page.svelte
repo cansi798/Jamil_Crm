@@ -48,7 +48,7 @@
 		{/if}
 	</header>
 
-	<FilterLeiste label="Kunden filtern">
+	<FilterLeiste ansichten="kunden" label="Kunden filtern">
 		{#snippet suche()}
 			<SuchFeld wert={data.suche} label="Kunden suchen" placeholder="Name, Firma, Ort, Telefon oder E-Mail" />
 		{/snippet}

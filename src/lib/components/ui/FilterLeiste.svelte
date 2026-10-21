@@ -1,24 +1,32 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import GespeicherteAnsichten from './GespeicherteAnsichten.svelte';
 
 	/**
 	 * Filterleiste – auf jeder Listenseite gleich aufgebaut (docs/design-regeln.md):
 	 *   links Suche, daneben Filter-Chips (Person, Status …), rechts Ansicht/Zusatz.
 	 * Als GET-Formular (`form`, Standard) oder nur als Rahmen (`form={false}`), wenn die Seite selbst filtert.
+	 * `ansichten="<seite>"` zeigt rechts den Knopf „Gespeicherte Ansichten“ (Jamil msgs 2830, 2921).
 	 */
 	let {
 		suche,
 		filter,
 		rechts,
 		form = true,
-		label = 'Liste filtern'
-	}: { suche?: Snippet; filter?: Snippet; rechts?: Snippet; form?: boolean; label?: string } = $props();
+		label = 'Liste filtern',
+		ansichten
+	}: { suche?: Snippet; filter?: Snippet; rechts?: Snippet; form?: boolean; label?: string; ansichten?: string } = $props();
 </script>
 
 {#snippet inhalt()}
 	{#if suche}{@render suche()}{/if}
 	{#if filter}<div class="fl-filter">{@render filter()}</div>{/if}
-	{#if rechts}<div class="fl-rechts">{@render rechts()}</div>{/if}
+	{#if rechts || ansichten}
+		<div class="fl-rechts">
+			{#if ansichten}<GespeicherteAnsichten seite={ansichten} />{/if}
+			{#if rechts}{@render rechts()}{/if}
+		</div>
+	{/if}
 {/snippet}
 
 {#if form}

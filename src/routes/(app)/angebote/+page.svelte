@@ -55,7 +55,7 @@
 	</header>
 	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 
-	<FilterLeiste form={false} label="Angebote filtern">
+	<FilterLeiste ansichten="angebote" form={false} label="Angebote filtern">
 		{#snippet filter()}
 			<Umschalter
 				label="Status"

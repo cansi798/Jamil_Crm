@@ -22,7 +22,7 @@ const MIT_VORSITZUNG = '/(app)/konto/zwei-faktor';
 export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const nutzer = locals.nutzer;
 	if (!nutzer) {
-		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, erinnern: false, ungelesen: 0, laufendeZeit: null, farbStil: farbStil(null) };
+		if (route.id === MIT_VORSITZUNG) return { navigation: null, benutzerId: null, sprache: false, erinnern: false, ungelesen: 0, laufendeZeit: null, farbStil: farbStil(null), ansichtenTeilen: false };
 		redirect(303, '/anmelden');
 	}
 	const module = nutzer.betriebId
@@ -40,5 +40,5 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	const laufendeZeit = zeiten ? await laufend({ betriebId: nutzer.betriebId!, benutzerId: nutzer.id }, nutzer.id) : null;
 	// Hausfarbe des Betriebs (Briefkopf) als Akzent der ganzen App; ohne Angabe Gold (Theme „Handwerk“)
 	const farbe = nutzer.betriebId ? await hausfarbe({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }).catch(() => null) : null;
-	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe) };
+	return { navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache'), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe), ansichtenTeilen: hatRecht(nutzer, 'auftraege.alle_lesen') };
 };

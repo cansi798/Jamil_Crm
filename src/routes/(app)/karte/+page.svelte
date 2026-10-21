@@ -181,7 +181,7 @@
 		</div>
 	</header>
 
-	<FilterLeiste label="Karte filtern">
+	<FilterLeiste ansichten="karte" label="Karte filtern">
 		{#snippet suche()}
 			{#each data.filter.status as st (st)}<input type="hidden" name="status" value={st} />{/each}
 			{#if data.filter.von}<input type="hidden" name="von" value={data.filter.von} />{/if}

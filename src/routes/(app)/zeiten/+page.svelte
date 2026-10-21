@@ -1,4 +1,5 @@
 <script lang="ts">
+	import GespeicherteAnsichten from '$lib/components/ui/GespeicherteAnsichten.svelte';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import '$lib/stil/kunden.css';
@@ -36,6 +37,7 @@
 			<h1>Zeiten</h1>
 			<p class="seiten-meta">Arbeitszeitnachweis {n.person.name} · {data.ansicht === 'tag' ? tagDeutsch(n.von) : data.ansicht === 'monat' ? monatText(data.monat) : `${tagDeutsch(n.von)} – ${tagDeutsch(n.bis)}`}</p>
 		</div>
+		<GespeicherteAnsichten seite="zeiten" />
 
 	</header>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import GespeicherteAnsichten from '$lib/components/ui/GespeicherteAnsichten.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import '$lib/stil/kunden.css';
 	import { enhance } from '$app/forms';
@@ -23,6 +24,7 @@
 			<h1>Nachkalkulation</h1>
 			<p class="seiten-meta">Plan gegen Ist · Aufträge mit erfasster Zeit vom {tagDeutsch(a.von)} bis {tagDeutsch(a.bis)}</p>
 		</div>
+		<GespeicherteAnsichten seite="nachkalkulation" />
 	</header>
 	<form method="GET" class="nkw-filter">
 		<label>Von <input type="date" name="von" value={a.von} /></label>
