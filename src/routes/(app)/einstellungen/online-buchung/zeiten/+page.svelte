@@ -70,13 +70,13 @@
 					value={data.dienstId ?? ''}
 					onchange={(e) => goto(`?ma=${data.benutzerId}${e.currentTarget.value ? `&dienst=${e.currentTarget.value}` : ''}`, { noScroll: true })}
 				>
-					<option value="">alle Dienste</option>
+					<option value="">alle Terminarten</option>
 					{#each dienste as d (d.id)}<option value={d.id}>nur „{d.name}“{data.zeiten?.jeDienst[d.id] ? ' (eigene Zeiten)' : ''}</option>{/each}
 				</Auswahl>
 			</label>
 		</div>
 
-		<Abschnitt titel={dienstName ? `Wochenzeiten nur für „${dienstName}“` : 'Wochenzeiten (alle Dienste)'}>
+		<Abschnitt titel={dienstName ? `Wochenzeiten nur für „${dienstName}“` : 'Wochenzeiten (alle Terminarten)'}>
 			{#if dienstName}
 				<p class="kd-info">Sind hier Zeiten eingetragen, gelten für „{dienstName}“ nur diese. Leer = die allgemeinen Zeiten gelten.</p>
 			{/if}

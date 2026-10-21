@@ -149,8 +149,14 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 - `npm test`: Unit-Tests (`tests/unit`).
 - `npm run test:db`: Datenbank-Tests (`tests/db`) gegen frisch angelegte Datenbanken, laufen nacheinander. Sie prüfen
   vor allem RLS, Rollenrechte, SECURITY-DEFINER-Funktionen, Protokoll-Trigger und die Idempotenz des Seeds.
-- E2E (Playwright, Browser stecken im Image): braucht die laufende Vorschau mit Seed-Daten und `.zugangsdaten-dev`.
-  Vom Host aus:
+- E2E (Playwright, Browser stecken im Image): laufen standardmäßig gegen einen EIGENEN Testserver mit eigener
+  Datenbank (`scripts/start-testserver.sh`, `http://127.0.0.1:8310`; Aufruf und Container siehe Kopf des Skripts) –
+  nicht gegen die Vorschau. Specs, die Buchungen, Kundenportal-Links oder Testkunden anlegen (`buchung`, `kundenportal`,
+  `portal-passwort`, `terminart`), überspringen sich gegen die Vorschau (`crm.waybuild-software.de` bzw. Port 8300)
+  von selbst (`tests/e2e/ziel.ts`); erzwingen nur mit `CRM_E2E_VORSCHAU=1`. Lesende Tests gegen die Vorschau:
+  `BASE_URL=http://127.0.0.1:8300`. Schreibende Specs räumen in `afterAll` (auch nach Fehlern) über
+  `/api/testmodus/aufraeumen` alles weg, was ihr Lauf angelegt hat (nur im Testmodus erreichbar, nur „E2E …“-Daten
+  mit der Kennung des Laufs). Vom Host aus:
 
   ```sh
   sudo docker run --rm --network host -v <pfad-zum-repo>:/w -w /w \
@@ -212,12 +218,15 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     nur über SECURITY-DEFINER-Funktionen für `crm_auth` in Betrieb/Link bzw. Buchung aufgelöst
     (`app.buchung_link_aufloesen`, `app.buchung_verwaltung_aufloesen`); alles Weitere läuft als `crm_app` mit RLS im
     Kontext genau dieses Betriebs, ohne Benutzer (`mitBetriebOeffentlich`, Protokoll-Quelle `online-buchung`). Nach
-    außen gehen nur Betrieb (Name, Kontakt, Logo, Farbe), Dienst und freie Anfangszeiten – Mitarbeiter höchstens mit
+    außen gehen nur Betrieb (Name, Kontakt, Logo, Farbe), Terminart und freie Anfangszeiten – Mitarbeiter höchstens mit
     Vornamen. Vom Verwaltungs-Token steht nur der SHA-256 in der Datenbank. Doppelbuchung: Sperre je Betrieb
     (`pg_advisory_xact_lock`) plus Ausschluss-Bedingung (`btree_gist`) auf `app.buchungen`. Spam-Schutz:
     Begrenzung je IP/Link (im Speicher; hinter einem Proxy `ADDRESS_HEADER`/`XFF_DEPTH` setzen), Honigtopf-Feld,
     signierter Zeitstempel (mindestens 3 s). Einbetten nur auf den Domains aus Einstellungen → Online-Buchung bzw.
     `CRM_BUCHUNG_EINBETTEN` (CSP `frame-ancestors` je Seite, `X-Frame-Options` entfällt dort). Recht `buchung.verwalten`.
+    Terminarten (Migration 104, Jamil msg 3074): Die früheren „Dienste“ (Tabelle `app.buchung_dienste`) sind die EINE
+    Liste der Terminarten je Betrieb (Einstellungen → Terminarten); Einsätze können eine haben (`einsaetze.terminart_id`),
+    öffentlich buchbar sind nur Terminarten mit „online buchbar“ (auch in `app.buchung_link_aufloesen` geprüft).
 16. Zeiterfassung (Modul `zeiterfassung`, Migration 080): `zeiterfassung.nutzen` (eigene Zeiten und Material) und
     `zeiterfassung.alle_sehen` (alle sehen, korrigieren, freigeben); jede Zeit gehört zu einem Auftrag. Je Person läuft höchstens
     ein Abschnitt (eindeutiger Teilindex), Abschnitte einer Person überschneiden sich nie (Ausschluss-Bedingung).

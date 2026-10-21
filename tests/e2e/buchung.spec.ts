@@ -1,13 +1,44 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { erwarteKeinQuerScrollen, personenWaehlen } from './hilfe';
+import { nurAufTestserver } from './ziel';
 
 /**
- * Online-Buchung (Jamil msgs 2684/2686) im Browser, gegen die Vorschau im Testmodus:
- * Chef legt einen Dienst (Murat + Sabine, abwechselnd) mit Frage und Mitarbeiter-Link an, Arbeitszeiten Mo–Fr 8–17;
+ * Online-Buchung (Jamil msgs 2684/2686) im Browser, gegen einen eigenen Testserver im Testmodus (nie die Vorschau):
+ * Chef legt eine Terminart (Murat + Sabine, abwechselnd) mit Frage und Mitarbeiter-Link an, Arbeitszeiten Mo–Fr 8–17;
  * ein Kunde bucht über den Murat-Link (ohne Anmeldung) → Kunde, Auftrag „Anfrage“ und Termin entstehen, zuständig ist
  * immer Murat; ein zweiter Kunde, der dieselbe Zeit gewählt hat, bekommt „nicht mehr frei“. Am Ende sagt der Kunde ab
- * und der Chef räumt Auftrag und Kunde auf. Bildschirmfotos (BILDSCHIRMFOTOS=<ordner>) als crm-buchung-*.png.
+ * und die Terminart wird gelöscht (mit Buchungen: nur ausgeschaltet). Danach – auch wenn der Test vorher scheitert –
+ * räumt `afterAll` über /api/testmodus/aufraeumen alles weg, was der Lauf angelegt hat (Terminart, Buchungen, Aufträge,
+ * Termine, Kunden). Bildschirmfotos (BILDSCHIRMFOTOS=<ordner>) als crm-buchung-*.png.
  */
+
+// legt Terminarten, Buchungen, Aufträge und Kunden an – nie gegen die Vorschau (Jamil msgs 3075/3076)
+nurAufTestserver(test);
+
+/** Kennungen der Läufe dieser Datei (je Projekt eine) – `afterAll` räumt genau diese auf. */
+const kennungen: string[] = [];
+
+test.afterAll(async ({ browser }) => {
+	if (kennungen.length === 0) return;
+	const ctx = await browser.newContext();
+	try {
+		const page = await ctx.newPage();
+		await page.goto('/anmelden');
+		await page.getByLabel('Benutzername').fill('can.chef');
+		await page.getByRole('button', { name: 'Anmelden' }).click();
+		await expect(page).not.toHaveURL(/\/anmelden/);
+		for (const kennung of kennungen.splice(0)) {
+			// über fetch im Browser (das Sitzungs-Cookie ist „Secure“ und geht über http nur im Browser auf 127.0.0.1 mit)
+			const r = await page.evaluate(async (k) => {
+				const a = await fetch('/api/testmodus/aufraeumen', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kennung: k }) });
+				return { status: a.status, text: await a.text() };
+			}, kennung);
+			expect(r.status, r.text).toBe(200);
+		}
+	} finally {
+		await ctx.close();
+	}
+});
 
 const MURAT = 'Murat Öztürk';
 const SABINE = 'Sabine Schäfer';
@@ -67,10 +98,11 @@ async function angabenAusfuellen(p: Page, nachname: string, email: string) {
 	await p.getByRole('checkbox', { name: /Ich bin einverstanden/ }).check();
 }
 
-test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhindert, Link nur für Murat', async ({ page, browser }, info) => {
+test('Online-Buchung: Terminart anlegen, buchen ohne Anmeldung, Doppelbuchung verhindert, Link nur für Murat', async ({ page, browser }, info) => {
 	test.setTimeout(180_000);
 	const projekt = info.project.name;
 	const kennung = `${projekt}-${Date.now().toString(36)}`;
+	kennungen.push(kennung);
 	const dienstName = `E2E Besichtigung ${kennung}`;
 	await alsChef(page);
 
@@ -79,14 +111,14 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 	await arbeitszeiten(page, SABINE);
 	await foto(page, `${projekt}-zeiten`);
 
-	// 2. Dienst anlegen: abwechselnd Murat + Sabine
-	await page.goto('/einstellungen/online-buchung');
-	await page.getByRole('button', { name: 'Dienst hinzufügen' }).click();
-	const neu = page.getByRole('region', { name: 'Dienst hinzufügen' });
+	// 2. Terminart anlegen (online buchbar): abwechselnd Murat + Sabine
+	await page.goto('/einstellungen/terminarten');
+	await page.getByRole('button', { name: 'Terminart hinzufügen' }).click();
+	const neu = page.getByRole('region', { name: 'Terminart hinzufügen' });
 	await neu.getByLabel('Name').fill(dienstName);
 	await personenWaehlen(neu, 'Mitarbeiter', [MURAT, SABINE]);
 	await neu.getByRole('button', { name: 'Anlegen' }).click();
-	await expect(page).toHaveURL(/\/einstellungen\/online-buchung\/[0-9a-f-]{36}$/);
+	await expect(page).toHaveURL(/\/einstellungen\/terminarten\/[0-9a-f-]{36}$/);
 	const dienstUrl = page.url();
 
 	// Vorlauf „keiner“, eine Ja/Nein-Frage, speichern
@@ -162,9 +194,9 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 	const dritte = page.locator('li', { hasText: `Dritter ${kennung}` });
 	await expect(dritte).toContainText(MURAT);
 	await expect(dritte).not.toContainText(SABINE);
-	const auftrag3Url = new URL((await dritte.getByRole('link', { name: 'Auftrag' }).getAttribute('href'))!, page.url()).href;
+	await expect(dritte.getByRole('link', { name: 'Auftrag' })).toBeVisible();
 
-	// 6. Aufräumen: Kunden sagen ab (Termine frei), Dienst ausschalten/löschen
+	// 6. Kunden sagen ab (Termine frei); abgesagte Buchungen zählen nicht mehr als „kommend“ (Jamil msgs 3075/3076)
 	for (const k of [kunde1, kunde3]) {
 		await k.goto(k.url().replace('?neu=1', ''));
 		await k.getByRole('button', { name: 'Termin absagen' }).click();
@@ -174,23 +206,16 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 	await foto(kunde1, `${projekt}-abgesagt`);
 	await page.goto(auftragUrl);
 	await expect(page.getByTestId('online-buchung')).toContainText('vom Kunden abgesagt');
+	await page.goto('/einstellungen/online-buchung');
+	const kommend = page.getByRole('region', { name: 'Kommende Buchungen' });
+	await expect(kommend.getByRole('list', { name: 'Kommende Buchungen' }).getByText(`Bucher ${kennung}`)).toHaveCount(0);
+	await expect(kommend.getByText(/^Abgesagt \(\d+\)$/)).toBeVisible();
 	await page.goto(dienstUrl);
-	// Löschen steht oben rechts und fragt unter dem Kopf nach (Jamil msg 3043)
-	await page.getByRole('button', { name: 'Dienst löschen' }).click();
+	// Löschen steht oben rechts und fragt unter dem Kopf nach (Jamil msg 3043); mit Buchungen nur ausgeschaltet
+	await page.getByRole('button', { name: 'Terminart löschen' }).click();
 	await page.getByRole('button', { name: 'Endgültig löschen' }).click();
 	await expect(page.getByRole('status').filter({ hasText: 'nur ausgeschaltet' })).toBeVisible();
 	expect((await kunde1.request.get(pfad)).status()).toBe(404);
 	for (const k of [kunde1, kunde2, kunde3]) await k.context().close();
-	// Aufträge und Kunden der Test-Buchungen wieder löschen
-	for (const url of [auftragUrl, auftrag3Url]) {
-		await page.goto(url);
-		const kundeUrl = new URL((await page.locator('.af-kunde-kurz a').first().getAttribute('href'))!, page.url()).href;
-		await page.getByRole('button', { name: 'Auftrag löschen' }).click();
-		await page.getByRole('button', { name: 'Endgültig löschen' }).click();
-		await expect(page).not.toHaveURL(url);
-		await page.goto(kundeUrl);
-		await page.getByRole('button', { name: 'Kunde löschen' }).click();
-		await page.getByRole('button', { name: 'Endgültig löschen' }).click();
-		await expect(page).not.toHaveURL(kundeUrl);
-	}
+	// Aufträge, Termine, Kunden und die Terminart selbst räumt afterAll weg
 });

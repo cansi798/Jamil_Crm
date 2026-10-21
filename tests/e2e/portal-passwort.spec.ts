@@ -1,10 +1,14 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { erwarteKeinQuerScrollen } from './hilfe';
+import { nurAufTestserver } from './ziel';
 
 /**
  * Kundenportal mit Passwort und „Kundenportal öffnen“ (Jamil msgs 3035–3037). Legt einen EIGENEN Testkunden an
  * (nie einen echten Kunden – ein neuer Link widerruft den alten) und löscht ihn am Ende wieder.
  */
+
+// legt Kundenportal-Links an (widerruft dabei den Link des Kunden) – nie gegen die Vorschau (Jamil msgs 3075/3076)
+nurAufTestserver(test);
 
 async function chef(browser: Browser, viewport: { width: number; height: number }) {
 	const ctx = await browser.newContext({ viewport, locale: 'de-DE', timezoneId: 'Europe/Berlin' });

@@ -327,6 +327,7 @@
 				mitarbeiter={aktive}
 				auftraege={data.auftraege}
 				kolonnen={data.kolonnen}
+				terminarten={data.terminarten}
 				onfertig={fertig}
 				onschliessen={() => (dialog = null)}
 			/>

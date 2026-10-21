@@ -325,7 +325,7 @@ async function ausfuehrenJe(
 			const { legeDienstAn } = await import('../buchung');
 			const ids = (w.mitarbeiterIds as (string | null)[]).filter((x): x is string => !!x);
 			const d = await legeDienstAn(k, { name: w.dienst?.name, dauerMin: w.dienst?.dauerMin, modus: ids.length === 1 ? 'fest' : 'beliebig' }, ids);
-			return { status: 201, meldung: `Dienst „${d.name}“ angelegt`, link: `/einstellungen/online-buchung/${d.id}`, warnungen: [] };
+			return { status: 201, meldung: `Terminart „${d.name}“ angelegt`, link: `/einstellungen/terminarten/${d.id}`, warnungen: [] };
 		}
 		case 'vorlage_anwenden': {
 			const { wendeVorlageAn } = await import('../auftrag-vorlagen');

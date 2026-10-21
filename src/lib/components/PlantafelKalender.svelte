@@ -124,12 +124,12 @@
 				style:grid-column={`${b.start + 1} / span ${b.laenge}`}
 				style:grid-row={b.spur + 2}
 				style:--farbe={farbe(t)}
-				title={`${t.zeit} · ${t.titel} – ${t.kundeName} · ${personenText(t)}`}
+				title={`${t.zeit} · ${t.terminart ? `${t.terminart.name} · ` : ''}${t.titel} – ${t.kundeName} · ${personenText(t)}`}
 				draggable="false"
 				onpointerdown={(ev) => runter(ev, t, 'schieben', balkenTag(woche, b.start))}
 				onclick={klick}
 			>
-				<span class="kal-text">{#if hoch}<b>{t.zeit.slice(0, 5)}</b> {/if}{t.kundeName || t.titel}{#if !t.auftragId}{' 📌'}{/if}{#if hoch}{` · ${personenText(t)}`}{/if}</span>
+				<span class="kal-text">{#if t.terminart}<span class="kal-ta" style:background={t.terminart.farbe} title={t.terminart.name} aria-hidden="true"></span>{/if}{#if hoch}<b>{t.zeit.slice(0, 5)}</b> {/if}{t.kundeName || t.titel}{#if !t.auftragId}{' 📌'}{/if}{#if hoch}{` · ${personenText(t)}`}{/if}</span>
 				{#if darfPlanen && t.gruppeId && !b.weiterRechts}
 					<span
 						class="kal-griff"
@@ -161,6 +161,7 @@
 						<a href={t.auftragId ? `/auftraege/${t.auftragId}` : `/plantafel?ansicht=tag&tag=${tag}`} class="kal-eintrag">
 							<span class="kal-zeit">{t.zeit}{t.vonTag !== t.bisTag ? ` · ${tagKurz(t.vonTag)}–${tagKurz(t.bisTag)}` : ''}</span>
 							<strong>{t.titel}</strong>
+							{#if t.terminart}<span class="kal-terminart"><span class="kal-ta" style:background={t.terminart.farbe} aria-hidden="true"></span>{t.terminart.name}</span>{/if}
 							<span>{t.kundeName}{t.ort ? ` · ${t.ort}` : ''}</span>
 							<span class="kal-wer">{t.kolonne ? `${t.kolonne.name}: ` : ''}{t.personen.map((p) => p.name).join(', ')}{t.warnung ? ' · ⚠ Warnung' : ''}</span>
 						</a>
@@ -406,5 +407,21 @@
 			font-size: 0.75rem;
 			padding: 0 0.15rem;
 		}
+	}
+	.kal-ta {
+		display: inline-block;
+		width: 0.55rem;
+		height: 0.55rem;
+		margin-right: 0.25rem;
+		border-radius: 999px;
+		border: 1px solid rgb(255 255 255 / 0.8);
+		vertical-align: middle;
+		flex: none;
+	}
+	.kal-terminart {
+		display: inline-flex;
+		align-items: center;
+		font-size: var(--ui-schrift-s, 0.85rem);
+		color: var(--ui-text-leise);
 	}
 </style>

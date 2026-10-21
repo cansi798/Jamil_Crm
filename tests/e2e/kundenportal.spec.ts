@@ -1,5 +1,6 @@
 import { expect, test, type Browser } from '@playwright/test';
 import { erwarteKeinQuerScrollen } from './hilfe';
+import { nurAufTestserver } from './ziel';
 
 /**
  * Kundenportal (Jamil msgs 2770–2774 Punkt 4, 2778): Chef erzeugt beim Kunden des Auftrags „Ladenumbau Trockenbau“ (Seed: versendetes
@@ -7,6 +8,9 @@ import { erwarteKeinQuerScrollen } from './hilfe';
  * + AGB-Häkchen, keine Unterschrift) → Auftragsbestätigung erscheint. Die Annahme läuft nur, solange das Angebot noch
  * offen ist (erster Lauf); danach prüft der Test nur noch die Anzeige. Am Ende wird der Link widerrufen.
  */
+
+// legt Kundenportal-Links an (widerruft dabei den Link des Kunden) – nie gegen die Vorschau (Jamil msgs 3075/3076)
+nurAufTestserver(test);
 
 async function chef(browser: Browser, viewport: { width: number; height: number }) {
 	const ctx = await browser.newContext({ viewport, locale: 'de-DE', timezoneId: 'Europe/Berlin' });

@@ -5,6 +5,8 @@ build/
 .zugangsdaten-dev
 .zugangsdaten-test
 vorschau.log
+testserver.log
+.testserver.pid
 .vorschau.pid
 test-results/
 playwright-report/

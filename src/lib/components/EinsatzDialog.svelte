@@ -20,7 +20,9 @@
 		notiz: string | null;
 		gruppe?: { id: string; vonTag: string; bisTag: string } | null;
 		kolonne?: { id: string; name: string } | null;
+		terminart?: { id: string; name: string; farbe: string } | null;
 	};
+	type Terminart = { id: string; name: string; farbe: string; dauerMin: number; einsatzArt: string; aktiv: boolean };
 	type AuftragKurz = { id: string; nummer: string; titel: string; kundeName: string };
 
 	/**
@@ -36,6 +38,7 @@
 		mitarbeiter,
 		auftraege,
 		kolonnen = [],
+		terminarten = [],
 		onfertig,
 		onschliessen
 	}: {
@@ -45,6 +48,8 @@
 		auftraege: AuftragKurz[];
 		/** Kolonnen zur Auswahl „Wer“ (Wunsch Jamil msg 2510). */
 		kolonnen?: { id: string; name: string; mitglieder: { id: string; name: string }[] }[];
+		/** Terminarten des Betriebs (Jamil msg 3074), gepflegt unter Einstellungen → Terminarten */
+		terminarten?: Terminart[];
 		onfertig: (ergebnis: { aktion: 'angelegt' | 'geaendert' | 'geloescht'; einsatz: any }) => void;
 		onschliessen: () => void;
 	} = $props();
@@ -83,6 +88,28 @@
 	let von = $state(start.von);
 	let bis = $state(start.bis);
 	let notiz = $state(start.notiz);
+	// Terminart (optional, „– keine –“); wählbar sind eingeschaltete, eine ausgeschaltete am Einsatz bleibt sichtbar
+	const terminartAlt = untrack(() => einsatz?.terminart?.id ?? '');
+	let terminartId = $state(terminartAlt);
+	let dauerHinweis = $state<string | null>(null);
+	const terminartWahl = $derived(terminarten.filter((t) => t.aktiv || t.id === terminartAlt));
+	const terminartGewaehlt = $derived(terminarten.find((t) => t.id === terminartId) ?? null);
+
+	/** „09:30“ + 90 Minuten → „11:00“ (über Mitternacht: endet am Folgetag, wie sonst auch). */
+	function plusMinuten(uhrzeit: string, minuten: number): string {
+		const [h, m] = uhrzeit.split(':').map(Number);
+		const gesamt = (((h * 60 + m + minuten) % 1440) + 1440) % 1440;
+		return `${String(Math.floor(gesamt / 60)).padStart(2, '0')}:${String(gesamt % 60).padStart(2, '0')}`;
+	}
+
+	/** Terminart gewählt: Dauer übernehmen (Bis = Von + Dauer). */
+	function terminartGewaehltAendern() {
+		dauerHinweis = null;
+		const t = terminarten.find((x) => x.id === terminartId);
+		if (!t || !t.dauerMin || !/^\d{2}:\d{2}$/.test(von)) return;
+		bis = plusMinuten(von, t.dauerMin);
+		dauerHinweis = `Dauer ${t.dauerMin} Min. übernommen – „Bis“ ist jetzt ${bis} Uhr.`;
+	}
 	// Eigener Termin ohne Auftrag (Wunsch Jamil msg 2682), z. B. „Zahnarzt“
 	let eigen = $state(untrack(() => !!einsatz && !einsatz.auftragId));
 	let titel = $state(untrack(() => (einsatz && !einsatz.auftragId ? einsatz.auftragTitel : '')));
@@ -197,13 +224,14 @@
 					vonZeit: von,
 					bisZeit: bis,
 					notiz,
-					ohneWochenende
+					ohneWochenende,
+					...terminartFelder()
 				});
 				const alle = g.einsaetze as { warnungen: unknown[] }[];
 				onfertig({ aktion: 'angelegt', einsatz: { ...alle[0], warnungen: alle.flatMap((x) => x.warnungen) } });
 				return;
 			}
-			const koerper = { ...(eigen ? { auftragId: null, titel: titel.trim() } : { auftragId }), benutzerId, ...zeiten, notiz, ...erinnerungen };
+			const koerper = { ...(eigen ? { auftragId: null, titel: titel.trim() } : { auftragId }), benutzerId, ...zeiten, notiz, ...terminartFelder(), ...erinnerungen };
 			const ergebnis = einsatz
 				? await senden('PATCH', `/api/einsaetze/${einsatz.id}`, koerper)
 				: await senden('POST', '/api/einsaetze', koerper);
@@ -213,6 +241,13 @@
 		} finally {
 			sendet = false;
 		}
+	}
+
+	/** Terminart mitsenden; eine neu gewählte bringt ihre Art (Besichtigung/Montage/Wartung) mit. */
+	function terminartFelder(): Record<string, string | null> {
+		if (einsatz && terminartId === terminartAlt) return {};
+		const t = terminarten.find((x) => x.id === terminartId);
+		return t ? { terminartId: t.id, art: t.einsatzArt } : { terminartId: null };
 	}
 
 	async function gruppeAendern(art: 'ende' | 'loeschen') {
@@ -284,6 +319,22 @@
 					{/each}
 				</Auswahl>
 			</label>
+		{/if}
+
+		{#if terminarten.length > 0 || terminartAlt}
+			<label class="pt-terminart">
+				<span class="pt-terminart-titel">
+					Terminart
+					{#if terminartGewaehlt}<span class="pt-farbpunkt" style:background={terminartGewaehlt.farbe} aria-hidden="true"></span>{/if}
+				</span>
+				<Auswahl name="terminartId" bind:value={terminartId} onchange={terminartGewaehltAendern}>
+					<option value="">– keine –</option>
+					{#each terminartWahl as t (t.id)}
+						<option value={t.id}>{t.name}{t.dauerMin ? ` (${t.dauerMin} Min.)` : ''}{t.aktiv ? '' : ' – ausgeschaltet'}</option>
+					{/each}
+				</Auswahl>
+			</label>
+			{#if dauerHinweis}<p class="kd-info" role="status">{dauerHinweis}</p>{/if}
 		{/if}
 
 		{#if einsatz?.gruppe}
@@ -380,6 +431,17 @@
 </dialog>
 
 <style>
+	.pt-terminart-titel {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.pt-farbpunkt {
+		width: 0.75rem;
+		height: 0.75rem;
+		border-radius: 999px;
+		flex: none;
+	}
 	.pt-erinnern {
 		display: flex;
 		flex-wrap: wrap;

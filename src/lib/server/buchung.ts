@@ -58,6 +58,8 @@ export type Dienst = {
 	ortArt: OrtArt;
 	farbe: string;
 	aktiv: boolean;
+	/** erscheint in der Online-Buchung (Jamil msg 3074); sonst nur in der Plantafel wählbar */
+	onlineBuchbar: boolean;
 	modus: Modus;
 	einsatzArt: EinsatzArt;
 	adresse: AdresseArt;
@@ -78,7 +80,7 @@ export const regelnVon = (d: Pick<Dienst, 'dauerMin' | 'pufferVorMin' | 'pufferN
 	maxProTag: d.maxProTag
 });
 
-const nichtGefunden = () => new ApiFehler(404, 'Dienst nicht gefunden.');
+const nichtGefunden = () => new ApiFehler(404, 'Terminart nicht gefunden.');
 export function pruefeId(id: unknown, fehler: () => ApiFehler = nichtGefunden): string {
 	if (typeof id !== 'string' || !UUID.test(id.trim())) throw fehler();
 	return id.trim().toLowerCase();
@@ -152,6 +154,7 @@ export function pruefeDienstEingabe(e: Record<string, unknown>): DienstWerte {
 		ortArt: auswahl(e.ortArt, ORT_ARTEN, 'kunde', 'Ort'),
 		farbe: (farbe as string).toLowerCase(),
 		aktiv: janein(e.aktiv, true),
+		onlineBuchbar: janein(e.onlineBuchbar, true),
 		modus: auswahl(e.modus, MODI, 'beliebig', 'Mitarbeiter'),
 		einsatzArt,
 		adresse: auswahl(e.adresse, ADRESSE_ARTEN, 'pflicht', 'Adresse'),
@@ -161,7 +164,7 @@ export function pruefeDienstEingabe(e: Record<string, unknown>): DienstWerte {
 }
 
 const AUSWAHL = `d.id, d.name, d.beschreibung, d.dauer_min, d.puffer_vor_min, d.puffer_nach_min, d.vorlauf_min, d.horizont_tage,
-	d.max_pro_tag, d.ort_art, d.farbe, d.aktiv, d.modus, d.einsatz_art, d.adresse, d.fragen, d.quelle_id`;
+	d.max_pro_tag, d.ort_art, d.farbe, d.aktiv, d.online_buchbar, d.modus, d.einsatz_art, d.adresse, d.fragen, d.quelle_id`;
 
 export function zuDienst(z: Record<string, any>): Omit<Dienst, 'mitarbeiter' | 'links' | 'kommend'> {
 	return {
@@ -177,6 +180,7 @@ export function zuDienst(z: Record<string, any>): Omit<Dienst, 'mitarbeiter' | '
 		ortArt: z.ort_art,
 		farbe: z.farbe,
 		aktiv: z.aktiv,
+		onlineBuchbar: z.online_buchbar ?? true,
 		modus: z.modus,
 		einsatzArt: z.einsatz_art,
 		adresse: z.adresse,
@@ -235,7 +239,7 @@ async function pruefeQuelle(tx: TransactionSql, k: Kontext, quelleId: string | n
 /** Prüft Mitarbeiter-IDs (aktiv, im Betrieb) und die Regel „fester Mitarbeiter = genau einer“. */
 async function pruefeMitarbeiter(tx: TransactionSql, k: Kontext, ids: string[], modus: Modus): Promise<string[]> {
 	const eindeutig = [...new Set(ids.map((i) => pruefeId(i, () => new ApiFehler(400, 'Mitarbeiter: ungültige Auswahl.'))))];
-	if (eindeutig.length > 50) throw new ApiFehler(400, 'Höchstens 50 Mitarbeiter je Dienst.');
+	if (eindeutig.length > 50) throw new ApiFehler(400, 'Höchstens 50 Mitarbeiter je Terminart.');
 	if (eindeutig.length > 0) {
 		const z = await tx`select id from app.benutzer where betrieb_id = ${k.betriebId} and aktiv and id = any(${eindeutig}::uuid[])`;
 		if (z.length !== eindeutig.length) throw new ApiFehler(400, 'Mitarbeiter: ungültige Auswahl.');
@@ -273,13 +277,13 @@ export async function legeDienstAn(k: Kontext, e: Record<string, unknown>, mitar
 		await pruefeQuelle(tx, k, w.quelleId);
 		const ids = await pruefeMitarbeiter(tx, k, mitarbeiter, w.modus);
 		const [gleich] = await tx`select 1 from app.buchung_dienste where betrieb_id = ${k.betriebId} and lower(btrim(name)) = lower(${w.name})`;
-		if (gleich) throw new ApiFehler(409, `Es gibt schon einen Dienst „${w.name}“.`);
+		if (gleich) throw new ApiFehler(409, `Es gibt schon eine Terminart „${w.name}“.`);
 		const [{ n }] = await tx`select coalesce(max(sortierung), 0)::int + 1 as n from app.buchung_dienste where betrieb_id = ${k.betriebId}`;
 		const [z] = await tx`
 			insert into app.buchung_dienste (betrieb_id, name, beschreibung, dauer_min, puffer_vor_min, puffer_nach_min, vorlauf_min,
-				horizont_tage, max_pro_tag, ort_art, farbe, aktiv, modus, einsatz_art, adresse, fragen, quelle_id, sortierung)
+				horizont_tage, max_pro_tag, ort_art, farbe, aktiv, online_buchbar, modus, einsatz_art, adresse, fragen, quelle_id, sortierung)
 			values (${k.betriebId}, ${w.name}, ${w.beschreibung}, ${w.dauerMin}, ${w.pufferVorMin}, ${w.pufferNachMin}, ${w.vorlaufMin},
-				${w.horizontTage}, ${w.maxProTag}, ${w.ortArt}, ${w.farbe}, ${w.aktiv}, ${w.modus}, ${w.einsatzArt}, ${w.adresse},
+				${w.horizontTage}, ${w.maxProTag}, ${w.ortArt}, ${w.farbe}, ${w.aktiv}, ${w.onlineBuchbar}, ${w.modus}, ${w.einsatzArt}, ${w.adresse},
 				${tx.json(w.fragen as never)}, ${w.quelleId}, ${n})
 			returning id`;
 		await setzeMitarbeiter(tx, k, z.id, ids);
@@ -297,12 +301,12 @@ export async function aendereDienst(k: Kontext, id: unknown, e: Record<string, u
 		await pruefeQuelle(tx, k, w.quelleId);
 		const ids = await pruefeMitarbeiter(tx, k, mitarbeiter ?? alt.mitarbeiter.map((m) => m.id), w.modus);
 		const [gleich] = await tx`select 1 from app.buchung_dienste where betrieb_id = ${k.betriebId} and lower(btrim(name)) = lower(${w.name}) and id <> ${did}`;
-		if (gleich) throw new ApiFehler(409, `Es gibt schon einen Dienst „${w.name}“.`);
+		if (gleich) throw new ApiFehler(409, `Es gibt schon eine Terminart „${w.name}“.`);
 		await tx`
 			update app.buchung_dienste set name = ${w.name}, beschreibung = ${w.beschreibung}, dauer_min = ${w.dauerMin},
 				puffer_vor_min = ${w.pufferVorMin}, puffer_nach_min = ${w.pufferNachMin}, vorlauf_min = ${w.vorlaufMin},
 				horizont_tage = ${w.horizontTage}, max_pro_tag = ${w.maxProTag}, ort_art = ${w.ortArt}, farbe = ${w.farbe},
-				aktiv = ${w.aktiv}, modus = ${w.modus}, einsatz_art = ${w.einsatzArt}, adresse = ${w.adresse},
+				aktiv = ${w.aktiv}, online_buchbar = ${w.onlineBuchbar}, modus = ${w.modus}, einsatz_art = ${w.einsatzArt}, adresse = ${w.adresse},
 				fragen = ${tx.json(w.fragen as never)}, quelle_id = ${w.quelleId}
 			where id = ${did} and betrieb_id = ${k.betriebId}`;
 		await setzeMitarbeiter(tx, k, did, ids);
@@ -349,6 +353,43 @@ export async function loescheDienst(k: Kontext, id: unknown): Promise<'geloescht
 	});
 }
 
+/** Reihenfolge ändern: eine Terminart um eine Stelle nach oben (-1) oder unten (+1) – gilt für Plantafel und Buchung. */
+export async function verschiebeDienst(k: Kontext, id: unknown, richtung: unknown): Promise<void> {
+	const did = pruefeId(id);
+	const schritt = richtung === -1 || richtung === '-1' || richtung === 'hoch' ? -1 : richtung === 1 || richtung === '1' || richtung === 'runter' ? 1 : 0;
+	if (schritt === 0) throw new ApiFehler(400, 'Richtung: hoch oder runter.');
+	await mitBetrieb(k, async (tx) => {
+		const z = await tx`
+			select id from app.buchung_dienste where betrieb_id = ${k.betriebId}
+			order by sortierung, public.unaccent(lower(name)), id for update`;
+		const ids = z.map((r) => r.id as string);
+		const i = ids.indexOf(did);
+		if (i < 0) throw nichtGefunden();
+		const j = i + schritt;
+		if (j < 0 || j >= ids.length) return;
+		[ids[i], ids[j]] = [ids[j], ids[i]];
+		// fortlaufend neu nummerieren (ältere Daten können gleiche Sortierung haben)
+		for (const [n, x] of ids.entries()) await tx`update app.buchung_dienste set sortierung = ${n + 1} where id = ${x} and betrieb_id = ${k.betriebId}`;
+	});
+}
+
+/** Kurzform für die Auswahl „Terminart“ im Einsatz-Dialog (Plantafel). */
+export type TerminartKurz = { id: string; name: string; farbe: string; dauerMin: number; einsatzArt: EinsatzArt; aktiv: boolean };
+
+/**
+ * Terminarten zur Auswahl beim Planen (ohne Mitarbeiter, Links, Fragen) in der gepflegten Reihenfolge. Das Recht zum
+ * Planen prüft der Aufrufer. Ausgeschaltete Terminarten kommen mit `aktiv: false` (an bestehenden Einsätzen bleiben
+ * sie sichtbar, neu wählbar sind sie nicht).
+ */
+export async function listeTerminarten(k: Kontext): Promise<TerminartKurz[]> {
+	return mitBetrieb(k, async (tx) => {
+		const z = await tx`
+			select id, name, farbe, dauer_min, einsatz_art, aktiv from app.buchung_dienste where betrieb_id = ${k.betriebId}
+			order by sortierung, public.unaccent(lower(name)), id`;
+		return z.map((r) => ({ id: r.id, name: r.name, farbe: r.farbe, dauerMin: r.dauer_min, einsatzArt: r.einsatz_art, aktiv: r.aktiv }));
+	});
+}
+
 // ——— Links ———
 
 const linkNichtGefunden = () => new ApiFehler(404, 'Buchungslink nicht gefunden.');
@@ -359,7 +400,7 @@ export async function legeMitarbeiterLinkAn(k: Kontext, dienstId: unknown, benut
 	const bid = pruefeId(benutzerId, () => new ApiFehler(400, 'Mitarbeiter: ungültige Auswahl.'));
 	return mitBetrieb(k, async (tx) => {
 		const [m] = await tx`select 1 from app.buchung_dienst_mitarbeiter where dienst_id = ${did} and benutzer_id = ${bid} and betrieb_id = ${k.betriebId}`;
-		if (!m) throw new ApiFehler(400, 'Der Mitarbeiter ist diesem Dienst nicht zugeordnet.');
+		if (!m) throw new ApiFehler(400, 'Der Mitarbeiter ist dieser Terminart nicht zugeordnet.');
 		await tx`insert into app.buchung_links (betrieb_id, dienst_id, benutzer_id, token) values (${k.betriebId}, ${did}, ${bid}, ${neuesToken()}) on conflict do nothing`;
 		const [d] = await ladeDienste(tx, k.betriebId, did);
 		return d.links.find((l) => l.benutzerId === bid)!;

@@ -93,7 +93,8 @@ async function ladeLink(tx: TransactionSql, k: Kontext): Promise<LinkDaten> {
 	const [l] = await tx`select dienst_id, benutzer_id, quelle_id from app.buchung_links where id = ${k.linkId} and betrieb_id = ${k.betriebId} and aktiv`;
 	if (!l) throw nichtGefunden();
 	const [dienst] = await ladeDienste(tx, k.betriebId, l.dienst_id);
-	if (!dienst || !dienst.aktiv) throw nichtGefunden();
+	// nur eingeschaltete UND online buchbare Terminarten (Jamil msg 3074)
+	if (!dienst || !dienst.aktiv || !dienst.onlineBuchbar) throw nichtGefunden();
 	// Nur aktive Mitarbeiter des Dienstes; ein Link für einen Mitarbeiter liefert nur diesen
 	const aktiv = await tx`select id from app.benutzer where betrieb_id = ${k.betriebId} and aktiv and id = any(${dienst.mitarbeiter.map((m) => m.id)}::uuid[])`;
 	const aktiveIds = new Set(aktiv.map((r) => r.id as string));
@@ -364,8 +365,8 @@ export async function bucheTermin(token: unknown, e: Buchungseingabe, o: { jetzt
 					returning id, nummer`;
 				await tx`insert into app.auftrag_zustaendige (betrieb_id, auftrag_id, benutzer_id) values (${k.betriebId}, ${auftrag.id}, ${benutzerId})`;
 				const [einsatz] = await tx`
-					insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art)
-					values (${k.betriebId}, ${auftrag.id}, ${benutzerId}, ${beginn}, ${ende}, ${`Online-Buchung: ${l.dienst.name} (${ORT_NAMEN[l.dienst.ortArt]})`.slice(0, 500)}, ${l.dienst.einsatzArt})
+					insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art, terminart_id)
+					values (${k.betriebId}, ${auftrag.id}, ${benutzerId}, ${beginn}, ${ende}, ${`Online-Buchung: ${l.dienst.name} (${ORT_NAMEN[l.dienst.ortArt]})`.slice(0, 500)}, ${l.dienst.einsatzArt}, ${l.dienst.id})
 					returning id`;
 				// Fotos zum Auftrag (Dokumente); in den Antworten stehen danach die echten Datei-IDs
 				const zuordnung = new Map<string, string>();

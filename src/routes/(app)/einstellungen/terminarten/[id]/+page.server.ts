@@ -21,7 +21,7 @@ import {
 } from '$lib/server/buchung';
 import { alsWahl, listeMailVorlagen } from '$lib/server/mail-vorlagen';
 
-/** Ein Dienst der Online-Buchung: Angaben, Mitarbeiter, Fragen, Buchungslinks mit Einbett-Code. */
+/** Eine Terminart (Jamil msg 3074): Angaben, „online buchbar“, Mitarbeiter, Fragen, Buchungslinks mit Einbett-Code. */
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	if (!locals.nutzer) redirect(303, '/anmelden');
 	await alsSeitenFehler(() => buchungZugriff(locals));
@@ -41,7 +41,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		quellen: quellen.map((q) => ({ id: q.id, name: q.name })),
 		einstellungen,
 		buchungen,
-		// Terminbestätigung: Vorlage je Dienst (leer = Standard), Bibliothek Jamil msg 2789
+		// Terminbestätigung: Vorlage je Terminart (leer = Standard), Bibliothek Jamil msg 2789
 		mailVorlagen: alsWahl(mailVorlagen).filter((v) => v.zweck === 'buchungsbestaetigung' || v.zweck === 'allgemein'),
 		mailVorlageId,
 		// öffentliche Adresse der Anwendung (für Links und Einbett-Code)
@@ -74,6 +74,7 @@ export const actions: Actions = {
 			if (typeof w === 'string') e[feld] = w;
 		}
 		e.aktiv = f.get('aktiv') === 'on' || f.get('aktiv') === 'true';
+		e.onlineBuchbar = f.get('onlineBuchbar') === 'on' || f.get('onlineBuchbar') === 'true';
 		return mit(locals, 'dienst', () => aendereDienst(betriebKontext(locals), params.id, e, mitarbeiterAus(f)));
 	},
 	linkAnlegen: async ({ locals, request, params }) => {
@@ -102,7 +103,7 @@ export const actions: Actions = {
 		} catch (e) {
 			return alsFormFehler(e, { bereich: 'loeschen' });
 		}
-		if (ergebnis === 'geloescht') redirect(303, '/einstellungen/online-buchung');
+		if (ergebnis === 'geloescht') redirect(303, '/einstellungen/terminarten');
 		return { bereich: 'loeschen', ergebnis };
 	}
 };

@@ -14,6 +14,7 @@
 		warnungen: Warnung[];
 		gruppe?: { id: string; vonTag: string; bisTag: string } | null;
 		kolonne?: { id: string; name: string } | null;
+		terminart?: { id: string; name: string; farbe: string } | null;
 	};
 </script>
 
@@ -67,7 +68,7 @@
 	const warnText = (e: Einsatz) =>
 		[...new Set(e.warnungen.map((w) => WARN_NAMEN[w.art]))].map((t) => `Achtung: ${t}`).join(', ');
 	const kartenLabel = (e: Einsatz) =>
-		[`${zeit(e)}, ${e.auftragNummer}, ${e.kundeName}, ${e.benutzerName}`, warnText(e)].filter(Boolean).join(' – ');
+		[`${zeit(e)}, ${e.auftragNummer}, ${e.kundeName}, ${e.terminart ? `${e.terminart.name}, ` : ''}${e.benutzerName}`, warnText(e)].filter(Boolean).join(' – ');
 
 	/** Einsätze je „Mitarbeiter|Tag“; Kolonnen-Einsätze zusätzlich je „ko:Kolonne|Tag“ (einer je Gruppe). */
 	const zellen = $derived.by(() => {
@@ -217,6 +218,7 @@
 			<span class="pt-zeit">{seg && seg !== 'anfang' ? '↳ ' : ''}{zeit(e)}{#if e.warnungen.length > 0}<span class="pt-warnzeichen" aria-hidden="true"> ⚠</span>{/if}</span>
 			<span class="pt-nr">{e.auftragNummer}{lane ? ` · ${personenImTermin(e, tag)} Pers.` : ''}</span>
 			<span class="pt-kunde">{e.kundeName}</span>
+			{#if e.terminart}<span class="pt-terminart"><span class="pt-ta-punkt" style:background={e.terminart.farbe} aria-hidden="true"></span>{e.terminart.name}</span>{/if}
 		</button>
 		{#if ziehbar && seg === 'ende'}
 			<button
@@ -243,6 +245,7 @@
 			<span class="pt-zeit">{zeit(e)}{#if e.warnungen.length > 0}<span class="pt-warnzeichen" aria-hidden="true"> ⚠</span>{/if}</span>
 			<span class="pt-nr">{e.auftragNummer || `📌 ${e.auftragTitel}`}</span>
 			<span class="pt-kunde">{e.kundeName}</span>
+			{#if e.terminart}<span class="pt-terminart"><span class="pt-ta-punkt" style:background={e.terminart.farbe} aria-hidden="true"></span>{e.terminart.name}</span>{/if}
 		</a>
 	{/if}
 {/snippet}
@@ -698,5 +701,21 @@
 			padding: 1rem;
 			color: var(--text-leise);
 		}
+	}
+	.pt-terminart {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 0.72rem;
+	}
+	.pt-ta-punkt {
+		width: 0.55rem;
+		height: 0.55rem;
+		border-radius: 999px;
+		flex: none;
 	}
 </style>

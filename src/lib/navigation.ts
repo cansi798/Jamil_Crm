@@ -91,6 +91,10 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 			g.stammdaten.push({ name: 'Kalkulation', href: '/kalkulation', symbol: 'katalog' });
 		}
 		if (hat('einstellungen') && module.includes('auftraege')) g.stammdaten.push({ name: 'Auftragsquellen', href: '/einstellungen/quellen', symbol: 'auftraege' });
+		// Terminarten (Jamil msg 3074): eine Liste für Plantafel und Online-Buchung (früher „Dienste“ unter Online-Buchung)
+		if (module.includes('auftraege') && module.includes('plantafel') && hat('buchung.verwalten')) {
+			g.stammdaten.push({ name: 'Terminarten', href: '/einstellungen/terminarten', symbol: 'plantafel' });
+		}
 		// Briefkopf und Logo (für Angebote): Betriebsdaten, ohne Modulbindung
 		if (hat('einstellungen')) g.stammdaten.push({ name: 'Briefkopf / Firmenprofil', href: '/einstellungen/briefkopf', symbol: 'briefkopf' });
 
@@ -124,7 +128,7 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 			g.automatisierung.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
 			g.automatisierung.push({ name: 'Kundenportal & Auftragsbestätigung', href: '/einstellungen/kundenportal', symbol: 'angebote' });
 		}
-		// Online-Buchung (Wunsch Jamil msgs 2684/2686): Dienste, Buchungslinks, Arbeitszeiten
+		// Online-Buchung (Wunsch Jamil msgs 2684/2686): Buchungen, Arbeitszeiten, Datenschutz/Einbetten
 		if (module.includes('auftraege') && module.includes('plantafel') && hat('buchung.verwalten')) {
 			g.automatisierung.push({ name: 'Online-Buchung', href: '/einstellungen/online-buchung', symbol: 'plantafel' });
 		}

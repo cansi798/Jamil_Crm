@@ -899,13 +899,13 @@ async function quelleSetzen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { a
 	return bau;
 }
 
-/** „Neuer Dienst Besichtigungstermin 60 Minuten für Murat“ (Online-Buchung, msgs 2684/2686). */
+/** „Neue Terminart Besichtigungstermin 60 Minuten für Murat“ (Terminarten, Jamil msg 3074; früher „Dienst“). */
 async function dienstAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'dienst_anlegen' }>['daten']): Promise<Bau> {
 	const bau = neuerBau();
-	const name = d.name.replace(/^(?:neue[nrs]?\s+)?dienst\s+/i, '').trim();
+	const name = d.name.replace(/^(?:neue[nrs]?\s+)?(?:dienst|terminart)\s+/i, '').trim();
 	const dauer = d.dauer_minuten ?? 60;
 	bau.werte.dienst = { name: name.charAt(0).toUpperCase() + name.slice(1), dauerMin: dauer };
-	bau.zeilen.push({ label: 'Dienst', wert: bau.werte.dienst.name });
+	bau.zeilen.push({ label: 'Terminart', wert: bau.werte.dienst.name });
 	bau.zeilen.push({ label: 'Dauer', wert: `${dauer} Minuten${d.dauer_minuten ? '' : ' (Standard)'}` });
 	const namen = d.mitarbeiter ?? [];
 	if (namen.length > 0) {
@@ -960,7 +960,7 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_monatsgewinn: 'Gewinn diesen Monat',
 	abfrage_nachfassen: 'Nachfassen fällig',
 	kalender_zeigen: 'Kalender',
-	dienst_anlegen: 'Dienst anlegen (Online-Buchung)',
+	dienst_anlegen: 'Terminart anlegen',
 	buchungslink_zeigen: 'Buchungslink',
 	abfrage_nachkalkulation: 'Nachkalkulation',
 	abfrage_verlust: 'Aufträge mit Verlust',

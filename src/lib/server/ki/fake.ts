@@ -313,9 +313,9 @@ function eigenerTermin(t: string, kontext: KiKontext): { aktion: string; daten: 
 	};
 }
 
-/** „Neuer Dienst Besichtigungstermin 60 Minuten für Murat (und Ali)“ → dienst_anlegen */
+/** „Neue Terminart (früher: neuer Dienst) Besichtigungstermin 60 Minuten für Murat (und Ali)“ → dienst_anlegen */
 function dienstAnlegen(t: string): { aktion: string; daten: Record<string, unknown> } {
-	let rest = t.replace(/^.*?\b(?:neue[nrs]?\s+dienst|dienst\s+(?:anlegen|erstellen|hinzufügen))\b\s*[:,]?\s*/i, '');
+	let rest = t.replace(/^.*?\b(?:neue[nrs]?\s+(?:dienst|terminart)|(?:dienst|terminart)\s+(?:anlegen|erstellen|hinzufügen))\b\s*[:,]?\s*/i, '');
 	const fuer = /\s+(?:für|fuer|mit)\s+(.+)$/i.exec(rest);
 	const mitarbeiter = fuer ? fuer[1].split(/\s*,\s*|\s+und\s+/).map(sauber).filter((n) => n && istNamensWort(n)) : [];
 	if (fuer) rest = rest.slice(0, fuer.index);
@@ -373,7 +373,7 @@ export function deute(text: string, kontext: KiKontext, einzeln = false): { akti
 		const dienst = m ? sauber(m[1]).replace(/^(?:dienst)\s+/i, '') : '';
 		return { aktion: 'buchungslink_zeigen', daten: dienst ? { dienst } : {} };
 	}
-	if (/\b(neue[nrs]?\s+dienst|dienst\s+(anlegen|erstellen|hinzufügen))\b/.test(l)) return dienstAnlegen(t);
+	if (/\b(neue[nrs]?\s+(dienst|terminart)|(dienst|terminart)\s+(anlegen|erstellen|hinzufügen))\b/.test(l)) return dienstAnlegen(t);
 	if (/\broute\b/.test(l)) {
 		const kolonne = /\bkolonne\s+([A-ZÄÖÜ0-9][\wäöüß-]*)/i.exec(t);
 		const person = /\b(?:von|für|fuer)\s+(?!heute|mich|morgen)([A-ZÄÖÜ][\wäöüß-]+)/.exec(t);

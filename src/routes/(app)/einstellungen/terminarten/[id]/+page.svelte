@@ -3,7 +3,7 @@
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	/**
-	 * Dienst der Online-Buchung bearbeiten (Wunsch Jamil msgs 2684/2686): Angaben (Dauer, Puffer, Vorlauf, Horizont,
+	 * Terminart bearbeiten (Jamil msg 3074; früher „Dienst“ der Online-Buchung, msgs 2684/2686): Angaben (Dauer, Puffer, Vorlauf, Horizont,
 	 * Tagesgrenze, Ort, Farbe), Mitarbeiter (fest/abwechselnd), eigene Fragen an den Kunden (gleicher Baukasten wie bei
 	 * den Protokoll-Vorlagen), Buchungslinks mit Einbett-Code für die Website.
 	 */
@@ -15,11 +15,11 @@
 	import Schalter from '$lib/components/ui/Schalter.svelte';
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
+	import BuchungenListe from '$lib/components/BuchungenListe.svelte';
 	import FormularBaukasten from '$lib/components/protokoll/FormularBaukasten.svelte';
 	import { ADRESSE_ARTEN, FRAGE_TYPEN, MODI, MODUS_NAMEN, ORT_ARTEN, ORT_NAMEN, type AdresseArt } from '$lib/buchung';
 	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN } from '$lib/einsatz-art';
 	import { neueId, pruefeSchema, SchemaFehler, type Schema } from '$lib/protokoll-formular';
-	import { berlinTag, berlinUhrzeit, tagKurz } from '$lib/zeit';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -71,7 +71,6 @@
 	}
 
 	const ohneLink = $derived(d.mitarbeiter.filter((m) => !d.links.some((l) => l.benutzerId === m.id)));
-	const wann = (iso: string) => `${tagKurz(berlinTag(new Date(iso)))} ${berlinUhrzeit(new Date(iso))}`;
 	const nachSpeichern = () => async ({ update, result }: { update: (o?: { reset?: boolean }) => Promise<void>; result: { type: string } }) => {
 		await update({ reset: false });
 		if (result.type === 'success') {
@@ -79,7 +78,7 @@
 			gewaehlt = data.dienst.mitarbeiter.map((m) => m.id);
 		}
 	};
-	/** Jamil msg 3043: „Dienst löschen“ oben rechts, Rückfrage unter dem Kopf. */
+	/** Jamil msg 3043: „Terminart löschen“ oben rechts, Rückfrage unter dem Kopf. */
 	let loeschenOffen = $state(false);
 	$effect(() => {
 		if (okIn('loeschen')) loeschenOffen = false;
@@ -88,24 +87,25 @@
 </script>
 
 <svelte:head>
-	<title>{d.name} – Online-Buchung</title>
+	<title>{d.name} – Terminart</title>
 </svelte:head>
 
 <main class="kd-seite breit ob-seite">
-	<a href="/einstellungen/online-buchung" class="kd-zurueck">← Online-Buchung</a>
+	<a href="/einstellungen/terminarten" class="kd-zurueck">← Terminarten</a>
 	<header class="seiten-kopf">
 		<div>
 			<h1><span class="ob-farbe" style={`background:${d.farbe}`} aria-hidden="true"></span>{d.name}</h1>
+			<p class="seiten-meta">Terminart · {d.onlineBuchbar ? 'online buchbar' : 'nur Plantafel'}{d.aktiv ? '' : ' · ausgeschaltet'}</p>
 		</div>
 		<div class="seiten-aktionen">
-			<LoeschenKnopf ding="Dienst" bind:offen={loeschenOffen} />
+			<LoeschenKnopf ding="Terminart" bind:offen={loeschenOffen} />
 		</div>
 	</header>
-	<LoeschenPanel ding="Dienst" bind:offen={loeschenOffen} fehler={fehlerIn('loeschen')}>
-		Der Dienst „{d.name}“ wird endgültig gelöscht. Hat er schon Buchungen, wird er nur ausgeschaltet.
+	<LoeschenPanel ding="Terminart" bind:offen={loeschenOffen} fehler={fehlerIn('loeschen')}>
+		Die Terminart „{d.name}“ wird endgültig gelöscht; geplante Einsätze bleiben (ohne Terminart). Hat sie schon Online-Buchungen, wird sie nur ausgeschaltet.
 	</LoeschenPanel>
 	{#if form?.bereich === 'loeschen' && 'ergebnis' in form && form.ergebnis === 'deaktiviert'}
-		<p class="kt-hinweis" role="status">Der Dienst hat Buchungen und wurde deshalb nur ausgeschaltet.</p>
+		<p class="kt-hinweis" role="status">Die Terminart hat Online-Buchungen und wurde deshalb nur ausgeschaltet.</p>
 	{/if}
 
 	<form method="POST" action="?/speichern" use:enhance={nachSpeichern} class="ob-form" id="dienst-form">
@@ -149,11 +149,12 @@
 					</label>
 					<label class="ob-farbwahl">Farbe <input type="color" name="farbe" value={d.farbe} /></label>
 				</div>
-				<Schalter name="aktiv" an={d.aktiv} label="Buchbar (aktiv)" hinweis="ausgeschaltet: Links zeigen „nicht gültig“" />
+				<Schalter name="aktiv" an={d.aktiv} label="Eingeschaltet" hinweis="aus: weder in der Plantafel noch online neu wählbar" />
+				<Schalter name="onlineBuchbar" an={d.onlineBuchbar} label="Online buchbar" hinweis="Kunden können diese Terminart über die Buchungslinks selbst buchen; aus: nur in der Plantafel" />
 			</div>
 		</Abschnitt>
 
-		<Abschnitt titel="Mitarbeiter">
+		<Abschnitt titel="Mitarbeiter (Online-Buchung)">
 			<fieldset class="ob-wahl">
 				<legend>Wer wird gebucht?</legend>
 				<Segmente name="modus" label="Wer wird gebucht?" bind:wert={modus} optionen={MODI.map((m) => ({ wert: m, text: MODUS_NAMEN[m] }))} />
@@ -173,7 +174,7 @@
 			</p>
 		</Abschnitt>
 
-		<Abschnitt titel="Fragen an den Kunden">
+		<Abschnitt titel="Fragen an den Kunden (Online-Buchung)">
 			<p class="kd-info ob-intro">
 				Immer abgefragt: Vorname, Name, E-Mail, Telefon und (je nach Einstellung) die Adresse. Dazu eigene Fragen – Text, Auswahl, Ja/Nein, Zahl, Datum,
 				Foto – auch mit Bedingung („nur zeigen, wenn …“).
@@ -202,12 +203,13 @@
 	</Abschnitt>
 
 	<Abschnitt titel="Buchungslinks" anzahl={d.links.length}>
+		{#if !d.onlineBuchbar}<p class="kt-hinweis" role="note">„Online buchbar“ ist aus – die Links zeigen „nicht gültig“, bis es wieder eingeschaltet ist.</p>{/if}
 		{#if fehlerIn('links')}<p class="kd-fehler" role="alert">{fehlerIn('links')}</p>{/if}
 		<ul class="ob-links">
 			{#each d.links as l (l.id)}
 				<li class:aus={!l.aktiv}>
 					<div class="ob-link-kopf">
-						<strong>{l.benutzerId ? `Nur ${l.benutzerName}` : 'Alle Mitarbeiter des Dienstes'}</strong>
+						<strong>{l.benutzerId ? `Nur ${l.benutzerName}` : 'Alle Mitarbeiter der Terminart'}</strong>
 						{#if !l.aktiv}<span class="badge badge-rot">aus</span>{/if}
 					</div>
 					<div class="ob-link-zeile">
@@ -222,7 +224,7 @@
 							<label>
 								Auftragsquelle
 								<Auswahl name="quelleId" onchange={(e) => e.currentTarget.form?.requestSubmit()}>
-									<option value="" selected={!l.quelleId}>wie Dienst</option>
+									<option value="" selected={!l.quelleId}>wie Terminart</option>
 									{#each data.quellen as q (q.id)}<option value={q.id} selected={l.quelleId === q.id}>{q.name}</option>{/each}
 								</Auswahl>
 							</label>
@@ -265,20 +267,7 @@
 		{/if}
 	</Abschnitt>
 
-	<Abschnitt titel="Kommende Buchungen" anzahl={data.buchungen.filter((b) => b.status === 'aktiv').length}>
-		{#if data.buchungen.length === 0}
-			<p class="kd-leer">Noch keine Buchungen für diesen Dienst.</p>
-		{:else}
-			<ul class="kd-liste">
-				{#each data.buchungen as b (b.id)}
-					<li class:ob-abgesagt={b.status !== 'aktiv'}>
-						<strong>{wann(b.beginn)}</strong> – {b.kundeName} · {b.mitarbeiterName}
-						{#if b.auftragId}<a href={`/auftraege/${b.auftragId}`}>Auftrag</a>{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</Abschnitt>
+	<BuchungenListe buchungen={data.buchungen} mitTerminart={false} leer="Keine kommenden Buchungen für diese Terminart." />
 </main>
 
 <style>
@@ -419,9 +408,5 @@
 		cursor: pointer;
 		color: var(--ui-akzent-text);
 		font-weight: 600;
-	}
-	.ob-abgesagt {
-		text-decoration: line-through;
-		color: var(--ui-text-leise);
 	}
 </style>

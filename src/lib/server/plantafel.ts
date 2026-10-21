@@ -44,6 +44,8 @@ export type Einsatz = {
 	notiz: string | null;
 	/** Besichtigung, Montage oder Wartung. */
 	art: EinsatzArt;
+	/** Terminart aus der gepflegten Liste des Betriebs (Jamil msg 3074) oder keine. */
+	terminart: { id: string; name: string; farbe: string } | null;
 	warnungen: Warnung[];
 	/** Mehrtägiger Termin bzw. Kolonnen-Einsatz: gemeinsame Gruppe (erster/letzter Tag), sonst null. */
 	gruppe: { id: string; vonTag: string; bisTag: string } | null;
@@ -126,9 +128,24 @@ function zeitpunkt(wert: unknown, name: string): Date {
 	return d;
 }
 
-type EinsatzWerte = { auftragId: string | null; titel: string | null; benutzerId: string; beginn: Date; ende: Date; notiz: string | null; art: EinsatzArt };
+type EinsatzWerte = {
+	auftragId: string | null;
+	titel: string | null;
+	benutzerId: string;
+	beginn: Date;
+	ende: Date;
+	notiz: string | null;
+	art: EinsatzArt;
+	terminartId: string | null;
+};
 
-export const EINSATZ_FELDER = ['auftragId', 'titel', 'benutzerId', 'beginn', 'ende', 'notiz', 'art'] as const;
+export const EINSATZ_FELDER = ['auftragId', 'titel', 'benutzerId', 'beginn', 'ende', 'notiz', 'art', 'terminartId'] as const;
+
+/** Terminart (optional): leer = keine, sonst eine ID; ob sie zum Betrieb gehört, prüft `pruefeTerminart`. */
+function terminartFeld(w: unknown): string | null {
+	if (w === undefined || w === null || w === '') return null;
+	return idFeld(w, 'Terminart: ungültige Auswahl.');
+}
 
 /** Prüft einen vollständigen Einsatz (400 mit klarer Meldung). */
 export function pruefeEinsatzEingabe(e: Record<string, unknown>): EinsatzWerte {
@@ -147,7 +164,16 @@ export function pruefeEinsatzEingabe(e: Record<string, unknown>): EinsatzWerte {
 	// Art: ohne Angabe „Montage“ (wie bisherige Einsätze)
 	const art = e.art === undefined || e.art === null || e.art === '' ? 'montage' : e.art;
 	if (!istEinsatzArt(art)) throw new ApiFehler(400, 'Bitte eine Art wählen: Besichtigung, Montage oder Wartung.');
-	return { auftragId, titel: auftragId ? null : titel, benutzerId, beginn, ende, notiz: textFeld(e.notiz, 'Notiz', 500), art };
+	return {
+		auftragId,
+		titel: auftragId ? null : titel,
+		benutzerId,
+		beginn,
+		ende,
+		notiz: textFeld(e.notiz, 'Notiz', 500),
+		art,
+		terminartId: terminartFeld(e.terminartId)
+	};
 }
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
@@ -155,6 +181,7 @@ const adresse = (strasse: string | null, plz: string | null, ort: string | null)
 	[strasse, [plz, ort].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null;
 
 export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.titel as eigener_titel, e.benutzer_id, e.beginn, e.ende, e.notiz, e.art,
+	e.terminart_id, ta.name as terminart_name, ta.farbe as terminart_farbe,
 	a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.status as auftrag_status, b.name as benutzer_name,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
@@ -168,6 +195,7 @@ export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.titel as eigener_titel, e.
 
 export const EINSATZ_VON = `app.einsaetze e
 	left join app.kolonnen ko on ko.id = e.kolonne_id and ko.betrieb_id = e.betrieb_id
+	left join app.buchung_dienste ta on ta.id = e.terminart_id and ta.betrieb_id = e.betrieb_id
 	left join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
 	left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
 	left join app.objekte o on o.id = a.objekt_id and o.betrieb_id = a.betrieb_id
@@ -188,6 +216,7 @@ export function zuEinsatz(z: Record<string, any>, warnungen: Warnung[] = []): Ei
 		ende: iso(z.ende),
 		notiz: z.notiz,
 		art: z.art ?? 'montage',
+		terminart: z.terminart_id ? { id: z.terminart_id, name: z.terminart_name, farbe: z.terminart_farbe } : null,
 		warnungen,
 		gruppe: z.gruppe_id ? { id: z.gruppe_id, vonTag: z.gruppe_von, bisTag: z.gruppe_bis } : null,
 		kolonne: z.kolonne_id ? { id: z.kolonne_id, name: z.kolonne_name } : null,
@@ -249,6 +278,13 @@ async function pruefeAuftrag(tx: TransactionSql, k: Kontext, auftragId: string):
 	if (!a) throw new ApiFehler(400, 'Der Auftrag wurde nicht gefunden.');
 }
 
+/** Neu gewählte Terminart: muss zum Betrieb gehören und eingeschaltet sein. */
+async function pruefeTerminart(tx: TransactionSql, k: Kontext, terminartId: string | null): Promise<void> {
+	if (!terminartId) return;
+	const [t] = await tx`select 1 from app.buchung_dienste where id = ${terminartId} and betrieb_id = ${k.betriebId} and aktiv`;
+	if (!t) throw new ApiFehler(400, 'Terminart: ungültige Auswahl.');
+}
+
 async function pruefeMitarbeiter(tx: TransactionSql, k: Kontext, benutzerId: string): Promise<void> {
 	const [b] = await tx`select 1 from app.benutzer where id = ${benutzerId} and betrieb_id = ${k.betriebId} and aktiv`;
 	if (!b) throw new ApiFehler(400, 'Eingeplant werden kann nur ein aktiver Mitarbeiter des Betriebs.');
@@ -265,9 +301,10 @@ export async function legeEinsatzAn(k: Kontext, e: Record<string, unknown>): Pro
 	return mitBetrieb(k, async (tx) => {
 		if (w.auftragId) await pruefeAuftrag(tx, k, w.auftragId);
 		await pruefeMitarbeiter(tx, k, w.benutzerId);
+		await pruefeTerminart(tx, k, w.terminartId);
 		const [z] = await tx`
-			insert into app.einsaetze (betrieb_id, auftrag_id, titel, benutzer_id, beginn, ende, notiz, art)
-			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.benutzerId}, ${w.beginn}, ${w.ende}, ${w.notiz}, ${w.art})
+			insert into app.einsaetze (betrieb_id, auftrag_id, titel, benutzer_id, beginn, ende, notiz, art, terminart_id)
+			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.benutzerId}, ${w.beginn}, ${w.ende}, ${w.notiz}, ${w.art}, ${w.terminartId})
 			returning id`;
 		// Erinnerungen (msg 2679) für den, der den Termin anlegt
 		const erinnerungen = erinnerungenAusEingabe(e);
@@ -287,7 +324,7 @@ export async function aendereEinsatz(k: Kontext, id: string, e: Record<string, u
 	if (felder.length === 0 && !erinnerungen) throw new ApiFehler(400, 'Nichts zu ändern.');
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select auftrag_id, titel, benutzer_id, beginn, ende, notiz, art from app.einsaetze
+			select auftrag_id, titel, benutzer_id, beginn, ende, notiz, art, terminart_id from app.einsaetze
 			where id = ${id} and betrieb_id = ${k.betriebId} for update`;
 		if (!alt) throw einsatzNichtGefunden();
 		const w = pruefeEinsatzEingabe({
@@ -298,13 +335,16 @@ export async function aendereEinsatz(k: Kontext, id: string, e: Record<string, u
 			ende: iso(alt.ende),
 			notiz: alt.notiz,
 			art: alt.art,
+			terminartId: alt.terminart_id,
 			...Object.fromEntries(felder.map((f) => [f, e[f]]))
 		});
 		if (w.auftragId && w.auftragId !== alt.auftrag_id) await pruefeAuftrag(tx, k, w.auftragId);
 		if (w.benutzerId !== alt.benutzer_id) await pruefeMitarbeiter(tx, k, w.benutzerId);
+		// eine (inzwischen ausgeschaltete) Terminart darf am Einsatz bleiben; nur eine neu gewählte wird geprüft
+		if (w.terminartId !== alt.terminart_id) await pruefeTerminart(tx, k, w.terminartId);
 		await tx`
 			update app.einsaetze set auftrag_id = ${w.auftragId}, titel = ${w.titel}, benutzer_id = ${w.benutzerId}, beginn = ${w.beginn},
-				ende = ${w.ende}, notiz = ${w.notiz}, art = ${w.art}
+				ende = ${w.ende}, notiz = ${w.notiz}, art = ${w.art}, terminart_id = ${w.terminartId}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		if (erinnerungen) await setzeErinnerungen(tx, k, { einsatzId: id }, erinnerungen, w.beginn);
 		return ladeEinsatz(tx, k, id);
@@ -334,6 +374,7 @@ export type GruppenWerte = {
 	vonZeit: string;
 	bisZeit: string;
 	art: EinsatzArt;
+	terminartId: string | null;
 	notiz: string | null;
 	ohneWochenende: boolean;
 };
@@ -370,7 +411,19 @@ export function pruefeGruppe(e: Record<string, unknown>): GruppenWerte {
 	if (!istEinsatzArt(art)) throw new ApiFehler(400, 'Bitte eine Art wählen: Besichtigung, Montage oder Wartung.');
 	const ohneWochenende = e.ohneWochenende === undefined || e.ohneWochenende === '' ? true : e.ohneWochenende === true || e.ohneWochenende === 'true' || e.ohneWochenende === 'on';
 	if (gruppenTage(e.vonTag, bisTag, ohneWochenende).length === 0) throw new ApiFehler(400, 'Im Zeitraum liegen keine Arbeitstage.');
-	return { auftragId, benutzerIds, kolonneId, vonTag: e.vonTag, bisTag, vonZeit, bisZeit, art, notiz: textFeld(e.notiz, 'Notiz', 500), ohneWochenende };
+	return {
+		auftragId,
+		benutzerIds,
+		kolonneId,
+		vonTag: e.vonTag,
+		bisTag,
+		vonZeit,
+		bisZeit,
+		art,
+		terminartId: terminartFeld(e.terminartId),
+		notiz: textFeld(e.notiz, 'Notiz', 500),
+		ohneWochenende
+	};
 }
 
 async function ladeGruppe(tx: TransactionSql, k: Kontext, gruppeId: string): Promise<Einsatz[]> {
@@ -393,6 +446,7 @@ export async function legeGruppeAn(k: Kontext, e: Record<string, unknown>): Prom
 	const w = pruefeGruppe(e);
 	return mitBetrieb(k, async (tx) => {
 		await pruefeAuftrag(tx, k, w.auftragId);
+		await pruefeTerminart(tx, k, w.terminartId);
 		let personen = [...w.benutzerIds];
 		if (w.kolonneId) {
 			const [ko] = await tx`select 1 from app.kolonnen where id = ${w.kolonneId} and betrieb_id = ${k.betriebId} and aktiv`;
@@ -410,8 +464,8 @@ export async function legeGruppeAn(k: Kontext, e: Record<string, unknown>): Prom
 			const ende = ausTagUndUhrzeit(tag, w.bisZeit);
 			for (const p of personen) {
 				await tx`
-					insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art, gruppe_id, kolonne_id)
-					values (${k.betriebId}, ${w.auftragId}, ${p}, ${beginn}, ${ende}, ${w.notiz}, ${w.art}, ${gruppeId}, ${w.kolonneId})`;
+					insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art, terminart_id, gruppe_id, kolonne_id)
+					values (${k.betriebId}, ${w.auftragId}, ${p}, ${beginn}, ${ende}, ${w.notiz}, ${w.art}, ${w.terminartId}, ${gruppeId}, ${w.kolonneId})`;
 			}
 		}
 		return { gruppeId, einsaetze: await ladeGruppe(tx, k, gruppeId) };
@@ -449,7 +503,7 @@ export async function aendereGruppenEnde(k: Kontext, id: unknown, bisTag: unknow
 	if (!istTag(bisTag)) throw new ApiFehler(400, 'Bitte den letzten Tag wählen.');
 	return mitBetrieb(k, async (tx) => {
 		const zeilen = await tx`
-			select id, auftrag_id, benutzer_id, beginn, ende, notiz, art, kolonne_id,
+			select id, auftrag_id, benutzer_id, beginn, ende, notiz, art, terminart_id, kolonne_id,
 				to_char(beginn at time zone 'Europe/Berlin', 'YYYY-MM-DD') as tag
 			from app.einsaetze where gruppe_id = ${gid} and betrieb_id = ${k.betriebId} order by beginn for update`;
 		if (zeilen.length === 0) throw new ApiFehler(404, 'Termin nicht gefunden.');
@@ -472,8 +526,8 @@ export async function aendereGruppenEnde(k: Kontext, id: unknown, bisTag: unknow
 					const en = new Date(v.ende);
 					const neu = verschiebeAufTag(b, en, tag);
 					await tx`
-						insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art, gruppe_id, kolonne_id)
-						values (${k.betriebId}, ${v.auftrag_id}, ${v.benutzer_id}, ${neu.beginn}, ${neu.ende}, ${v.notiz}, ${v.art}, ${gid}, ${v.kolonne_id})`;
+						insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende, notiz, art, terminart_id, gruppe_id, kolonne_id)
+						values (${k.betriebId}, ${v.auftrag_id}, ${v.benutzer_id}, ${neu.beginn}, ${neu.ende}, ${v.notiz}, ${v.art}, ${v.terminart_id}, ${gid}, ${v.kolonne_id})`;
 				}
 			}
 		}

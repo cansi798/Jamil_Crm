@@ -14,7 +14,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
 		expect(gruppen(nav)).toEqual({
 			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
-			'Stammdaten & Kalkulation': ['Katalog', 'Partner', 'Kalkulation', 'Auftragsquellen', 'Briefkopf / Firmenprofil'],
+			'Stammdaten & Kalkulation': ['Katalog', 'Partner', 'Kalkulation', 'Auftragsquellen', 'Terminarten', 'Briefkopf / Firmenprofil'],
 			'Personal & Zeiten': ['Zeiten', 'Abwesenheiten', 'Kolonnen'],
 			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen'],
 			Automatisierung: ['Nachfassen', 'Kundenportal & Auftragsbestätigung', 'Online-Buchung', 'Erinnerungen', 'Handy verbinden'],
@@ -33,6 +33,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(g['Stammdaten & Kalkulation']).toEqual(['Katalog', 'Partner']);
 		expect(namen(nav.mehr)).not.toContain('Kalkulation');
 		expect(namen(nav.mehr)).not.toContain('Online-Buchung');
+		expect(namen(nav.mehr)).not.toContain('Terminarten');
 	});
 
 	it('Monteur: Start, Kunden, Aufträge, Karte, Aufgaben; nur Auftrags-Vorlagen, Zeiten, Erinnerungen; nie Preise', () => {

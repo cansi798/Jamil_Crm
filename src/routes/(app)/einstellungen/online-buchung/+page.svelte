@@ -1,19 +1,17 @@
 <script lang="ts">
-	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
-	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
-	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
+	import BuchungenListe from '$lib/components/BuchungenListe.svelte';
+	import Knopf from '$lib/components/ui/Knopf.svelte';
+	import SeitenKopf from '$lib/components/ui/SeitenKopf.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { dauerText, MODUS_NAMEN, ORT_NAMEN } from '$lib/buchung';
-	import { berlinTag, berlinUhrzeit, tagKurz } from '$lib/zeit';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	const fehlerIn = (b: string) => (form && form.bereich === b && 'fehler' in form ? (form.fehler as string) : null);
 	const ohneReset = () => async ({ update }: { update: (o?: { reset?: boolean }) => Promise<void> }) => update({ reset: false });
-	const wann = (iso: string) => `${tagKurz(berlinTag(new Date(iso)))} ${berlinUhrzeit(new Date(iso))}`;
 </script>
 
 <svelte:head>
@@ -21,22 +19,27 @@
 </svelte:head>
 
 <main class="kd-seite ob-seite">
-	<h1>Online-Buchung</h1>
+	<SeitenKopf titel="Online-Buchung">
+		{#snippet aktionen()}<Knopf href="/einstellungen/terminarten" art="sekundaer">Terminarten verwalten</Knopf>{/snippet}
+	</SeitenKopf>
 	<p class="kd-info ob-intro">
-		Kunden buchen Termine selbst über einen Link oder direkt auf eurer Website. Jeder <strong>Dienst</strong> ist eine Terminart (z. B.
-		„Besichtigung“) mit Dauer, Mitarbeitern und eigenen Fragen. Gebucht werden nur freie Zeiten aus den
+		Kunden buchen Termine selbst über einen Link oder direkt auf eurer Website. Buchbar sind die <strong>Terminarten</strong>, bei denen
+		„online buchbar“ eingeschaltet ist – mit Dauer, Mitarbeitern und eigenen Fragen. Angelegt und geändert werden sie unter
+		<a href="/einstellungen/terminarten">Terminarten</a>. Gebucht werden nur freie Zeiten aus den
 		<a href="/einstellungen/online-buchung/zeiten">Arbeitszeiten</a> – Termine in der Plantafel, Urlaub und andere Buchungen sind automatisch belegt.
 	</p>
 
-	<Abschnitt titel="Dienste" anzahl={data.dienste.length}>
-		{#if data.dienste.length === 0}
-			<p class="kd-leer">Noch keine Dienste. Legt den ersten an, z. B. „Besichtigung, 60 Minuten“.</p>
+	<Abschnitt titel="Online buchbare Terminarten" anzahl={data.terminarten.length}>
+		{#if data.terminarten.length === 0}
+			<p class="kd-leer">
+				Noch keine Terminart ist online buchbar. Unter <a href="/einstellungen/terminarten">Terminarten</a> eine anlegen oder „online buchbar“ einschalten.
+			</p>
 		{:else}
-			<ul class="ob-dienste" aria-label="Dienste">
-				{#each data.dienste as d (d.id)}
+			<ul class="ob-dienste" aria-label="Online buchbare Terminarten">
+				{#each data.terminarten as d (d.id)}
 					<li class:aus={!d.aktiv}>
-						<a href={`/einstellungen/online-buchung/${d.id}`} class="ob-dienst">
-							<span class="ob-farbe" style={`background:${d.farbe}`} aria-hidden="true"></span>
+						<a href={`/einstellungen/terminarten/${d.id}`} class="ob-dienst">
+							<span class="ob-farbe" style:background={d.farbe} aria-hidden="true"></span>
 							<span class="ob-text">
 								<strong>{d.name}</strong>
 								<span class="kd-info">
@@ -53,54 +56,12 @@
 				{/each}
 			</ul>
 		{/if}
-		<AddPanel label="Dienst hinzufügen" offen={!!fehlerIn('neu')}>
-			{#snippet children(schliessen)}
-				<form method="POST" action="?/anlegen" use:enhance class="kd-formular">
-					{#if fehlerIn('neu')}<p role="alert" class="kd-fehler">{fehlerIn('neu')}</p>{/if}
-					<label>Name <input type="text" name="name" maxlength="100" required placeholder="z. B. Besichtigung, Vor-Ort-Termin" /></label>
-					<label class="ob-kurz">Dauer (Minuten) <input type="number" name="dauerMin" min="5" max="720" step="5" value="60" required /></label>
-					<fieldset class="ob-wahl">
-						<legend>Wer wird gebucht?</legend>
-						<Segmente
-							name="modus"
-							label="Wer wird gebucht?"
-							wert="beliebig"
-							optionen={[
-								{ wert: 'beliebig', text: 'Beliebiger freier Mitarbeiter (abwechselnd)' },
-								{ wert: 'fest', text: 'Fester Mitarbeiter (genau einer)' }
-							]}
-						/>
-					</fieldset>
-					<div class="ui-feld">
-						Mitarbeiter
-						<input type="hidden" name="mitarbeiterGesendet" value="1" />
-						<PersonWahl name="mitarbeiter" mehrfach label="Mitarbeiter" leerText="Mitarbeiter wählen" personen={data.mitarbeiter} />
-					</div>
-					<div class="kd-aktionen">
-						<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
-						<button type="submit" class="kd-knopf">Anlegen</button>
-					</div>
-				</form>
-			{/snippet}
-		</AddPanel>
-	</Abschnitt>
-
-	<Abschnitt titel="Kommende Buchungen" anzahl={data.buchungen.filter((b) => b.status === 'aktiv').length}>
-		{#if data.buchungen.length === 0}
-			<p class="kd-leer">Noch keine Buchungen.</p>
-		{:else}
-			<ul class="kd-liste ob-buchungen">
-				{#each data.buchungen as b (b.id)}
-					<li class:aus={b.status !== 'aktiv'}>
-						<span class="ob-wann">{wann(b.beginn)}</span>
-						<span>{b.dienstName} – {b.kundeName}</span>
-						<span class="kd-info">{b.mitarbeiterName}{b.status !== 'aktiv' ? ' · abgesagt' : ''}</span>
-						{#if b.auftragId}<a href={`/auftraege/${b.auftragId}`}>Auftrag</a>{/if}
-					</li>
-				{/each}
-			</ul>
+		{#if data.andere > 0}
+			<p class="kd-info">{data.andere} weitere {data.andere === 1 ? 'Terminart ist' : 'Terminarten sind'} nur in der Plantafel wählbar.</p>
 		{/if}
 	</Abschnitt>
+
+	<BuchungenListe buchungen={data.buchungen} leer="Keine kommenden Buchungen." />
 
 	<Abschnitt titel="Datenschutz und Website">
 		<form method="POST" action="?/einstellungen" use:enhance={ohneReset} class="kd-formular">
@@ -169,37 +130,6 @@
 	.ob-personen {
 		display: flex;
 		gap: 0.2rem;
-	}
-	.ob-kurz {
-		max-width: 12rem;
-	}
-	.ob-wahl {
-		display: flex;
-		flex-direction: column;
-		gap: 0.35rem;
-		margin: 0;
-		padding: 0.5rem 0.75rem 0.75rem;
-		border: 1px solid var(--ui-rand);
-		border-radius: var(--ui-radius);
-	}
-	.ob-wahl legend {
-		font-weight: 600;
-		font-size: var(--ui-schrift-s);
-		color: var(--ui-text-leise);
-	}
-	.ob-buchungen li {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem 0.75rem;
-		align-items: baseline;
-	}
-	.ob-buchungen li.aus {
-		text-decoration: line-through;
-		color: var(--ui-text-leise);
-	}
-	.ob-wann {
-		font-weight: 600;
-		min-width: 8rem;
 	}
 	.ob-ok {
 		color: var(--ui-gruen);

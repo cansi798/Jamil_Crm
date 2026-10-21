@@ -27,7 +27,7 @@ export const ZWECK_HINWEIS: Record<MailZweck, string> = {
 	nachfassen_angebot: 'Nachfass-Stufen für Angebote (Einstellungen → Nachfassen).',
 	zahlungserinnerung: 'Nachfass-Stufen für Rechnungen (sobald es Rechnungen gibt).',
 	auftragsbestaetigung: 'Mail zur Auftragsbestätigung nach Annahme eines Angebots.',
-	buchungsbestaetigung: 'Bestätigung nach einer Online-Buchung (je Dienst wählbar).',
+	buchungsbestaetigung: 'Bestätigung nach einer Online-Buchung (je Terminart wählbar).',
 	portal_link: '„Per E-Mail senden“ beim Kundenportal-Link des Kunden.',
 	bewertung: '„Mail an Kunden“ – z. B. nach der Abnahme um eine Bewertung bitten.'
 };
@@ -47,7 +47,7 @@ export const PLATZHALTER_TEXTE: Record<string, string> = {
 	tage: 'Tage seit dem Versand',
 	'ab.nummer': 'Nummer der Auftragsbestätigung',
 	termin: 'Termin, z. B. „Di, 21.10. um 9:00 Uhr“',
-	dienst: 'Name des gebuchten Dienstes',
+	dienst: 'Name der gebuchten Terminart',
 	'buchung.link': 'Link zum Absagen/Verschieben des Termins',
 	'portal.link': 'Link zum Kundenportal',
 	'bewertung.link': 'Link zur Bewertungsseite (Einstellungen → Firmenprofil: Website)',

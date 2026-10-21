@@ -6,6 +6,7 @@ import { hatRecht } from '$lib/server/rechte';
 import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { berlinTag, istTag, wocheVon } from '$lib/zeit';
 import { listeKolonnen } from '$lib/server/kolonnen';
+import { listeTerminarten } from '$lib/server/buchung';
 
 /**
  * Plantafel (Wunsch Jamil msg 2676): Kalender mit Ansicht `?ansicht=monat|woche|tag` (Standard Monat, wie Outlook) oder
@@ -28,11 +29,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const wochen = ansicht === 'monat' ? monatsWochen(monat) : [wocheVon(tag)];
 	const tage = ansicht === 'tag' ? [tag] : wochen.flat();
 	const darfPlanen = hatRecht(nutzer, 'plantafel.bearbeiten');
-	const [woche, auftraege, kolonnen] = await alsSeitenFehler(() =>
+	const [woche, auftraege, kolonnen, terminarten] = await alsSeitenFehler(() =>
 		Promise.all([
 			ladeTage(k, tage),
 			darfPlanen ? listeAuftraege(k, { alle: true, benutzerId: nutzer.id }, { offen: true }) : Promise.resolve([]),
-			listeKolonnen(k, true)
+			listeKolonnen(k, true),
+			// Terminarten für den Einsatz-Dialog (Jamil msg 3074), gepflegt unter Einstellungen → Terminarten
+			darfPlanen ? listeTerminarten(k) : Promise.resolve([])
 		])
 	);
 	// Filter (Wunsch Jamil msg 2508): Mitarbeiter (`ma`) und Kolonnen (`ko`), mehrfach, in der Adresse
@@ -62,6 +65,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		sichtbareKolonnen,
 		filter: { ma, ko },
 		darfPlanen,
+		terminarten,
 		auftraege: auftraege.map((a) => ({ id: a.id, nummer: a.nummer, titel: a.titel, kundeName: a.kundeName }))
 	};
 };

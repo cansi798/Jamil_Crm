@@ -28,6 +28,8 @@ export type KalEinsatz = {
 	beginn: string;
 	ende: string;
 	art: string;
+	/** Terminart (Jamil msg 3074), optional */
+	terminart?: { id: string; name: string; farbe: string } | null;
 	auftragStatus: string;
 	warnungen: unknown[];
 	gruppe: { id: string; vonTag: string; bisTag: string } | null;
@@ -50,6 +52,7 @@ export type KalTermin<E extends KalEinsatz = KalEinsatz> = {
 	personen: { id: string; name: string }[];
 	kolonne: { id: string; name: string } | null;
 	art: string;
+	terminart: { id: string; name: string; farbe: string } | null;
 	status: string;
 	warnung: boolean;
 	/** Geladene Einsätze dieses Termins (zum Bearbeiten) */
@@ -80,6 +83,7 @@ export function termineAus<E extends KalEinsatz>(einsaetze: readonly E[]): KalTe
 				personen: [],
 				kolonne: e.kolonne,
 				art: e.art,
+				terminart: e.terminart ?? null,
 				status: e.auftragStatus,
 				warnung: false,
 				einsaetze: []

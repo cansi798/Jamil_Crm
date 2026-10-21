@@ -162,7 +162,7 @@ export type ProtokollDaten = {
 	inhalt?: { bemerkung?: string; maengel?: string; positionen?: string[] };
 };
 
-/** Online-Buchung (Wunsch Jamil msgs 2684/2686): „Neuer Dienst Besichtigungstermin 60 Minuten für Murat“ */
+/** Terminart anlegen (Jamil msgs 2684/2686, 3074): „Neue Terminart Besichtigungstermin 60 Minuten für Murat“ */
 export type DienstDaten = { name: string; dauer_minuten?: number; mitarbeiter?: string[] };
 
 export type KiAktion =
@@ -474,7 +474,7 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 	dienst_anlegen: {
 		type: 'object',
 		properties: {
-			name: text(100, 'Name des Dienstes (Terminart) wie gesprochen, z. B. „Besichtigungstermin“, „Vor-Ort-Termin“'),
+			name: text(100, 'Name der Terminart (früher „Dienst“) wie gesprochen, z. B. „Besichtigungstermin“, „Vor-Ort-Termin“'),
 			dauer_minuten: { type: 'integer', minimum: 5, maximum: 720, description: 'Dauer in Minuten („eine Stunde“ = 60)' },
 			mitarbeiter: { type: 'array', maxItems: 20, items: text(100, 'Vorname'), description: 'zuständige Mitarbeiter (Vornamen)' }
 		},
@@ -483,7 +483,7 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 	},
 	buchungslink_zeigen: {
 		type: 'object',
-		properties: { dienst: text(100, 'Name des Dienstes, z. B. „Besichtigung“ – leer = alle') },
+		properties: { dienst: text(100, 'Name der Terminart, z. B. „Besichtigung“ – leer = alle') },
 		additionalProperties: false
 	},
 	abfrage_nachkalkulation: {
@@ -566,14 +566,14 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	kalender_zeigen:
 		'Kalender (Plantafel) öffnen, gefiltert nach Mitarbeiter oder Kolonne und Monat („Zeig mir den Kalender von Kolonne 3 im November“).',
 	dienst_anlegen:
-		'Neuen Dienst (Terminart) für die Online-Buchung anlegen, mit Dauer und zuständigen Mitarbeitern („Neuer Dienst Besichtigungstermin 60 Minuten für Murat“).',
+		'Neue Terminart (früher „Dienst“) anlegen – für Plantafel und Online-Buchung –, mit Dauer und zuständigen Mitarbeitern („Neue Terminart Besichtigungstermin 60 Minuten für Murat“, auch „Neuer Dienst …“).',
 	abfrage_nachkalkulation: 'Frage beantworten, wie ein Auftrag gelaufen ist – Plan gegen Ist, Gewinn, Ampel („Wie lief der Auftrag Müller?“).',
 	abfrage_verlust: 'Frage beantworten, welche Aufträge Verlust machen („Welche Aufträge machen Verlust?“).',
 	portallink_zeigen: 'Kundenportal eines Auftrags öffnen bzw. Link für den Kunden erzeugen („Kundenportal für Müller“).',
 	angebot_entscheidung: 'Ein versendetes Angebot als angenommen oder abgelehnt eintragen („Angebot Müller ist angenommen“, „Kunde Schmidt hat abgelehnt“).',
 	vorlage_anwenden:
 		'Aufgaben-Vorlage (Auftrags-Vorlage) auf einen bestehenden Auftrag anwenden: ihre Aufgaben kommen zum Auftrag dazu („Vorlage Badsanierung auf Auftrag Müller anwenden“).',
-	buchungslink_zeigen: 'Buchungslink (Online-Buchung) eines Dienstes zeigen bzw. kopieren („Buchungslink für Besichtigung“).',
+	buchungslink_zeigen: 'Buchungslink (Online-Buchung) einer Terminart zeigen bzw. kopieren („Buchungslink für Besichtigung“).',
 	abfrage_nachfassen: 'Frage beantworten, bei welchen Aufträgen/Angeboten das Nachfassen heute fällig oder überfällig ist („Wo muss ich nachfassen?“).',
 	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',
 	quelle_setzen: 'Auftragsquelle (auch „Quelle“) eines Auftrags setzen (woher der Auftrag kam: Website, Hornbach, Obi, Empfehlung, Zeitung, MyHammer, Telefon …).',

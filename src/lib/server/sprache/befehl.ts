@@ -297,20 +297,21 @@ async function beantworteKalender(
 
 /**
  * „Buchungslink für Besichtigung“ (Online-Buchung, msgs 2684/2686): zeigt den Link des Dienstes (alle Mitarbeiter) zum
- * Kopieren und Öffnen; ohne Namen alle aktiven Dienste.
+ * Kopieren und Öffnen; ohne Namen alle aktiven, online buchbaren Terminarten.
  */
 async function beantworteBuchungslink(k: { betriebId: string; benutzerId: string }, d: { dienst?: string }): Promise<Karte> {
 	const { listeDienste } = await import('../buchung');
 	const basis = (process.env.ORIGIN ?? '').replace(/\/$/, '');
-	const norm = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\b(termin|termine|dienst)\b/g, ' ').replace(/\s+/g, ' ').trim();
-	const alle = (await listeDienste(k)).filter((x) => x.aktiv);
+	const norm = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\b(termin|termine|dienst|terminart)\b/g, ' ').replace(/\s+/g, ' ').trim();
+	// nur Terminarten, die online buchbar sind (Jamil msg 3074)
+	const alle = (await listeDienste(k)).filter((x) => x.aktiv && x.onlineBuchbar);
 	const g = d.dienst ? norm(d.dienst) : '';
 	const genau = alle.filter((x) => norm(x.name) === g);
 	const treffer = !g ? alle : genau.length > 0 ? genau : alle.filter((x) => norm(x.name).includes(g) || g.includes(norm(x.name)));
 	const karte = (titel: string, fehler: string | null, antwort?: Karte['antwort']): Karte => ({
 		aktion: 'buchungslink_zeigen', titel, zeilen: [], auswahl: [], warnungen: [], fehler, aendern: '/einstellungen/online-buchung', ...(antwort ? { antwort } : {})
 	});
-	if (treffer.length === 0) return karte('Buchungslink', d.dienst ? `Keinen aktiven Dienst „${d.dienst}“ gefunden.` : 'Es gibt noch keinen aktiven Dienst.');
+	if (treffer.length === 0) return karte('Buchungslink', d.dienst ? `Keine online buchbare Terminart „${d.dienst}“ gefunden.` : 'Es gibt noch keine online buchbare Terminart.');
 	const linkVon = (x: (typeof alle)[number]) => {
 		const l = x.links.find((y) => !y.benutzerId && y.aktiv) ?? x.links.find((y) => y.aktiv);
 		return l ? `${basis}/buchen/${l.token}` : null;
@@ -323,7 +324,7 @@ async function beantworteBuchungslink(k: { betriebId: string; benutzerId: string
 	return karte(treffer.length === 1 ? `Buchungslink „${treffer[0].name}“` : 'Buchungslinks', null, {
 		abschnitte: [
 			{ titel: 'Links', eintraege },
-			{ titel: 'Einstellungen', eintraege: treffer.map((x) => ({ zeit: '', titel: `${x.name} bearbeiten (Einbett-Code)`, ort: null, link: `/einstellungen/online-buchung/${x.id}`, ueberfaellig: false })) }
+			{ titel: 'Einstellungen', eintraege: treffer.map((x) => ({ zeit: '', titel: `${x.name} bearbeiten (Einbett-Code)`, ort: null, link: `/einstellungen/terminarten/${x.id}`, ueberfaellig: false })) }
 		],
 		...(treffer.length === 1 && erster ? { kopieren: erster } : {}),
 		vorlesen: treffer.length === 1 ? `Hier ist der Buchungslink für ${treffer[0].name}. Tippe auf Kopieren.` : `Ich habe ${treffer.length} Buchungslinks gefunden.`

@@ -18,7 +18,7 @@ export const RECHTE = {
 	'protokolle.ausfuellen': 'Protokolle ausfüllen (Formulare)',
 	'protokolle.vorlagen_bearbeiten': 'Protokoll-Vorlagen gestalten',
 	'erinnerungen.nutzen': 'Erinnerungen für Aufgaben und Termine nutzen',
-	'buchung.verwalten': 'Online-Buchung verwalten (Dienste, Buchungslinks)',
+	'buchung.verwalten': 'Terminarten und Online-Buchung verwalten (Buchungslinks)',
 	'zeiterfassung.nutzen': 'Zeiterfassung nutzen (eigene Zeiten, Fahrt, Material)',
 	'zeiterfassung.alle_sehen': 'Zeiten aller Mitarbeiter sehen, korrigieren und freigeben',
 	'kundenportal.verwalten': 'Kundenportal verwalten (Links für Kunden, Freigaben)',
