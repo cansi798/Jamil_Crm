@@ -280,16 +280,59 @@ export type AuftragsKennzahlen = KonfigInfo & {
 	wertOffenCent: number | null;
 	/** Im Zeitraum neu angelegte Aufträge je Auftragsquelle (null = ohne Quelle). */
 	neuJeQuelle: { quelleId: string | null; anzahl: number }[];
+	/**
+	 * Finanzpotenzial je Status (Jamil msg 3047, Cent netto wie alle Kacheln): Summe der Auftragswerte (`auftragsWert`)
+	 * der im Zeitraum neuen Aufträge; null = kein Auftrag mit Wert („–“). Ganz null ohne Preise.
+	 */
+	wertJeStatusCent: Record<AuftragStatus, number | null> | null;
+	/** Summe der offenen (versendeten) Angebote der Aufträge mit fälligem Nachfassen; null ohne Preise. */
+	nachfassenWertCent: number | null;
 };
+
+/**
+ * Wert eines Auftrags je nach Status (msg 3047), netto, ersetzte Angebotsfassungen zählen nicht:
+ * - Anfrage: der neueste Angebotsentwurf (noch nichts versendet), sonst kein Wert
+ * - Angebot: Summe der versendeten, offenen Angebote
+ * - Beauftragt, In Arbeit, Abgenommen: Summe der angenommenen Angebote (= Wert der Auftragsbestätigung)
+ * - Abgerechnet: Rechnungsbetrag gibt es erst mit Lexware – bis dahin der Auftragswert (angenommene Angebote)
+ */
+export function auftragsWert(status: AuftragStatus, angebote: readonly AngebotFakt[]): number | null {
+	const da = angebote.filter(gezaehlt);
+	const summe = (l: readonly AngebotFakt[]) => (l.length ? l.reduce((s, a) => s + a.nettoCent, 0) : null);
+	if (status === 'anfrage') {
+		const entwurf = da.filter((a) => a.status === 'entwurf').sort((x, y) => y.angelegt.getTime() - x.angelegt.getTime())[0];
+		return entwurf ? entwurf.nettoCent : null;
+	}
+	if (status === 'angebot') return summe(da.filter((a) => a.status === 'versendet'));
+	return summe(da.filter((a) => a.status === 'angenommen'));
+}
 
 export function rechneAuftraege(auftraege: readonly AuftragFakt[], angebote: readonly AngebotFakt[] | null, z: Zeitraum, e?: KennzahlEinstellungen): AuftragsKennzahlen {
 	const g = grenzenVon(z.spanne);
 	const jeStatus: Record<AuftragStatus, number> = { anfrage: 0, angebot: 0, beauftragt: 0, in_arbeit: 0, abgenommen: 0, abgerechnet: 0 };
 	const quellen = new Map<string | null, number>();
+	// Angebote je Auftrag (nur mit Preisen geladen)
+	const jeAuftrag = new Map<string, AngebotFakt[]>();
+	for (const an of angebote ?? []) if (an.auftragId) jeAuftrag.set(an.auftragId, [...(jeAuftrag.get(an.auftragId) ?? []), an]);
+	const wertJeStatusCent: Record<AuftragStatus, number | null> | null = angebote
+		? { anfrage: null, angebot: null, beauftragt: null, in_arbeit: null, abgenommen: null, abgerechnet: null }
+		: null;
 	if (istAktiv(e, 'auftraege_status')) {
 		const neu = seit(auftraege, abTag(e, 'auftraege_status'), angelegtAn).filter((a) => drin(a.angelegt, g));
 		for (const a of neu) jeStatus[a.status]++;
 		for (const a of neu) quellen.set(a.quelleId, (quellen.get(a.quelleId) ?? 0) + 1);
+		if (wertJeStatusCent) {
+			for (const a of neu) {
+				const w = auftragsWert(a.status, jeAuftrag.get(a.id) ?? []);
+				if (w !== null) wertJeStatusCent[a.status] = (wertJeStatusCent[a.status] ?? 0) + w;
+			}
+		}
+	}
+	let nachfassenWertCent: number | null = null;
+	if (angebote && istAktiv(e, 'auftraege_nachfassen')) {
+		nachfassenWertCent = seit(auftraege, abTag(e, 'auftraege_nachfassen'), angelegtAn)
+			.filter((a) => a.nachfassenFaellig)
+			.reduce((s, a) => s + (jeAuftrag.get(a.id) ?? []).filter((an) => gezaehlt(an) && an.status === 'versendet').reduce((t, an) => t + an.nettoCent, 0), 0);
 	}
 	let wertOffenCent: number | null = null;
 	if (angebote && istAktiv(e, 'auftraege_wert')) {
@@ -302,7 +345,9 @@ export function rechneAuftraege(auftraege: readonly AuftragFakt[], angebote: rea
 		jeStatus,
 		nachfassenFaellig: istAktiv(e, 'auftraege_nachfassen') ? seit(auftraege, abTag(e, 'auftraege_nachfassen'), angelegtAn).filter((a) => a.nachfassenFaellig).length : 0,
 		wertOffenCent,
-		neuJeQuelle: [...quellen].map(([quelleId, anzahl]) => ({ quelleId, anzahl })).sort((a, b) => b.anzahl - a.anzahl)
+		neuJeQuelle: [...quellen].map(([quelleId, anzahl]) => ({ quelleId, anzahl })).sort((a, b) => b.anzahl - a.anzahl),
+		wertJeStatusCent,
+		nachfassenWertCent
 	};
 }
 

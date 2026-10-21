@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { mitEinstellungen } from '$lib/kennzahlen';
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
-	import { euro } from '$lib/geld';
-	import Umschalter from '$lib/components/ui/Umschalter.svelte';
+		import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -34,21 +33,27 @@
 		return `/auftraege?${p}`;
 	};
 	// Kennzahl-Kacheln (msg 2801): Status-Kachel öffnet die Liste mit diesem Status, nochmal klicken hebt ihn auf
+	/** Kacheln: ganze Euro (netto), damit die Werte in die Kachel passen */
+	const euroGanz = (cent: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Math.round(cent / 100));
 	const STATUS_TON = { anfrage: 'grau', angebot: 'lila', beauftragt: 'blau', in_arbeit: 'orange', abgenommen: 'gruen', abgerechnet: 'grau' } as const;
 	const aktiveKachel = $derived(data.nachfassenFaellig ? 'nachfassen' : data.ansicht === 'liste' && data.status ? data.status : null);
 	const kacheln = $derived.by((): Kachel[] => {
 		const kz = data.kennzahlen;
 		if (!kz) return [];
+		// Finanzpotenzial (msg 3047): mit Preisen der Wert als große Zahl, die Anzahl klein darunter; ohne Preise nur Anzahlen
+		const wert = kz.wertJeStatusCent;
+		const anzahl = (n: number) => `${n} ${n === 1 ? 'Auftrag' : 'Aufträge'}`;
 		const l: Kachel[] = STATUS.map((st) => ({
 			id: st,
 			titel: STATUS_NAMEN[st],
-			wert: String(kz.jeStatus[st]),
-			info: 'neu im Zeitraum',
+			wert: wert ? (wert[st] === null ? '–' : euroGanz(wert[st]!)) : String(kz.jeStatus[st]),
+			info: wert ? `${anzahl(kz.jeStatus[st])} · neu im Zeitraum` : 'neu im Zeitraum',
 			href: aktiveKachel === st ? link({ ansicht: 'liste', status: null }) : link({ ansicht: 'liste', status: st, nachfassen: false }),
 			ton: STATUS_TON[st]
 		}));
-		l.push({ id: 'nachfassen', titel: 'Nachfassen fällig', wert: String(kz.nachfassenFaellig), info: 'jetzt', href: link({ nachfassen: !data.nachfassenFaellig }), ton: 'rot' });
-		if (kz.wertOffenCent != null) l.push({ id: 'wert', titel: 'Auftragswert offen', wert: euro(kz.wertOffenCent), info: 'angenommen, nicht abgerechnet', ton: 'gruen' });
+		const nfWert = kz.nachfassenWertCent;
+		l.push({ id: 'nachfassen', titel: 'Nachfassen fällig', wert: nfWert != null ? euroGanz(nfWert) : String(kz.nachfassenFaellig), info: nfWert != null ? `${anzahl(kz.nachfassenFaellig)} · jetzt` : 'jetzt', href: link({ nachfassen: !data.nachfassenFaellig }), ton: 'rot' });
+		if (kz.wertOffenCent != null) l.push({ id: 'wert', titel: 'Auftragswert offen', wert: euroGanz(kz.wertOffenCent), info: 'angenommen, nicht abgerechnet', ton: 'gruen' });
 		// Einstellungen je Kennzahl (Jamil msg 2946)
 		return mitEinstellungen(l, kz, (id) => (id === 'nachfassen' ? 'auftraege_nachfassen' : id === 'wert' ? 'auftraege_wert' : 'auftraege_status'));
 	});
@@ -120,6 +125,18 @@
 
 	{#if kacheln.length > 0}
 		<KennzahlKacheln label="Aufträge" {kacheln} zeitraum={data.zeitraum} zeitraumLink={(a) => link({ zeitraum: a })} aktiv={aktiveKachel} />
+		{#if data.kennzahlen?.wertJeStatusCent}
+			<details class="af-rechnung">
+				<summary>So wird gerechnet</summary>
+				<p class="kd-info">
+					Beträge netto, ganze Euro. Je Status zählen die im Zeitraum neu angelegten Aufträge (Anzahl klein darunter):
+					Anfrage = neuester Angebotsentwurf (ohne Entwurf „–“) · Angebot = versendete, offene Angebote · Beauftragt, In
+					Arbeit, Abgenommen = angenommene Angebote (Wert der Auftragsbestätigung) · Abgerechnet = Auftragswert, bis die
+					Rechnungen mit der Lexware-Anbindung kommen · Nachfassen fällig = offene Angebote der Aufträge, bei denen das
+					Nachfassen fällig ist (aktueller Stand). Überarbeitete Angebotsfassungen zählen nur einmal.
+				</p>
+			</details>
+		{/if}
 	{/if}
 
 	{#if data.ansicht === 'board' && data.board}
@@ -177,6 +194,22 @@
 </main>
 
 <style>
+	.af-rechnung {
+		margin: -0.4rem 0 var(--ui-abstand-block);
+	}
+	.af-rechnung summary {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--tippziel, 44px);
+		color: var(--ui-akzent-text);
+		font-size: var(--ui-schrift-xs);
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.af-rechnung p {
+		margin: 0;
+		max-width: 60rem;
+	}
 	.af-suche {
 		grid-template-columns: auto minmax(0, 1fr) auto;
 	}

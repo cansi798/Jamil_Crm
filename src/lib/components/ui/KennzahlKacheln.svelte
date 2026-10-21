@@ -181,6 +181,23 @@
 	.kz-reihe[hidden] {
 		display: none;
 	}
+	/* nie über die Kachel hinaus (msg 3047: abgeschnittene €-Kachel) – Inhalt bleibt in seiner Zelle */
+	.kz-zelle {
+		min-width: 0;
+	}
+	/* Geldbeträge u. Ä. (keine kurze Zahl): Wert oben, Titel und Hinweis darunter – passt in jede Zellbreite */
+	.kz-zelle:not(.zahl) .kz-kachel {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.kz-zelle:not(.zahl) .kz-wert {
+		grid-row: auto;
+		font-size: 1.2rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.kz-zelle:not(.zahl) .kz-titel:last-child {
+		grid-row: auto;
+	}
 	/* Zahl links, Titel + Hinweis rechts: zwei flache Zeilen statt drei */
 	.kz-kachel {
 		display: grid;
@@ -189,6 +206,7 @@
 		align-items: center;
 		column-gap: 0.55rem;
 		height: 100%;
+		min-width: 0;
 		padding: 0.4rem 0.6rem;
 		border: 1px solid var(--ui-rand);
 		border-left: 3px solid var(--kz-ton);

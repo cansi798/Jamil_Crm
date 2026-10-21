@@ -6,6 +6,7 @@ import {
 	rechneAngebote,
 	rechneAuftragsbestaetigungen,
 	rechneAuftraege,
+	auftragsWert,
 	rechneDurchlaufzeit,
 	rechneKunden,
 	rechneNacharbeit,
@@ -280,5 +281,39 @@ describe('Kacheln Auftragsbestätigungen (Ausgangsbelege, msg 2948)', () => {
 		expect(r.versendet).toBe(1);
 		expect(r.seit.ab_versendet).toBe('erfasst seit 01.10.2026');
 		expect(KONFIG_IDS).toEqual(expect.arrayContaining(['ab_bereit', 'ab_versendet', 'ab_erstellt']));
+	});
+});
+
+describe('Finanzpotenzial je Auftragsstatus (Jamil msg 3047)', () => {
+	it('Wert je Status: Anfrage = neuester Entwurf, Angebot = offene, ab Beauftragt = angenommene; ersetzte zählen nicht', () => {
+		const alt = angebot({ status: 'entwurf', abgegebenAm: null, nettoCent: 10_000, angelegt: d('2026-10-01T08:00:00Z') });
+		const neu = angebot({ status: 'entwurf', abgegebenAm: null, nettoCent: 12_000, angelegt: d('2026-10-05T08:00:00Z') });
+		expect(auftragsWert('anfrage', [alt, neu])).toBe(12_000);
+		expect(auftragsWert('anfrage', [])).toBeNull();
+		const offen = [angebot({ nettoCent: 30_000 }), angebot({ nettoCent: 20_000 }), angebot({ nettoCent: 99_000, ersetzt: true })];
+		expect(auftragsWert('angebot', offen)).toBe(50_000);
+		const an = angebot({ status: 'angenommen', nettoCent: 70_000 });
+		for (const st of ['beauftragt', 'in_arbeit', 'abgenommen', 'abgerechnet'] as const) expect(auftragsWert(st, [an, ...offen])).toBe(70_000);
+		expect(auftragsWert('beauftragt', offen)).toBeNull();
+	});
+	it('Summe je Status über die neuen Aufträge im Zeitraum; Nachfassen = offene Angebote der fälligen Aufträge; ohne Preise null', () => {
+		const a1 = auftrag({ status: 'angebot', nachfassenFaellig: true });
+		const a2 = auftrag({ status: 'angebot' });
+		const a3 = auftrag({ status: 'anfrage' });
+		const a4 = auftrag({ status: 'in_arbeit', angelegt: d('2026-09-01T08:00:00Z') }); // nicht im Zeitraum
+		const ang = [
+			angebot({ auftragId: a1.id, nettoCent: 40_000 }),
+			angebot({ auftragId: a2.id, nettoCent: 25_000 }),
+			angebot({ auftragId: a4.id, status: 'angenommen', nettoCent: 80_000 })
+		];
+		const r = rechneAuftraege([a1, a2, a3, a4], ang, OKT);
+		expect(r.wertJeStatusCent).toEqual({ anfrage: null, angebot: 65_000, beauftragt: null, in_arbeit: null, abgenommen: null, abgerechnet: null });
+		expect(r.jeStatus).toMatchObject({ angebot: 2, anfrage: 1, in_arbeit: 0 });
+		expect(r.nachfassenWertCent).toBe(40_000);
+		expect(rechneAuftraege([a1, a2, a3, a4], ang, zeitraum('alle', '2026-10-21')).wertJeStatusCent?.in_arbeit).toBe(80_000);
+		const ohne = rechneAuftraege([a1, a2], null, OKT);
+		expect(ohne).toMatchObject({ wertJeStatusCent: null, nachfassenWertCent: null });
+		// ausgeschaltet → keine Werte
+		expect(rechneAuftraege([a1], ang, OKT, { auftraege_status: { aktiv: false, ab: null } }).wertJeStatusCent?.angebot).toBeNull();
 	});
 });

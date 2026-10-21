@@ -77,10 +77,15 @@ describe('Kennzahlen', () => {
 		const chef = await auftragsKennzahlen(kA(), ALLE(), GESAMT, true);
 		expect(chef.jeStatus).toMatchObject({ abgenommen: 1, beauftragt: 1 });
 		expect(chef.wertOffenCent).toBe(250_003);
+		// Finanzpotenzial je Status (msg 3047): Summe der angenommenen Angebote der beauftragten/abgenommenen Aufträge
+		expect(chef.wertJeStatusCent).not.toBeNull();
+		const summeAngenommen = (chef.wertJeStatusCent!.beauftragt ?? 0) + (chef.wertJeStatusCent!.abgenommen ?? 0);
+		expect(summeAngenommen).toBeGreaterThanOrEqual(chef.wertOffenCent!);
 		const monteur = { alle: false, benutzerId: u.ids.monteurA };
 		const m = await auftragsKennzahlen({ betriebId: u.betriebA, benutzerId: u.ids.monteurA }, monteur, GESAMT, false);
 		expect(Object.values(m.jeStatus).reduce((s, n) => s + n, 0)).toBe(1);
 		expect(m.wertOffenCent).toBeNull();
+		expect(m).toMatchObject({ wertJeStatusCent: null, nachfassenWertCent: null });
 		const k = await kundenKennzahlen(kA(), ALLE(), GESAMT, { angebote: true }, '2026-10-21');
 		expect(k).toMatchObject({ kundenAktiv: 1, kundenMitAngenommen: 1, kundenMitAbgelehnt: 1 });
 		expect((await kundenKennzahlen(kA(), ALLE(), GESAMT, { angebote: false })).kundenMitAngenommen).toBeNull();
