@@ -19,6 +19,7 @@
 
 	const id = `aw-${Math.random().toString(36).slice(2, 9)}`;
 	let feld = $state<HTMLSelectElement>();
+	let wurzel = $state<HTMLSpanElement>();
 	let liste = $state<HTMLUListElement>();
 	let offen = $state(false);
 	let aktiv = $state(0);
@@ -75,9 +76,56 @@
 		offen = true;
 		aktiv = Math.max(0, feld.selectedIndex);
 		await tick();
+		zeigeListe();
 		liste?.focus();
 		liste?.querySelector(`#${id}-${aktiv}`)?.scrollIntoView({ block: 'nearest' });
 	}
+
+	/**
+	 * Die Liste liegt als Overlay in der obersten Ebene (Popover-API, sonst position: fixed) – nie im Fluss des
+	 * Formulars: sie verzieht keinen Dialog und schiebt nichts (Jamil msgs 3065/3067). Sie öffnet sich nach unten,
+	 * wenn dort genug Platz ist, sonst nach oben; die Höhe ist auf den freien Platz begrenzt (darin scrollt sie).
+	 */
+	const RAND = 8;
+	let lage = $state<{ links: number; breite: number; oben: number | null; unten: number | null; maxHoehe: number }>({ links: 0, breite: 0, oben: 0, unten: null, maxHoehe: 320 });
+	function platziere() {
+		if (!wurzel || !liste) return;
+		const r = wurzel.getBoundingClientRect();
+		const vh = window.innerHeight;
+		const vw = document.documentElement.clientWidth;
+		const unten = vh - r.bottom - RAND - 4;
+		const oben = r.top - RAND - 4;
+		const gewuenscht = Math.min(liste.scrollHeight, 320);
+		const nachOben = unten < gewuenscht && oben > unten;
+		const breite = Math.min(Math.max(r.width, 192), vw - 2 * RAND);
+		const links = Math.min(Math.max(RAND, r.left), vw - RAND - breite);
+		lage = nachOben
+			? { links, breite, oben: null, unten: vh - r.top + 4, maxHoehe: Math.max(120, Math.min(320, oben)) }
+			: { links, breite, oben: r.bottom + 4, unten: null, maxHoehe: Math.max(120, Math.min(320, unten)) };
+	}
+	function zeigeListe() {
+		if (!liste) return;
+		try {
+			if (typeof liste.showPopover === 'function' && !liste.matches(':popover-open')) liste.showPopover();
+		} catch {
+			/* ohne Popover-API: position: fixed mit hohem z-index */
+		}
+		platziere();
+	}
+	// Scrollen (außerhalb der Liste) oder Größenänderung schließen die Liste – sie würde sonst vom Feld wegrutschen
+	$effect(() => {
+		if (!offen) return;
+		const zu = (ev: Event) => {
+			if (ev.type === 'scroll' && liste && ev.target instanceof Node && liste.contains(ev.target)) return;
+			offen = false;
+		};
+		window.addEventListener('scroll', zu, true);
+		window.addEventListener('resize', zu);
+		return () => {
+			window.removeEventListener('scroll', zu, true);
+			window.removeEventListener('resize', zu);
+		};
+	});
 	function waehle(i: number) {
 		if (!feld || optionen[i]?.aus) return;
 		feld.selectedIndex = i;
@@ -115,7 +163,7 @@
 	}
 </script>
 
-<span class="aw" class:klein class:offen class:aus={rest.disabled} onfocusout={draussen}>
+<span class="aw" class:klein class:offen class:aus={rest.disabled} onfocusout={draussen} bind:this={wurzel}>
 	<!-- Echtes Feld zuerst: <label> um die Auswahl beschriftet das <select> -->
 	<select bind:this={feld} bind:value {...rest} class="aw-feld" onmousedown={maus}>
 		{@render children()}
@@ -125,7 +173,21 @@
 		<svg viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
 	</span>
 	{#if offen}
-		<ul bind:this={liste} class="ui-popover aw-liste" role="listbox" tabindex="-1" aria-activedescendant={`${id}-${aktiv}`} onkeydown={taste}>
+		<ul
+			bind:this={liste}
+			class="ui-popover aw-liste"
+			class:nach-oben={lage.unten !== null}
+			popover="manual"
+			role="listbox"
+			tabindex="-1"
+			aria-activedescendant={`${id}-${aktiv}`}
+			onkeydown={taste}
+			style:left={`${lage.links}px`}
+			style:width={`${lage.breite}px`}
+			style:top={lage.oben === null ? 'auto' : `${lage.oben}px`}
+			style:bottom={lage.unten === null ? 'auto' : `${lage.unten}px`}
+			style:max-height={`${lage.maxHoehe}px`}
+		>
 			{#each optionen as o, i (i)}
 				{#if o.gruppe && o.gruppe !== optionen[i - 1]?.gruppe}<li class="aw-gruppe" role="presentation">{o.gruppe}</li>{/if}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -218,18 +280,19 @@
 		background: var(--ui-grau-hell);
 		color: var(--ui-text-leise);
 	}
+	/* Overlay in der obersten Ebene (Popover) bzw. fixed – Lage setzt platziere() */
 	.aw-liste {
-		position: absolute;
-		z-index: 40;
-		top: calc(100% + 4px);
-		left: 0;
-		right: 0;
+		position: fixed;
+		z-index: 1000;
+		inset: auto;
 		min-width: 12rem;
 		max-height: 20rem;
 		overflow-y: auto;
+		overscroll-behavior: contain;
 		margin: 0;
 		padding: 0.3rem;
 		list-style: none;
+		color: var(--ui-text);
 	}
 	.aw-liste li[role='option'] {
 		display: flex;

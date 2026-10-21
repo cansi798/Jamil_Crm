@@ -43,12 +43,15 @@
 		gap: 0.35rem;
 		font-size: 0.875rem;
 	}
-	.ew select,
-	.ew input {
+	/* nur das Datumsfeld – das unsichtbare <select> der Auswahl muss die ganze Anzeige bedecken (sonst gehen Klicks daneben) */
+	.ew input[type='datetime-local'] {
 		min-height: 2.5rem;
 		width: auto !important;
 		font: inherit;
 		font-size: 0.875rem;
+	}
+	.ew label :global(.aw) {
+		min-width: 9.5rem;
 	}
 	.ew-text {
 		white-space: nowrap;
