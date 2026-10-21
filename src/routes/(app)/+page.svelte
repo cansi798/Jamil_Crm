@@ -1,7 +1,4 @@
 <script lang="ts">
-	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
-	import KundeWahl from '$lib/components/ui/KundeWahl.svelte';
-	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { flip } from 'svelte/animate';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
@@ -297,16 +294,7 @@
 		{/if}
 	</header>
 
-	<FilterLeiste form={false} label="Kunden suchen">
-		{#snippet suche()}
-			{#if data.kunden}
-				<div class="suche">
-					<KundeWahl label="Kunden suchen" placeholder="Kunden suchen – Name, Ort oder Telefon" onwaehle={(k) => goto(`/kunden/${k.id}`)} />
-				</div>
-			{/if}
-		{/snippet}
-	</FilterLeiste>
-
+	<!-- Jamil msg 3082: keine eigene Kundensuche auf Start – die Schnellsuche oben in der Kopfleiste reicht -->
 	{#if bearbeiten}
 		<section class="st-leiste" aria-label="Start anpassen">
 			<p class="kd-info">Ziehen am Griff <span aria-hidden="true">⠿</span> oder mit ↑ ↓ verschieben, Größe S/M/L/Breit und Höhe wählen. Gilt für Sie auf allen Geräten.</p>
@@ -669,12 +657,6 @@
 		text-align: right;
 		font-variant-numeric: tabular-nums;
 		font-weight: 600;
-	}
-
-	/* Suche wie M365-CommandBar */
-	.suche {
-		flex: 1 1 18rem;
-		max-width: 32rem;
 	}
 
 	/* Kachel „Diesen Monat“ (Gewinn verplant, Stunden frei) */
