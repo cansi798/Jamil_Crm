@@ -10,7 +10,7 @@ const SEITEN = [
 	'/einstellungen/benutzer', '/einstellungen/rollen', '/einstellungen/briefkopf', '/auftrag-vorlagen', '/angebot-vorlagen', '/plantafel/abwesenheiten'
 ];
 
-type Mass = { pfad: string; h1: number | null; filter: number | null; umschalter: number[] };
+type Mass = { pfad: string; h1: number | null; titelVersteckt: boolean; filter: number | null; umschalter: number[] };
 
 async function messen(page: Page, pfad: string): Promise<Mass> {
 	await page.goto(pfad);
@@ -19,11 +19,13 @@ async function messen(page: Page, pfad: string): Promise<Mass> {
 		const oben = (el: Element | null) => (el ? Math.round((el.getBoundingClientRect().top + window.scrollY) * 10) / 10 : null);
 		const main = document.querySelector('main');
 		const h1 = main?.querySelector('h1') ?? null;
+		// Bereichs-Startseiten am Desktop: h1 nur für Screenreader, Titel steht in der Kopfleiste (Jamil msg 3060)
+		const titelVersteckt = !!h1 && h1.getBoundingClientRect().height <= 1;
 		const filter = main?.querySelector('.filter-leiste') ?? null;
 		const umschalter = [...(main?.querySelectorAll('.ui-umschalter, .seg') ?? [])]
 			.filter((e) => (e as HTMLElement).offsetParent !== null)
 			.map((e) => Math.round(e.getBoundingClientRect().height * 10) / 10);
-		return { pfad, h1: oben(h1), filter: oben(filter), umschalter };
+		return { pfad, h1: titelVersteckt ? null : oben(h1), titelVersteckt, filter: oben(filter), umschalter };
 	}, pfad);
 }
 
@@ -46,12 +48,17 @@ for (const [art, viewport] of [
 		console.log(art, JSON.stringify(masse));
 
 		const h1 = masse.filter((m) => m.h1 !== null).map((m) => m.h1!);
-		expect(h1.length, 'Seiten mit Titel').toBeGreaterThanOrEqual(SEITEN.length - 1);
+		expect(h1.length + masse.filter((m) => m.titelVersteckt).length, 'Seiten mit Titel').toBeGreaterThanOrEqual(SEITEN.length - 1);
 		for (const m of masse) if (m.h1 !== null) expect(Math.abs(m.h1 - h1[0]), `Titel auf ${m.pfad}`).toBeLessThanOrEqual(1);
+		// Am Handy gibt es keine Kopfleiste: Titel bleibt überall sichtbar
+		if (viewport.width < 900) expect(masse.filter((m) => m.titelVersteckt).map((m) => m.pfad), 'versteckte Titel am Handy').toEqual([]);
 
-		const filter = masse.filter((m) => m.filter !== null);
-		expect(filter.length, 'Seiten mit Filterleiste').toBeGreaterThanOrEqual(5);
-		for (const m of filter) expect(Math.abs(m.filter! - filter[0].filter!), `Filterleiste auf ${m.pfad}`).toBeLessThanOrEqual(1);
+		// Filterleiste: gleiche Höhe innerhalb der Seiten mit sichtbarem bzw. verstecktem Titel
+		for (const versteckt of [false, true]) {
+			const filter = masse.filter((m) => m.filter !== null && m.titelVersteckt === versteckt);
+			for (const m of filter) expect(Math.abs(m.filter! - filter[0].filter!), `Filterleiste auf ${m.pfad}`).toBeLessThanOrEqual(1);
+		}
+		expect(masse.filter((m) => m.filter !== null).length, 'Seiten mit Filterleiste').toBeGreaterThanOrEqual(5);
 
 		const hoehen = masse.flatMap((m) => m.umschalter.map((h) => ({ pfad: m.pfad, h })));
 		expect(hoehen.length, 'Umschalter gefunden').toBeGreaterThan(0);

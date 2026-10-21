@@ -41,6 +41,12 @@ Baustein `components/ui/SeitenKopf.svelte`: Zurück-Link (optional) → Überzei
 Kennzahl darunter, **Hauptaktionen IMMER rechts** (`aktionen`-Snippet). Am Handy brechen die Aktionen unter den
 Titel um und bleiben rechtsbündig. Kein zweiter Titel auf der Seite.
 
+- **Keine doppelte Überschrift (Jamil msg 3060):** Auf der Startseite eines Bereichs (z. B. `/auftraege`, `/kunden`,
+  `/einstellungen/rollen`) steht der Titel am Desktop nur in der dunklen Kopfleiste. Die App-Hülle macht die h1 dort
+  automatisch zur Screenreader-Überschrift (`.bereichs-start` in `(app)/+layout.svelte`) – nichts pro Seite bauen. Am
+  Handy (keine Kopfleiste) und auf Detailseiten (Titel = Datensatz) bleibt die h1 sichtbar. Trägt der Titel mehr als
+  den Bereichsnamen (z. B. „Auslastung Oktober 2026“): `<h1 class="titel-bleibt">`.
+
 ### 3a. Löschen oben rechts (Jamil msg 3043)
 
 Jede Aktion, die einen **ganzen Datensatz** löscht (Kunde, Objekt, Anlage, Auftrag, Angebot, Vorlage, Partner, Rolle,

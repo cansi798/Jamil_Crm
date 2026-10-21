@@ -14,7 +14,7 @@
 
 <main class="kd-seite breit al-seite">
 	<a href="/plantafel" class="kd-zurueck">← Plantafel</a>
-	<h1>Auslastung {data.monatText}</h1>
+	<h1 class="titel-bleibt">Auslastung {data.monatText}</h1>
 	<nav class="al-monate" aria-label="Monat wählen">
 		<a class="kd-knopf hell klein" href={`?monat=${data.vorher}`}>← Vormonat</a>
 		<a class="kd-knopf hell klein" href="?">Dieser Monat</a>

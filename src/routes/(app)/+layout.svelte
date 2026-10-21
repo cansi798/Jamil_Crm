@@ -23,6 +23,10 @@
 		const alle = [...(data.navigation?.haupt ?? []), ...(data.navigation?.mehr ?? [])].filter((e) => e.href);
 		return alle.filter((e) => istAktiv(e.href!, pfad)).sort((a, b) => b.href!.length - a.href!.length)[0] ?? null;
 	});
+	// Jamil msg 3060: Auf der Startseite eines Bereichs (z. B. /auftraege) wiederholt der Seitentitel nur die Kopfleiste.
+	// Am Desktop bleibt dann nur die Kopfleiste sichtbar, die h1 wird zur Screenreader-Überschrift (Stil unten).
+	// Am Handy gibt es keine Kopfleiste – dort bleibt die h1 sichtbar. Detailseiten (/auftraege/<id>) behalten ihren Titel.
+	const bereichsStart = $derived(!!bereich?.href && bereich.href.split('?')[0] === pfad);
 	// Logo oben links (msg 3014): Seitenleiste (dunkel) bevorzugt die helle Variante, das Handy (hell) das Briefkopf-Logo
 	const markeName = $derived(data.marke?.name ?? 'CRM System');
 	const logoUrl = (variante: 'dunkel' | 'briefkopf', v: string) => `/api/marke/logo?variante=${variante}&v=${encodeURIComponent(v)}`;
@@ -119,7 +123,7 @@
 				</button>
 			</form>
 		</nav>
-		<div class="inhalt" class:mit-mikro={data.sprache}>
+		<div class="inhalt" class:mit-mikro={data.sprache} class:bereichs-start={bereichsStart}>
 			<header class="kopfleiste nur-breit-flex">
 				<div class="kopf-bereich">
 					{#if bereich}
@@ -572,6 +576,19 @@
 		}
 		.inhalt.mit-mikro {
 			padding-bottom: 5.5rem;
+		}
+		/* Doppelte Überschrift weg (Jamil msg 3060): Titel steht schon in der Kopfleiste → h1 nur für Screenreader.
+		   Ausnahme je Seite: <h1 class="titel-bleibt"> (Titel trägt mehr Information als der Bereichsname). */
+		.inhalt.bereichs-start :global(main h1:not(.titel-bleibt)) {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
 		}
 	}
 </style>
