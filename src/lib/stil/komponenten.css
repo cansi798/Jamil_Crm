@@ -33,6 +33,9 @@ html :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekunda
 	text-align: center;
 	text-decoration: none;
 	white-space: normal;
+	/* Jamil msg 3104: Knopftexte nie mitten im Wort umbrechen („speicher-n“) */
+	overflow-wrap: normal;
+	word-break: normal;
 	cursor: pointer;
 	transition: background 150ms, border-color 150ms, color 150ms, box-shadow 150ms, transform 150ms;
 }

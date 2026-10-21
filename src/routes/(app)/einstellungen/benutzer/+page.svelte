@@ -219,6 +219,10 @@
 		width: auto;
 		min-width: 0;
 	}
+	.bn-rolle button {
+		flex: none;
+		white-space: nowrap;
+	}
 	.bn-aktionen {
 		flex: 0 1 26rem;
 	}
