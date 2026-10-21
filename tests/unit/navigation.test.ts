@@ -17,7 +17,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 			'Stammdaten & Kalkulation': ['Katalog', 'Partner', 'Kalkulation', 'Auftragsquellen', 'Briefkopf / Firmenprofil'],
 			'Personal & Zeiten': ['Zeiten', 'Abwesenheiten', 'Kolonnen'],
 			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen'],
-			Automatisierung: ['Nachfassen', 'Kundenportal & Auftragsbestätigung', 'Online-Buchung', 'Erinnerungen'],
+			Automatisierung: ['Nachfassen', 'Kundenportal & Auftragsbestätigung', 'Online-Buchung', 'Erinnerungen', 'Handy verbinden'],
 			Benutzeradministration: ['Benutzer', 'Nextcloud', 'Rollen']
 		});
 		expect(nav.mehr).toEqual(nav.gruppen.flatMap((g) => g.eintraege));
@@ -38,10 +38,16 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Monteur: Start, Kunden, Aufträge, Karte, Aufgaben; nur Auftrags-Vorlagen, Zeiten, Erinnerungen; nie Preise', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Karte', 'Aufgaben']);
-		expect(gruppen(nav)).toEqual({ Vorlagen: ['Auftrags-Vorlagen'], 'Personal & Zeiten': ['Zeiten'], Automatisierung: ['Erinnerungen'] });
+		expect(gruppen(nav)).toEqual({ Vorlagen: ['Auftrags-Vorlagen'], 'Personal & Zeiten': ['Zeiten'], Automatisierung: ['Erinnerungen', 'Handy verbinden'] });
 		for (const name of ['Ausgangsbelege', 'Katalog', 'Briefkopf / Firmenprofil', 'Kalkulation', 'Nachkalkulation']) {
 			expect(namen([...nav.haupt, ...nav.mehr]), name).not.toContain(name);
 		}
+	});
+
+	it('Handy verbinden (CalDAV, msgs 2964/2980) für alle, die Aufgaben sehen – nur mit Modul Aufträge', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE))['Automatisierung']).toEqual(['Handy verbinden']);
+		expect(namen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE.filter((m) => m !== 'auftraege')).mehr)).not.toContain('Handy verbinden');
+		expect(namen(baueNavigation(betriebsNutzer(['kunden.lesen']), ALLE_MODULE).mehr)).not.toContain('Handy verbinden');
 	});
 
 	it('Benutzeradministration nur mit Rechten: benutzer.verwalten → Benutzer, einstellungen → Rollen', () => {

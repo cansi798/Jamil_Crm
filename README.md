@@ -26,7 +26,7 @@ Lastenheft und Pflichtenheft: `docs/spec/`.
 | Pfad | Inhalt |
 | --- | --- |
 | `src/routes/` | Seiten und API: `(app)` (Betriebsnutzer), `admin` (Plattform), `anmelden`, `einladung`, `api/*` |
-| `src/lib/server/` | Serverlogik: `db.ts` (Pools, Mandantenkontext), `auth/` (Sitzung, Passwort, TOTP, Begrenzung), `rechte.ts`, `tarif.ts`, `kunden.ts`, `auftraege.ts`, `todos.ts`, `plantafel.ts`, `katalog.ts`, `angebote.ts`, `betriebsprofil.ts`, `preisschutz.ts`, `pdf/angebot-pdf.ts`, `benutzer.ts`, `admin.ts`, `protokoll.ts` |
+| `src/lib/server/` | Serverlogik: `db.ts` (Pools, Mandantenkontext), `auth/` (Sitzung, Passwort, TOTP, Begrenzung), `rechte.ts`, `tarif.ts`, `kunden.ts`, `auftraege.ts`, `todos.ts`, `plantafel.ts`, `katalog.ts`, `angebote.ts`, `betriebsprofil.ts`, `preisschutz.ts`, `pdf/angebot-pdf.ts`, `benutzer.ts`, `admin.ts`, `protokoll.ts`, `caldav/` (Aufgaben aufs Handy: CalDAV-Server unter `/caldav/`, VTODO-Abbildung, App-Passwörter, Abgleich-Stände) |
 | `src/lib/` (ohne `server`) | Wissen ohne Serverbezug: `auftrag-status.ts` (Statuskette), `zeit.ts` (Tage/Wochen in Europe/Berlin), `geld.ts` (Cent-Rechnen, Rundung, Anzeige), `angebot-status.ts`, `katalog-werte.ts` (Gewerke, Einheiten), `heute-kopie.ts` (Offline-Kopie), `navigation.ts`, `verlauf.ts` |
 | `src/lib/components/`, `src/lib/stil/` | Wiederverwendbare Svelte-Bausteine und Stil |
 | `src/hooks.server.ts` | Sitzungsprüfung, Admin-Pfad, Nur-Lese-Sperre |

@@ -65,6 +65,20 @@ Dabei gefunden und behoben: `getClientAddress()` warf ohne Proxy-Kopfzeile (dire
 Online-Buchung über `ipVon`; Nextcloud liefert die E-Mail im Code-Flow nur über `userinfo` → wird dort abgefragt
 (nur wenn `sub` passt).
 
+## Probelauf 21.10.2026 (Aufgaben aufs Handy / CalDAV, Migration 101)
+
+Paket mit Migration 101 und den neuen Abhängigkeiten `ical.js`/`saxes`, unbeaufsichtigt installiert (Projekt
+`crm-caldavtest`, App-Port 18330, Profil `https`, Caddy auf 127.0.0.1:18180/18643, Domain `localhost`).
+
+| Prüfung | Ergebnis |
+| --- | --- |
+| Installation, alle Migrationen bis 101, `/api/gesundheit` über Caddy/HTTPS | ✔ |
+| `PROPFIND /.well-known/caldav` über den mitgelieferten Caddy → 301 auf `/caldav/` | ✔ |
+| `PROPFIND /caldav/` ohne Anmeldung → 401 (Basic), `OPTIONS` → `DAV: 1, 3, calendar-access` | ✔ |
+| Mit E-Mail + App-Passwort: `current-user-principal`, `PUT` einer neuen Aufgabe → 201 | ✔ |
+| Sicherung + Wiederherstellung: App-Passwort gilt danach weiter (207) | ✔ |
+| `9-deinstallieren.sh --ja`: nichts übrig; Vorschau- und Nextcloud-Container unberührt | ✔ |
+
 ## So wiederholen (für Entwickler)
 
 ```sh

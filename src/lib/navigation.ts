@@ -129,6 +129,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 			g.automatisierung.push({ name: 'Online-Buchung', href: '/einstellungen/online-buchung', symbol: 'plantafel' });
 		}
 		if (hat('erinnerungen.nutzen')) g.automatisierung.push({ name: 'Erinnerungen', href: '/konto/benachrichtigungen', symbol: 'todos' });
+		// Handy-Abgleich der eigenen Aufgaben per CalDAV (Jamil msgs 2964/2980): wer Aufgaben sieht
+		if (auftraegeLesen) g.automatisierung.push({ name: 'Handy verbinden', href: '/konto/handy', symbol: 'todos' });
 
 		// Benutzeradministration (msg 2819)
 		if (hat('benutzer.verwalten')) {

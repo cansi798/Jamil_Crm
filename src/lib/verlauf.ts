@@ -49,6 +49,9 @@ const WERTNAMEN: Record<string, Record<string, string>> = {
 	status: STATUS_NAMEN
 };
 
+/** Zusatz hinter dem Namen je Herkunft (Sprache, KI, Handy-Abgleich per CalDAV). */
+const QUELLEN: Record<string, string> = { sprache: ' (per Sprache)', ki: ' (KI-Entwurf)', caldav: ' (per Handy)' };
+
 const TITEL = { angelegt: 'Angelegt', geaendert: 'Geändert', geloescht: 'Gelöscht' } as const;
 
 const zeitFormat = new Intl.DateTimeFormat('de-DE', {
@@ -83,7 +86,7 @@ export function verlaufZeile(e: VerlaufEintrag): VerlaufZeile {
 		id: e.id,
 		zeit: zeitFormat.format(new Date(e.zeit)),
 		// Aktionen per Sprachsteuerung sind im Verlauf erkennbar (Pflichtenheft: „auch bei Aktionen per Sprache“)
-		wer: `${e.benutzerName ?? 'System'}${e.quelle === 'sprache' ? ' (per Sprache)' : e.quelle === 'ki' ? ' (KI-Entwurf)' : ''}`,
+		wer: `${e.benutzerName ?? 'System'}${Object.hasOwn(QUELLEN, e.quelle) ? QUELLEN[e.quelle] : ''}`,
 		titel: TITEL[e.aktion],
 		aenderungen
 	};

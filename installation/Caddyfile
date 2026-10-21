@@ -7,6 +7,12 @@
 
 {$CRM_DOMAIN} {
 	encode zstd gzip
+	# Aufgaben aufs Handy (CalDAV): Erkennung für iPhone/DAVx⁵ und der CalDAV-Bereich der App. Alle Methoden
+	# (auch PROPFIND, REPORT) gehen unverändert an die App; die Anmeldung (App-Passwort) prüft die App selbst.
+	redir /.well-known/caldav /caldav/ 301
+	handle /caldav* {
+		reverse_proxy app:3000
+	}
 	reverse_proxy app:3000
 	header {
 		Strict-Transport-Security "max-age=31536000"

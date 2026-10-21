@@ -371,6 +371,16 @@ Nach einer Änderung: `./3-starten.sh`
 
 &nbsp;
 
+**Handy gleicht Aufgaben nicht ab**
+
+- App-Passwort neu erstellen (Automatisierung → Handy verbinden) und am Handy eintragen. Benutzername ist die
+  E-Mail-Adresse, mit der man sich im CRM anmeldet.
+- Prüfen, ob die Erkennung erreichbar ist: `curl -I https://crm.meinefirma.de/.well-known/caldav` muss
+  `301` mit `location: /caldav/` zeigen.
+- Meldungen ansehen: `./8-status-und-logs.sh app` (Zeilen mit `[caldav]`, ohne Passwörter).
+
+&nbsp;
+
 **Spracherkennung antwortet nicht**
 
 Sie braucht ca. 2 GB Arbeitsspeicher. Prüfen: `./8-status-und-logs.sh sprache`.
@@ -627,6 +637,51 @@ Unter **Mehr → Nextcloud** steht, wann zuletzt abgeglichen wurde und ob es Feh
   Unterschrift der Nextcloud. Zu viele Versuche von einer Adresse werden 15 Minuten gesperrt.
 - Abschalten: den Eintrag in `.env` auf `nein` setzen (oder `NEXTCLOUD_URL` leeren) und `./3-starten.sh`. In
   Nextcloud zusätzlich das App-Passwort des Technik-Kontos widerrufen und den OIDC-Client „CRM“ löschen.
+
+&nbsp;
+
+---
+
+&nbsp;
+
+## Aufgaben aufs Handy (CalDAV)
+
+&nbsp;
+
+Jeder Mitarbeiter kann seine Aufgaben mit dem Handy abgleichen – in beide Richtungen:
+**iPhone/iPad** mit der Erinnerungen-App, **Android** mit DAVx⁵ und Tasks.org, am PC mit Thunderbird.
+Abhaken, umbenennen, neues Datum oder eine neue Aufgabe am Handy landet im CRM (im Verlauf steht „per Handy“).
+
+&nbsp;
+
+**Auf dem Server ist nichts zu tun.** Der mitgelieferte Caddy leitet die beiden nötigen Adressen weiter:
+
+- `https://crm.meinefirma.de/.well-known/caldav` → zeigt auf den Einstieg (damit am Handy die Serveradresse genügt)
+- `https://crm.meinefirma.de/caldav/` → der Abgleich selbst
+
+Es gibt keine neue Einstellung in `.env`.
+
+&nbsp;
+
+**Einrichten (jeder für sich):** im CRM links im Menü unter **Automatisierung → Handy verbinden**.
+Dort ein App-Passwort erstellen (wird nur einmal angezeigt) und den Schritten für iPhone oder Android folgen.
+Ein verlorenes Handy dort mit **Entfernen** sofort sperren.
+
+&nbsp;
+
+**Wer einen eigenen Webserver davor hat** (statt des mitgelieferten Caddy): Beide Adressen oben müssen an die App
+(`http://127.0.0.1:3000`) gehen – mit **allen** Anfragearten (auch `PROPFIND`, `REPORT`, `PROPPATCH`), ohne
+Zwischenspeicher, und nur über HTTPS. Ohne HTTPS lehnt das CRM die Anmeldung ab.
+
+&nbsp;
+
+**Gut zu wissen**
+
+- Jeder sieht nur seine eigenen Aufgaben (zugewiesen, über seine Aufträge, eigene ohne Auftrag) – wie im CRM.
+- Wer im CRM Aufgaben nur abhaken darf (z. B. Monteur), kann auch am Handy nur abhaken.
+- Erledigte Aufgaben bleiben 30 Tage auf dem Handy sichtbar.
+- Wiederkehrende Aufgaben: Am Handy steht immer der aktuelle Termin; beim Abhaken legt das CRM den nächsten an.
+- Nach 10 falschen Passwörtern ist die Anmeldung für dieses Konto 15 Minuten gesperrt.
 
 &nbsp;
 

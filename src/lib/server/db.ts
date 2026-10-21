@@ -195,8 +195,11 @@ export async function alsOeffentlich<T>(betriebId: string, quelle: 'online-buchu
 	return mitBetriebOeffentlich(betriebId, (tx) => laufend.run({ k: { betriebId, benutzerId: OEFFENTLICH }, tx }, fn), quelle);
 }
 
-/** Erlaubte Herkunftsangaben fürs Änderungsprotokoll (`app.aenderungen.quelle`): Oberfläche, Sprachsteuerung, KI-Entwurf. */
-export type Quelle = 'oberflaeche' | 'sprache' | 'ki';
+/**
+ * Erlaubte Herkunftsangaben fürs Änderungsprotokoll (`app.aenderungen.quelle`): Oberfläche, Sprachsteuerung, KI-Entwurf,
+ * Handy-Abgleich (CalDAV).
+ */
+export type Quelle = 'oberflaeche' | 'sprache' | 'ki' | 'caldav';
 
 /**
  * Führt `fn` in EINER Transaktion als `crm_app` aus; alle `mitBetrieb`-Aufrufe für denselben Kontext darin teilen
