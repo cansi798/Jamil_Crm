@@ -139,6 +139,13 @@
 											<button type="button" class="ga-gefahr" onclick={() => { if (confirm(`Ansicht „${a.name}“ löschen?`)) senden('DELETE', `/api/ansichten/${a.id}`); }}>Löschen</button>
 										</div>
 									</details>
+								{:else if darfTeilen && a.geteilt}
+									<details class="ga-mehr">
+										<summary aria-label={`Ansicht „${a.name}“ bearbeiten`}>⋯</summary>
+										<div class="ga-aktionen">
+											<button type="button" class="ga-gefahr" onclick={() => { if (confirm(`Team-Ansicht „${a.name}“ von ${a.von ?? '–'} für alle löschen?`)) senden('DELETE', `/api/ansichten/${a.id}`); }}>Für alle löschen</button>
+										</div>
+									</details>
 								{/if}
 							{/if}
 						</li>

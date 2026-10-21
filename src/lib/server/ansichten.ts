@@ -105,7 +105,7 @@ export async function speichereAnsicht(k: Kontext, nutzer: Nutzer, e: AnsichtEin
 export async function aendereAnsicht(k: Kontext, nutzer: Nutzer, id: unknown, e: AnsichtEingabe): Promise<Ansicht> {
 	const aid = pruefeId(id);
 	return mitBetrieb(k, async (tx) => {
-		const [alt] = await tx`select seite, name, query, ist_standard, geteilt from app.gespeicherte_ansichten where id = ${aid} and benutzer_id = ${k.benutzerId} for update`;
+		const [alt] = await tx`select seite, name, query, ist_standard, geteilt from app.gespeicherte_ansichten where id = ${aid} and betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} for update`;
 		if (!alt) throw new ApiFehler(404, 'Ansicht nicht gefunden.');
 		const name = e.name === undefined ? alt.name : textFeld(e.name, 'Name', 80);
 		if (!name) throw new ApiFehler(400, 'Bitte einen Namen eingeben.');
@@ -120,16 +120,25 @@ export async function aendereAnsicht(k: Kontext, nutzer: Nutzer, id: unknown, e:
 		if (standard && !alt.ist_standard) await tx`update app.gespeicherte_ansichten set ist_standard = false where benutzer_id = ${k.benutzerId} and seite = ${alt.seite} and ist_standard`;
 		const [z] = await tx`
 			update app.gespeicherte_ansichten set name = ${name}, query = ${query}, ist_standard = ${standard}, geteilt = ${geteilt}
-			where id = ${aid} and benutzer_id = ${k.benutzerId}
+			where id = ${aid} and betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId}
 			returning id, seite, name, query, ist_standard, geteilt, benutzer_id`;
 		return zuAnsicht(z, k.benutzerId);
 	});
 }
 
-export async function loescheAnsicht(k: Kontext, id: unknown): Promise<void> {
+/**
+ * Löschen: eigene immer; eine geteilte Team-Ansicht eines anderen nur, wer teilen darf (Chef/Büro). Private Ansichten
+ * anderer: 404 (auch die Datenbank lässt das nicht zu, Migration 092).
+ */
+export async function loescheAnsicht(k: Kontext, nutzer: Nutzer, id: unknown): Promise<void> {
 	const aid = pruefeId(id);
+	const teamAufraeumen = hatRecht(nutzer, 'auftraege.alle_lesen');
 	await mitBetrieb(k, async (tx) => {
-		const z = await tx`delete from app.gespeicherte_ansichten where id = ${aid} and benutzer_id = ${k.benutzerId} returning id`;
+		const z = await tx`
+			delete from app.gespeicherte_ansichten
+			where id = ${aid} and betrieb_id = ${k.betriebId}
+				and (benutzer_id = ${k.benutzerId} or (geteilt and ${teamAufraeumen}))
+			returning id`;
 		if (z.length === 0) throw new ApiFehler(404, 'Ansicht nicht gefunden.');
 	});
 }

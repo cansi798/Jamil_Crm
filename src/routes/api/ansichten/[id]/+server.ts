@@ -4,7 +4,7 @@ import { alsAntwort, leseJson } from '$lib/server/fehler';
 import { betriebKontext } from '$lib/server/rechte';
 import { aendereAnsicht, loescheAnsicht } from '$lib/server/ansichten';
 
-/** Eigene Ansicht ändern (Name, Filter, Standard, Teilen) bzw. löschen; fremde → 404. */
+/** Eigene Ansicht ändern (Name, Filter, Standard, Teilen) bzw. löschen; fremde → 404 (geteilte darf Chef/Büro löschen). */
 export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 	try {
 		const k = betriebKontext(locals);
@@ -16,7 +16,7 @@ export const PATCH: RequestHandler = async ({ locals, params, request }) => {
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {
 	try {
-		await loescheAnsicht(betriebKontext(locals), params.id);
+		await loescheAnsicht(betriebKontext(locals), locals.nutzer!, params.id);
 		return new Response(null, { status: 204 });
 	} catch (e) {
 		return alsAntwort(e);

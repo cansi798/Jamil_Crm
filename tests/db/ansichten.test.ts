@@ -28,7 +28,7 @@ describe('Gespeicherte Ansichten', () => {
 		await expect(speichereAnsicht(k(u.ids.chefA), u.chefA, { seite: 'plantafel', name: 'tag', query: '' })).rejects.toMatchObject({ status: 409 });
 		await expect(speichereAnsicht(k(u.ids.chefA), u.chefA, { seite: 'irgendwas', name: 'x', query: '' })).rejects.toMatchObject({ status: 400 });
 		expect(await aendereAnsicht(k(u.ids.chefA), u.chefA, a.id, { name: 'Kolonne 1' })).toMatchObject({ name: 'Kolonne 1' });
-		await loescheAnsicht(k(u.ids.chefA), b.id);
+		await loescheAnsicht(k(u.ids.chefA), u.chefA, b.id);
 		expect((await listeAnsichten(k(u.ids.chefA), 'plantafel')).map((x) => x.name)).toEqual(['Kolonne 1']);
 	});
 
@@ -42,7 +42,7 @@ describe('Gespeicherte Ansichten', () => {
 		expect(m.map((x) => x.name)).toEqual(['Meine Woche', 'Hornbach offen']);
 		expect(m[1]).toMatchObject({ eigene: false, von: expect.any(String) });
 		await expect(aendereAnsicht(k(u.ids.monteurA), u.monteurA, team.id, { name: 'Gekapert' })).rejects.toMatchObject({ status: 404 });
-		await expect(loescheAnsicht(k(u.ids.monteurA), team.id)).rejects.toMatchObject({ status: 404 });
+		await expect(loescheAnsicht(k(u.ids.monteurA), u.monteurA, team.id)).rejects.toMatchObject({ status: 404 });
 		await expect(aendereAnsicht(k(u.ids.monteurA), u.monteurA, eigen.id, { geteilt: true })).rejects.toMatchObject({ status: 403 });
 		expect(await listeAnsichten(k(u.ids.chefB, u.betriebB), 'karte')).toEqual([]);
 		// auch direkt in der Datenbank (RLS): fremde Ansicht ändern trifft nichts
@@ -50,5 +50,24 @@ describe('Gespeicherte Ansichten', () => {
 		expect(z).toHaveLength(0);
 		await expect(u.alsApp(u.betriebA, u.ids.monteurA, (tx) => tx`insert into app.gespeicherte_ansichten (betrieb_id, benutzer_id, seite, name, query) values (${u.betriebA}, ${u.ids.chefA}, 'karte', 'fremd', '')`)).rejects.toThrow(/row-level security/);
 		await expect(root`insert into app.gespeicherte_ansichten (betrieb_id, benutzer_id, seite, name, query) values (${u.betriebA}, ${u.ids.chefA}, 'karte', 'böse', 'a="b"')`).rejects.toMatchObject({ code: '23514' });
+	});
+
+	it('Fremde Ansichten: Benutzer B kann A\'s private Ansicht weder ändern noch löschen; geteilte darf nur Chef/Büro aufräumen', async () => {
+		const privat = await speichereAnsicht(k(u.ids.chefA), u.chefA, { seite: 'kunden', name: 'Privat', query: 'suche=a' });
+		const team = await speichereAnsicht(k(u.ids.chefA), u.chefA, { seite: 'kunden', name: 'Team', query: 'suche=b', geteilt: true });
+		// Büro (darf teilen) – private Ansicht des Chefs: unsichtbar, nicht änderbar, nicht löschbar
+		expect((await listeAnsichten(k(u.ids.bueroA), 'kunden')).map((x) => x.id)).not.toContain(privat.id);
+		await expect(aendereAnsicht(k(u.ids.bueroA), u.bueroA, privat.id, { name: 'x' })).rejects.toMatchObject({ status: 404 });
+		await expect(aendereAnsicht(k(u.ids.bueroA), u.bueroA, privat.id, { istStandard: true })).rejects.toMatchObject({ status: 404 });
+		await expect(loescheAnsicht(k(u.ids.bueroA), u.bueroA, privat.id)).rejects.toMatchObject({ status: 404 });
+		// auch direkt in der Datenbank nicht (RLS)
+		expect(await u.alsApp(u.betriebA, u.ids.bueroA, (tx) => tx`delete from app.gespeicherte_ansichten where id = ${privat.id} returning id`)).toHaveLength(0);
+		// geteilte: ändern nur der Ersteller; Monteur darf nicht löschen, Büro darf aufräumen
+		await expect(aendereAnsicht(k(u.ids.bueroA), u.bueroA, team.id, { geteilt: false })).rejects.toMatchObject({ status: 404 });
+		await expect(loescheAnsicht(k(u.ids.monteurA), u.monteurA, team.id)).rejects.toMatchObject({ status: 404 });
+		await loescheAnsicht(k(u.ids.bueroA), u.bueroA, team.id);
+		expect((await listeAnsichten(k(u.ids.chefA), 'kunden')).map((x) => x.id)).toEqual([privat.id]);
+		// anderer Betrieb: nichts
+		await expect(loescheAnsicht(k(u.ids.chefB, u.betriebB), u.chefB, privat.id)).rejects.toMatchObject({ status: 404 });
 	});
 });
