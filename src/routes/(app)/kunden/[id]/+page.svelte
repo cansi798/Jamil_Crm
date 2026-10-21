@@ -20,6 +20,8 @@
 	};
 	const groesse = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 	let notizText = $state('');
+	/** Jamil msg 3034: „Kunde löschen“ oben rechts; die Rückfrage klappt unter dem Kopf auf (bleibt bei Fehler offen). */
+	let loeschenOffen = $state(false);
 
 	const TYP_NAMEN = { auftrag: 'Auftrag', angebot: 'Angebot', termin: 'Termin', notiz: 'Notiz', dokument: 'Dokument' } as const;
 	const FILTER = [
@@ -49,11 +51,34 @@
 			{#if data.darfBearbeiten}
 				<a href={`/kunden/${k.id}/bearbeiten`} class="kd-knopf hell">Kunde bearbeiten</a>
 			{/if}
+			{#if data.darfBearbeiten}
+				<button type="button" class="kd-knopf gefahr" aria-expanded={loeschenOffen || !!form?.loeschFehler} onclick={() => (loeschenOffen = !loeschenOffen)}>Kunde löschen</button>
+			{/if}
 			{#if data.auftraege && data.darfAuftragAnlegen}
 				<a href={`/auftraege/neu?kunde=${k.id}`} class="kd-knopf">+ Auftrag</a>
 			{/if}
 		</div>
 	</header>
+
+	{#if form?.fehler && !form?.loeschFehler && !form?.notizFehler && !form?.dokumentFehler && !form?.portalFehler}
+		<p role="alert" class="kd-fehler">{form.fehler}</p>
+	{/if}
+	{#if data.darfBearbeiten && (loeschenOffen || form?.loeschFehler)}
+		<section class="kd-loeschen" aria-label="Kunde löschen">
+			<form method="POST" action="?/loeschen" use:enhance class="kd-formular">
+				{#if form?.loeschFehler}
+					<p role="alert" class="kd-fehler">{form.fehler}</p>
+				{/if}
+				<p>
+					Der Kunde und alle seine Objekte werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.
+				</p>
+				<div class="kd-loeschen-knoepfe">
+					<button type="button" class="kd-knopf hell" onclick={() => (loeschenOffen = false)}>Abbrechen</button>
+					<button type="submit" class="kd-knopf gefahr">Endgültig löschen</button>
+				</div>
+			</form>
+		</section>
+	{/if}
 
 	<Abschnitt titel="Kontakt">
 		<dl class="kd-daten ka-kontakt">
@@ -326,20 +351,6 @@
 		</form>
 	{/if}
 
-	{#if data.darfBearbeiten}
-		<details class="kd-loeschen">
-			<summary>Kunde löschen …</summary>
-			<form method="POST" action="?/loeschen" use:enhance class="kd-formular">
-				{#if form?.fehler && !form?.notizFehler && !form?.dokumentFehler}
-					<p role="alert" class="kd-fehler">{form.fehler}</p>
-				{/if}
-				<p>
-					Der Kunde und alle seine Objekte werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.
-				</p>
-				<button type="submit" class="kd-knopf gefahr">Endgültig löschen</button>
-			</form>
-		</details>
-	{/if}
 </main>
 
 <style>
@@ -388,9 +399,24 @@
 		border: 0;
 		min-height: 0;
 	}
-	.ka-protokoll,
-	.kd-loeschen {
+	.ka-protokoll {
 		margin-top: 1rem;
+	}
+	.kd-loeschen {
+		margin: 0 0 1rem;
+		padding: 1rem;
+		border: 1px solid var(--ui-rot);
+		border-radius: var(--ui-radius, 0.75rem);
+		background: color-mix(in srgb, var(--ui-rot) 6%, white);
+	}
+	.kd-loeschen p {
+		margin: 0 0 0.75rem;
+	}
+	.kd-loeschen-knoepfe {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 0.5rem;
 	}
 	.ka-verlauf-kopf {
 		display: flex;

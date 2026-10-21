@@ -36,7 +36,7 @@ test('Büro: anmelden, Kunde „Müller“ anlegen, mit „müller“ finden', a
 
 	// Aufräumen: Testkunden wieder löschen, damit die Entwicklungsdaten nicht anwachsen
 	await page.goto(detail);
-	await page.getByText('Kunde löschen …').click();
+	await page.getByRole('button', { name: 'Kunde löschen' }).click();
 	await page.getByRole('button', { name: 'Endgültig löschen' }).click();
 	await expect(page).toHaveURL(/\/kunden$/);
 });

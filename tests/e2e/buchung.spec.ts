@@ -188,7 +188,7 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 		await page.getByRole('button', { name: 'Endgültig löschen' }).click();
 		await expect(page).not.toHaveURL(url);
 		await page.goto(kundeUrl);
-		await page.getByText('Kunde löschen …').click();
+		await page.getByRole('button', { name: 'Kunde löschen' }).click();
 		await page.getByRole('button', { name: 'Endgültig löschen' }).click();
 		await expect(page).not.toHaveURL(kundeUrl);
 	}
