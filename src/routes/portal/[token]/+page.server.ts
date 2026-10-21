@@ -3,7 +3,6 @@ import type { Actions, PageServerLoad } from './$types';
 import { entscheide, ladePortal } from '$lib/server/kundenportal-oeffentlich';
 import { ipVon, OEFFENTLICHE_KOPFZEILEN } from '$lib/server/buchung-anfrage';
 import { ApiFehler } from '$lib/server/fehler';
-import { abgedunkelt, akzentLesbar, aufgehellt } from '$lib/farben';
 
 /**
  * Kundenportal /portal/<Token> (ohne Anmeldung; Jamil msgs 2770–2774 Punkt 4, 2778): Auftragsstatus, nächste Termine
@@ -20,12 +19,8 @@ export const load: PageServerLoad = async (event) => {
 		throw e;
 	}
 	if (!seite) error(404, 'Dieser Link ist nicht (mehr) gültig. Bitte wenden Sie sich an Ihren Handwerksbetrieb.');
-	const akzent = akzentLesbar(seite.betrieb.farbe);
-	return {
-		token: event.params.token,
-		seite,
-		farben: { akzent, hover: abgedunkelt(akzent, 0.85), dunkel: abgedunkelt(akzent, 0.7), hell: aufgehellt(akzent, 0.12), zart: aufgehellt(akzent, 0.05) }
-	};
+	// Hausfarbe wie in der App (farbStil leitet Text-/Hell-Töne lesbar ab); ohne Angabe Gold wie das CRM
+	return { token: event.params.token, seite, akzent: seite.betrieb.farbe ?? '#c3a56f' };
 };
 
 export const actions: Actions = {

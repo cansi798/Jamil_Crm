@@ -77,8 +77,9 @@ export type PortalAuftrag = {
 	status: { schluessel: AuftragStatus; name: string } | null;
 	termine: PortalTermin[] | null;
 	angebote: PortalAngebot[];
-	dateien: { id: string; name: string; typ: string }[];
-	auftragsbestaetigungen: { id: string; nummer: string }[];
+	/** freigegebene Dateien; `art`: Foto (Bild), Protokoll (PDF eines Protokolls) oder Dokument */
+	dateien: { id: string; name: string; typ: string; datum: string; art: 'foto' | 'protokoll' | 'dokument' }[];
+	auftragsbestaetigungen: { id: string; nummer: string; datum: string }[];
 	/** Links, die ausdrücklich fürs Portal freigegeben sind (Jamil msg 2850; Standard aus) – ohne interne Notiz. */
 	links: { titel: string; url: string }[];
 	/** Arbeitsschritte ab „beauftragt“ (msg 2848) – nur mit freigegebenem Status; sonst null. */
@@ -88,8 +89,10 @@ export type PortalAuftrag = {
 	/** Namen der Mitarbeiter am Auftrag (Zuständige + kommende Termine) – leer bei „keine Namen“ oder Schalter aus. */
 	team: string[];
 };
+/** Erscheinungsbild des Portals je Betrieb (Migration 096, msg 2953) – leer = Standard */
+export type PortalMarke = { dunkel: string | null; hintergrund: string | null; titelSchrift: 'montserrat' | 'inter'; textSchrift: 'inter' | 'opensans'; titelGross: boolean };
 export type PortalSeite = {
-	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean; farbe: string | null };
+	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean; farbe: string | null; marke: PortalMarke };
 	agbUrl: string | null;
 	widerrufUrl: string | null;
 	auftraege: PortalAuftrag[];
@@ -117,6 +120,7 @@ const nameFuer = (art: TeamNamen, name: string): string | null => (art === 'aus'
 async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Promise<PortalSeite> {
 	const [b] = await tx`
 		select coalesce(pr.firmenname, be.name) as name, pr.telefon, pr.email, pr.web, pr.logo is not null as hat_logo, pr.farbe,
+			pr.dunkel_farbe, pr.hintergrund_farbe, pr.titel_schrift, pr.text_schrift, coalesce(pr.titel_gross, false) as titel_gross,
 			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen
 		from app.betriebe be
 		left join app.betrieb_profil pr on pr.betrieb_id = be.id
@@ -167,9 +171,12 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			: [];
 		const dateiIds = geteilt.filter((g) => g.art === 'datei').map((g) => g.ref_id as string);
 		const dateien = dateiIds.length
-			? await tx`select id, name, typ from app.dateien where betrieb_id = ${p.betriebId} and auftrag_id = ${id} and id = any(${dateiIds}::uuid[]) order by angelegt`
+			? await tx`
+				select d.id, d.name, d.typ, d.angelegt,
+					exists (select 1 from app.protokolle pr where pr.betrieb_id = d.betrieb_id and pr.pdf_datei_id = d.id) as protokoll
+				from app.dateien d where d.betrieb_id = ${p.betriebId} and d.auftrag_id = ${id} and d.id = any(${dateiIds}::uuid[]) order by d.angelegt`
 			: [];
-		const abs = await tx`select id, nummer from app.auftragsbestaetigungen where betrieb_id = ${p.betriebId} and auftrag_id = ${id} order by angelegt`;
+		const abs = await tx`select id, nummer, angelegt from app.auftragsbestaetigungen where betrieb_id = ${p.betriebId} and auftrag_id = ${id} order by angelegt`;
 		const links = await tx`select titel, url from app.auftrag_links where betrieb_id = ${p.betriebId} and auftrag_id = ${id} and im_portal order by sortierung, angelegt, id`;
 		// Arbeitsschritte (msg 2848): nur Aufgaben mit Lautstärke oder Schmutz – das sind die Schritte, die der Betrieb
 		// für den Kunden einstuft; interne Aufgaben (Nachfassen, Material bestellen …) bleiben so unsichtbar.
@@ -221,8 +228,14 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 					entscheidung: ent ? { art: ent.art, name: ent.name, zeit: new Date(ent.zeit).toISOString() } : null
 				};
 			}),
-			dateien: dateien.map((d) => ({ id: d.id, name: d.name, typ: d.typ })),
-			auftragsbestaetigungen: abs.map((x) => ({ id: x.id, nummer: x.nummer })),
+			dateien: dateien.map((d) => ({
+				id: d.id,
+				name: d.name,
+				typ: d.typ,
+				datum: new Date(d.angelegt).toISOString(),
+				art: d.protokoll ? ('protokoll' as const) : String(d.typ).startsWith('image/') ? ('foto' as const) : ('dokument' as const)
+			})),
+			auftragsbestaetigungen: abs.map((x) => ({ id: x.id, nummer: x.nummer, datum: new Date(x.angelegt).toISOString() })),
 			links: links.map((l) => ({ titel: l.titel, url: l.url })),
 			schritte: schritte
 				? schritte.map((t) => ({ titel: t.titel, erledigt: t.erledigt, tag: t.tag, laerm: t.lautstaerke ?? null, schmutz: t.schmutz ?? null }))
@@ -232,7 +245,21 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		});
 	}
 	return {
-		betrieb: { name: b.name, telefon: b.telefon, email: b.email, web: b.web, hatLogo: b.hat_logo, farbe: b.farbe },
+		betrieb: {
+			name: b.name,
+			telefon: b.telefon,
+			email: b.email,
+			web: b.web,
+			hatLogo: b.hat_logo,
+			farbe: b.farbe,
+			marke: {
+				dunkel: b.dunkel_farbe ?? null,
+				hintergrund: b.hintergrund_farbe ?? null,
+				titelSchrift: b.titel_schrift === 'inter' ? 'inter' : 'montserrat',
+				textSchrift: b.text_schrift === 'opensans' ? 'opensans' : 'inter',
+				titelGross: b.titel_gross === true
+			}
+		},
 		agbUrl: b.agb_url,
 		widerrufUrl: b.widerruf_url,
 		auftraege

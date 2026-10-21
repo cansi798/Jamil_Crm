@@ -20,6 +20,15 @@
 	font-display: swap;
 	src: url('/schriften/Montserrat.woff2') format('woff2');
 }
+/* Open Sans für Fließtext im Kundenportal, wenn der Betrieb sie wählt (SIL OFL, static/schriften/OpenSans-LIZENZ.txt);
+   lädt nur, wenn sie auch benutzt wird */
+@font-face {
+	font-family: 'Open Sans';
+	font-style: normal;
+	font-weight: 300 800;
+	font-display: swap;
+	src: url('/schriften/OpenSans.woff2') format('woff2');
+}
 :root {
 	/* ── Akzent (Standard: Gold; je Betrieb überschrieben über die App-Hülle, siehe farbe.ts) ─────────── */
 	--ui-akzent: #c3a56f; /* Füllung: Hauptknopf, aktive Reiter */

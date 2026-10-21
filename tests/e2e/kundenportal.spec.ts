@@ -48,6 +48,13 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	await expect(kunde.getByRole('region', { name: 'Überblick' })).toContainText('Nächster Termin');
 	await expect(kunde.getByRole('img', { name: /^Fortschritt:/ }).first()).toBeVisible();
 	await expect(kunde.getByRole('heading', { name: 'Ihr Ansprechpartner' }).first()).toBeVisible();
+	// EIN Bereich „Ihre Unterlagen“ mit Art-Etikett und Filter-Chips (msg 2958)
+	const unterlagen = kunde.getByRole('region', { name: 'Ihre Unterlagen' });
+	await expect(unterlagen).toContainText('Angebot');
+	await unterlagen.getByRole('button', { name: /^Dokumente/ }).click();
+	await expect(unterlagen.getByRole('link', { name: /Angebot AN-/ })).toHaveCount(0);
+	await unterlagen.getByRole('button', { name: /^Alle/ }).click();
+	await expect(unterlagen.getByRole('link', { name: /Angebot AN-/ }).first()).toBeVisible();
 	await erwarteKeinQuerScrollen(kunde, viewport.width);
 	const annehmen = kunde.getByRole('button', { name: 'Angebot annehmen' });
 	if (info.project.name === 'desktop' && (await annehmen.isVisible())) {

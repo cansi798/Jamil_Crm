@@ -21,6 +21,11 @@ const PROFIL: Profil = {
 	bank: 'Beispielbank',
 	fusszeile: 'Geschäftsführer: Max Muster',
 	farbe: null,
+	dunkelFarbe: null,
+	hintergrundFarbe: null,
+	titelSchrift: null,
+	textSchrift: null,
+	titelGross: 'nein',
 	hatLogo: false,
 	logoTyp: null,
 	logoGeaendert: null

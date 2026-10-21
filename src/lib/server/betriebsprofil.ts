@@ -25,6 +25,13 @@ export type Profil = {
 	fusszeile: string | null;
 	/** Hausfarbe (#rrggbb), z. B. für die Online-Buchungsseite */
 	farbe: string | null;
+	/** Erscheinungsbild Kundenportal (Migration 096, msg 2953) – leer = Standard */
+	dunkelFarbe: string | null;
+	hintergrundFarbe: string | null;
+	titelSchrift: 'montserrat' | 'inter' | null;
+	textSchrift: 'inter' | 'opensans' | null;
+	/** Überschriften in Großbuchstaben: 'ja' | 'nein' (als Text, damit das Formular es wie die anderen Felder schickt) */
+	titelGross: 'ja' | 'nein';
 	hatLogo: boolean;
 	logoTyp: string | null;
 	/** Zeitpunkt des letzten Logo-Wechsels (für Cache-Brecher in der Oberfläche). */
@@ -46,8 +53,15 @@ const FELDER = {
 	bic: ['bic', 'BIC', 11],
 	bank: ['bank', 'Bank', 200],
 	fusszeile: ['fusszeile', 'Fußzeile', 500],
-	farbe: ['farbe', 'Farbe', 7]
+	farbe: ['farbe', 'Farbe', 7],
+	dunkelFarbe: ['dunkel_farbe', 'Dunkle Farbe', 7],
+	hintergrundFarbe: ['hintergrund_farbe', 'Hintergrundfarbe', 7],
+	titelSchrift: ['titel_schrift', 'Schrift für Überschriften', 20],
+	textSchrift: ['text_schrift', 'Schrift für Text', 20],
+	titelGross: ['titel_gross', 'Großbuchstaben', 4]
 } as const;
+const FARB_FELDER = new Set(['farbe', 'dunkelFarbe', 'hintergrundFarbe']);
+const SCHRIFTEN: Record<string, readonly string[]> = { titelSchrift: ['montserrat', 'inter'], textSchrift: ['inter', 'opensans'] };
 
 export type ProfilFeld = keyof typeof FELDER;
 export const PROFIL_FELDER = Object.keys(FELDER) as ProfilFeld[];
@@ -75,12 +89,18 @@ const LEER: Profil = {
 	bank: null,
 	fusszeile: null,
 	farbe: null,
+	dunkelFarbe: null,
+	hintergrundFarbe: null,
+	titelSchrift: null,
+	textSchrift: null,
+	titelGross: 'nein',
 	hatLogo: false,
 	logoTyp: null,
 	logoGeaendert: null
 };
 
 const AUSWAHL = `firmenname, strasse, plz, ort, telefon, email, web, steuernummer, ust_id, iban, bic, bank, fusszeile, farbe,
+	dunkel_farbe, hintergrund_farbe, titel_schrift, text_schrift, titel_gross,
 	logo is not null as hat_logo, logo_typ, logo_geaendert`;
 
 function zuProfil(z: Record<string, any> | undefined): Profil {
@@ -100,6 +120,11 @@ function zuProfil(z: Record<string, any> | undefined): Profil {
 		bank: z.bank,
 		fusszeile: z.fusszeile,
 		farbe: z.farbe ?? null,
+		dunkelFarbe: z.dunkel_farbe ?? null,
+		hintergrundFarbe: z.hintergrund_farbe ?? null,
+		titelSchrift: z.titel_schrift ?? null,
+		textSchrift: z.text_schrift ?? null,
+		titelGross: z.titel_gross === true ? 'ja' : 'nein',
 		hatLogo: z.hat_logo === true,
 		logoTyp: z.logo_typ,
 		logoGeaendert: z.logo_geaendert ? new Date(z.logo_geaendert).toISOString() : null
@@ -123,13 +148,17 @@ export async function hausfarbe(k: Kontext): Promise<string | null> {
 }
 
 /** Prüft die angegebenen Felder (unbekannte Felder → 400) und liefert Spalte → Wert. */
-export function pruefeProfilEingabe(e: Record<string, unknown>): Record<string, string | null> {
+export function pruefeProfilEingabe(e: Record<string, unknown>): Record<string, string | boolean | null> {
 	const unbekannt = Object.keys(e).filter((f) => !Object.hasOwn(FELDER, f));
 	if (unbekannt.length > 0) throw new ApiFehler(400, `Unbekanntes Feld: ${unbekannt[0]}`);
-	const werte: Record<string, string | null> = {};
+	const werte: Record<string, string | boolean | null> = {};
 	for (const feld of PROFIL_FELDER) {
 		if (!Object.hasOwn(e, feld)) continue;
 		const [spalte, beschriftung, max] = FELDER[feld];
+		if (feld === 'titelGross') {
+			werte[spalte] = e[feld] === true || e[feld] === 'ja';
+			continue;
+		}
 		let w = textFeld(e[feld], beschriftung, max);
 		if (w !== null && feld === 'email' && !EMAIL.test(w)) throw new ApiFehler(400, 'Bitte eine gültige E-Mail-Adresse eingeben.');
 		if (w !== null && feld === 'iban') {
@@ -140,7 +169,8 @@ export function pruefeProfilEingabe(e: Record<string, unknown>): Record<string, 
 			w = w.replace(/\s+/g, '').toUpperCase();
 			if (!BIC.test(w)) throw new ApiFehler(400, 'Bitte eine gültige BIC eingeben (8 oder 11 Zeichen).');
 		}
-		if (w !== null && feld === 'farbe') {
+		if (w !== null && SCHRIFTEN[feld] && !SCHRIFTEN[feld].includes(w)) throw new ApiFehler(400, `${beschriftung}: unbekannte Schrift.`);
+		if (w !== null && FARB_FELDER.has(feld)) {
 			w = w.toLowerCase();
 			if (!/^#[0-9a-f]{6}$/.test(w)) throw new ApiFehler(400, 'Bitte eine Farbe wählen.');
 		}

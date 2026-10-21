@@ -332,7 +332,14 @@ const BRIEFKOPF = {
 	telefon: '0151 42888841',
 	email: 'b.ahmedi@bauwelt-handwerk.de',
 	web: 'www.bauwelt-handwerk.de',
-	fusszeile: 'Geschäftsführer: Burim Ahmedi · Amtsgericht Kiel HRB 27109 KI'
+	fusszeile: 'Geschäftsführer: Burim Ahmedi · Amtsgericht Kiel HRB 27109 KI',
+	// Erscheinungsbild wie die Website (msg 2953; Farben aus den CSS-Variablen der Bauwelt-Website)
+	farbe: '#c3a56f',
+	dunkel_farbe: '#2d2c2e',
+	hintergrund_farbe: '#f4f1eb',
+	titel_schrift: 'montserrat',
+	text_schrift: 'opensans',
+	titel_gross: true
 };
 const LOGO_DATEI = fileURLToPath(new URL('./seed-dateien/bauwelt-logo.png', import.meta.url));
 

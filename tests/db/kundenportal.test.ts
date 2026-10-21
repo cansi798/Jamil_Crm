@@ -102,6 +102,12 @@ describe('Kundenportal', () => {
 				{ titel: 'Fugen', erledigt: false, tag: null, laerm: null, schmutz: 1 }
 			]);
 			expect(JSON.stringify(s)).not.toMatch(/Silikon|schwierig/);
+			// Erscheinungsbild je Betrieb (msg 2953): Standard, dann wie die Website
+			expect(s.betrieb.marke).toEqual({ dunkel: null, hintergrund: null, titelSchrift: 'montserrat', textSchrift: 'inter', titelGross: false });
+			await root`insert into app.betrieb_profil (betrieb_id, dunkel_farbe, hintergrund_farbe, text_schrift, titel_gross) values (${u.betriebA}, '#2d2c2e', '#f4f1eb', 'opensans', true)
+				on conflict (betrieb_id) do update set dunkel_farbe = excluded.dunkel_farbe, hintergrund_farbe = excluded.hintergrund_farbe, text_schrift = excluded.text_schrift, titel_gross = true`;
+			expect((await ladePortal(token, IP))!.betrieb.marke).toEqual({ dunkel: '#2d2c2e', hintergrund: '#f4f1eb', titelSchrift: 'montserrat', textSchrift: 'opensans', titelGross: true });
+			await root`update app.betrieb_profil set dunkel_farbe = null, hintergrund_farbe = null, text_schrift = null, titel_gross = false where betrieb_id = ${u.betriebA}`;
 			// Standard „nur Vorname“: Zuständige (Büro) als Ansprechpartner, Team = Zuständige + kommende Termine
 			expect(a.ansprechpartner).toBe('Büro');
 			expect(a.team).toEqual(['Ali', 'Büro']);
@@ -156,6 +162,8 @@ describe('Kundenportal', () => {
 		await expect(portalDokument(token, 'datei', d.id, IP)).rejects.toMatchObject({ status: 404 });
 		await setzeDokument(zA(), u.auftragA, 'datei', d.id, true);
 		expect((await portalDokument(token, 'datei', d.id, IP)).typ).toBe('image/png');
+		// im Portal als „Foto“ in „Ihre Unterlagen“ (msg 2958), mit Datum
+		expect((await ladePortal(token, IP))!.auftraege[0].dateien[0]).toMatchObject({ id: d.id, art: 'foto', datum: expect.any(String) });
 		// Dokument eines anderen Auftrags über diesen Link: nie
 		const anderer = await u.neuerAuftrag('angebot', 'Anderer');
 		const an2 = await versendetesAngebot(anderer);

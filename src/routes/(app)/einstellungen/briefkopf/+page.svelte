@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import type { ActionData, PageData } from './$types';
@@ -73,6 +74,34 @@
 			Hausfarbe (App, Online-Buchung, Kundenportal)
 			<input type="color" name="farbe" value={werte.farbe || '#c3a56f'} />
 		</label>
+		<div class="bk-portal" role="group" aria-labelledby="bk-portal-titel">
+			<h2 id="bk-portal-titel">Erscheinungsbild Kundenportal</h2>
+			<p class="kd-info">So sieht das Portal für Ihre Kunden aus – passend zu Ihrer Website. Die CRM-App selbst nutzt nur die Hausfarbe.</p>
+			<div class="kd-zwei">
+				<label class="bk-farbe">Dunkle Farbe (Kopf) <input type="color" name="dunkelFarbe" value={werte.dunkelFarbe || '#2d2c2e'} /></label>
+				<label class="bk-farbe">Hintergrund <input type="color" name="hintergrundFarbe" value={werte.hintergrundFarbe || '#f6f4f0'} /></label>
+			</div>
+			<div class="kd-zwei">
+				<label>Schrift für Überschriften
+					<Auswahl name="titelSchrift">
+						<option value="montserrat" selected={(werte.titelSchrift ?? 'montserrat') === 'montserrat'}>Montserrat</option>
+						<option value="inter" selected={werte.titelSchrift === 'inter'}>Inter</option>
+					</Auswahl>
+				</label>
+				<label>Schrift für Text
+					<Auswahl name="textSchrift">
+						<option value="inter" selected={(werte.textSchrift ?? 'inter') === 'inter'}>Inter</option>
+						<option value="opensans" selected={werte.textSchrift === 'opensans'}>Open Sans</option>
+					</Auswahl>
+				</label>
+			</div>
+			<label>Überschriften
+				<Auswahl name="titelGross">
+					<option value="nein" selected={werte.titelGross !== 'ja'}>normale Schreibweise</option>
+					<option value="ja" selected={werte.titelGross === 'ja'}>GROSSBUCHSTABEN (wie viele Handwerker-Websites)</option>
+				</Auswahl>
+			</label>
+		</div>
 		<div class="kd-zwei">
 			<label>Steuernummer <input type="text" name="steuernummer" maxlength="50" value={werte.steuernummer ?? ''} /></label>
 			<label>USt-IdNr. <input type="text" name="ustId" maxlength="20" value={werte.ustId ?? ''} /></label>
@@ -90,6 +119,21 @@
 </main>
 
 <style>
+	.bk-portal {
+		display: grid;
+		gap: 0.75rem;
+		margin: 0;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--ui-rand);
+		border-radius: var(--ui-radius-karte);
+	}
+	.bk-portal h2 {
+		margin: 0;
+		font-size: 1rem;
+	}
+	.bk-portal .kd-info {
+		margin: 0;
+	}
 	.bk-farbe input {
 		width: 4rem !important;
 		height: 2.5rem;
