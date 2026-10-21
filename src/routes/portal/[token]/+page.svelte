@@ -322,22 +322,25 @@
 		gap: 0.75rem;
 	}
 	@media (max-width: 760px) {
+		/* Handy: drei flache Zeilen – Titel links, Wert rechts, Hinweis darunter */
 		.pt-dash {
+			grid-template-columns: 1fr;
 			gap: 0.5rem;
 		}
 		.pt-kachel {
-			padding: 0.6rem 0.7rem;
-			border-left-width: 3px;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+			gap: 0 0.75rem;
+			padding: 0.6rem 0.85rem;
 		}
 		.pt-kachel strong {
-			font-size: 1.1rem;
+			grid-row: 1 / span 2;
+			grid-column: 2;
+			font-size: 1.2rem;
+			text-align: right;
 		}
 		.pt-kachel span:last-child {
-			font-size: 0.6875rem;
-			line-height: 1.3;
-		}
-		.pt-k-titel {
-			font-size: 0.5625rem;
+			font-size: var(--ui-schrift-xs);
 		}
 	}
 	.pt-kachel {
