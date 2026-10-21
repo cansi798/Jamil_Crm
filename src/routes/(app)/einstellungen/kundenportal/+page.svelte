@@ -4,6 +4,7 @@
 	import { enhance } from '$app/forms';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
+	import DateiFeld from '$lib/components/ui/DateiFeld.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -22,33 +23,39 @@
 	{#if form?.fehler && !form?.agbFehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 	{#if form?.gespeichert}<p role="status" class="kd-info">Gespeichert.</p>{/if}
 
-	<Abschnitt titel="AGB als PDF">
+	<!-- Jamil msgs 3097/3098: „Allgemeine Geschäftsbedingungen“, Ersetzen und Entfernen nebeneinander wie beim Logo, Entfernen mit Rückfrage -->
+	<Abschnitt titel="Allgemeine Geschäftsbedingungen">
 		<p class="kd-info">
-			Die AGB stehen im Kundenportal beim Häkchen „Ich habe die AGB (PDF) gelesen …“ als Link und unter „Ihre Unterlagen“.
-			Bei jeder Annahme wird festgehalten, welche Fassung der Kunde bestätigt hat.
+			Die Allgemeinen Geschäftsbedingungen (PDF) stehen im Kundenportal beim Häkchen „Ich habe die AGB (PDF) gelesen …“ als Link und
+			unter „Ihre Unterlagen“. Bei jeder Annahme wird festgehalten, welche Fassung der Kunde bestätigt hat.
 		</p>
-		{#if data.agbPdf}
-			<p class="ag-datei" data-testid="agb-pdf">
-				<a href="/api/einstellungen/kundenportal/agb" target="_blank" rel="noopener">AGB (PDF) ansehen</a>
-				· {Math.max(1, Math.round(data.agbPdf.groesse / 1024))} KB · hochgeladen am {tagZeit(data.agbPdf.hochgeladen)}
-				· Fassung {data.agbPdf.hash.slice(0, 12)}…
-			</p>
-		{:else}
-			<p class="kt-hinweis warnung" role="note">Ohne hinterlegte AGB gelten sie nicht als wirksam einbezogen.</p>
-		{/if}
-		{#if form?.agbFehler && form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
-		{#if form?.agbGespeichert}<p role="status" class="kd-info">AGB gespeichert.</p>{/if}
-		<form method="POST" action="?/agb" enctype="multipart/form-data" use:enhance class="kd-formular">
-			<label>{data.agbPdf ? 'Neue Fassung hochladen (ersetzt die bisherige)' : 'AGB hochladen'} – PDF, höchstens 5 MB
-				<input type="file" name="agb" accept="application/pdf,.pdf" required />
-			</label>
-			<div class="kd-aktionen"><button type="submit" class="kd-knopf">{data.agbPdf ? 'AGB ersetzen' : 'AGB hochladen'}</button></div>
-		</form>
-		{#if data.agbPdf}
-			<form method="POST" action="?/agbLoeschen" use:enhance>
-				<button type="submit" class="kd-knopf hell">AGB entfernen</button>
-			</form>
-		{/if}
+		<DateiFeld
+			id="agb"
+			vorhanden={!!data.agbPdf}
+			feldLabel={`${data.agbPdf ? 'Neue Fassung (ersetzt die bisherige)' : 'Allgemeine Geschäftsbedingungen'} – PDF, höchstens 5 MB`}
+			feldName="agb"
+			accept="application/pdf,.pdf"
+			hochladenAktion="?/agb"
+			hochladenText={data.agbPdf ? 'Ersetzen' : 'Hochladen'}
+			entfernenAktion="?/agbLoeschen"
+			entfernenText="Entfernen"
+			ding="Allgemeine Geschäftsbedingungen"
+			warnung="Die Allgemeinen Geschäftsbedingungen werden entfernt. Im Kundenportal stehen sie dann nicht mehr – ohne hinterlegte AGB gelten sie bei neuen Annahmen nicht als wirksam einbezogen. Bisherige Annahmen behalten ihren Nachweis."
+			fehler={form?.agbFehler && form?.fehler ? form.fehler : null}
+			meldung={form?.agbGespeichert ? 'Allgemeine Geschäftsbedingungen gespeichert.' : null}
+		>
+			{#snippet vorschau()}
+				{#if data.agbPdf}
+					<p class="ag-datei" data-testid="agb-pdf">
+						<a href="/api/einstellungen/kundenportal/agb" target="_blank" rel="noopener">Allgemeine Geschäftsbedingungen (PDF) ansehen</a>
+						· {Math.max(1, Math.round(data.agbPdf.groesse / 1024))} KB · hochgeladen am {tagZeit(data.agbPdf.hochgeladen)}
+						· Fassung {data.agbPdf.hash.slice(0, 12)}…
+					</p>
+				{:else}
+					<p class="kt-hinweis warnung" role="note">Ohne hinterlegte AGB gelten sie nicht als wirksam einbezogen.</p>
+				{/if}
+			{/snippet}
+		</DateiFeld>
 	</Abschnitt>
 	<form method="POST" use:enhance={() => async ({ update }) => update({ reset: false })} class="kd-formular">
 		<Abschnitt titel="Auftragsbestätigung">
@@ -71,7 +78,7 @@
 				</Auswahl>
 			</label>
 			<p class="kd-info">Der Kunde sieht, wer sein Ansprechpartner ist und wer am Auftrag arbeitet. Je Auftrag abschaltbar („Namen der Mitarbeiter“).</p>
-			<label>Link zu Ihren AGB (nur, wenn oben kein PDF hinterlegt ist)
+			<label>Link zu Ihren Allgemeinen Geschäftsbedingungen (nur, wenn oben kein PDF hinterlegt ist)
 				<input type="url" name="agbUrl" value={data.e.agbUrl ?? ''} placeholder="https://www.ihre-firma.de/agb" maxlength="500" />
 			</label>
 			<label>Link zur Widerrufsbelehrung (optional)

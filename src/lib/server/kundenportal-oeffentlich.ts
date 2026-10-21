@@ -92,7 +92,7 @@ export type PortalAuftrag = {
 /** Erscheinungsbild des Portals je Betrieb (Migration 096, msg 2953) – leer = Standard */
 export type PortalMarke = { dunkel: string | null; hintergrund: string | null; titelSchrift: 'montserrat' | 'inter'; textSchrift: 'inter' | 'opensans'; titelGross: boolean };
 export type PortalSeite = {
-	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean; farbe: string | null; marke: PortalMarke };
+	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean; /** Logo ist die Variante für dunklen Hintergrund (ohne weißes Feld zeigen) */ logoAufDunkel: boolean; farbe: string | null; marke: PortalMarke };
 	agbUrl: string | null;
 	/** AGB als PDF (msg 3030): Stand der hinterlegten Fassung; abrufbar unter /portal/<token>/agb */
 	agbPdf: { stand: string } | null;
@@ -121,7 +121,7 @@ const nameFuer = (art: TeamNamen, name: string): string | null => (art === 'aus'
 
 async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Promise<PortalSeite> {
 	const [b] = await tx`
-		select coalesce(pr.firmenname, be.name) as name, pr.telefon, pr.email, pr.web, pr.logo is not null as hat_logo, pr.farbe,
+		select coalesce(pr.firmenname, be.name) as name, pr.telefon, pr.email, pr.web, pr.logo is not null as hat_logo, pr.logo_dunkel is not null as hat_logo_dunkel, pr.farbe,
 			pr.dunkel_farbe, pr.hintergrund_farbe, pr.titel_schrift, pr.text_schrift, coalesce(pr.titel_gross, false) as titel_gross,
 			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen, e.agb_pdf_hochgeladen
 		from app.betriebe be
@@ -252,7 +252,8 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			telefon: b.telefon,
 			email: b.email,
 			web: b.web,
-			hatLogo: b.hat_logo,
+			hatLogo: b.hat_logo || b.hat_logo_dunkel,
+			logoAufDunkel: b.hat_logo_dunkel === true,
 			farbe: b.farbe,
 			marke: {
 				dunkel: b.dunkel_farbe ?? null,
@@ -292,12 +293,16 @@ export async function ladePortal(token: unknown, ip: string, jetzt = new Date())
 	);
 }
 
-/** Logo des Betriebs (für den Kopf). */
+/**
+ * Logo des Betriebs für den dunklen Portal-Kopf (Jamil msg 3088): die Variante für dunklen Hintergrund
+ * (Einstellungen → Briefkopf), sonst das Briefkopf-Logo (dann zeigt der Kopf es auf einem weißen Feld).
+ */
 export async function portalLogo(token: unknown, ip: string): Promise<{ bytes: Uint8Array; typ: string } | null> {
 	begrenze(ip, 'abruf');
 	const p = await loeseAuf(token, ip);
 	if (!p) return null;
-	return alsOeffentlich(p.betriebId, 'kundenportal', () => holeLogo({ betriebId: p.betriebId, benutzerId: OEFFENTLICH }));
+	const k = { betriebId: p.betriebId, benutzerId: OEFFENTLICH };
+	return alsOeffentlich(p.betriebId, 'kundenportal', async () => (await holeLogo(k, 'dunkel')) ?? holeLogo(k));
 }
 
 export type PortalDatei = { name: string; typ: string; bytes: Uint8Array };

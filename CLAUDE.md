@@ -36,10 +36,13 @@ Skripte, Kommentare und `ANLEITUNG.md` bleiben auf Deutsch und in einfacher Spra
 
 Jede neue Seite bzw. jeder neue Bereich kommt in die passende Gruppe der Navigation (`src/lib/navigation.ts`):
 **Hauptbereich** (Start, Kunden, Aufträge, Ausgangsbelege, Plantafel, Karte, Aufgaben), **Vorlagen**, **Stammdaten &
-Kalkulation**, **Personal & Zeiten**, **Auswertungen**, **Automatisierung**, **Benutzeradministration**. Einträge
+Kalkulation**, **Team & Partner** (Zeiten, Abwesenheiten, Kolonnen, Partner – Jamil msg 3089, früher „Personal & Zeiten“),
+**Auswertungen**, **Automatisierung**, **Benutzeradministration**. Einträge
 erscheinen nur mit Modul und Recht. Passt keine Gruppe, eine sinnvolle neue Gruppe anlegen bzw. die Reihenfolge
 anpassen – und in der Talk-Notiz an Jamil IMMER sagen, was im Menü dazugekommen oder verschoben ist und warum.
 `tests/unit/navigation.test.ts` mitziehen. Seiten ohne eigenes Menü (z. B. „Gespeicherte Ansichten“) bekommen keinen Eintrag.
+Menü-Links haben nie einen Suchteil (`?…`) – jede Seite braucht einen eigenen Pfad, sonst sind zwei Einträge markiert
+(msg 3085); markiert wird immer nur der genaueste Eintrag (`aktiverEintrag`).
 
 ## Löschen oben rechts (Regel von Jamil, Talk msg 3043)
 
@@ -55,3 +58,15 @@ Gleiche Arten von Seiten, Reitern und Listen haben immer denselben Aufbau und di
 eigene Variante zu bauen. **Vor jedem Commit** die Einheitlichkeit mit den Geschwister-Seiten prüfen (gleiche Suche,
 gleiche Reihenfolge, gleiche Kacheln und Zeilen; Bildschirmfotos bei 1280 und 390 px nebeneinander). Details:
 `docs/design-regeln.md`, Abschnitt 10b.
+
+## Vor dem Löschen/Entfernen immer nachfragen (Regel von Jamil, Talk msg 3091)
+
+Jede Aktion, die etwas löscht oder entfernt (Datensatz, Logo, AGB-PDF, Datei …), fragt vorher nach: `LoeschenPanel`
+(für Dateien `ui/DateiFeld.svelte`: „hochladen“ und „entfernen“ nebeneinander, Rückfrage darunter). Kein Löschen mit
+einem Klick, kein `confirm()`.
+
+## Vorlagen-Seiten (Jamil msgs 3084, 3086)
+
+Alle „…-Vorlagen“ sind gleich gebaut: Liste mit `vorlagen/VorlagenKopf` („+ Neue Vorlage“ oben rechts) und
+`vorlagen/VorlagenListe` (Zeilen-Aktionen als `vorlagen/ZeilenAktion`), Detailseite mit `SeitenKopf` (Zurück,
+Überzeile = Art, Titel = Name) und „Vorlage löschen“ oben rechts. Neue Vorlagen-Arten genauso bauen.

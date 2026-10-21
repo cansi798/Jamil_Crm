@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
+	import DateiFeld from '$lib/components/ui/DateiFeld.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import { farbStil, STANDARD_FARBE } from '$lib/farbe';
@@ -28,65 +29,56 @@
 	<p class="kd-info">Diese Angaben und das Logo stehen auf jedem Angebot (PDF).</p>
 
 	<h2>Logo</h2>
-	<div class="bk-logo">
-		{#if p.hatLogo}
-			<img src={logoUrl} alt="Logo des Betriebs" />
-		{:else}
-			<p class="kd-leer">Noch kein Logo hinterlegt.</p>
-		{/if}
-	</div>
-	{#if logoFehler}
-		<p role="alert" class="kd-fehler">{logoFehler}</p>
-	{:else if form && 'logoGespeichert' in form && form.logoGespeichert !== 'dunkel'}
-		<p role="status" class="bk-ok">Logo gespeichert.</p>
-	{/if}
-	<form method="POST" action="?/logo" enctype="multipart/form-data" use:enhance class="kd-formular">
-		<label>
-			PNG oder JPEG, höchstens 1 MB und 1500 × 1500 Pixel
-			<input type="file" name="logo" accept="image/png,image/jpeg" required />
-		</label>
-		<div class="kd-aktionen">
-			<button type="submit" class="kd-knopf">Logo hochladen</button>
-		</div>
-	</form>
-	{#if p.hatLogo}
-		<form method="POST" action="?/logoLoeschen" use:enhance class="bk-loeschen">
-			<button type="submit" class="kd-knopf hell">Logo entfernen</button>
-		</form>
-	{/if}
+	<DateiFeld
+		id="logo"
+		vorhanden={p.hatLogo}
+		feldLabel="PNG oder JPEG, höchstens 1 MB und 1500 × 1500 Pixel"
+		feldName="logo"
+		accept="image/png,image/jpeg"
+		hochladenAktion="?/logo"
+		hochladenText="Logo hochladen"
+		entfernenAktion="?/logoLoeschen"
+		entfernenText="Logo entfernen"
+		ding="Logo"
+		warnung="Das Logo wird entfernt und steht nicht mehr auf Angeboten, Auftragsbestätigungen und in der App. Sie können es jederzeit wieder hochladen."
+		fehler={logoFehler}
+		meldung={form && 'logoGespeichert' in form && form.logoGespeichert !== 'dunkel' ? 'Logo gespeichert.' : null}
+	>
+		{#snippet vorschau()}
+			<div class="bk-logo">
+				{#if p.hatLogo}<img src={logoUrl} alt="Logo des Betriebs" />{:else}<p class="kd-leer">Noch kein Logo hinterlegt.</p>{/if}
+			</div>
+		{/snippet}
+	</DateiFeld>
 
-	<h2>Logo in der App (oben links)</h2>
+	<h2 id="logo-dunkel-titel">Helle Variante für dunklen Hintergrund (App und Kundenportal)</h2>
 	<p class="kd-info">
-		Oben links in der App steht das Logo deines Betriebs. Am Handy (heller Hintergrund) erscheint das Logo von oben. Die
-		Seitenleiste am Computer ist dunkel – dafür hier optional eine helle Variante hochladen (z. B. weiße Schrift). Ohne helle
-		Variante steht das normale Logo dort auf einem weißen Feld.
+		Für dunkle Flächen: die Seitenleiste der App am Computer (oben links) und der Kopf des Kundenportals. Dort steht diese
+		helle Variante (z. B. weiße Schrift, am besten PNG mit transparentem Hintergrund) groß und ohne weißes Feld. Ohne helle
+		Variante steht das normale Logo dort auf einem weißen Feld. Am Handy (heller Hintergrund) erscheint in der App das Logo von
+		oben.
 	</p>
-	<div class="bk-logo bk-logo-dunkel">
-		{#if p.hatLogoDunkel}
-			<img src={logoDunkelUrl} alt="Logo für dunklen Hintergrund" />
-		{:else}
-			<p class="kd-leer">Noch keine helle Variante hinterlegt.</p>
-		{/if}
-	</div>
-	{#if logoDunkelFehler}
-		<p role="alert" class="kd-fehler">{logoDunkelFehler}</p>
-	{:else if form && 'logoGespeichert' in form && form.logoGespeichert === 'dunkel'}
-		<p role="status" class="bk-ok">Logo für die App gespeichert.</p>
-	{/if}
-	<form method="POST" action="?/logoDunkel" enctype="multipart/form-data" use:enhance class="kd-formular">
-		<label>
-			Helle Variante für dunklen Hintergrund – PNG oder JPEG (am besten PNG mit transparentem Hintergrund)
-			<input type="file" name="logo" accept="image/png,image/jpeg" required />
-		</label>
-		<div class="kd-aktionen">
-			<button type="submit" class="kd-knopf">Helle Variante hochladen</button>
-		</div>
-	</form>
-	{#if p.hatLogoDunkel}
-		<form method="POST" action="?/logoDunkelLoeschen" use:enhance class="bk-loeschen">
-			<button type="submit" class="kd-knopf hell">Helle Variante entfernen</button>
-		</form>
-	{/if}
+	<DateiFeld
+		id="logo-dunkel"
+		vorhanden={p.hatLogoDunkel}
+		feldLabel="Helle Variante – PNG oder JPEG (am besten PNG mit transparentem Hintergrund)"
+		feldName="logo"
+		accept="image/png,image/jpeg"
+		hochladenAktion="?/logoDunkel"
+		hochladenText="Helle Variante hochladen"
+		entfernenAktion="?/logoDunkelLoeschen"
+		entfernenText="Helle Variante entfernen"
+		ding="Helle Variante"
+		warnung="Die helle Variante wird entfernt. App-Seitenleiste und Kundenportal zeigen dann das normale Logo auf einem weißen Feld."
+		fehler={logoDunkelFehler}
+		meldung={form && 'logoGespeichert' in form && form.logoGespeichert === 'dunkel' ? 'Helle Variante gespeichert.' : null}
+	>
+		{#snippet vorschau()}
+			<div class="bk-logo bk-logo-dunkel">
+				{#if p.hatLogoDunkel}<img src={logoDunkelUrl} alt="Logo für dunklen Hintergrund" />{:else}<p class="kd-leer">Noch keine helle Variante hinterlegt.</p>{/if}
+			</div>
+		{/snippet}
+	</DateiFeld>
 
 	<h2 id="hausfarbe">Hausfarbe</h2>
 	<p class="kd-info">
@@ -147,6 +139,11 @@
 		<div class="bk-portal" role="group" aria-labelledby="bk-portal-titel">
 			<h2 id="bk-portal-titel">Erscheinungsbild Kundenportal</h2>
 			<p class="kd-info">So sieht das Portal für Ihre Kunden aus – passend zu Ihrer Website. Die CRM-App selbst nutzt nur die Hausfarbe.</p>
+			<p class="kd-info">
+				Im Kopf des Portals steht Ihr Logo groß auf der dunklen Farbe – die <a href="#logo-dunkel-titel">helle Variante</a>, sonst
+				das normale Logo auf einem weißen Feld – und daneben „Ihr Kundenportal“. Firmenname, Telefon und E-Mail stehen in der
+				Kontakt-Karte darunter.
+			</p>
 			<div class="kd-zwei">
 				<label class="bk-farbe">Dunkle Farbe (Kopf) <input type="color" name="dunkelFarbe" value={werte.dunkelFarbe || '#2d2c2e'} /></label>
 				<label class="bk-farbe">Hintergrund <input type="color" name="hintergrundFarbe" value={werte.hintergrundFarbe || '#f6f4f0'} /></label>
@@ -215,8 +212,7 @@
 		align-items: center;
 		min-height: 5rem;
 		padding: 0.75rem;
-		margin-bottom: 0.75rem;
-		border: 1px dashed var(--rand);
+		border: 1px dashed var(--ui-rand);
 		border-radius: 0.5rem;
 		background: #fff;
 	}
@@ -265,8 +261,5 @@
 	.bk-ok {
 		color: #1b6b2a;
 		margin: 0 0 0.5rem;
-	}
-	.bk-loeschen {
-		margin-top: 0.5rem;
 	}
 </style>

@@ -57,6 +57,25 @@ der Seite. Bausteine: `components/ui/LoeschenKnopf.svelte` („<Ding> löschen�
 `alsFormFehler(e, { loeschFehler: true })`, fetch-Seiten: `onbestaetigen` + eigener Fehlerzustand). Kein `confirm()`.
 Kleine Löschknöpfe **in Listenzeilen** (eine Notiz, ein Dokument, eine Position) bleiben in der Zeile.
 
+### 3b. Vor dem Löschen/Entfernen immer nachfragen (Jamil msg 3091)
+
+Nichts verschwindet mit einem Klick: Datensätze über `LoeschenKnopf` + `LoeschenPanel`, hinterlegte Dateien (Logo, helle
+Logo-Variante, AGB-PDF) über `components/ui/DateiFeld.svelte` – Vorschau, Dateifeld, darunter EINE Knopfzeile
+„… hochladen/Ersetzen“ und „… entfernen“ nebeneinander, Rückfrage („Ja, entfernen“) direkt darunter (msgs 3090, 3097).
+
+### 3c. Vorlagen-Seiten (Jamil msgs 3084, 3086)
+
+Auftrags-, Angebots-, Protokoll-, Aufmaß- und E-Mail-Vorlagen sehen gleich aus:
+
+- **Liste:** `vorlagen/VorlagenKopf` (Titel, ein Satz wofür, „+ Neue Vorlage“ oben rechts) und `vorlagen/VorlagenListe`
+  (Karte „Vorlagen“ mit Anzahl; je Zeile Name + Abzeichen, Kennzahl-Zeile, Beschreibung; Aktionen rechts als
+  umrandete Knöpfe `vorlagen/ZeilenAktion` mit Symbol – nie blass). Weitere Listen (Beispiele, Archiviert, je Zweck)
+  mit demselben Baustein.
+- **Detail:** `SeitenKopf` mit Zurück zur Liste, Überzeile = Art („Protokoll-Vorlage“), Titel = Name, Kennzahl;
+  Aktionen und „Vorlage löschen“ oben rechts; Inhalt in Abschnitten, Fuß mit Aktionen unten rechts.
+- Jede Art hat einen eigenen Pfad (Aufmaß: `/einstellungen/aufmass-vorlagen`), damit das Menü genau einen Eintrag
+  markiert (msg 3085).
+
 ## 4. Abschnitte und Überschriften
 
 Baustein `components/Abschnitt.svelte` (bzw. `Karte.svelte`): weiße Karte, getöntes Kopfband, Titel in
@@ -159,6 +178,9 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
 ## 10a. Kundenportal
 
 - Gleiches Design wie die App: Anthrazit-Kopf mit Logo, Hausfarbe als Akzent (`farbStil`), Montserrat-Titel.
+- **Kopf (Jamil msgs 3087/3088):** Logo groß, ohne weißes Feld (helle Variante aus Einstellungen → Briefkopf; nur ohne
+  sie das Briefkopf-Logo auf weißem Feld), daneben klein in Gold „Ihr Kundenportal“. Kein Firmenname (steht im Logo,
+  Seitentitel und Alt-Text; ohne Logo steht er da), keine Telefonnummer (Kontakt-Karte), keine Linie unter dem Kopf.
 - Animationen nur dort, wo sie etwas erklären (Fortschrittsweg, Haken der Arbeitsschritte, Pegel), alle mit
   `prefers-reduced-motion` abschaltbar.
 - Der Kunde sieht nur Freigegebenes: keine Beschreibungen von Aufgaben, keine internen Aufgaben (ohne

@@ -134,16 +134,20 @@
 {/snippet}
 
 <div class="pt" class:gross={m.titelGross} style={stil}>
+	<!-- Kopf (Jamil msgs 3087/3088): Logo groß und ohne weißes Feld (Variante für dunklen Hintergrund), daneben
+	     „Ihr Kundenportal“; kein Firmenname (steht im Logo, Titel und Alt-Text), keine Telefonnummer (steht in der
+	     Kontakt-Karte), keine Linie darunter. Ohne Logo steht der Firmenname da. -->
 	<header class="pt-kopf">
 		<div class="pt-kopf-innen">
 			{#if s.betrieb.hatLogo}
-				<span class="pt-logo"><img src={`/portal/${data.token}/logo`} alt={`Logo ${s.betrieb.name}`} /></span>
+				<span class="pt-logo" class:auf-weiss={!s.betrieb.logoAufDunkel}><img src={`/portal/${data.token}/logo?v=${s.betrieb.logoAufDunkel ? 'dunkel' : 'hell'}`} alt={`Logo ${s.betrieb.name}`} /></span>
+				<span class="pt-portal">Ihr Kundenportal</span>
+			{:else}
+				<span class="pt-firma">
+					<small>Ihr Kundenportal</small>
+					<strong>{s.betrieb.name}</strong>
+				</span>
 			{/if}
-			<span class="pt-firma">
-				<small>Ihr Kundenportal</small>
-				<strong>{s.betrieb.name}</strong>
-			</span>
-			{#if telLink}<a class="pt-kopf-tel" href={telLink}>{s.betrieb.telefon}</a>{/if}
 		</div>
 	</header>
 
@@ -368,11 +372,10 @@
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 	}
-	/* Kopf: dunkle Farbe des Betriebs, Akzentlinie */
+	/* Kopf: dunkle Farbe des Betriebs, ohne Linie darunter (msg 3088) */
 	.pt-kopf {
 		background: var(--pt-dunkel);
 		color: #fff;
-		border-bottom: 4px solid var(--ui-akzent);
 	}
 	.pt-kopf-innen,
 	.pt-inhalt,
@@ -385,21 +388,42 @@
 	.pt-kopf-innen {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		min-height: 4rem;
+		gap: 0.9rem;
+		min-height: 4.5rem;
+		padding-top: 0.6rem;
+		padding-bottom: 0.6rem;
 	}
 	.pt-logo {
 		display: grid;
 		place-items: center;
-		height: 2.75rem;
-		padding: 0.25rem 0.45rem;
+		min-width: 0;
+	}
+	.pt-logo img {
+		display: block;
+		max-height: 3.25rem;
+		max-width: min(13rem, 52vw);
+		object-fit: contain;
+	}
+	/* nur das Briefkopf-Logo (dunkle Schrift) braucht ein helles Feld */
+	.pt-logo.auf-weiss {
+		padding: 0.3rem 0.55rem;
 		border-radius: 8px;
 		background: #fff;
 	}
-	.pt-logo img {
-		max-height: 2.25rem;
-		max-width: 7rem;
-		object-fit: contain;
+	.pt-logo.auf-weiss img {
+		max-height: 2.75rem;
+	}
+	/* „Ihr Kundenportal“ rechts neben dem Logo, durch einen feinen Strich getrennt */
+	.pt-portal {
+		padding-left: 0.9rem;
+		border-left: 1px solid rgb(255 255 255 / 0.28);
+		color: var(--ui-akzent);
+		font-family: var(--pt-titel);
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.14em;
+		line-height: 1.35;
+		text-transform: uppercase;
 	}
 	.pt-firma {
 		display: grid;
@@ -422,16 +446,16 @@
 		white-space: nowrap;
 		text-overflow: ellipsis;
 	}
-	.pt-kopf-tel {
-		display: none;
-		margin-left: auto;
-		color: #fff;
-		font-weight: 600;
-		white-space: nowrap;
-	}
 	@media (min-width: 641px) {
-		.pt-kopf-tel {
-			display: block;
+		.pt-kopf-innen {
+			min-height: 5.25rem;
+		}
+		.pt-logo img {
+			max-height: 3.75rem;
+			max-width: 16rem;
+		}
+		.pt-portal {
+			font-size: 0.75rem;
 		}
 	}
 	.pt-inhalt {
