@@ -86,3 +86,17 @@ export async function personWaehlen(bereich: Page | Locator, feld: string, name:
 	await bereich.getByRole('button', { name: new RegExp(`^${esc}( \\(Pflichtfeld\\))?:`) }).click();
 	await bereich.getByRole('option', { name, exact: true }).click();
 }
+
+/**
+ * Kundenportal öffnen; fragt es nach dem Passwort (msg 3037), wird `PORTAL_PASSWORT` eingegeben (bei vorübergehenden
+ * Test-Links die PLZ des Kunden).
+ */
+export async function portalOeffnen(page: Page, token: string): Promise<void> {
+	await page.goto(`/portal/${token}`);
+	const feld = page.locator('#pp-passwort');
+	if (await feld.isVisible()) {
+		await feld.fill(process.env.PORTAL_PASSWORT ?? '');
+		await page.getByRole('button', { name: 'Öffnen' }).click();
+		await page.locator('#pp-passwort').waitFor({ state: 'detached' });
+	}
+}

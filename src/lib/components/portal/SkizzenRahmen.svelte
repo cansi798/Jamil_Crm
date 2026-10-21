@@ -4,8 +4,9 @@
 	 * (SkizzenKreis): zwei leicht versetzte, unrunde Striche in der Hausfarbe. Liegt absolut über dem Elternelement
 	 * (das `position: relative` braucht), misst dessen Größe (ResizeObserver) und zeichnet den Pfad in Pixeln – so bleibt
 	 * die Strichstärke bei jeder Kartengröße gleich. Kein Platzbedarf (kein Verschieben), keine Klicks (pointer-events:
-	 * none). Zeichnet sich einmal nach, sobald die Karte sichtbar wird, danach etwa alle 8 s ein ganz leichtes Pulsieren.
-	 * Bei „Bewegung reduzieren“ steht der Strich sofort und ruhig.
+	 * none). Zeichnet sich einmal nach, sobald die Karte sichtbar wird; danach läuft ein kräftigerer Stiftstrich
+	 * ständig ruhig um die Karte herum (msg 3052: „in Bewegung, damit sie mehr auffällt“), der zweite Strich atmet leicht.
+	 * Bei „Bewegung reduzieren“ steht der Rahmen sofort und ruhig (ohne laufenden Stift).
 	 */
 	let { seed = 7, abstand = 7 }: { seed?: number; abstand?: number } = $props();
 
@@ -98,6 +99,8 @@
 		<svg width={b} height={h} viewBox={`0 0 ${b} ${h}`} focusable="false">
 			<path class="sr-strich" d={a} pathLength="1" />
 			<path class="sr-strich zwei" d={zwei} pathLength="1" />
+			<!-- Stift, der ständig um die Karte läuft (msg 3052) -->
+			<path class="sr-stift" d={a} pathLength="1" />
 		</svg>
 	{/if}
 </span>
@@ -128,39 +131,54 @@
 		opacity: 0.55;
 	}
 	.sichtbar .sr-strich {
-		animation:
-			sr-zeichnen 1.1s 0.15s ease-out forwards,
-			sr-puls 8s 2s ease-in-out infinite;
+		animation: sr-zeichnen 1.1s 0.15s ease-out forwards;
 	}
 	.sichtbar .zwei {
 		animation:
 			sr-zeichnen 1.1s 0.55s ease-out forwards,
-			sr-puls-zwei 8s 2.4s ease-in-out infinite;
+			sr-atmen 3.5s 1.8s ease-in-out infinite;
+	}
+	/* laufender Stift: ein kurzes, kräftigeres Stück Strich, das gleichmäßig um die Karte wandert */
+	.sr-stift {
+		fill: none;
+		stroke: var(--ui-akzent);
+		stroke-width: 4.2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		stroke-dasharray: 0.16 0.84;
+		stroke-dashoffset: 0;
+		opacity: 0;
+	}
+	.sichtbar .sr-stift {
+		animation:
+			sr-auf 0.4s 1.3s ease-out forwards,
+			sr-laufen 4.5s 1.3s linear infinite;
 	}
 	@keyframes sr-zeichnen {
 		to {
 			stroke-dashoffset: 0;
 		}
 	}
-	/* ganz leichtes Nachziehen alle 8 s: kurz kräftiger, sonst ruhig */
-	@keyframes sr-puls {
-		0%,
-		88%,
-		100% {
-			stroke-width: 2.6;
+	@keyframes sr-laufen {
+		from {
+			stroke-dashoffset: 0;
 		}
-		94% {
-			stroke-width: 3.6;
+		to {
+			stroke-dashoffset: -1;
 		}
 	}
-	@keyframes sr-puls-zwei {
+	@keyframes sr-auf {
+		to {
+			opacity: 0.85;
+		}
+	}
+	@keyframes sr-atmen {
 		0%,
-		88%,
 		100% {
 			opacity: 0.55;
 		}
-		94% {
-			opacity: 0.9;
+		50% {
+			opacity: 0.25;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
@@ -169,6 +187,11 @@
 		.sichtbar .zwei {
 			animation: none;
 			stroke-dashoffset: 0;
+		}
+		.sr-stift,
+		.sichtbar .sr-stift {
+			animation: none;
+			display: none;
 		}
 	}
 </style>

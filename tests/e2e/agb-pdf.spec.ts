@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { erwarteKeinQuerScrollen } from './hilfe';
+import { erwarteKeinQuerScrollen, portalOeffnen } from './hilfe';
 
 /**
  * AGB als PDF im Kundenportal (Jamil msgs 3030/3032): Link im Häkchen „Ich habe die AGB (PDF) gelesen …“ und unter
@@ -10,7 +10,7 @@ import { erwarteKeinQuerScrollen } from './hilfe';
 test('AGB-PDF: Link im Häkchen und in „Ihre Unterlagen“, öffnet das PDF', async ({ page }, info) => {
 	const token = process.env.PORTAL_TOKEN;
 	test.skip(!token, 'nur mit vorübergehendem Portal-Link (PORTAL_TOKEN)');
-	await page.goto(`/portal/${token}`);
+	await portalOeffnen(page, token!);
 	const pfad = `/portal/${token}/agb`;
 	const unterlagen = page.getByRole('link', { name: /Allgemeine Geschäftsbedingungen/ });
 	await expect(unterlagen).toBeVisible();

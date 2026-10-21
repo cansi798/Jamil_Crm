@@ -1,15 +1,15 @@
 import { expect, test } from '@playwright/test';
-import { erwarteKeinQuerScrollen } from './hilfe';
+import { erwarteKeinQuerScrollen, portalOeffnen } from './hilfe';
 
 /**
- * Handgezeichneter Rahmen um „Für Sie zu erledigen“ im Kundenportal (Jamil msg 3040): nur solange etwas offen ist,
- * zeichnet sich beim Sichtbarwerden, ohne Platzbedarf und ohne Klicks abzufangen; kein Querscrollen am Handy.
+ * Handgezeichneter Rahmen um „Für Sie zu erledigen“ im Kundenportal (Jamil msgs 3040/3052): nur solange etwas offen
+ * ist, zeichnet sich beim Sichtbarwerden, danach läuft ständig ein Stiftstrich herum, ohne Platzbedarf und ohne Klicks abzufangen; kein Querscrollen am Handy.
  * Läuft nur mit PORTAL_TOKEN (vorübergehender Portal-Link – nie über „Link erzeugen“).
  */
 test('SkizzenRahmen um „Für Sie zu erledigen“', async ({ page }, info) => {
 	const token = process.env.PORTAL_TOKEN;
 	test.skip(!token, 'nur mit vorübergehendem Portal-Link (PORTAL_TOKEN)');
-	await page.goto(`/portal/${token}`);
+	await portalOeffnen(page, token!);
 	const karte = page.locator('#zu-erledigen');
 	test.skip((await karte.count()) === 0, 'nichts offen – dann gibt es keinen Rahmen');
 	await karte.scrollIntoViewIfNeeded();
@@ -24,6 +24,13 @@ test('SkizzenRahmen um „Für Sie zu erledigen“', async ({ page }, info) => {
 	expect(await karte.locator('.sr').evaluate((e) => getComputedStyle(e).pointerEvents)).toBe('none');
 	// Strich ist nach dem Nachzeichnen vollständig
 	await expect.poll(() => karte.locator('.sr-strich').first().evaluate((e) => Number(getComputedStyle(e).strokeDashoffset.replace('px', ''))), { timeout: 4000 }).toBeLessThan(0.01);
+	// ständig in Bewegung (msg 3052): der Stift läuft – sein dashoffset ändert sich über die Zeit
+	const stift = karte.locator('.sr-stift');
+	await expect.poll(() => stift.evaluate((e) => Number(getComputedStyle(e).opacity)), { timeout: 4000 }).toBeGreaterThan(0.5);
+	const versatz = () => stift.evaluate((e) => Number(getComputedStyle(e).strokeDashoffset.replace('px', '')));
+	const v1 = await versatz();
+	await page.waitForTimeout(700);
+	expect(Math.abs((await versatz()) - v1)).toBeGreaterThan(0.05);
 	await page.getByRole('button', { name: 'Angebot annehmen' }).first().click(); // Klick geht durch den Rahmen
 	await expect(page.getByRole('button', { name: 'Verbindlich annehmen' })).toBeVisible();
 	await page.getByRole('button', { name: 'Zurück' }).click();
@@ -37,10 +44,12 @@ test('SkizzenRahmen bei „Bewegung reduzieren“: steht sofort', async ({ brows
 	test.skip(!token, 'nur mit vorübergehendem Portal-Link (PORTAL_TOKEN)');
 	const ctx = await browser.newContext({ reducedMotion: 'reduce' });
 	const page = await ctx.newPage();
-	await page.goto(`/portal/${token}`);
+	await portalOeffnen(page, token!);
 	const strich = page.locator('#zu-erledigen .sr-strich').first();
 	test.skip((await strich.count()) === 0, 'nichts offen');
 	expect(await strich.evaluate((e) => getComputedStyle(e).animationName)).toBe('none');
 	expect(await strich.evaluate((e) => getComputedStyle(e).strokeDashoffset)).toMatch(/^0(px)?$/);
+	// kein laufender Stift
+	expect(await page.locator('#zu-erledigen .sr-stift').evaluate((e) => getComputedStyle(e).display)).toBe('none');
 	await ctx.close();
 });
