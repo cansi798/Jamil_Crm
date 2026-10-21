@@ -67,6 +67,8 @@ export async function loeseAuf(token: unknown, ip: string): Promise<PortalKontex
 }
 
 export type PortalTermin = { tag: string; von: string; bis: string; art: string; mitarbeiter: string[] };
+/** Arbeitsschritt fürs Portal: Aufgabe des Auftrags mit Lautstärke/Schmutz (1 gering … 3 hoch) – ohne Beschreibung. */
+export type PortalSchritt = { titel: string; erledigt: boolean; tag: string | null; laerm: number | null; schmutz: number | null };
 export type PortalAngebot = { id: string; nummer: string; datum: string; gueltigBis: string; status: string; bruttoCent: number; annehmbar: boolean; entscheidung: { art: string; name: string; zeit: string } | null };
 export type PortalAuftrag = {
 	id: string;
@@ -79,6 +81,12 @@ export type PortalAuftrag = {
 	auftragsbestaetigungen: { id: string; nummer: string }[];
 	/** Links, die ausdrücklich fürs Portal freigegeben sind (Jamil msg 2850; Standard aus) – ohne interne Notiz. */
 	links: { titel: string; url: string }[];
+	/** Arbeitsschritte ab „beauftragt“ (msg 2848) – nur mit freigegebenem Status; sonst null. */
+	schritte: PortalSchritt[] | null;
+	/** Ansprechpartner (msg 2851) – Name nach Einstellung „Namen im Portal“; null bei „keine Namen“. */
+	ansprechpartner: string | null;
+	/** Namen der Mitarbeiter am Auftrag (Zuständige + kommende Termine) – leer bei „keine Namen“ oder Schalter aus. */
+	team: string[];
 };
 export type PortalSeite = {
 	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean; farbe: string | null };
@@ -99,15 +107,23 @@ async function auftraegeImBereich(tx: TransactionSql, p: PortalKontext): Promise
 
 const ART: Record<string, string> = { montage: 'Arbeiten vor Ort', besichtigung: 'Besichtigung', wartung: 'Wartung' };
 
+/** Ab diesem Status zeigt das Portal die Arbeitsschritte (vorher gibt es noch nichts abzuhaken). */
+const MIT_SCHRITTEN = new Set(['beauftragt', 'in_arbeit', 'abgenommen', 'abgerechnet']);
+
+type TeamNamen = 'vorname' | 'voll' | 'aus';
+/** Name so, wie der Betrieb es fürs Portal eingestellt hat (msg 2851); „(Test) – Monteur“-Zusätze der Testzugänge bleiben. */
+const nameFuer = (art: TeamNamen, name: string): string | null => (art === 'aus' ? null : art === 'voll' ? name.trim() : nurVorname(name));
+
 async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Promise<PortalSeite> {
 	const [b] = await tx`
 		select coalesce(pr.firmenname, be.name) as name, pr.telefon, pr.email, pr.web, pr.logo is not null as hat_logo, pr.farbe,
-			e.agb_url, e.widerruf_url
+			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen
 		from app.betriebe be
 		left join app.betrieb_profil pr on pr.betrieb_id = be.id
 		left join app.portal_einstellungen e on e.betrieb_id = be.id
 		where be.id = ${p.betriebId}`;
 	const heute = berlinTag(jetzt);
+	const namen: TeamNamen = b.team_namen === 'voll' || b.team_namen === 'aus' ? b.team_namen : 'vorname';
 	const auftraege: PortalAuftrag[] = [];
 	for (const id of await auftraegeImBereich(tx, p)) {
 		const [a] = await tx`
@@ -129,7 +145,8 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 				const e0 = new Date(r.ende);
 				const key = `${b0.toISOString()}|${e0.toISOString()}|${r.art}`;
 				const x = je.get(key) ?? { tag: berlinTag(b0), von: berlinUhrzeit(b0), bis: berlinUhrzeit(e0), art: ART[r.art] ?? 'Termin', mitarbeiter: [] };
-				if (a.f_mitarbeiter) x.mitarbeiter.push(nurVorname(r.name));
+				const n = a.f_mitarbeiter ? nameFuer(namen, r.name) : null;
+				if (n && !x.mitarbeiter.includes(n)) x.mitarbeiter.push(n);
 				je.set(key, x);
 			}
 			termine = [...je.values()].slice(0, 10);
@@ -154,6 +171,34 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			: [];
 		const abs = await tx`select id, nummer from app.auftragsbestaetigungen where betrieb_id = ${p.betriebId} and auftrag_id = ${id} order by angelegt`;
 		const links = await tx`select titel, url from app.auftrag_links where betrieb_id = ${p.betriebId} and auftrag_id = ${id} and im_portal order by sortierung, angelegt, id`;
+		// Arbeitsschritte (msg 2848): nur Aufgaben mit Lautstärke oder Schmutz – das sind die Schritte, die der Betrieb
+		// für den Kunden einstuft; interne Aufgaben (Nachfassen, Material bestellen …) bleiben so unsichtbar.
+		const schritte = a.f_status && MIT_SCHRITTEN.has(a.status)
+			? await tx`
+				select t.titel, t.erledigt_am is not null as erledigt, to_char(t.faellig, 'YYYY-MM-DD') as tag, t.lautstaerke, t.schmutz
+				from app.todos t
+				where t.betrieb_id = ${p.betriebId} and t.auftrag_id = ${id} and (t.lautstaerke is not null or t.schmutz is not null)
+				order by t.faellig nulls last, t.angelegt, t.id limit 40`
+			: null;
+		// Ansprechpartner: Zuständige des Auftrags (sonst das Büro) – Team: Zuständige + Mitarbeiter kommender Termine
+		let ansprechpartner: string | null = null;
+		let team: string[] = [];
+		if (namen !== 'aus') {
+			const wer = await zustaendig(tx, { betriebId: p.betriebId, benutzerId: OEFFENTLICH }, null, id);
+			if (wer) {
+				const [ap] = await tx`select name from app.benutzer where id = ${wer} and betrieb_id = ${p.betriebId}`;
+				ansprechpartner = ap ? nameFuer(namen, ap.name) : null;
+			}
+			if (a.f_mitarbeiter) {
+				const leute = await tx`
+					select distinct b.name from app.benutzer b
+					where b.betrieb_id = ${p.betriebId} and b.aktiv and (
+						exists (select 1 from app.auftrag_zustaendige z where z.betrieb_id = b.betrieb_id and z.auftrag_id = ${id} and z.benutzer_id = b.id)
+						or exists (select 1 from app.einsaetze e where e.betrieb_id = b.betrieb_id and e.auftrag_id = ${id} and e.benutzer_id = b.id and e.ende >= ${jetzt}))
+					order by b.name limit 12`;
+				team = [...new Set(leute.map((r) => nameFuer(namen, r.name)).filter((n): n is string => !!n))];
+			}
+		}
 		auftraege.push({
 			id: a.id,
 			nummer: a.nummer,
@@ -178,7 +223,12 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			}),
 			dateien: dateien.map((d) => ({ id: d.id, name: d.name, typ: d.typ })),
 			auftragsbestaetigungen: abs.map((x) => ({ id: x.id, nummer: x.nummer })),
-			links: links.map((l) => ({ titel: l.titel, url: l.url }))
+			links: links.map((l) => ({ titel: l.titel, url: l.url })),
+			schritte: schritte
+				? schritte.map((t) => ({ titel: t.titel, erledigt: t.erledigt, tag: t.tag, laerm: t.lautstaerke ?? null, schmutz: t.schmutz ?? null }))
+				: null,
+			ansprechpartner,
+			team
 		});
 	}
 	return {

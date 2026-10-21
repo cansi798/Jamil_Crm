@@ -229,11 +229,14 @@ export async function setzeAbAutomatisch(z: { k: Kontext; sicht: Sicht }, auftra
 	await mitBetrieb(k, (tx) => tx`update app.auftraege set ab_automatisch = ${wert} where id = ${auftragId} and betrieb_id = ${k.betriebId}`);
 }
 
-export type PortalEinstellungen = { agbUrl: string | null; widerrufUrl: string | null; abAutomatisch: boolean; standard: 'alle_aktiven' | 'nur_markierte' };
+export type TeamNamen = 'vorname' | 'voll' | 'aus';
+export const TEAM_NAMEN: Record<TeamNamen, string> = { vorname: 'nur Vorname', voll: 'Vor- und Nachname', aus: 'keine Namen' };
+export type PortalEinstellungen = { agbUrl: string | null; widerrufUrl: string | null; abAutomatisch: boolean; standard: 'alle_aktiven' | 'nur_markierte'; teamNamen: TeamNamen };
+const istTeamNamen = (w: unknown): w is TeamNamen => w === 'vorname' || w === 'voll' || w === 'aus';
 
 export async function ladePortalEinstellungen(k: Kontext): Promise<PortalEinstellungen> {
-	const [e] = await mitBetrieb(k, (tx) => tx`select agb_url, widerruf_url, ab_automatisch, standard from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
-	return { agbUrl: e?.agb_url ?? null, widerrufUrl: e?.widerruf_url ?? null, abAutomatisch: e?.ab_automatisch ?? true, standard: e?.standard ?? 'alle_aktiven' };
+	const [e] = await mitBetrieb(k, (tx) => tx`select agb_url, widerruf_url, ab_automatisch, standard, team_namen from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
+	return { agbUrl: e?.agb_url ?? null, widerrufUrl: e?.widerruf_url ?? null, abAutomatisch: e?.ab_automatisch ?? true, standard: e?.standard ?? 'alle_aktiven', teamNamen: istTeamNamen(e?.team_namen) ? e.team_namen : 'vorname' };
 }
 
 function url(w: unknown, name: string): string | null {
@@ -247,13 +250,15 @@ export async function speicherePortalEinstellungen(k: Kontext, e: Record<string,
 		agbUrl: url(e.agbUrl, 'AGB'),
 		widerrufUrl: url(e.widerrufUrl, 'Widerrufsbelehrung'),
 		abAutomatisch: e.abAutomatisch === true || e.abAutomatisch === 'ja' || e.abAutomatisch === 'on',
-		standard: e.standard === 'nur_markierte' ? 'nur_markierte' : 'alle_aktiven'
+		standard: e.standard === 'nur_markierte' ? 'nur_markierte' : 'alle_aktiven',
+		// fehlt das Feld (ältere Formulare, Tests), bleibt der Standard „nur Vorname“
+		teamNamen: istTeamNamen(e.teamNamen) ? e.teamNamen : 'vorname'
 	};
 	await mitBetrieb(k, (tx) => tx`
-		insert into app.portal_einstellungen (betrieb_id, agb_url, widerruf_url, ab_automatisch, standard)
-		values (${k.betriebId}, ${w.agbUrl}, ${w.widerrufUrl}, ${w.abAutomatisch}, ${w.standard})
+		insert into app.portal_einstellungen (betrieb_id, agb_url, widerruf_url, ab_automatisch, standard, team_namen)
+		values (${k.betriebId}, ${w.agbUrl}, ${w.widerrufUrl}, ${w.abAutomatisch}, ${w.standard}, ${w.teamNamen})
 		on conflict (betrieb_id) do update set agb_url = excluded.agb_url, widerruf_url = excluded.widerruf_url,
-			ab_automatisch = excluded.ab_automatisch, standard = excluded.standard`);
+			ab_automatisch = excluded.ab_automatisch, standard = excluded.standard, team_namen = excluded.team_namen`);
 	return w;
 }
 

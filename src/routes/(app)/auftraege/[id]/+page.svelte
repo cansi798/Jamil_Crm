@@ -240,7 +240,7 @@
 							<p class="af-portal-titel">Der Kunde sieht:</p>
 							<label><input type="checkbox" name="status" value="ja" checked={data.portal.freigabe.status} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Auftragsstatus</label>
 							<label><input type="checkbox" name="termine" value="ja" checked={data.portal.freigabe.termine} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Nächste Termine (Zeitfenster)</label>
-							<label><input type="checkbox" name="mitarbeiter" value="ja" checked={data.portal.freigabe.mitarbeiter} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Vornamen der Mitarbeiter</label>
+							<label><input type="checkbox" name="mitarbeiter" value="ja" checked={data.portal.freigabe.mitarbeiter} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Namen der Mitarbeiter (Team)</label>
 							<label><input type="checkbox" name="annahme" value="ja" checked={data.portal.freigabe.annahme} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Angebot online annehmen</label>
 						</form>
 						{#if data.portal.angebote.length + data.portal.dateien.length > 0}
@@ -256,7 +256,7 @@
 								{/each}
 							</ul>
 						{/if}
-						<p class="kd-info">Auftragsbestätigungen sieht der Kunde immer. Kein anderer Kunde, keine internen Notizen.</p>
+						<p class="kd-info">Versendete Angebote und Auftragsbestätigungen erscheinen automatisch. Ab „Beauftragt“ sieht der Kunde die Aufgaben, bei denen Lautstärke oder Schmutz angegeben ist, als Arbeitsschritte. Kein anderer Kunde, keine internen Notizen.</p>
 					</Karte>
 				</div>
 			{/if}

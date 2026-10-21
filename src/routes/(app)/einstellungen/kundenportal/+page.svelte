@@ -33,6 +33,14 @@
 				</Auswahl>
 			</label>
 			<p class="kd-info">Je Auftrag überschreibbar (Karte „Kundenportal“ im Auftrag). Den Link erzeugen Sie auf der Seite des Kunden.</p>
+			<label>Namen von Ansprechpartner und Team im Portal
+				<Auswahl name="teamNamen">
+					<option value="vorname" selected={data.e.teamNamen === 'vorname'}>nur Vorname (z. B. „Sabine“)</option>
+					<option value="voll" selected={data.e.teamNamen === 'voll'}>Vor- und Nachname (z. B. „Sabine Schäfer“)</option>
+					<option value="aus" selected={data.e.teamNamen === 'aus'}>keine Namen zeigen</option>
+				</Auswahl>
+			</label>
+			<p class="kd-info">Der Kunde sieht, wer sein Ansprechpartner ist und wer am Auftrag arbeitet. Je Auftrag abschaltbar („Namen der Mitarbeiter“).</p>
 			<label>Link zu Ihren AGB (für das Häkchen bei der Annahme)
 				<input type="url" name="agbUrl" value={data.e.agbUrl ?? ''} placeholder="https://www.ihre-firma.de/agb" maxlength="500" />
 			</label>

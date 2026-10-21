@@ -4,12 +4,17 @@
 	 * Hochladen mit Fortschritt, Liste der Dateien mit Löschen.
 	 */
 
+	import type { Snippet } from 'svelte';
+
 	let {
 		auftragId,
-		dateien = $bindable([])
+		dateien = $bindable([]),
+		zusatz
 	}: {
 		auftragId: string;
 		dateien: Array<{ id: string; name: string; typ: string; beschreibung: string | null }>;
+		/** Zusatz je Datei vor „Löschen“ (z. B. Schalter „im Kundenportal anzeigen“) */
+		zusatz?: Snippet<[{ id: string; name: string }]>;
 	} = $props();
 
 	let laedt = $state(false);
@@ -101,6 +106,7 @@
 			{#each dateien as datei (datei.id)}
 				<li>
 					<span>{datei.name}</span>
+					{#if zusatz}{@render zusatz(datei)}{/if}
 					<button type="button" class="knopf-gefahr" onclick={() => loeschen(datei.id)}>Löschen</button>
 				</li>
 			{/each}

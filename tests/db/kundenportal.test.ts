@@ -85,6 +85,45 @@ describe('Kundenportal', () => {
 		expect(s2.auftraege[0]).toMatchObject({ status: null, termine: null });
 	});
 
+	it('Handwerks-Portal (msgs 2848, 2851): Arbeitsschritte nur mit Lautstärke/Schmutz, Ansprechpartner und Team nach Einstellung', async () => {
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		// vor „beauftragt“: keine Arbeitsschritte
+		expect((await ladePortal(token, IP))!.auftraege[0].schritte).toBeNull();
+		await root`update app.auftraege set status = 'in_arbeit' where id = ${u.auftragA}`;
+		const [t1] = await root`insert into app.todos (betrieb_id, auftrag_id, titel, lautstaerke, schmutz, faellig) values (${u.betriebA}, ${u.auftragA}, 'Fliesen abschlagen', 3, 3, '2026-10-20') returning id`;
+		await root`update app.todos set erledigt_am = now() where id = ${t1.id}`;
+		await root`insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, schmutz) values (${u.betriebA}, ${u.auftragA}, 'Fugen', 'intern: Kunde ist schwierig', 1)`;
+		await root`insert into app.todos (betrieb_id, auftrag_id, titel) values (${u.betriebA}, ${u.auftragA}, 'Silikon nachbestellen')`;
+		try {
+			const s = (await ladePortal(token, IP))!;
+			const a = s.auftraege[0];
+			expect(a.schritte).toEqual([
+				{ titel: 'Fliesen abschlagen', erledigt: true, tag: '2026-10-20', laerm: 3, schmutz: 3 },
+				{ titel: 'Fugen', erledigt: false, tag: null, laerm: null, schmutz: 1 }
+			]);
+			expect(JSON.stringify(s)).not.toMatch(/Silikon|schwierig/);
+			// Standard „nur Vorname“: Zuständige (Büro) als Ansprechpartner, Team = Zuständige + kommende Termine
+			expect(a.ansprechpartner).toBe('Büro');
+			expect(a.team).toEqual(['Ali', 'Büro']);
+			await root`update app.portal_einstellungen set team_namen = 'voll' where betrieb_id = ${u.betriebA}`;
+			const voll = (await ladePortal(token, IP))!.auftraege[0];
+			expect(voll).toMatchObject({ ansprechpartner: 'Büro A', team: ['Ali Monteur', 'Büro A'] });
+			expect(voll.termine![0].mitarbeiter).toEqual(['Ali Monteur']);
+			await root`update app.portal_einstellungen set team_namen = 'aus' where betrieb_id = ${u.betriebA}`;
+			const aus = (await ladePortal(token, IP))!.auftraege[0];
+			expect(aus).toMatchObject({ ansprechpartner: null, team: [] });
+			expect(aus.termine![0].mitarbeiter).toEqual([]);
+			// Schalter „Namen der Mitarbeiter“ am Auftrag aus → kein Team, Status aus → keine Schritte
+			await root`update app.portal_einstellungen set team_namen = 'vorname' where betrieb_id = ${u.betriebA}`;
+			await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: false, termine: true, mitarbeiter: false, annahme: true });
+			const ohne = (await ladePortal(token, IP))!.auftraege[0];
+			expect(ohne).toMatchObject({ schritte: null, team: [], ansprechpartner: 'Büro' });
+		} finally {
+			await root`delete from app.todos where auftrag_id = ${u.auftragA}`;
+			await root`update app.auftraege set status = 'anfrage' where id = ${u.auftragA}`;
+		}
+	});
+
 	it('Ungültig: falsches Token, widerrufen, abgelaufen, Modul fehlt → kein Zugriff; Durchprobieren → 429', async () => {
 		const { token, id } = await erzeugeLink(zA(), u.kundeA);
 		expect(await ladePortal('x'.repeat(43), IP)).toBeNull();

@@ -44,6 +44,10 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	await expect(kunde.getByRole('heading', { name: 'Ladenumbau Trockenbau' })).toBeVisible();
 	// Andere Tests legen weitere Aufträge beim selben Kunden an – nur die eigene Karte prüfen
 	await expect(kunde.getByLabel('Ladenumbau Trockenbau').getByTestId('portal-status')).toBeVisible();
+	// Handwerks-Design (msgs 2848, 2851): Überblick oben, Fortschrittsweg, Kontakt rechts
+	await expect(kunde.getByRole('region', { name: 'Überblick' })).toContainText('Nächster Termin');
+	await expect(kunde.getByRole('img', { name: /^Fortschritt:/ }).first()).toBeVisible();
+	await expect(kunde.getByRole('heading', { name: 'Ihr Ansprechpartner' }).first()).toBeVisible();
 	await erwarteKeinQuerScrollen(kunde, viewport.width);
 	const annehmen = kunde.getByRole('button', { name: 'Angebot annehmen' });
 	if (info.project.name === 'desktop' && (await annehmen.isVisible())) {

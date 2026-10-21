@@ -4,8 +4,10 @@
 	import Karte from '$lib/components/Karte.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Unterschrift from '$lib/components/Unterschrift.svelte';
+	import { enhance } from '$app/forms';
 
-	let { data } = $props();
+	let { data, form } = $props();
+	const imPortal = (id: string) => data.portalDateien?.includes(id) ?? false;
 
 	let tab = $state<'fotos' | 'notizen' | 'protokolle'>('fotos');
 	let dateien = $state.raw(data.dateien);
@@ -165,11 +167,23 @@
 		{/if}
 	</nav>
 
+	{#snippet portalSchalter(d: { id: string; name: string })}
+		<form method="POST" action="?/portalDatei" class="dok-portal" use:enhance={() => async ({ update }) => update({ reset: false, invalidateAll: true })}>
+			<input type="hidden" name="refId" value={d.id} />
+			<label title="Im Kundenportal anzeigen">
+				<input type="checkbox" name="geteilt" value="ja" checked={imPortal(d.id)} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
+				<span>Im Kundenportal</span><span class="unsichtbar"> anzeigen: {d.name}</span>
+			</label>
+		</form>
+	{/snippet}
+
 	{#if tab === 'fotos'}
 		<Karte>
 			{#snippet titel()}Fotos und Dateien{/snippet}
 			{#if data.darfBearbeiten}
-				<DateiUpload auftragId={data.auftrag.id} bind:dateien />
+				{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
+				<DateiUpload auftragId={data.auftrag.id} bind:dateien zusatz={data.portalDateien ? portalSchalter : undefined} />
+				{#if data.portalDateien}<p class="kd-info">„Im Kundenportal“: Diese Datei sieht der Kunde in seinem Portal. Angebote und Auftragsbestätigungen erscheinen dort automatisch.</p>{/if}
 			{:else}
 				<ul class="kd-liste">
 					{#each dateien as d (d.id)}
@@ -316,6 +330,17 @@
 </main>
 
 <style>
+	.dok-portal {
+		margin-left: auto;
+	}
+	.dok-portal label {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: var(--ui-schrift-s);
+		white-space: nowrap;
+		cursor: pointer;
+	}
 	.pills {
 		margin-bottom: 1rem;
 	}
