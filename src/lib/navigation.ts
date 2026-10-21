@@ -83,6 +83,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (module.includes('katalog') && (hat('katalog.bearbeiten') || hat('angebote.bearbeiten'))) {
 			g.stammdaten.push({ name: 'Katalog', href: '/katalog', symbol: 'katalog' });
 		}
+		// Partner (Jamil msg 2856): Auftraggeber, Subunternehmer, Lieferanten
+		if (module.includes('auftraege') && hat('partner.verwalten')) g.stammdaten.push({ name: 'Partner', href: '/partner', symbol: 'kunden' });
 		// Kalkulation / Stundensatz: Gehälter sind vertraulich – „Preise sehen“ UND „Einstellungen“ (Chef)
 		if (module.includes('katalog') && hat('preise.sehen') && hat('einstellungen')) {
 			g.stammdaten.push({ name: 'Kalkulation', href: '/kalkulation', symbol: 'katalog' });

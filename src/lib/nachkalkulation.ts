@@ -39,6 +39,8 @@ export type NachkalkEingabe = {
 	istMaterialCent: number | null;
 	satz: Firmensatz | null;
 	kmSatzCent: number | null;
+	/** Fremdleistungen (Subunternehmer-Rechnungen, Partner-Modul msg 2856), netto in Cent */
+	istFremdCent?: number;
 };
 
 export type Seite = {
@@ -53,7 +55,7 @@ export type Seite = {
 
 export type Nachkalkulation = {
 	plan: Seite & { ohneArbeitszeit: number };
-	ist: Seite & { fahrtStunden: number; km: number; fahrtkostenCent: number | null; kmKostenCent: number | null; effektiverSatzCent: number | null; materialGeschaetzt: boolean };
+	ist: Seite & { fahrtStunden: number; km: number; fahrtkostenCent: number | null; kmKostenCent: number | null; effektiverSatzCent: number | null; materialGeschaetzt: boolean; fremdCent: number };
 	/** Ist-Stunden gegenüber Plan in Prozent (+ = länger gebraucht) */
 	stundenAbweichungProzent: number | null;
 	ampel: Ampel | null;
@@ -99,8 +101,9 @@ export function nachkalkuliere(e: NachkalkEingabe): Nachkalkulation {
 	const istLohn = satz === null ? null : Math.round(istStunden * satz);
 	const fahrtLohn = satz === null ? null : Math.round(fahrtStunden * satz);
 	const fahrtkosten = fahrtLohn === null ? null : fahrtLohn + (kmKosten ?? 0);
-	const istKosten = istLohn === null || fahrtkosten === null ? null : istLohn + fahrtkosten + istMaterial;
-	const istDb = p.erloesCent - istMaterial - (kmKosten ?? 0);
+	const fremd = e.istFremdCent ?? 0;
+	const istKosten = istLohn === null || fahrtkosten === null ? null : istLohn + fahrtkosten + istMaterial + fremd;
+	const istDb = p.erloesCent - istMaterial - (kmKosten ?? 0) - fremd;
 	const stundenGesamt = istStunden + fahrtStunden;
 	const effektiv = stundenGesamt > 0 ? Math.round(istDb / stundenGesamt) : null;
 	let ampel: Ampel | null = null;
@@ -131,7 +134,8 @@ export function nachkalkuliere(e: NachkalkEingabe): Nachkalkulation {
 			deckungsbeitragCent: istDb,
 			gewinnCent: istKosten === null ? null : p.erloesCent - istKosten,
 			effektiverSatzCent: effektiv,
-			materialGeschaetzt
+			materialGeschaetzt,
+			fremdCent: fremd
 		},
 		stundenAbweichungProzent: p.minuten > 0 ? Math.round(((e.istArbeitMin - p.minuten) / p.minuten) * 100) : null,
 		ampel,

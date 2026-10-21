@@ -34,6 +34,7 @@ describe('Rechte und Vorlagen', () => {
 			'zeiterfassung.alle_sehen',
 			'kundenportal.verwalten',
 			'vorlagen.verwalten',
+			'partner.verwalten',
 			'benutzer.verwalten',
 			'einstellungen'
 		]);

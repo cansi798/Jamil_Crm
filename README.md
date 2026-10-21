@@ -246,6 +246,10 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Stück- und Formelfelder; Formeln mit eigenem Parser (`src/lib/aufmass-formel.ts`, kein eval, Grenzen für Länge und
     Tiefe); wiederholbare Abschnitte (Räume) werden vor jeder Prüfung aufgeklappt (`expandiere`), berechnete Werte setzt
     nur der Server (`berechne`); Katalog-Verknüpfung → „Angebot aus Aufmaß“ (`src/lib/server/aufmass.ts`, Rechte wie Angebote).
+23. Partner (Migration 094, `src/lib/server/partner.ts`, Recht `partner.verwalten`): Auftraggeber/Subunternehmer/
+    Lieferanten mit Kontakten, Konditionen, Portal-Link (nur http/https, keine Zugangsdaten) und Nachweisen (Datei in der
+    Datenbank, Typ an den ersten Bytes geprüft; 30 Tage vor Ablauf Aufgabe + Erinnerung). Auftraggeber per Trigger aus
+    der Auftragsquelle; Fremdleistungen gehen in die Nachkalkulation; Beträge nur mit „Preise sehen“.
 
 ## Installation auf einem eigenen Server
 

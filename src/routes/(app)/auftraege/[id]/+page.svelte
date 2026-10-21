@@ -11,6 +11,7 @@
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import AuftragLinks from '$lib/components/AuftragLinks.svelte';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
+	import AuftragPartner from '$lib/components/AuftragPartner.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
@@ -819,6 +820,15 @@
 				</div>
 			{/if}
 
+			{#if data.partner.auftraggeber || data.partner.subunternehmer.length || data.partnerAuswahl.length || data.partner.fremdleistungen?.length}
+				<div class="af-k k-partner" id="partner">
+					<Karte>
+						{#snippet titel()}Partner{/snippet}
+						<AuftragPartner partner={data.partner} auswahl={data.partnerAuswahl} darfBearbeiten={data.darfBearbeiten} {form} />
+					</Karte>
+				</div>
+			{/if}
+
 			<div class="af-k k-links" id="links">
 				<Karte>
 					{#snippet titel()}Links{/snippet}
@@ -895,6 +905,7 @@
 	.k-termine { order: 5; }
 	.k-protokolle { order: 5; }
 	.k-angebote { order: 6; }
+	.k-partner { order: 7; }
 	.k-mail { order: 7; }
 	.k-links { order: 7; }
 	.k-doku { order: 7; }

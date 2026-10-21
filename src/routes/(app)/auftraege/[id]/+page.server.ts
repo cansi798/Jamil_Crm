@@ -42,6 +42,7 @@ import { portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDok
 import { abEinstellung, abMitVorlage, listeAuftragsbestaetigungen, markiereAbGesendet } from '$lib/server/auftragsbestaetigung';
 import { alsWahl, listeMailVorlagen, mailVorbereitung } from '$lib/server/mail-vorlagen';
 import { aendereLink, legeLinkAn, linkVerlauf, listeLinks, loescheLink, setzeLinkImPortal } from '$lib/server/auftrag-links';
+import { auftragPartner, entferneSubunternehmer, fuegeSubunternehmerHinzu, legeFremdleistungAn, loescheFremdleistung, partnerAuswahl, setzeAuftraggeber } from '$lib/server/partner';
 
 /** Zeiterfassung nur mit Modul und Recht – sonst `null` (Bereich ausgeblendet). */
 async function zeitOderNull(locals: { nutzer: Nutzer | null }): Promise<ZeitZugriff | null> {
@@ -116,6 +117,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		return {
 			auftrag,
 			links,
+			// Partner (Jamil msg 2856): Auftraggeber, Subunternehmer, Fremdleistungen (Beträge nur mit Preisen)
+			partner: await auftragPartner(k, sicht, auftrag.id, preise),
+			partnerAuswahl: darfBearbeiten ? await partnerAuswahl(k) : [],
 			// „Mail an Kunden“ (Vorlagen-Bibliothek, msg 2789): wer den Auftrag bearbeiten darf
 			mail: darfBearbeiten && (auftrag.kundeId || auftrag.einmalKunde) ? await mailVorbereitung(k, { auftragId: auftrag.id }, ['allgemein', 'bewertung'], { preise }) : null,
 			darfLinkPortal: darfBearbeiten && darfPortal,
@@ -356,6 +360,55 @@ export const actions: Actions = {
 			return { materialMeldung: `${n} Position${n === 1 ? '' : 'en'} vom Lieferschein übernommen.` };
 		} catch (e) {
 			return alsFormFehler(e, { materialFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	// ——— Partner (Jamil msg 2856) ———
+	auftraggeber: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			await setzeAuftraggeber(z.k, z.sicht, params.id, f.get('partnerId'));
+		} catch (e) {
+			return alsFormFehler(e, { partnerFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	subunternehmer: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			const warnung = await fuegeSubunternehmerHinzu(z.k, z.sicht, params.id, f.get('partnerId'), f.get('leistung'));
+			return { partnerWarnung: warnung };
+		} catch (e) {
+			return alsFormFehler(e, { partnerFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	subunternehmerWeg: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			await entferneSubunternehmer(z.k, z.sicht, params.id, f.get('partnerId'));
+		} catch (e) {
+			return alsFormFehler(e, { partnerFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	fremdleistung: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			if (!hatRecht(locals.nutzer!, 'preise.sehen')) throw new ApiFehler(403, 'Beträge nur mit „Preise sehen“.');
+			await legeFremdleistungAn(z.k, z.sicht, params.id, { bezeichnung: f.get('bezeichnung'), betrag: f.get('betrag'), partnerId: f.get('partnerId'), rechnungsnummer: f.get('rechnungsnummer'), datum: f.get('datum') });
+		} catch (e) {
+			return alsFormFehler(e, { partnerFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	fremdleistungWeg: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const z = await linkZugriff(locals);
+			if (!hatRecht(locals.nutzer!, 'preise.sehen')) throw new ApiFehler(403, 'Beträge nur mit „Preise sehen“.');
+			await loescheFremdleistung(z.k, z.sicht, params.id, f.get('id'));
+		} catch (e) {
+			return alsFormFehler(e, { partnerFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
 	},
 	// ——— Links (Jamil msg 2850) ———

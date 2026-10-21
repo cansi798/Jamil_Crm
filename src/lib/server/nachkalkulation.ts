@@ -114,6 +114,10 @@ async function rechne(k: Kontext, ids: string[], jetzt: Date) {
 	const g = await grundlagen(k);
 	return mitBetrieb(k, async (tx) => {
 		const [plan, ist, mat] = [await planPositionen(tx, k, ids), await istZeiten(tx, k, ids, jetzt), await istMaterial(tx, k, ids)];
+		// Fremdleistungen (Partner-Modul, msg 2856)
+		const fremd = new Map(
+			(await tx`select auftrag_id, sum(betrag_cent)::bigint as cent from app.auftrag_fremdleistungen where betrieb_id = ${k.betriebId} and auftrag_id = any(${ids}::uuid[]) group by auftrag_id`).map((r) => [r.auftrag_id as string, Number(r.cent)])
+		);
 		const aus = new Map<string, { nk: Nachkalkulation; positionen: PlanPosition[]; ist: Ist }>();
 		for (const id of ids) {
 			const positionen = plan.get(id) ?? [];
@@ -121,7 +125,7 @@ async function rechne(k: Kontext, ids: string[], jetzt: Date) {
 			aus.set(id, {
 				positionen,
 				ist: i,
-				nk: nachkalkuliere({ positionen, istArbeitMin: i.arbeitMin, istFahrtMin: i.fahrtMin, istKm: i.km, istMaterialCent: mat.has(id) ? mat.get(id)! : null, satz: g.satz, kmSatzCent: g.kmSatzCent })
+				nk: nachkalkuliere({ positionen, istArbeitMin: i.arbeitMin, istFahrtMin: i.fahrtMin, istKm: i.km, istMaterialCent: mat.has(id) ? mat.get(id)! : null, satz: g.satz, kmSatzCent: g.kmSatzCent, istFremdCent: fremd.get(id) ?? 0 })
 			});
 		}
 		return { g, aus };

@@ -23,6 +23,7 @@ export const RECHTE = {
 	'zeiterfassung.alle_sehen': 'Zeiten aller Mitarbeiter sehen, korrigieren und freigeben',
 	'kundenportal.verwalten': 'Kundenportal verwalten (Links für Kunden, Freigaben)',
 	'vorlagen.verwalten': 'E-Mail-Vorlagen und Signatur verwalten',
+	'partner.verwalten': 'Partner verwalten (Auftraggeber, Subunternehmer, Lieferanten, Nachweise)',
 	'benutzer.verwalten': 'Benutzer verwalten',
 	einstellungen: 'Einstellungen verwalten'
 } as const;

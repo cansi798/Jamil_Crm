@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import AddPanel from '$lib/components/AddPanel.svelte';
@@ -42,6 +43,15 @@
 					<span class="kd-info">{q.auftraege} Auftr.</span>
 				</form>
 				<div class="qu-knoepfe">
+					{#if data.auftraggeber.length}
+						<form method="POST" action="?/partner" use:enhance={ohneReset}>
+							<input type="hidden" name="id" value={q.id} />
+							<Auswahl name="partnerId" klein aria-label={`Auftraggeber für ${q.name}`} onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+								<option value="" selected={!data.zuordnung[q.id]}>Auftraggeber: –</option>
+								{#each data.auftraggeber as p (p.id)}<option value={p.id} selected={data.zuordnung[q.id] === p.id}>→ {p.name}</option>{/each}
+							</Auswahl>
+						</form>
+					{/if}
 					<form method="POST" action="?/verschieben" use:enhance>
 						<input type="hidden" name="id" value={q.id} />
 						<button type="submit" name="richtung" value="hoch" class="kd-knopf hell klein" disabled={i === 0} aria-label={`${q.name} nach oben`}>↑</button>

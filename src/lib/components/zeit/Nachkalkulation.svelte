@@ -21,6 +21,7 @@
 				<tr><th scope="row">Arbeitsstunden</th><td>{std(nk.plan.stunden)}</td><td>{std(nk.ist.stunden)}{#if nk.stundenAbweichungProzent !== null} <small class:schlecht={nk.stundenAbweichungProzent > 10}>({nk.stundenAbweichungProzent > 0 ? '+' : ''}{nk.stundenAbweichungProzent} %)</small>{/if}</td></tr>
 				<tr><th scope="row">Fahrt</th><td>–</td><td>{std(nk.ist.fahrtStunden)} · {String(nk.ist.km).replace('.', ',')} km · {geld(nk.ist.fahrtkostenCent)}</td></tr>
 				<tr><th scope="row">Material</th><td>{geld(nk.plan.materialCent)}</td><td>{geld(nk.ist.materialCent)}{#if nk.ist.materialGeschaetzt} <small>(Plan)</small>{/if}</td></tr>
+				{#if nk.ist.fremdCent > 0}<tr><th scope="row">Fremdleistungen</th><td>–</td><td>{geld(nk.ist.fremdCent)}</td></tr>{/if}
 				<tr><th scope="row">Lohnkosten</th><td>{geld(nk.plan.lohnkostenCent)}</td><td>{geld(nk.ist.lohnkostenCent)}</td></tr>
 				<tr><th scope="row">Kosten gesamt</th><td>{geld(nk.plan.kostenCent)}</td><td>{geld(nk.ist.kostenCent)}</td></tr>
 				<tr><th scope="row">Erlös (netto)</th><td>{geld(nk.plan.erloesCent)}</td><td>{geld(nk.ist.erloesCent)}</td></tr>
