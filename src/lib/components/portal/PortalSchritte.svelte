@@ -35,7 +35,7 @@
 				</span>
 				<span class="ps-pegel">
 					{#if s.laerm}
-						<span class={`ps-chip ${STUFE_TON[s.laerm]}`} title={`Lautstärke: ${stufeName(s.laerm)}`}>
+						<span class={`ps-chip ps-laerm ${STUFE_TON[s.laerm]}`} title={`Lautstärke: ${stufeName(s.laerm)}`}>
 							<svg viewBox="0 0 24 24" aria-hidden="true">
 								<path class="ps-lautsprecher" d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" />
 								{#each Array.from({ length: s.laerm }, (_, k) => k) as k (k)}
@@ -46,7 +46,7 @@
 						</span>
 					{/if}
 					{#if s.schmutz}
-						<span class={`ps-chip ${STUFE_TON[s.schmutz]}`} title={`Schmutz: ${stufeName(s.schmutz)}`}>
+						<span class={`ps-chip ps-schmutz ${STUFE_TON[s.schmutz]}`} title={`Schmutz: ${stufeName(s.schmutz)}`}>
 							<svg viewBox="0 0 24 24" aria-hidden="true">
 								<path class="ps-wolke" d="M6.5 17.5a3.5 3.5 0 0 1 .4-7 4.6 4.6 0 0 1 8.8-1.2 3.9 3.9 0 0 1 1.8 7.6z" />
 								{#each Array.from({ length: s.schmutz }, (_, k) => k) as k (k)}
@@ -95,16 +95,19 @@
 		background: var(--ui-akzent);
 		animation: ps-wachsen 1.2s 0.3s cubic-bezier(0.45, 0, 0.2, 1) both;
 	}
+	/* Jamil msg 3027: Lautstärke- und Schmutz-Chips stehen über alle Schritte in zwei geraden Spalten (Subgrid). */
 	.ps-liste {
 		display: grid;
-		gap: 0;
+		grid-template-columns: 2rem minmax(0, 1fr) max-content max-content;
+		gap: 0 0.75rem;
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
 	.ps-liste li {
 		display: grid;
-		grid-template-columns: 2rem minmax(0, 1fr) auto;
+		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
 		align-items: center;
 		gap: 0.25rem 0.75rem;
 		padding: 0.65rem 0;
@@ -159,18 +162,33 @@
 		color: var(--ui-text-leise);
 	}
 	.ps-pegel {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: 0.35rem;
+		grid-column: 3 / 5;
+		display: grid;
+		grid-template-columns: subgrid;
+		column-gap: 0.35rem;
+	}
+	.ps-pegel .ps-chip {
+		justify-self: stretch;
+	}
+	.ps-pegel .ps-laerm {
+		grid-column: 1;
+	}
+	.ps-pegel .ps-schmutz {
+		grid-column: 2;
 	}
 	@media (max-width: 640px) {
-		.ps-liste li {
+		.ps-liste {
 			grid-template-columns: 2rem minmax(0, 1fr);
 		}
+		/* Handy: zwei Spalten passen nicht – beide Chips einheitlich untereinander, linksbündig */
 		.ps-pegel {
 			grid-column: 2;
-			justify-content: flex-start;
+			grid-template-columns: max-content;
+			gap: 0.3rem;
+		}
+		.ps-pegel .ps-laerm,
+		.ps-pegel .ps-schmutz {
+			grid-column: 1;
 		}
 	}
 	.ps-chip {

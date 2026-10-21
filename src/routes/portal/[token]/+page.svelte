@@ -162,7 +162,7 @@
 			{:else}
 				<div class="pt-kachel ok">
 					<span class="pt-eyebrow">Für Sie zu erledigen</span>
-					<strong class="pt-ok-zeile"><SkizzenKreis art="ring" groesse={26} seed={5}><span class="pt-haken" aria-hidden="true">✓</span></SkizzenKreis>Alles erledigt</strong>
+					<strong class="pt-ok-zeile"><SkizzenKreis art="ring" groesse={26} seed={5}><svg class="pt-haken" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.7 3.7 7.3-8" /></svg></SkizzenKreis>Alles erledigt</strong>
 					<span class="pt-k-info">nichts offen</span>
 				</div>
 			{/if}
@@ -494,9 +494,18 @@
 		gap: 0.3rem;
 		color: var(--ui-gruen);
 	}
+	/* Jamil msg 3028: Haken als SVG statt Schriftzeichen – sitzt so genau mittig im Kreis */
 	.pt-haken {
-		color: var(--ui-gruen);
-		font-size: 0.8rem;
+		display: block;
+		width: 0.85rem;
+		height: 0.85rem;
+	}
+	.pt-haken path {
+		fill: none;
+		stroke: var(--ui-gruen);
+		stroke-width: 3;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 	@media (min-width: 641px) {
 		.pt-dash {
