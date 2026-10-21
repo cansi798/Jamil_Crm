@@ -41,6 +41,16 @@ Baustein `components/ui/SeitenKopf.svelte`: Zurück-Link (optional) → Überzei
 Kennzahl darunter, **Hauptaktionen IMMER rechts** (`aktionen`-Snippet). Am Handy brechen die Aktionen unter den
 Titel um und bleiben rechtsbündig. Kein zweiter Titel auf der Seite.
 
+### 3a. Löschen oben rechts (Jamil msg 3043)
+
+Jede Aktion, die einen **ganzen Datensatz** löscht (Kunde, Objekt, Anlage, Auftrag, Angebot, Vorlage, Partner, Rolle,
+Katalogposition, Dienst, Protokoll-Entwurf …), steht **oben rechts im Seitenkopf** (`.seiten-aktionen`) – nie unten auf
+der Seite. Bausteine: `components/ui/LoeschenKnopf.svelte` („<Ding> löschen“, Stil `gefahr`) im Kopf und
+`components/ui/LoeschenPanel.svelte` direkt unter dem Kopf (gemeinsames `bind:offen`): Warnung, „Abbrechen“,
+„Endgültig löschen“. Schlägt das Löschen fehl, bleibt die Rückfrage offen und zeigt den Fehler (Server-Aktion:
+`alsFormFehler(e, { loeschFehler: true })`, fetch-Seiten: `onbestaetigen` + eigener Fehlerzustand). Kein `confirm()`.
+Kleine Löschknöpfe **in Listenzeilen** (eine Notiz, ein Dokument, eine Position) bleiben in der Zeile.
+
 ## 4. Abschnitte und Überschriften
 
 Baustein `components/Abschnitt.svelte` (bzw. `Karte.svelte`): weiße Karte, getöntes Kopfband, Titel in

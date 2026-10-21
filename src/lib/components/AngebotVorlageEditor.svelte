@@ -113,19 +113,6 @@
 			arbeitet = false;
 		}
 	}
-
-	async function loeschen() {
-		if (!vorlage || arbeitet || !confirm(`Vorlage „${vorlage.name}“ löschen? Bestehende Angebote bleiben unverändert.`)) return;
-		arbeitet = true;
-		try {
-			await api('DELETE', `/api/angebot-vorlagen/${vorlage.id}`);
-			await goto('/angebot-vorlagen');
-		} catch (e) {
-			fehler = (e as Error).message;
-		} finally {
-			arbeitet = false;
-		}
-	}
 </script>
 
 <section aria-label="Angaben" class="kd-formular">
@@ -161,9 +148,6 @@
 <div class="av-aktionen">
 	<button type="button" class="kd-knopf" onclick={speichern} disabled={arbeitet}>{vorlage ? 'Speichern' : 'Vorlage anlegen'}</button>
 	<a href="/angebot-vorlagen" class="kd-knopf hell">Zurück</a>
-	{#if vorlage}
-		<button type="button" class="kd-knopf gefahr" onclick={loeschen} disabled={arbeitet}>Löschen</button>
-	{/if}
 </div>
 
 <style>

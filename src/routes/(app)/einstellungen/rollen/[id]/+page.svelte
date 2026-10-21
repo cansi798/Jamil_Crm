@@ -4,9 +4,14 @@
 	import SeitenKopf from '$lib/components/ui/SeitenKopf.svelte';
 	import FormFuss from '$lib/components/ui/FormFuss.svelte';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+	/** Jamil msg 3043: „Rolle löschen“ oben rechts, Rückfrage unter dem Kopf. */
+	let loeschenOffen = $state(false);
+	const loeschFehler = $derived(form && 'loeschFehler' in form && form.loeschFehler ? (form.fehler ?? null) : null);
 </script>
 
 <svelte:head>
@@ -14,10 +19,17 @@
 </svelte:head>
 
 <main class="kd-seite">
-	<SeitenKopf titel="Rolle bearbeiten" meta={data.rolle.name} zurueck={{ href: '/einstellungen/rollen', text: 'Alle Rollen' }} />
+	<SeitenKopf titel="Rolle bearbeiten" meta={data.rolle.name} zurueck={{ href: '/einstellungen/rollen', text: 'Alle Rollen' }}>
+		{#snippet aktionen()}
+			<LoeschenKnopf ding="Rolle" bind:offen={loeschenOffen} />
+		{/snippet}
+	</SeitenKopf>
+	<LoeschenPanel ding="Rolle" bind:offen={loeschenOffen} fehler={loeschFehler}>
+		Die Rolle „{data.rolle.name}“ wird endgültig gelöscht. Das geht nur, wenn kein Benutzer sie mehr hat.
+	</LoeschenPanel>
 
 	<form method="POST" action="?/speichern" use:enhance class="kd-formular">
-		{#if form?.fehler}
+		{#if form?.fehler && !loeschFehler}
 			<p role="alert" class="kd-fehler">{form.fehler}</p>
 		{:else if form?.gespeichert}
 			<p role="status" class="kd-info">Gespeichert.</p>
@@ -45,10 +57,6 @@
 			<button type="submit" class="kd-knopf">Speichern</button>
 		</FormFuss>
 	</form>
-
-	<form method="POST" action="?/loeschen" use:enhance class="rl-loeschen">
-		<button type="submit" class="kd-knopf gefahr">Rolle löschen</button>
-	</form>
 </main>
 
 <style>
@@ -59,8 +67,5 @@
 	}
 	.rl-recht {
 		font-weight: 500 !important;
-	}
-	.rl-loeschen {
-		margin-top: 2rem;
 	}
 </style>

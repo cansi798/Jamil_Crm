@@ -13,6 +13,8 @@
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import FormularBaukasten from '$lib/components/protokoll/FormularBaukasten.svelte';
 	import { ADRESSE_ARTEN, FRAGE_TYPEN, MODI, MODUS_NAMEN, ORT_ARTEN, ORT_NAMEN, type AdresseArt } from '$lib/buchung';
 	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN } from '$lib/einsatz-art';
@@ -77,6 +79,11 @@
 			gewaehlt = data.dienst.mitarbeiter.map((m) => m.id);
 		}
 	};
+	/** Jamil msg 3043: „Dienst löschen“ oben rechts, Rückfrage unter dem Kopf. */
+	let loeschenOffen = $state(false);
+	$effect(() => {
+		if (okIn('loeschen')) loeschenOffen = false;
+	});
 	const sofort = () => async ({ update }: { update: (o?: { reset?: boolean }) => Promise<void> }) => update({ reset: false });
 </script>
 
@@ -86,7 +93,20 @@
 
 <main class="kd-seite breit ob-seite">
 	<a href="/einstellungen/online-buchung" class="kd-zurueck">← Online-Buchung</a>
-	<h1><span class="ob-farbe" style={`background:${d.farbe}`} aria-hidden="true"></span>{d.name}</h1>
+	<header class="seiten-kopf">
+		<div>
+			<h1><span class="ob-farbe" style={`background:${d.farbe}`} aria-hidden="true"></span>{d.name}</h1>
+		</div>
+		<div class="seiten-aktionen">
+			<LoeschenKnopf ding="Dienst" bind:offen={loeschenOffen} />
+		</div>
+	</header>
+	<LoeschenPanel ding="Dienst" bind:offen={loeschenOffen} fehler={fehlerIn('loeschen')}>
+		Der Dienst „{d.name}“ wird endgültig gelöscht. Hat er schon Buchungen, wird er nur ausgeschaltet.
+	</LoeschenPanel>
+	{#if form?.bereich === 'loeschen' && 'ergebnis' in form && form.ergebnis === 'deaktiviert'}
+		<p class="kt-hinweis" role="status">Der Dienst hat Buchungen und wurde deshalb nur ausgeschaltet.</p>
+	{/if}
 
 	<form method="POST" action="?/speichern" use:enhance={nachSpeichern} class="ob-form" id="dienst-form">
 		<Abschnitt titel="Angaben">
@@ -259,14 +279,6 @@
 			</ul>
 		{/if}
 	</Abschnitt>
-
-	<form method="POST" action="?/loeschen" use:enhance={sofort} onsubmit={(e) => !confirm(`Dienst „${d.name}“ löschen?`) && e.preventDefault()}>
-		{#if fehlerIn('loeschen')}<p class="kd-fehler" role="alert">{fehlerIn('loeschen')}</p>{/if}
-		{#if form?.bereich === 'loeschen' && 'ergebnis' in form && form.ergebnis === 'deaktiviert'}
-			<p class="kt-hinweis" role="status">Der Dienst hat Buchungen und wurde deshalb nur ausgeschaltet.</p>
-		{/if}
-		<button type="submit" class="kd-knopf gefahr">Dienst löschen</button>
-	</form>
 </main>
 
 <style>

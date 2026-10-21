@@ -6,6 +6,8 @@
 	import AnlageFormular from '$lib/components/AnlageFormular.svelte';
 	import { extraAnzeige } from '$lib/anlagen-typen';
 	import { berlinTag } from '$lib/zeit';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -41,6 +43,8 @@
 	);
 	const auftragLink = $derived(`/auftraege/neu?kunde=${a.kundeId}&objektId=${a.objektId}&anlageId=${a.id}&titel=${encodeURIComponent(`${a.bezeichnung}: `)}`);
 	let bearbeitenOffen = $state(false);
+	/** Jamil msg 3043: „Anlage löschen“ oben rechts, Rückfrage unter dem Kopf. */
+	let loeschenOffen = $state(false);
 	$effect(() => {
 		if (form && 'aktion' in form && form.aktion === 'speichern') bearbeitenOffen = !('gespeichert' in form);
 	});
@@ -52,8 +56,22 @@
 
 <main class="kd-seite">
 	<a href={`/kunden/${a.kundeId}/objekte/${a.objektId}`} class="kd-zurueck">← {a.objektBezeichnung} ({a.kundeName})</a>
-	<h1>{a.bezeichnung}</h1>
-	<p class="kd-info">{a.typName}{#if a.objektAdresse} · {a.objektAdresse}{/if}</p>
+	<header class="seiten-kopf">
+		<div>
+			<h1>{a.bezeichnung}</h1>
+			<p class="seiten-meta">{a.typName}{#if a.objektAdresse} · {a.objektAdresse}{/if}</p>
+		</div>
+		{#if data.darfBearbeiten}
+			<div class="seiten-aktionen">
+				<LoeschenKnopf ding="Anlage" bind:offen={loeschenOffen} />
+			</div>
+		{/if}
+	</header>
+	{#if data.darfBearbeiten}
+		<LoeschenPanel ding="Anlage" bind:offen={loeschenOffen} fehler={fehlerVon('loeschen')}>
+			Die Anlage wird mit Störungen, Fotos und Dokumenten gelöscht. Aufträge und Aufgaben bleiben erhalten.
+		</LoeschenPanel>
+	{/if}
 
 	{#if a.offeneStoerungen > 0}
 		<p class="an-stoerung" role="status">{a.offeneStoerungen} offene Störung{a.offeneStoerungen === 1 ? '' : 'en'}</p>
@@ -235,13 +253,6 @@
 		<details class="an-neu an-abschnitt" bind:open={bearbeitenOffen}>
 			<summary class="kd-knopf hell">Anlage bearbeiten</summary>
 			<AnlageFormular aktion="?/speichern" werte={bearbeitenWerte} fehler={fehlerVon('speichern')} />
-		</details>
-		<details class="kd-loeschen">
-			<summary>Anlage löschen …</summary>
-			<form method="POST" action="?/loeschen" use:enhance class="kd-formular">
-				<p>Die Anlage wird mit Störungen, Fotos und Dokumenten gelöscht. Aufträge und Aufgaben bleiben erhalten.</p>
-				<button type="submit" class="kd-knopf gefahr">Endgültig löschen</button>
-			</form>
 		</details>
 	{/if}
 </main>

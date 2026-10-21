@@ -175,8 +175,9 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 	await page.goto(auftragUrl);
 	await expect(page.getByTestId('online-buchung')).toContainText('vom Kunden abgesagt');
 	await page.goto(dienstUrl);
-	page.once('dialog', (d) => d.accept());
+	// Löschen steht oben rechts und fragt unter dem Kopf nach (Jamil msg 3043)
 	await page.getByRole('button', { name: 'Dienst löschen' }).click();
+	await page.getByRole('button', { name: 'Endgültig löschen' }).click();
 	await expect(page.getByRole('status').filter({ hasText: 'nur ausgeschaltet' })).toBeVisible();
 	expect((await kunde1.request.get(pfad)).status()).toBe(404);
 	for (const k of [kunde1, kunde2, kunde3]) await k.context().close();
@@ -184,7 +185,7 @@ test('Online-Buchung: Dienst anlegen, buchen ohne Anmeldung, Doppelbuchung verhi
 	for (const url of [auftragUrl, auftrag3Url]) {
 		await page.goto(url);
 		const kundeUrl = new URL((await page.locator('.af-kunde-kurz a').first().getAttribute('href'))!, page.url()).href;
-		await page.getByText('Auftrag löschen …').click();
+		await page.getByRole('button', { name: 'Auftrag löschen' }).click();
 		await page.getByRole('button', { name: 'Endgültig löschen' }).click();
 		await expect(page).not.toHaveURL(url);
 		await page.goto(kundeUrl);

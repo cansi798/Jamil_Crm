@@ -4,11 +4,16 @@
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
 	import { enhance } from '$app/forms';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import type { PageData, ActionData } from './$types';
 	export let data: PageData;
 	export let form: ActionData;
 
 	let bearbeiten = false;
+	/** Jamil msg 3043: „Vorlage löschen“ oben rechts, Rückfrage unter dem Kopf. */
+	let loeschenOffen = false;
+	$: loeschFehler = form && 'loeschFehler' in form && form.loeschFehler ? (form.fehler ?? null) : null;
 	let todos: { titel: string; beschreibung: string; lautstaerke: string; schmutz: string }[] = [];
 
 	$: if (data.vorlage) {
@@ -42,14 +47,24 @@
 </svelte:head>
 
 <div class="seite kd-seite">
-	<header class="kopf">
-		<h1>{data.vorlage.name}</h1>
+	<header class="seiten-kopf">
+		<div>
+			<h1>{data.vorlage.name}</h1>
+		</div>
 		{#if data.darfBearbeiten && !bearbeiten}
-			<button on:click={() => (bearbeiten = true)} class="kd-knopf hell">Bearbeiten</button>
+			<div class="seiten-aktionen">
+				<button on:click={() => (bearbeiten = true)} class="kd-knopf hell">Bearbeiten</button>
+				<LoeschenKnopf ding="Vorlage" bind:offen={loeschenOffen} />
+			</div>
 		{/if}
 	</header>
+	{#if data.darfBearbeiten}
+		<LoeschenPanel ding="Vorlage" bind:offen={loeschenOffen} fehler={loeschFehler}>
+			Die Vorlage wird endgültig gelöscht. Bestehende Aufträge bleiben erhalten.
+		</LoeschenPanel>
+	{/if}
 
-	{#if form?.fehler}
+	{#if form?.fehler && !loeschFehler}
 		<p class="fehler">{form.fehler}</p>
 	{/if}
 
@@ -152,16 +167,6 @@
 			</div>
 		</form>
 	{/if}
-
-	{#if data.darfBearbeiten && !bearbeiten}
-		<form method="POST" action="?/loeschen" use:enhance class="loeschen-form" on:submit|preventDefault={(e) => {
-			if (confirm('Vorlage wirklich löschen?')) {
-				(e.target as HTMLFormElement).submit();
-			}
-		}}>
-			<button type="submit" class="kd-knopf gefahr">Löschen</button>
-		</form>
-	{/if}
 </div>
 
 <style>
@@ -173,17 +178,6 @@
 		max-width: none; /* ganze Arbeitsfläche (Jamil msg 2838) */
 		margin: 0;
 		padding: 1rem;
-	}
-	.kopf {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-	}
-	h1 {
-		margin: 0;
-		font-size: 1.5rem;
-		color: var(--text, #323130);
 	}
 	h2 {
 		font-size: 1.125rem;
@@ -346,10 +340,5 @@
 	}
 	.knopf.gefahr:hover {
 		background: #8e1e24;
-	}
-	.loeschen-form {
-		margin-top: 2rem;
-		padding-top: 1rem;
-		border-top: 1px solid #d2d0ce;
 	}
 </style>

@@ -66,6 +66,7 @@ test('Partner anlegen, Nachweis, am Auftrag mit Warnung zuordnen', async ({ brow
 		await page.goto('/partner');
 		await page.getByRole('link', { name: new RegExp(name) }).click();
 		await page.getByRole('button', { name: 'Partner löschen' }).click();
+		await page.getByRole('button', { name: 'Endgültig löschen' }).click();
 		await expect(page).toHaveURL(/\/partner($|\?)|\/partner\/[0-9a-f-]+/);
 		await ctx.close();
 	}

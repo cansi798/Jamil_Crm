@@ -84,7 +84,7 @@ test('Monteur sieht Kunden, aber keinen „+ Kunde“-Knopf', async ({ page }) =
 test('Navigation: Einträge nach Recht (Aufträge, Plantafel), Tippziele ≥ 44 px', async ({ page }, info) => {
 	await anmelden(page, BUERO);
 	const nav = hauptnavigation(page);
-	await expect(nav.getByRole('link', { name: 'Start' })).toBeVisible();
+	await expect(nav.getByRole('link', { name: 'Start', exact: true })).toBeVisible();
 	await expect(nav.getByRole('link', { name: 'Kunden' })).toBeVisible();
 	await expect(nav.getByRole('link', { name: 'Aufträge' })).toBeVisible();
 	// Plantafel ist seit Stufe 1b ein Link (nicht mehr „bald verfügbar“); auf dem Handy liegt sie unter „Mehr“

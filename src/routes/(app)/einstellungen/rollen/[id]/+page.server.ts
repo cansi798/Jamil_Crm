@@ -38,7 +38,7 @@ export const actions: Actions = {
 			pruefeRecht(locals, 'einstellungen');
 			await loescheRolle(betriebKontext(locals), params.id);
 		} catch (e) {
-			return alsFormFehler(e);
+			return alsFormFehler(e, { loeschFehler: true });
 		}
 		redirect(303, '/einstellungen/rollen');
 	}

@@ -58,7 +58,7 @@
 		<nav class="hauptnav" aria-label="Hauptnavigation">
 			{#if logoDunkel}
 				<!-- Logo des Betriebs (msg 3014): Seitenleiste dunkel → helle Variante, sonst Briefkopf-Logo auf weißem Feld -->
-				<a href="/" class="marke marke-mit-logo nur-breit" aria-label={`${markeName} – Start`}>
+				<a href="/" class="marke marke-mit-logo nur-breit" aria-label={`Zur Startseite – ${markeName}`}>
 					<span class="marke-logo" class:auf-weiss={!data.marke?.dunkel}><img src={logoDunkel} alt={markeName} height="40" /></span>
 				</a>
 			{:else}
@@ -140,7 +140,7 @@
 			{#if logoHell}
 				<!-- Handy: Logo oben links auf hellem Grund (Briefkopf-Logo, sonst helle Variante auf dunklem Feld), Glocke rechts -->
 				<div class="kopf-schmal">
-					<a href="/" class="marke-schmal" aria-label={`${markeName} – Start`}>
+					<a href="/" class="marke-schmal" aria-label={`Zur Startseite – ${markeName}`}>
 						<span class="marke-logo" class:auf-dunkel={!data.marke?.hell}><img src={logoHell} alt={markeName} height="32" /></span>
 					</a>
 					{#if data.erinnern}<div class="nur-schmal-glocke"><Glocke start={data.ungelesen} schmal /></div>{/if}
@@ -414,9 +414,18 @@
 		.nav-gruppe summary::-webkit-details-marker {
 			display: none;
 		}
+		/* Pfeil der Menügruppe: gut sichtbar (Jamil msg 3044), mittig zur Gruppenüberschrift */
 		.nav-gruppe summary::after {
 			content: '▾';
-			font-size: 0.75rem;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			flex: none;
+			width: 1.5rem;
+			height: 1.5rem;
+			margin-right: -0.25rem;
+			font-size: 1.375rem;
+			line-height: 1;
 			transition: transform 150ms;
 		}
 		.nav-gruppe:not([open]) summary::after {

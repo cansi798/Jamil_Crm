@@ -1,14 +1,18 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 	import ObjektFormular from '$lib/components/ObjektFormular.svelte';
 	import AnlageFormular from '$lib/components/AnlageFormular.svelte';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const werte = $derived(
 		form?.werte ?? Object.fromEntries(Object.entries(data.objekt).map(([k, v]) => [k, v ?? '']))
 	) as Record<string, string>;
+	/** Jamil msg 3043: „Objekt löschen“ oben rechts, Rückfrage unter dem Kopf. */
+	let loeschenOffen = $state(false);
+	const loeschFehler = $derived(form && 'loeschFehler' in form && form.loeschFehler ? (form.fehler ?? null) : null);
 </script>
 
 <svelte:head>
@@ -17,7 +21,22 @@
 
 <main class="kd-seite">
 	<a href={`/kunden/${data.kunde.id}`} class="kd-zurueck">← {data.kunde.name}</a>
-	<h1>{data.objekt.bezeichnung}</h1>
+	<header class="seiten-kopf">
+		<div>
+			<h1>{data.objekt.bezeichnung}</h1>
+			<p class="seiten-meta">Objekt von {data.kunde.name}</p>
+		</div>
+		{#if data.darfBearbeiten}
+			<div class="seiten-aktionen">
+				<LoeschenKnopf ding="Objekt" bind:offen={loeschenOffen} />
+			</div>
+		{/if}
+	</header>
+	{#if data.darfBearbeiten}
+		<LoeschenPanel ding="Objekt" bind:offen={loeschenOffen} fehler={loeschFehler}>
+			Das Objekt wird endgültig gelöscht. Das lässt sich nicht rückgängig machen.
+		</LoeschenPanel>
+	{/if}
 
 	<section class="an-liste" aria-labelledby="anlagen-titel">
 		<div class="an-kopf">
@@ -55,15 +74,7 @@
 
 	{#if data.darfBearbeiten}
 		<h2>Objekt bearbeiten</h2>
-		<ObjektFormular aktion="?/speichern" {werte} fehler={form?.anlageWerte ? null : (form?.fehler ?? null)} knopf="Speichern" abbrechen={`/kunden/${data.kunde.id}`} />
-
-		<details class="kd-loeschen">
-			<summary>Objekt löschen …</summary>
-			<form method="POST" action="?/loeschen" use:enhance class="kd-formular">
-				<p>Das Objekt wird endgültig gelöscht.</p>
-				<button type="submit" class="kd-knopf gefahr">Endgültig löschen</button>
-			</form>
-		</details>
+		<ObjektFormular aktion="?/speichern" {werte} fehler={form?.anlageWerte || loeschFehler ? null : (form?.fehler ?? null)} knopf="Speichern" abbrechen={`/kunden/${data.kunde.id}`} />
 	{:else}
 		<dl class="kd-daten">
 			{#if data.objekt.strasse || data.objekt.ort}

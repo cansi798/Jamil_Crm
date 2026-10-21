@@ -36,7 +36,7 @@ export const actions: Actions = {
 			await katalogAendern(locals);
 			ergebnis = await deaktivierePosition(betriebKontext(locals), params.id);
 		} catch (e) {
-			return alsFormFehler(e);
+			return alsFormFehler(e, { loeschFehler: true });
 		}
 		redirect(303, ergebnis === 'deaktiviert' ? `/katalog/${params.id}` : '/katalog');
 	}

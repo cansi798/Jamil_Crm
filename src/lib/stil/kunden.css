@@ -272,22 +272,6 @@
 	margin: 0.25rem 0 0;
 	padding-left: 1.1rem;
 }
-.kd-loeschen {
-	margin-top: 2rem;
-	border: 1px solid var(--m365-rand);
-	border-radius: var(--m365-radius);
-	padding: 0.25rem 0.75rem 0.75rem;
-	background: var(--m365-flaeche);
-}
-.kd-loeschen summary {
-	display: flex;
-	align-items: center;
-	min-height: var(--tippziel);
-	cursor: pointer;
-	color: var(--m365-fehler);
-	font-size: 0.875rem;
-	font-weight: 600;
-}
 @media (min-width: 30rem) {
 	.kd-zwei {
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

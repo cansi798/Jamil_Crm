@@ -46,7 +46,7 @@ export const actions: Actions = {
 			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 			await loescheVorlage(betriebKontext(locals), params.id);
 		} catch (e) {
-			return alsFormFehler(e);
+			return alsFormFehler(e, { loeschFehler: true });
 		}
 		redirect(303, '/auftrag-vorlagen');
 	}

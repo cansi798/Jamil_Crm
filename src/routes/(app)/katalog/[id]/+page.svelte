@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import KatalogFormular from '$lib/components/KatalogFormular.svelte';
 	import { centAlsEingabe, euro } from '$lib/geld';
 	import { GEWERK_NAMEN } from '$lib/katalog-werte';
@@ -20,6 +21,9 @@
 			aktiv: p.aktiv ? 'true' : 'false'
 		}
 	);
+	/** Jamil msg 3043: „Position löschen“ oben rechts, Rückfrage unter dem Kopf. */
+	let loeschenOffen = $state(false);
+	const loeschFehler = $derived(form && 'loeschFehler' in form && form.loeschFehler ? ((form as { fehler?: string }).fehler ?? null) : null);
 </script>
 
 <svelte:head>
@@ -28,13 +32,27 @@
 
 <main class="kd-seite">
 	<a href="/katalog" class="kd-zurueck">← Katalog</a>
-	<h1>{p.bezeichnung}</h1>
-	<p class="kd-info">
-		{p.einheit}{p.gewerk ? ` · ${GEWERK_NAMEN[p.gewerk]}` : ''}{p.aktiv ? '' : ' · nicht aktiv'}
-		{#if data.mitPreisen}
-			· {p.einzelpreisCent === 0 ? 'Preis fehlt' : `${euro(p.einzelpreisCent ?? 0)} je ${p.einheit}`}
+	<header class="seiten-kopf">
+		<div>
+			<h1>{p.bezeichnung}</h1>
+			<p class="seiten-meta">
+				{p.einheit}{p.gewerk ? ` · ${GEWERK_NAMEN[p.gewerk]}` : ''}{p.aktiv ? '' : ' · nicht aktiv'}
+				{#if data.mitPreisen}
+					· {p.einzelpreisCent === 0 ? 'Preis fehlt' : `${euro(p.einzelpreisCent ?? 0)} je ${p.einheit}`}
+				{/if}
+			</p>
+		</div>
+		{#if data.darfBearbeiten}
+			<div class="seiten-aktionen">
+				<LoeschenKnopf ding="Position" bind:offen={loeschenOffen} />
+			</div>
 		{/if}
-	</p>
+	</header>
+	{#if data.darfBearbeiten}
+		<LoeschenPanel ding="Position" bind:offen={loeschenOffen} fehler={loeschFehler}>
+			Die Position wird endgültig gelöscht. Ist sie schon in einem Angebot verwendet, wird sie nur deaktiviert.
+		</LoeschenPanel>
+	{/if}
 	{#if data.darfBearbeiten}
 		<KatalogFormular
 			aktion="?/speichern"
@@ -46,14 +64,6 @@
 			knopf="Speichern"
 			abbrechen="/katalog"
 		/>
-		<h2>Position entfernen</h2>
-		<p class="kd-info">Ist die Position schon in einem Angebot verwendet, wird sie nur deaktiviert.</p>
-		{#if form && 'fehler' in form && !('werte' in form)}
-			<p role="alert" class="kd-fehler">{form.fehler}</p>
-		{/if}
-		<form method="POST" action="?/loeschen" use:enhance>
-			<button type="submit" class="kd-knopf gefahr">Entfernen</button>
-		</form>
 	{:else if p.beschreibung}
 		<p>{p.beschreibung}</p>
 	{/if}

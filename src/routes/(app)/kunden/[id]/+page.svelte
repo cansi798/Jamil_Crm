@@ -6,6 +6,8 @@
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -65,7 +67,7 @@
 				<a href={`/kunden/${k.id}/bearbeiten`} class="kd-knopf hell">Kunde bearbeiten</a>
 			{/if}
 			{#if data.darfBearbeiten}
-				<button type="button" class="kd-knopf gefahr" aria-expanded={loeschenOffen || !!form?.loeschFehler} onclick={() => (loeschenOffen = !loeschenOffen)}>Kunde löschen</button>
+				<LoeschenKnopf ding="Kunde" bind:offen={loeschenOffen} />
 			{/if}
 			{#if data.auftraege && data.darfAuftragAnlegen}
 				<a href={`/auftraege/neu?kunde=${k.id}`} class="kd-knopf">+ Auftrag</a>
@@ -76,21 +78,10 @@
 	{#if form?.fehler && !form?.loeschFehler && !form?.notizFehler && !form?.dokumentFehler && !form?.portalFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
-	{#if data.darfBearbeiten && (loeschenOffen || form?.loeschFehler)}
-		<section class="kd-loeschen" aria-label="Kunde löschen">
-			<form method="POST" action="?/loeschen" use:enhance class="kd-formular">
-				{#if form?.loeschFehler}
-					<p role="alert" class="kd-fehler">{form.fehler}</p>
-				{/if}
-				<p>
-					Der Kunde und alle seine Objekte werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.
-				</p>
-				<div class="kd-loeschen-knoepfe">
-					<button type="button" class="kd-knopf hell" onclick={() => (loeschenOffen = false)}>Abbrechen</button>
-					<button type="submit" class="kd-knopf gefahr">Endgültig löschen</button>
-				</div>
-			</form>
-		</section>
+	{#if data.darfBearbeiten}
+		<LoeschenPanel ding="Kunde" bind:offen={loeschenOffen} fehler={form?.loeschFehler ? (form.fehler ?? null) : null}>
+			Der Kunde und alle seine Objekte werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.
+		</LoeschenPanel>
 	{/if}
 
 	<Abschnitt titel="Kontakt">
@@ -457,22 +448,6 @@
 	}
 	.ka-protokoll {
 		margin-top: 1rem;
-	}
-	.kd-loeschen {
-		margin: 0 0 1rem;
-		padding: 1rem;
-		border: 1px solid var(--ui-rot);
-		border-radius: var(--ui-radius, 0.75rem);
-		background: color-mix(in srgb, var(--ui-rot) 6%, white);
-	}
-	.kd-loeschen p {
-		margin: 0 0 0.75rem;
-	}
-	.kd-loeschen-knoepfe {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-		gap: 0.5rem;
 	}
 	.ka-verlauf-kopf {
 		display: flex;

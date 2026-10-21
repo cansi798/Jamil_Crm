@@ -40,3 +40,9 @@ Kalkulation**, **Personal & Zeiten**, **Auswertungen**, **Automatisierung**, **B
 erscheinen nur mit Modul und Recht. Passt keine Gruppe, eine sinnvolle neue Gruppe anlegen bzw. die Reihenfolge
 anpassen – und in der Talk-Notiz an Jamil IMMER sagen, was im Menü dazugekommen oder verschoben ist und warum.
 `tests/unit/navigation.test.ts` mitziehen. Seiten ohne eigenes Menü (z. B. „Gespeicherte Ansichten“) bekommen keinen Eintrag.
+
+## Löschen oben rechts (Regel von Jamil, Talk msg 3043)
+
+Löschen eines ganzen Datensatzes (Kunde, Objekt, Auftrag, Angebot, Vorlage, Partner, Rolle …) steht immer oben rechts
+im Seitenkopf: `LoeschenKnopf` + `LoeschenPanel` (`src/lib/components/ui/`), Details in `docs/design-regeln.md` 3a.
+Löschknöpfe einzelner Listenzeilen (Notiz, Dokument, Position) bleiben in der Zeile.

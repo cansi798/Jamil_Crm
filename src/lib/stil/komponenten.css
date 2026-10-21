@@ -137,7 +137,7 @@ html .af-ansicht a {
 }
 
 /* Bekannte <summary>-Aktionen der Seiten (ohne Knopfklasse) sichtbar als Knopf */
-html :is(.kd-loeschen, .ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung, .af-termin-neu) > summary {
+html :is(.ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung, .af-termin-neu) > summary {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4rem;
@@ -152,7 +152,7 @@ html :is(.kd-loeschen, .ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnu
 	cursor: pointer;
 	list-style: none;
 }
-html :is(.kd-loeschen, .ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung, .af-termin-neu) > summary::-webkit-details-marker {
+html :is(.ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung, .af-termin-neu) > summary::-webkit-details-marker {
 	display: none;
 }
 html :is(.ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung) > summary::after {
@@ -161,20 +161,6 @@ html :is(.ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung) > summary:
 }
 html :is(.ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung)[open] > summary::after {
 	content: '▴';
-}
-html .kd-loeschen {
-	padding: var(--ui-a3) var(--ui-a4);
-	border: 1px solid var(--ui-rand);
-	border-radius: var(--ui-radius-karte);
-	background: var(--ui-flaeche);
-}
-html .kd-loeschen > summary {
-	background: var(--ui-flaeche);
-	border-color: var(--ui-gefahr);
-	color: var(--ui-gefahr);
-}
-html .kd-loeschen > summary:hover {
-	background: var(--ui-gefahr-hell);
 }
 
 /* ── Abschnitte und Karten: weiße Fläche, zart getöntes Kopfband ──────────────────────────────────────── */

@@ -13,6 +13,8 @@
 	import { bewerteAngebot } from '$lib/kalkulation';
 	import { enhance } from '$app/forms';
 	import { mailtoLink } from '$lib/nachfassen';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -220,12 +222,22 @@
 			meldung = `Neue Version ${neu.nummer} angelegt.`;
 		});
 
-	const loeschen = () =>
-		aktion(async () => {
-			if (!confirm(`Angebot ${angebot.nummer} löschen?`)) return;
+	/** Jamil msg 3043: „Angebot löschen“ (nur Entwürfe) oben rechts, Rückfrage unter dem Kopf; Fehler bleiben dort. */
+	let loeschenOffen = $state(false);
+	let loeschFehler = $state<string | null>(null);
+	async function loeschen() {
+		if (arbeitet) return;
+		arbeitet = true;
+		loeschFehler = null;
+		try {
 			await api('DELETE', `/api/angebote/${angebot.id}`);
-			await goto(`/auftraege/${angebot.auftragId}`);
-		});
+			await goto(angebot.auftragId ? `/auftraege/${angebot.auftragId}` : '/ausgangsbelege/angebote');
+		} catch (e) {
+			loeschFehler = (e as Error).message;
+		} finally {
+			arbeitet = false;
+		}
+	}
 
 	function ausKatalog(t: KatalogTreffer) {
 		zeilen = [
@@ -315,11 +327,25 @@
 	{:else}
 		<a href="/ausgangsbelege/angebote" class="kd-zurueck">← Ausgangsbelege</a>
 	{/if}
-	<div class="af-kopfzeile">
-		<h1>Angebot {angebot.nummer}</h1>
-		<span class={`an-status s-${angebot.status}`} data-testid="angebot-status">{ANGEBOT_STATUS_NAMEN[angebot.status]}</span>
-	</div>
-	<p class="kd-info">{angebot.kundeName} · {angebot.auftragTitel ?? 'ohne Auftrag'}{angebot.vorgaengerId ? ' · neue Version' : ''}</p>
+	<header class="seiten-kopf">
+		<div class="an-kopf-titel">
+			<div class="an-titelzeile">
+				<h1>Angebot {angebot.nummer}</h1>
+				<span class={`an-status s-${angebot.status}`} data-testid="angebot-status">{ANGEBOT_STATUS_NAMEN[angebot.status]}</span>
+			</div>
+			<p class="seiten-meta">{angebot.kundeName} · {angebot.auftragTitel ?? 'ohne Auftrag'}{angebot.vorgaengerId ? ' · neue Version' : ''}</p>
+		</div>
+		{#if entwurf}
+			<div class="seiten-aktionen">
+				<LoeschenKnopf ding="Angebot" bind:offen={loeschenOffen} />
+			</div>
+		{/if}
+	</header>
+	{#if entwurf}
+		<LoeschenPanel ding="Angebot" bind:offen={loeschenOffen} fehler={loeschFehler} onbestaetigen={loeschen} {arbeitet}>
+			Das Angebot {angebot.nummer} wird endgültig gelöscht. Das lässt sich nicht rückgängig machen.
+		</LoeschenPanel>
+	{/if}
 
 	{#if !angebot.auftragId}
 		<section class="an-katalog an-zuordnen" aria-label="Angebot zuordnen">
@@ -543,13 +569,20 @@
 		{#if !entwurf}
 			<button type="button" class="kd-knopf hell" onclick={neueVersion} disabled={arbeitet}>Als neue Version bearbeiten</button>
 		{/if}
-		{#if entwurf}
-			<button type="button" class="kd-knopf gefahr" onclick={loeschen} disabled={arbeitet}>Löschen</button>
-		{/if}
 	</div>
 </main>
 
 <style>
+	.an-kopf-titel {
+		min-width: 0;
+	}
+	.an-titelzeile {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem 0.75rem;
+	}
+
 	.an-nf-mail {
 		margin: 0.5rem 0;
 	}

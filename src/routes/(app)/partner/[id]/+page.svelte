@@ -5,6 +5,8 @@
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import PartnerFormular from '$lib/components/PartnerFormular.svelte';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import { NACHWEIS_ART_NAMEN, NACHWEIS_ARTEN, PARTNER_ART_NAMEN } from '$lib/partner';
 	import { euro } from '$lib/geld';
 	import { tagDeutsch } from '$lib/zeit';
@@ -18,6 +20,11 @@
 	const okIn = (b: string) => (form && 'bereich' in form && form.bereich === b && 'ok' in form ? (form.ok as string) : null);
 	const STATUS = { ok: 'gültig', bald: 'läuft bald ab', abgelaufen: 'abgelaufen', ohne: 'ohne Ablaufdatum' } as const;
 	let bearbeiteKontakt = $state<string | null>(null);
+	/** Jamil msg 3043: „Partner löschen“ oben rechts, Rückfrage unter dem Kopf. */
+	let loeschenOffen = $state(false);
+	$effect(() => {
+		if (okIn('loeschen')) loeschenOffen = false;
+	});
 	const sofort = () => async ({ update }: { update: (o?: { reset?: boolean }) => Promise<void> }) => update({ reset: false });
 </script>
 
@@ -30,8 +37,15 @@
 			<h1>{p.name}</h1>
 			<p class="seiten-meta">{PARTNER_ART_NAMEN[p.art]}{p.aktiv ? '' : ' · inaktiv'}{p.ort ? ` · ${p.ort}` : ''}</p>
 		</div>
-		{#if p.portalUrl}<a class="kd-knopf hell" href={p.portalUrl} target="_blank" rel="noopener noreferrer external">Partner-Portal öffnen ↗</a>{/if}
+		<div class="seiten-aktionen">
+			{#if p.portalUrl}<a class="kd-knopf hell" href={p.portalUrl} target="_blank" rel="noopener noreferrer external">Partner-Portal öffnen ↗</a>{/if}
+			<LoeschenKnopf ding="Partner" bind:offen={loeschenOffen} />
+		</div>
 	</header>
+	<LoeschenPanel ding="Partner" bind:offen={loeschenOffen} fehler={fehlerIn('loeschen')}>
+		Der Partner „{p.name}“ wird endgültig gelöscht. Hängt er an Aufträgen, wird er nur deaktiviert.
+	</LoeschenPanel>
+	{#if okIn('loeschen')}<p class="kd-info" role="status">{okIn('loeschen')}</p>{/if}
 	{#if p.portalNotiz}<p class="kd-info">Portal: {p.portalNotiz}</p>{/if}
 
 	<Abschnitt titel="Auswertung">
@@ -152,12 +166,6 @@
 		{#if okIn('stamm')}<p class="kd-info" role="status">{okIn('stamm')}</p>{/if}
 		<PartnerFormular action="?/speichern" knopf="Speichern" werte={form && 'werte' in form && form.bereich === 'stamm' ? (form.werte as Record<string, string>) : p} fehler={fehlerIn('stamm')} mitAktiv />
 	</Abschnitt>
-
-	<form method="POST" action="?/loeschen" use:enhance class="pt-loeschen">
-		{#if fehlerIn('loeschen')}<p class="kd-fehler" role="alert">{fehlerIn('loeschen')}</p>{/if}
-		{#if okIn('loeschen')}<p class="kd-info" role="status">{okIn('loeschen')}</p>{/if}
-		<button type="submit" class="knopf-gefahr klein" onclick={(e) => { if (!confirm(`Partner „${p.name}“ löschen?`)) e.preventDefault(); }}>Partner löschen</button>
-	</form>
 </main>
 
 <style>
@@ -214,8 +222,5 @@
 		gap: 0.4rem;
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
 		width: 100%;
-	}
-	.pt-loeschen {
-		margin-top: 1.5rem;
 	}
 </style>

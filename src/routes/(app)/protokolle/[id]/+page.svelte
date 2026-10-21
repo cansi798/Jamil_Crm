@@ -3,6 +3,8 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import '$lib/stil/kunden.css';
 	import Assistent from '$lib/components/protokoll/Assistent.svelte';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import { verkleinereFoto } from '$lib/bild-verkleinern';
 	import { DATEI_TYPEN, alleFelder, aufmassMengen, expandiere, type Antworten } from '$lib/protokoll-formular';
 	import { enhance } from '$app/forms';
@@ -142,11 +144,17 @@
 		antworten = structuredClone(data.protokoll.antworten);
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
+	/** Jamil msg 3043: „Entwurf löschen“ oben rechts, Rückfrage unter dem Kopf; Fehler bleiben dort. */
+	let loeschenOffen = $state(false);
+	let loeschFehler = $state<string | null>(null);
+	let loescht = $state(false);
 	async function verwerfen() {
-		if (!confirm('Diesen Entwurf wirklich löschen? Fotos und Angaben gehen verloren.')) return;
 		clearTimeout(zeitgeber);
-		const res = await fetch(`/api/protokoll-formulare/${id}`, { method: 'DELETE' });
-		const b = await antwortOderFehler(res).catch((e) => ((fehlerText = e.message), null));
+		loescht = true;
+		loeschFehler = null;
+		const res = await fetch(`/api/protokoll-formulare/${id}`, { method: 'DELETE' }).catch(() => null);
+		const b = res ? await antwortOderFehler(res).catch((e) => ((loeschFehler = e.message), null)) : ((loeschFehler = 'Keine Verbindung. Bitte erneut versuchen.'), null);
+		loescht = false;
 		if (!b) return;
 		lokalLoeschen();
 		await goto(b.auftragId ? `/auftraege/${b.auftragId}` : '/');
@@ -214,11 +222,21 @@
 			</p>
 		</div>
 		{#if p.status === 'entwurf' && !gesperrt}
-			<span class={`pw-stand s-${stand}`} role="status" data-testid="speicher-stand">
-				{stand === 'gespeichert' ? 'Gespeichert' : stand === 'speichert' ? 'Speichert …' : stand === 'offline' ? 'Offline – auf dem Gerät gesichert' : 'Nicht gespeichert'}
-			</span>
+			<div class="pw-kopf-rechts">
+				<span class={`pw-stand s-${stand}`} role="status" data-testid="speicher-stand">
+					{stand === 'gespeichert' ? 'Gespeichert' : stand === 'speichert' ? 'Speichert …' : stand === 'offline' ? 'Offline – auf dem Gerät gesichert' : 'Nicht gespeichert'}
+				</span>
+				{#if data.darfAusfuellen}
+					<LoeschenKnopf ding="Entwurf" bind:offen={loeschenOffen} />
+				{/if}
+			</div>
 		{/if}
 	</header>
+	{#if p.status === 'entwurf' && !gesperrt && data.darfAusfuellen}
+		<LoeschenPanel ding="Entwurf" bind:offen={loeschenOffen} fehler={loeschFehler} onbestaetigen={verwerfen} arbeitet={loescht}>
+			Der Entwurf wird endgültig gelöscht – Fotos und Angaben gehen verloren.
+		</LoeschenPanel>
+	{/if}
 	{#if fehlerText}<p class="kd-fehler" role="alert">{fehlerText}</p>{/if}
 
 	{#if p.status === 'abgeschlossen'}
@@ -253,7 +271,6 @@
 		{#if data.darfAusfuellen}
 			<div class="pw-unten">
 				<a class="knopf-subtil klein" href={`/api/protokoll-formulare/${id}/pdf`} target="_blank" rel="noopener">PDF-Vorschau</a>
-				<button type="button" class="knopf-gefahr klein" onclick={verwerfen}>Entwurf löschen</button>
 			</div>
 		{/if}
 	{/if}
@@ -326,6 +343,13 @@
 		justify-content: space-between;
 		gap: var(--ui-a3);
 		margin-bottom: var(--ui-a3);
+	}
+	.pw-kopf-rechts {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
+		gap: var(--ui-a2);
 	}
 	.pw-kopf h1 {
 		margin: 0;

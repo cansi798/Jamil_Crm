@@ -15,6 +15,8 @@
 	import AuftragPartner from '$lib/components/AuftragPartner.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
+	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
+	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
@@ -64,6 +66,9 @@
 			gespeichertZeit = setTimeout(() => (gespeichert = false), 2500);
 		}
 	};
+	/** Jamil msg 3043: „Auftrag löschen“ (nur Anfragen) oben rechts, Rückfrage unter dem Kopf. */
+	let loeschenOffen = $state(false);
+	const darfLoeschen = $derived(data.darfBearbeiten && a.status === 'anfrage');
 </script>
 
 <svelte:head>
@@ -86,9 +91,17 @@
 			{#if data.darfBearbeiten}
 				<a href={`/auftraege/${a.id}/bearbeiten`} class="kd-knopf hell">Auftrag bearbeiten</a>
 			{/if}
+			{#if darfLoeschen}
+				<LoeschenKnopf ding="Auftrag" bind:offen={loeschenOffen} />
+			{/if}
 			<a href={`/auftraege/${a.id}/dokumentation`} class="kd-knopf">Dokumentation</a>
 		</div>
 	</header>
+	{#if darfLoeschen}
+		<LoeschenPanel ding="Auftrag" bind:offen={loeschenOffen} fehler={form?.loeschFehler ? (form.fehler ?? null) : null}>
+			Die Anfrage und ihre Aufgaben werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.
+		</LoeschenPanel>
+	{/if}
 	<StatusKette status={a.status} darfBearbeiten={data.darfBearbeiten} />
 
 	{#if data.kundenHinweise && (data.kundenHinweise.notiz || data.kundenHinweise.notizen.length > 0)}
@@ -106,7 +119,7 @@
 		</aside>
 	{/if}
 
-	{#if form?.fehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler && !form?.protokollFehler && !form?.materialFehler}
+	{#if form?.fehler && !form?.loeschFehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler && !form?.protokollFehler && !form?.materialFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
 
@@ -567,18 +580,6 @@
 					{/if}
 				</Karte>
 			</div>
-
-			{#if data.darfBearbeiten && a.status === 'anfrage'}
-				<div class="af-k k-loeschen">
-					<details class="kd-loeschen">
-						<summary>Auftrag löschen …</summary>
-						<form method="POST" action="?/loeschen" use:enhance class="kd-formular">
-							<p>Die Anfrage und ihre Aufgaben werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</p>
-							<button type="submit" class="knopf-gefahr">Endgültig löschen</button>
-						</form>
-					</details>
-				</div>
-			{/if}
 		</div>
 
 		<aside class="af-seitenleiste" aria-label="Auftrag im Überblick">
@@ -947,7 +948,6 @@
 	.k-links { order: 7; }
 	.k-doku { order: 7; }
 	.k-verlauf { order: 8; }
-	.k-loeschen { order: 9; }
 	@media (min-width: 1200px) {
 		.af-raster {
 			display: grid;

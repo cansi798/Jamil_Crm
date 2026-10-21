@@ -48,7 +48,7 @@ export const actions: Actions = {
 			await darf(locals, 'kunden', 'kunden.bearbeiten');
 			await loescheObjekt(betriebKontext(locals), params.id, params.objektId);
 		} catch (e) {
-			return alsFormFehler(e);
+			return alsFormFehler(e, { loeschFehler: true });
 		}
 		redirect(303, `/kunden/${params.id}`);
 	}
