@@ -88,7 +88,7 @@ function euro(w: unknown, name: string, pflicht = true): number | null {
 export function pruefeBetriebswerte(e: Record<string, unknown>): BetriebsWerte {
 	return {
 		standardTage: zahl(e.standardTage, 'Produktive Tage im Jahr', 0, 366, 1)!,
-		standardStundenTag: zahl(e.standardStundenTag, 'Verrechenbare Stunden pro Tag', 0.25, 24)!,
+		standardStundenTag: zahl(e.standardStundenTag, 'Produktive Stunden pro Tag', 0.25, 24)!,
 		risikoProzent: zahl(e.risikoProzent, 'Wagnis', 0, 1000)!,
 		gewinnProzent: zahl(e.gewinnProzent, 'Gewinn', 0, 1000)!,
 		aktuellerSatzCent: euro(e.aktuellerSatz, 'Aktueller Stundensatz', false),

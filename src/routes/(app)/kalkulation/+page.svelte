@@ -265,7 +265,7 @@
 					<input type="text" inputmode="decimal" name="standardTage" required value={wert('firma', 'standardTage', firmaFelder.standardTage)} />
 				</label>
 				<label>
-					Verrechenbare Stunden pro Tag (Standard)
+					Produktive Stunden pro Tag (Standard)
 					<input type="text" inputmode="decimal" name="standardStundenTag" required value={wert('firma', 'standardStundenTag', firmaFelder.standardStundenTag)} />
 				</label>
 				<label>Wagnis (%) <input type="text" inputmode="decimal" name="risikoProzent" required value={wert('firma', 'risikoProzent', firmaFelder.risikoProzent)} /></label>
@@ -286,7 +286,7 @@
 			<button type="submit" class="kd-knopf">Speichern</button>
 		</form>
 		<p class="kd-info">
-			Verrechenbare Stunden pro Tag: Stunden, die du dem Kunden pro Tag berechnest (z. B. 8 bei Tagessatz, 7 wenn nur
+			Produktive Stunden pro Tag: Stunden, die du dem Kunden pro Tag berechnest (z. B. 8 bei Tagessatz, 7 wenn nur
 			effektive Arbeitszeit berechnet wird). Fehltage gehören in die produktiven Tage.
 		</p>
 		<p class="kd-info">Tage und Stunden lassen sich je Mitarbeiter überschreiben. Gehälter sieht nur, wer „Preise sehen“ und „Einstellungen“ hat.</p>
@@ -381,7 +381,7 @@
 				<input type="text" inputmode="decimal" name="tageJahr" placeholder={`Standard: ${zahl(b.standardTage, 1)}`} value={wert(bereich, 'tageJahr', start.tageJahr)} />
 			</label>
 			<label>
-				Verrechenbare Stunden pro Tag
+				Produktive Stunden pro Tag
 				<input type="text" inputmode="decimal" name="stundenTag" placeholder={`Standard: ${zahl(b.standardStundenTag)}`} value={wert(bereich, 'stundenTag', start.stundenTag)} />
 			</label>
 		</div>

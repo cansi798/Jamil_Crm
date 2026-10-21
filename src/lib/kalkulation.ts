@@ -42,7 +42,7 @@ export const INTERVALL_NAMEN: Record<Intervall, string> = { monatlich: 'monatlic
 export type BetriebsWerte = {
 	/** Produktive Tage im Jahr je Mitarbeiter (Standard, z. B. 210). */
 	standardTage: number;
-	/** Verrechenbare Stunden pro Tag (Standard): was dem Kunden je Tag berechnet wird; Fehltage stecken in den produktiven Tagen. */
+	/** Produktive Stunden pro Tag (Standard): was dem Kunden je Tag berechnet wird; Fehltage stecken in den produktiven Tagen. */
 	standardStundenTag: number;
 	/** Wagnis (Risiko) und Gewinn in Prozent – zusammen der Aufschlag auf den Kosten-Stundensatz. */
 	risikoProzent: number;

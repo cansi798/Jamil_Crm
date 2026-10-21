@@ -53,7 +53,7 @@ test('Kalkulation v2: Kostenzeile und Mitarbeiter erfassen, Rechenweg, wieder en
 		await expect(satzZeile).toContainText('€/Tag');
 		await expect(satzZeile).toContainText('€/h');
 		await expect(page.getByRole('table', { name: 'Satz je Mitarbeiter' })).toContainText('Mischsatz (Durchschnitt)');
-		await expect(page.getByText('Verrechenbare Stunden pro Tag (Standard)')).toBeVisible();
+		await expect(page.getByText('Produktive Stunden pro Tag (Standard)')).toBeVisible();
 		await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 
 		await page.getByText('So wird gerechnet').click();
