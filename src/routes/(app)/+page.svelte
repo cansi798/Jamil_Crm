@@ -291,8 +291,9 @@
 <main class="start kd-seite breit">
 	<header class="seiten-kopf">
 		<div><h1>Start</h1></div>
-		{#if data.darfKundeAnlegen}
-			<div class="seiten-aktionen"><a href="/kunden/neu" class="kd-knopf">+ Kunde</a></div>
+		<!-- Jamil msg 3021: statt „+ Kunde“ steht hier „Start anpassen“ (Kunden legt man unter Kunden an) -->
+		{#if !bearbeiten}
+			<div class="seiten-aktionen"><button type="button" class="kd-knopf hell" onclick={starten}>Start anpassen</button></div>
 		{/if}
 	</header>
 
@@ -303,9 +304,6 @@
 					<KundeWahl label="Kunden suchen" placeholder="Kunden suchen – Name, Ort oder Telefon" onwaehle={(k) => goto(`/kunden/${k.id}`)} />
 				</div>
 			{/if}
-		{/snippet}
-		{#snippet rechts()}
-			{#if !bearbeiten}<button type="button" class="knopf-ghost" onclick={starten}>Start anpassen</button>{/if}
 		{/snippet}
 	</FilterLeiste>
 

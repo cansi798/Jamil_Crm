@@ -106,7 +106,6 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 	}
 	return {
 		kunden,
-		darfKundeAnlegen: kunden && !!nutzer && hatRecht(nutzer, 'kunden.bearbeiten'),
 		heute,
 		plan,
 		monat,
