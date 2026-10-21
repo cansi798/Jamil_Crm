@@ -457,6 +457,19 @@
 		</section>
 	{/if}
 
+	{#if data.nachweise.length > 0}
+		<section class="an-nachfassen an-nachweis" aria-labelledby="nachweis-titel">
+			<h2 id="nachweis-titel">Nachweis (Kundenportal)</h2>
+			<ul class="kd-liste">
+				{#each data.nachweise as n (n.zeit + n.name)}
+					<li class="kd-info">
+						<strong>{n.entscheidung === 'angenommen' ? 'Angenommen' : 'Abgelehnt'}</strong> von {n.name} am {n.zeit}{n.grund ? ` – ${n.grund}` : ''}
+						{#if n.agb}<br />{n.agb}{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 	<section class="an-nachfassen" id="nachfassen" aria-labelledby="nachfassen-titel">
 		<h2 id="nachfassen-titel">Nachfassen</h2>
 		{#if data.nachfassen.kundeAus}

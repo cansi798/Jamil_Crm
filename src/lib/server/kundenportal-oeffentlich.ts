@@ -8,7 +8,7 @@ import { angebotPdf } from './pdf/angebot-pdf';
 import { sendePush } from './erinnerungen';
 import { zustaendig } from './auftragsbestaetigung';
 import { melde } from './ereignisse';
-import { IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
+import { agbFassung, holeAgbPdf, IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
 import { UUID } from './kunden';
 import { nurVorname } from '../buchung';
 import { STATUS_NAMEN, type AuftragStatus } from '../auftrag-status';
@@ -94,6 +94,8 @@ export type PortalMarke = { dunkel: string | null; hintergrund: string | null; t
 export type PortalSeite = {
 	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean; farbe: string | null; marke: PortalMarke };
 	agbUrl: string | null;
+	/** AGB als PDF (msg 3030): Stand der hinterlegten Fassung; abrufbar unter /portal/<token>/agb */
+	agbPdf: { stand: string } | null;
 	widerrufUrl: string | null;
 	auftraege: PortalAuftrag[];
 };
@@ -121,7 +123,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 	const [b] = await tx`
 		select coalesce(pr.firmenname, be.name) as name, pr.telefon, pr.email, pr.web, pr.logo is not null as hat_logo, pr.farbe,
 			pr.dunkel_farbe, pr.hintergrund_farbe, pr.titel_schrift, pr.text_schrift, coalesce(pr.titel_gross, false) as titel_gross,
-			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen
+			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen, e.agb_pdf_hochgeladen
 		from app.betriebe be
 		left join app.betrieb_profil pr on pr.betrieb_id = be.id
 		left join app.portal_einstellungen e on e.betrieb_id = be.id
@@ -261,6 +263,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			}
 		},
 		agbUrl: b.agb_url,
+		agbPdf: b.agb_pdf_hochgeladen ? { stand: new Date(b.agb_pdf_hochgeladen).toISOString() } : null,
 		widerrufUrl: b.widerruf_url,
 		auftraege
 	};
@@ -299,6 +302,16 @@ export async function portalLogo(token: unknown, ip: string): Promise<{ bytes: U
 
 export type PortalDatei = { name: string; typ: string; bytes: Uint8Array };
 
+/** AGB des Betriebs als PDF (msg 3030) – nur mit gültigem Portal-Link. */
+export async function portalAgb(token: unknown, ip: string): Promise<PortalDatei> {
+	begrenze(ip, 'abruf');
+	const p = await loeseAuf(token, ip);
+	if (!p) throw nichtGefunden();
+	const pdf = await alsOeffentlich(p.betriebId, 'kundenportal', () => holeAgbPdf({ betriebId: p.betriebId, benutzerId: OEFFENTLICH }));
+	if (!pdf) throw new ApiFehler(404, 'Keine AGB hinterlegt.');
+	return { name: 'AGB.pdf', typ: 'application/pdf', bytes: pdf };
+}
+
 /** Freigegebenes Dokument: Angebot (PDF), Datei des Auftrags oder Auftragsbestätigung – nur im Bereich des Links. */
 export async function portalDokument(token: unknown, art: unknown, id: unknown, ip: string): Promise<PortalDatei> {
 	begrenze(ip, 'abruf');
@@ -334,7 +347,7 @@ export async function portalDokument(token: unknown, art: unknown, id: unknown, 
 	});
 }
 
-export type Entscheidung = { entscheidung: unknown; name: unknown; agb: unknown; grund?: unknown };
+export type Entscheidung = { entscheidung: unknown; name?: unknown; agb: unknown; grund?: unknown };
 
 /**
  * Angebot annehmen oder ablehnen (Kunde, ohne Anmeldung). Annehmen: Name + Häkchen „AGB gelesen“ (Pflicht) nach einem
@@ -348,8 +361,8 @@ export async function entscheide(token: unknown, angebotId: unknown, e: Entschei
 	if (!p) throw nichtGefunden();
 	if (typeof angebotId !== 'string' || !UUID.test(angebotId)) throw new ApiFehler(404, 'Angebot nicht gefunden.');
 	if (e.entscheidung !== 'angenommen' && e.entscheidung !== 'abgelehnt') throw new ApiFehler(400, 'Bitte annehmen oder ablehnen.');
-	const name = typeof e.name === 'string' ? e.name.replaceAll('\u0000', '').replace(/\s+/g, ' ').trim() : '';
-	if (name.length < 2 || name.length > 200) throw new ApiFehler(400, 'Bitte Ihren Namen angeben.');
+	// Kein Namensfeld mehr (msg 3032): Der Kunde ist über seinen Portal-Link bekannt – der Nachweis nimmt den Namen
+	// aus dem CRM (Kunde des Auftrags), dazu Zeit, Link, IP-Hash und die AGB-Fassung. `e.name` wird ignoriert.
 	const agb = e.agb === true || e.agb === 'ja' || e.agb === 'on';
 	if (e.entscheidung === 'angenommen' && !agb) throw new ApiFehler(400, 'Bitte bestätigen Sie, dass Sie die AGB gelesen haben.');
 	const grund = typeof e.grund === 'string' && e.grund.trim() !== '' ? e.grund.replaceAll('\u0000', '').trim().slice(0, 1000) : null;
@@ -361,15 +374,21 @@ export async function entscheide(token: unknown, angebotId: unknown, e: Entschei
 			const bereich = await auftraegeImBereich(tx, p);
 			const [an] = await tx`
 				select an.id, an.nummer, an.status, an.auftrag_id, an.gueltig_bis, a.status as auftrag_status,
-					coalesce(pa.annahme, true) as annahme, e.agb_url
+					coalesce(pa.annahme, true) as annahme, e.agb_url, e.agb_pdf_hash, e.agb_pdf_hochgeladen,
+					left(coalesce(
+						case when kd.art = 'firma' then kd.firma || coalesce(' – ' || nullif(btrim(concat_ws(' ', kd.vorname, kd.nachname)), ''), '')
+							else nullif(btrim(concat_ws(' ', kd.vorname, kd.nachname)), '') end,
+						nullif(btrim(a.einmal_name), ''), 'Kunde (Kundenportal)'), 200) as kunde_name
 				from app.angebote an
 				join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
+				left join app.kunden kd on kd.id = a.kunde_id and kd.betrieb_id = a.betrieb_id
 				join app.portal_dokumente d on d.ref_id = an.id and d.art = 'angebot' and d.auftrag_id = an.auftrag_id and d.betrieb_id = an.betrieb_id
 				left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
 				left join app.portal_einstellungen e on e.betrieb_id = an.betrieb_id
 				where an.id = ${angebotId} and an.betrieb_id = ${p.betriebId} and an.auftrag_id = any(${bereich}::uuid[])
 				for update of an`;
 			if (!an) throw new ApiFehler(404, 'Angebot nicht gefunden.');
+			const name: string = an.kunde_name;
 			if (an.status !== 'versendet') throw new ApiFehler(409, 'Über dieses Angebot wurde schon entschieden.');
 			if (!an.annahme) throw new ApiFehler(403, 'Die Online-Annahme ist für diesen Auftrag nicht freigeschaltet – bitte melden Sie sich bei uns.');
 			if (nach === 'angenommen' && berlinTag(new Date()) > new Date(an.gueltig_bis).toISOString().slice(0, 10)) {
@@ -380,9 +399,12 @@ export async function entscheide(token: unknown, angebotId: unknown, e: Entschei
 				await tx`update app.auftraege set status = 'beauftragt' where id = ${an.auftrag_id} and betrieb_id = ${p.betriebId} and status = 'angebot'`;
 			}
 			await tx`
-				insert into app.angebot_entscheidungen (betrieb_id, angebot_id, link_id, entscheidung, name, grund, agb_bestaetigt, agb_url, token_hash, ip_hash)
-				values (${p.betriebId}, ${an.id}, ${p.linkId}, ${nach}, ${name}, ${grund}, ${agb}, ${an.agb_url}, ${p.hash}, ${ipHash(ip)})`;
-			const text = nach === 'angenommen' ? `Angebot ${an.nummer} von ${name} online angenommen (AGB bestätigt)` : `Angebot ${an.nummer} von ${name} online abgelehnt${grund ? `: ${grund}` : ''}`;
+				insert into app.angebot_entscheidungen (betrieb_id, angebot_id, link_id, entscheidung, name, grund, agb_bestaetigt, agb_url, token_hash, ip_hash, agb_pdf_hash, agb_pdf_stand)
+				values (${p.betriebId}, ${an.id}, ${p.linkId}, ${nach}, ${name}, ${grund}, ${agb}, ${an.agb_url}, ${p.hash}, ${ipHash(ip)},
+					${nach === 'angenommen' ? an.agb_pdf_hash : null}, ${nach === 'angenommen' ? an.agb_pdf_hochgeladen : null})`;
+			// Nachweis im Verlauf: welche AGB-Fassung bestätigt wurde (msg 3030)
+			const agbText = an.agb_pdf_hash ? `AGB bestätigt, ${agbFassung(an.agb_pdf_hash, an.agb_pdf_hochgeladen)}` : 'AGB bestätigt';
+			const text = nach === 'angenommen' ? `Angebot ${an.nummer} von ${name} online angenommen (${agbText})` : `Angebot ${an.nummer} von ${name} online abgelehnt${grund ? `: ${grund}` : ''}`;
 			await tx`insert into app.portal_ereignisse (betrieb_id, link_id, auftrag_id, art, text, ip_hash)
 				values (${p.betriebId}, ${p.linkId}, ${an.auftrag_id}, ${nach}, ${text.slice(0, 300)}, ${ipHash(ip)})`;
 			return { an, text };

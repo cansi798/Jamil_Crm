@@ -2,8 +2,8 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { antwort, baueUmgebung, jsonAnfrage, leereAngebote, testPng, type Umgebung } from './hilfe-1c';
-import { erzeugeLink, portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe, speicherePortalEinstellungen, widerrufeLink, tokenHash } from '../../src/lib/server/kundenportal';
-import { entscheide, ladePortal, portalAbruf, portalAktion, portalDokument, portalFehlversuch } from '../../src/lib/server/kundenportal-oeffentlich';
+import { holeAgbPdfInfo, nachweiseZumAngebot, speichereAgbPdf, erzeugeLink, portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe, speicherePortalEinstellungen, widerrufeLink, tokenHash } from '../../src/lib/server/kundenportal';
+import { portalAgb, entscheide, ladePortal, portalAbruf, portalAktion, portalDokument, portalFehlversuch } from '../../src/lib/server/kundenportal-oeffentlich';
 import { setzeAngebotStatus } from '../../src/lib/server/angebote';
 import { listeAuftragsbestaetigungen, markiereAbGesendet } from '../../src/lib/server/auftragsbestaetigung';
 import { abonniere, type AngebotAngenommen } from '../../src/lib/server/ereignisse';
@@ -11,6 +11,8 @@ import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
 import { POST as ausfuehrenPost } from '../../src/routes/api/sprache/ausfuehren/+server';
 import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
 import { FakeKi } from '../../src/lib/server/ki/fake';
+import { GET as agbGet } from '../../src/routes/portal/[token]/agb/+server';
+import { actions as einstellungenAktionen, load as einstellungenLoad } from '../../src/routes/(app)/einstellungen/kundenportal/+page.server';
 
 /** Kundenportal und Auftragsbestätigung (Jamil msgs 2770–2774 Punkt 4, 2778). */
 describe('Kundenportal', () => {
@@ -183,8 +185,8 @@ describe('Kundenportal', () => {
 			gemeldet.push(e);
 		});
 		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Hans Müller', agb: false }, IP)).rejects.toMatchObject({ status: 400 });
-		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', name: '', agb: true }, IP)).rejects.toMatchObject({ status: 400 });
-		const r = await entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Hans Müller', agb: true }, IP);
+		// kein Namensfeld mehr (msg 3032): ein mitgeschickter Name wird ignoriert, der Nachweis nimmt den Kunden aus dem CRM
+		const r = await entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Irgendwer', agb: true }, IP);
 		ab();
 		expect(r.status).toBe('angenommen');
 		expect(r.hinweise[0]).toMatch(/^Auftragsbestätigung AB-\d{4}-0001 erstellt – bereit zum Versand/);
@@ -193,6 +195,9 @@ describe('Kundenportal', () => {
 		expect(st).toEqual({ status: 'angenommen', auftrag: 'beauftragt' });
 		const [ent] = await root`select name, agb_bestaetigt, agb_url, token_hash, ip_hash from app.angebot_entscheidungen where angebot_id = ${an.id}`;
 		expect(ent).toMatchObject({ name: 'Hans Müller', agb_bestaetigt: true, agb_url: 'https://a.test/agb' });
+		// ohne hinterlegtes AGB-PDF keine Fassung im Nachweis
+		const [ohnePdf] = await root`select agb_pdf_hash, agb_pdf_stand from app.angebot_entscheidungen where angebot_id = ${an.id}`;
+		expect(ohnePdf).toEqual({ agb_pdf_hash: null, agb_pdf_stand: null });
 		expect(Buffer.from(ent.token_hash).equals(tokenHash(token))).toBe(true);
 		expect(Buffer.from(ent.ip_hash).toString('hex')).not.toContain(Buffer.from(IP).toString('hex'));
 		const abs = await listeAuftragsbestaetigungen(kA(), u.auftragA);
@@ -225,7 +230,7 @@ describe('Kundenportal', () => {
 		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: true, termine: true, mitarbeiter: true, annahme: false });
 		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Hans', agb: true }, IP)).rejects.toMatchObject({ status: 403 });
 		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: true, termine: true, mitarbeiter: true, annahme: true });
-		const r = await entscheide(token, an.id, { entscheidung: 'abgelehnt', name: 'Hans Müller', agb: false, grund: 'zu teuer' }, IP);
+		const r = await entscheide(token, an.id, { entscheidung: 'abgelehnt', agb: false, grund: 'zu teuer' }, IP);
 		expect(r.status).toBe('abgelehnt');
 		const [t] = await root`select titel, beschreibung from app.todos where titel like ${`%${an.nummer}%abgelehnt%`}`;
 		expect(t.beschreibung).toMatch(/zu teuer/);
@@ -312,6 +317,50 @@ describe('Kundenportal', () => {
 		expect(ab.ausloeser).toBe('sprache');
 		expect((await sag(u.monteurA, 'Angebot Müller ist angenommen')).karte.fehler).toMatch(/Berechtigung/);
 	});
+
+	it('AGB als PDF (msg 3030): hochladen nur PDF + Recht, Portal-Abruf nur mit Token, Fassung im Nachweis und Verlauf', async () => {
+		const pdf = (text: string) => new TextEncoder().encode(`%PDF-1.4\n% ${text}\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n`);
+		// Prüfung: kein PDF / leer → 400; Büro ohne „Einstellungen“ → 403
+		await expect(speichereAgbPdf(kA(), new TextEncoder().encode('<svg onload=alert(1)>'))).rejects.toMatchObject({ status: 400 });
+		await expect(speichereAgbPdf(kA(), new Uint8Array())).rejects.toMatchObject({ status: 400 });
+		const f = new FormData();
+		f.append('agb', new File([pdf('Fassung 1') as BlobPart], 'agb.pdf', { type: 'application/pdf' }));
+		const verboten = (await einstellungenAktionen.agb({ locals: { nutzer: u.monteurA }, request: new Request('http://t/', { method: 'POST', body: f }) } as never)) as { status: number };
+		expect(verboten.status).toBe(403);
+		// ohne PDF: Warnung in den Einstellungen (agbPdf null), Portal ohne PDF-Link
+		expect(((await einstellungenLoad({ locals: { nutzer: u.chefA } } as never)) as { agbPdf: unknown }).agbPdf).toBeNull();
+		const an = await versendetesAngebot(u.auftragA); // vor dem Link: dann ist es im Portal freigegeben
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		expect((await ladePortal(token, IP))!.agbPdf).toBeNull();
+		await expect(portalAgb(token, IP)).rejects.toMatchObject({ status: 404 });
+		// Chef lädt hoch → Fassung (SHA-256 + Zeitpunkt)
+		expect(await einstellungenAktionen.agb({ locals: { nutzer: u.chefA }, request: new Request('http://t/', { method: 'POST', body: f }) } as never)).toEqual({ agbGespeichert: true });
+		const v1 = (await holeAgbPdfInfo(kA()))!;
+		expect(v1.hash).toMatch(/^[0-9a-f]{64}$/);
+		expect((await ladePortal(token, IP))!.agbPdf).toEqual({ stand: v1.hochgeladen });
+		// Portal-Abruf: PDF mit sicheren Kopfzeilen; falscher Token → 404; anderer Betrieb nie
+		const r = await agbGet({ params: { token }, request: new Request('http://t/'), getClientAddress: () => IP } as never);
+		expect(r.headers.get('content-type')).toBe('application/pdf');
+		expect(r.headers.get('x-content-type-options')).toBe('nosniff');
+		expect(r.headers.get('referrer-policy')).toBe('no-referrer');
+		expect(new TextDecoder().decode((await r.arrayBuffer()).slice(0, 5))).toBe('%PDF-');
+		await expect(portalAgb('x'.repeat(43), IP)).rejects.toMatchObject({ status: 404 });
+		// Annahme hält genau diese Fassung fest; danach neue Fassung → alter Nachweis bleibt
+		await entscheide(token, an.id, { entscheidung: 'angenommen', agb: true }, IP);
+		await speichereAgbPdf(kA(), pdf('Fassung 2'));
+		const [ent] = await root`select name, agb_pdf_hash, agb_pdf_stand from app.angebot_entscheidungen where angebot_id = ${an.id}`;
+		expect(ent.name).toBe('Hans Müller');
+		expect(ent.agb_pdf_hash).toBe(v1.hash);
+		expect(new Date(ent.agb_pdf_stand).toISOString()).toBe(v1.hochgeladen);
+		expect((await holeAgbPdfInfo(kA()))!.hash).not.toBe(v1.hash);
+		// Verlauf des Auftrags und Nachweis am Angebot nennen die Fassung
+		const verlauf = (await portalVerlauf(kA(), u.auftragA)).map((x) => x.zeile.titel);
+		expect(verlauf).toEqual(expect.arrayContaining([expect.stringContaining(`SHA-256 ${v1.hash.slice(0, 12)}`)]));
+		expect(await nachweiseZumAngebot(kA(), an.id)).toEqual([expect.objectContaining({ entscheidung: 'angenommen', name: 'Hans Müller', agb: expect.stringContaining(v1.hash.slice(0, 12)) })]);
+		// PDF-Bytes nie im Änderungsprotokoll
+		const [p] = await root`select count(*)::int as n from app.aenderungen where tabelle = 'portal_einstellungen' and nachher ? 'agb_pdf'`;
+		expect(p.n).toBe(0);
+	});
 });
 
 describe('Logos und Dateien: kein SVG/HTML vom App-Ursprung', () => {
@@ -341,4 +390,5 @@ describe('Logos und Dateien: kein SVG/HTML vom App-Ursprung', () => {
 		const { speichereDatei } = await import('../../src/lib/server/dateien');
 		await expect(speichereDatei({ betriebId: u2.betriebA, benutzerId: u2.ids.chefA }, u2.auftragA, 'x.svg', 'image/svg+xml', svg.length, new Uint8Array(svg))).rejects.toMatchObject({ status: 400 });
 	});
+
 });

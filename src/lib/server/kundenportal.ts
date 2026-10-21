@@ -232,11 +232,86 @@ export async function setzeAbAutomatisch(z: { k: Kontext; sicht: Sicht }, auftra
 export type TeamNamen = 'vorname' | 'voll' | 'aus';
 export const TEAM_NAMEN: Record<TeamNamen, string> = { vorname: 'nur Vorname', voll: 'Vor- und Nachname', aus: 'keine Namen' };
 export type PortalEinstellungen = { agbUrl: string | null; widerrufUrl: string | null; abAutomatisch: boolean; standard: 'alle_aktiven' | 'nur_markierte'; teamNamen: TeamNamen };
+/** Hinterlegtes AGB-PDF (msg 3030): Fassung = SHA-256 + Zeitpunkt des Hochladens. */
+export type AgbPdf = { hash: string; hochgeladen: string; groesse: number };
 const istTeamNamen = (w: unknown): w is TeamNamen => w === 'vorname' || w === 'voll' || w === 'aus';
 
 export async function ladePortalEinstellungen(k: Kontext): Promise<PortalEinstellungen> {
 	const [e] = await mitBetrieb(k, (tx) => tx`select agb_url, widerruf_url, ab_automatisch, standard, team_namen from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
 	return { agbUrl: e?.agb_url ?? null, widerrufUrl: e?.widerruf_url ?? null, abAutomatisch: e?.ab_automatisch ?? true, standard: e?.standard ?? 'alle_aktiven', teamNamen: istTeamNamen(e?.team_namen) ? e.team_namen : 'vorname' };
+}
+
+// ——— AGB als PDF (Wunsch Jamil, msg 3030) ———
+
+export const AGB_MAX_BYTES = 5 * 1024 * 1024;
+const AGB_MELDUNG = 'Bitte die AGB als PDF-Datei bis 5 MB hochladen.';
+
+/** Echte PDF-Datei? Kopf „%PDF-“ am Anfang und „%%EOF“ am Ende (Name und Typ-Angabe zählen nicht). */
+export function istPdf(b: Uint8Array): boolean {
+	if (b.length < 16) return false;
+	const anfang = Buffer.from(b.subarray(0, 1024)).toString('latin1');
+	const ende = Buffer.from(b.subarray(Math.max(0, b.length - 2048))).toString('latin1');
+	return anfang.startsWith('%PDF-') && ende.includes('%%EOF');
+}
+
+export async function holeAgbPdfInfo(k: Kontext): Promise<AgbPdf | null> {
+	const [z] = await mitBetrieb(k, (tx) => tx`
+		select agb_pdf_hash, agb_pdf_hochgeladen, octet_length(agb_pdf) as groesse from app.portal_einstellungen
+		where betrieb_id = ${k.betriebId} and agb_pdf is not null`);
+	return z ? { hash: z.agb_pdf_hash, hochgeladen: new Date(z.agb_pdf_hochgeladen).toISOString(), groesse: Number(z.groesse) } : null;
+}
+
+/** AGB-PDF speichern (ersetzt das bisherige); bei einem Fehler bleibt das alte unverändert. */
+export async function speichereAgbPdf(k: Kontext, bytes: Uint8Array): Promise<AgbPdf> {
+	if (!(bytes instanceof Uint8Array) || bytes.length === 0 || bytes.length > AGB_MAX_BYTES || !istPdf(bytes)) throw new ApiFehler(400, AGB_MELDUNG);
+	const hash = createHash('sha256').update(bytes).digest('hex');
+	const daten = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	await mitBetrieb(k, (tx) => tx`
+		insert into app.portal_einstellungen (betrieb_id, agb_pdf, agb_pdf_hash, agb_pdf_hochgeladen)
+		values (${k.betriebId}, ${daten}, ${hash}, clock_timestamp())
+		on conflict (betrieb_id) do update set agb_pdf = excluded.agb_pdf, agb_pdf_hash = excluded.agb_pdf_hash,
+			agb_pdf_hochgeladen = excluded.agb_pdf_hochgeladen`);
+	return (await holeAgbPdfInfo(k))!;
+}
+
+export async function holeAgbPdf(k: Kontext): Promise<Uint8Array | null> {
+	const [z] = await mitBetrieb(k, (tx) => tx`select agb_pdf from app.portal_einstellungen where betrieb_id = ${k.betriebId} and agb_pdf is not null`);
+	if (!z) return null;
+	const buf = z.agb_pdf as Buffer;
+	return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+}
+
+export async function loescheAgbPdf(k: Kontext): Promise<void> {
+	await mitBetrieb(k, (tx) => tx`
+		update app.portal_einstellungen set agb_pdf = null, agb_pdf_hash = null, agb_pdf_hochgeladen = null
+		where betrieb_id = ${k.betriebId} and agb_pdf is not null`);
+}
+
+/** Liest die PDF-Datei aus einem Formular (Feld `agb`). */
+export async function agbAusFormular(f: FormData): Promise<Uint8Array> {
+	const datei = f.get('agb');
+	if (!datei || typeof datei === 'string' || datei.size === 0 || datei.size > AGB_MAX_BYTES) throw new ApiFehler(400, AGB_MELDUNG);
+	return new Uint8Array(await datei.arrayBuffer());
+}
+
+/** Kurzform der Fassung für Verlauf und Oberfläche: „Fassung vom 21.10.2026, 14:05 (SHA-256 1a2b3c4d…)“. */
+export function agbFassung(hash: string, stand: Date | string): string {
+	return `Fassung vom ${zeitFormat.format(new Date(stand))} (SHA-256 ${hash.slice(0, 12)}…)`;
+}
+
+/** Nachweise zum Angebot (Kundenportal): wer, wann, Entscheidung, bestätigte AGB-Fassung (msg 3030). */
+export type AngebotNachweis = { zeit: string; entscheidung: 'angenommen' | 'abgelehnt'; name: string; grund: string | null; agb: string | null };
+export async function nachweiseZumAngebot(k: Kontext, angebotId: string): Promise<AngebotNachweis[]> {
+	const z = await mitBetrieb(k, (tx) => tx`
+		select zeit, entscheidung, name, grund, agb_bestaetigt, agb_url, agb_pdf_hash, agb_pdf_stand
+		from app.angebot_entscheidungen where angebot_id = ${angebotId} and betrieb_id = ${k.betriebId} order by zeit desc`);
+	return z.map((r) => ({
+		zeit: zeitFormat.format(new Date(r.zeit)),
+		entscheidung: r.entscheidung,
+		name: r.name,
+		grund: r.grund,
+		agb: r.entscheidung !== 'angenommen' ? null : r.agb_pdf_hash ? `AGB (PDF) bestätigt – ${agbFassung(r.agb_pdf_hash, r.agb_pdf_stand)}` : r.agb_url ? `AGB bestätigt (Link: ${r.agb_url})` : 'AGB bestätigt (ohne hinterlegte AGB)'
+	}));
 }
 
 function url(w: unknown, name: string): string | null {

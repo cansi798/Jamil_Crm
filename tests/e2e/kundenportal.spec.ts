@@ -41,7 +41,7 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	const antwort = await kunde.goto(new URL(url).pathname);
 	expect(antwort?.headers()['x-robots-tag']).toMatch(/noindex/);
 	expect(antwort?.headers()['referrer-policy']).toBe('no-referrer');
-	await expect(kunde.getByRole('heading', { name: 'Ladenumbau Trockenbau' })).toBeVisible();
+	await expect(kunde.getByRole('heading', { name: 'Ladenumbau Trockenbau', exact: true })).toBeVisible();
 	// Andere Tests legen weitere Aufträge beim selben Kunden an – nur die eigene Karte prüfen
 	await expect(kunde.getByLabel('Ladenumbau Trockenbau').getByTestId('portal-status')).toBeVisible();
 	// Handwerks-Design (msgs 2848, 2851): Überblick oben, Fortschrittsweg, Kontakt rechts
@@ -59,7 +59,8 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	const annehmen = kunde.getByRole('button', { name: 'Angebot annehmen' });
 	if (info.project.name === 'desktop' && (await annehmen.isVisible())) {
 		await annehmen.click();
-		await kunde.getByLabel('Ihr Name').fill('Erika Krümel');
+		// kein Namensfeld mehr (msg 3032) – der Kunde ist über den Link bekannt
+		await expect(kunde.getByLabel('Ihr Name')).toHaveCount(0);
 		const verbindlich = kunde.getByRole('button', { name: 'Verbindlich annehmen' });
 		await verbindlich.click();
 		// ohne AGB-Häkchen lässt der Browser nicht absenden
@@ -67,8 +68,8 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 		await kunde.locator('input[name="agb"]').check();
 		await verbindlich.click();
 		await expect(kunde.getByText(/Vielen Dank für Ihren Auftrag/)).toBeVisible();
-		await expect(kunde.getByRole('link', { name: /Auftragsbestätigung AB-/ })).toBeVisible();
-		await expect(kunde.getByText(/Angenommen von Erika Krümel/)).toBeVisible();
+		await expect(kunde.getByRole('link', { name: /Auftragsbestätigung AB-/ }).first()).toBeVisible();
+		await expect(kunde.getByText(/Angenommen von /).first()).toBeVisible();
 		// Im CRM: Auftragsbestätigung bereit zum Versand (im Auftrag)
 		const kundenSeite = page.url();
 		await page.goto(href!);

@@ -97,7 +97,12 @@
 			}
 			for (const k of a.links ?? []) l.push({ schluessel: `l-${k.url}`, etikett: 'Link', ton: 'dokument', gruppe: 'dokumente', titel: k.titel, datum: null, href: k.url, extern: true, info: null, auftragId: a.id });
 		}
-		return l.sort((x, y) => (y.datum ?? '').localeCompare(x.datum ?? ''));
+		const sortiert = l.sort((x, y) => (y.datum ?? '').localeCompare(x.datum ?? ''));
+		// AGB des Betriebs (msg 3030): einmal, am Ende der Liste (beim ersten Auftrag)
+		if (s.agbPdf && s.auftraege.length > 0) {
+			sortiert.push({ schluessel: 'agb', etikett: 'AGB', ton: 'dokument', gruppe: 'dokumente', titel: 'Allgemeine Geschäftsbedingungen', datum: s.agbPdf.stand, href: `/portal/${data.token}/agb`, extern: false, info: 'PDF', auftragId: s.auftraege[0].id });
+		}
+		return sortiert;
 	});
 	const FILTER: [Gruppe | 'alle', string][] = [
 		['alle', 'Alle'],
@@ -192,9 +197,8 @@
 								<form method="POST" action="?/entscheiden" class="pt-form" use:enhance={() => { sendet = true; return async ({ update }) => { await update(); sendet = false; schritt = null; }; }}>
 									<input type="hidden" name="angebotId" value={an.id} /><input type="hidden" name="entscheidung" value="angenommen" />
 									<p class="pt-hinweis">Bitte bestätigen: Sie nehmen das Angebot {an.nummer} über {euro(an.bruttoCent)} verbindlich an.</p>
-									<label>Ihr Name <input name="name" required minlength="2" maxlength="200" autocomplete="name" /></label>
 									<label class="pt-check"><input type="checkbox" name="agb" value="ja" required />
-										<span>Ich habe die {#if s.agbUrl}<a href={s.agbUrl} target="_blank" rel="noopener noreferrer">AGB</a>{:else}AGB{/if} gelesen und akzeptiere sie.{#if s.widerrufUrl} Hinweise zum <a href={s.widerrufUrl} target="_blank" rel="noopener noreferrer">Widerrufsrecht</a>.{/if}</span></label>
+										<span>Ich habe die {#if s.agbPdf}<a href={`/portal/${data.token}/agb`} target="_blank" rel="noopener noreferrer">AGB (PDF)</a>{:else if s.agbUrl}<a href={s.agbUrl} target="_blank" rel="noopener noreferrer">AGB</a>{:else}AGB{/if} gelesen und akzeptiere sie.{#if s.widerrufUrl} Hinweise zum <a href={s.widerrufUrl} target="_blank" rel="noopener noreferrer">Widerrufsrecht</a>.{/if}</span></label>
 									<div class="pt-knoepfe">
 										<button type="button" class="pt-knopf hell" onclick={() => (schritt = null)}>Zurück</button>
 										<button type="submit" class="pt-knopf" disabled={sendet}>Verbindlich annehmen</button>
@@ -203,7 +207,6 @@
 							{:else if schritt?.id === an.id && schritt.art === 'ablehnen'}
 								<form method="POST" action="?/entscheiden" class="pt-form" use:enhance={() => { sendet = true; return async ({ update }) => { await update(); sendet = false; schritt = null; }; }}>
 									<input type="hidden" name="angebotId" value={an.id} /><input type="hidden" name="entscheidung" value="abgelehnt" />
-									<label>Ihr Name <input name="name" required minlength="2" maxlength="200" autocomplete="name" /></label>
 									<label>Grund (freiwillig) <textarea name="grund" maxlength="1000" rows="3"></textarea></label>
 									<div class="pt-knoepfe">
 										<button type="button" class="pt-knopf hell" onclick={() => (schritt = null)}>Zurück</button>

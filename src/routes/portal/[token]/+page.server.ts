@@ -30,7 +30,6 @@ export const actions: Actions = {
 		try {
 			const r = await entscheide(event.params.token, angebotId, {
 				entscheidung: f.get('entscheidung'),
-				name: f.get('name'),
 				agb: f.get('agb'),
 				grund: f.get('grund')
 			}, ipVon(event));
