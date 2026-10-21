@@ -5,7 +5,7 @@
 	import KachelBoard from './KachelBoard.svelte';
 	import type { KachelSpalte } from '$lib/kachel-board';
 	import { todoSpalte, todoVerschiebung, TODO_SPALTEN, type TodoSpalte } from '$lib/todo-board';
-	import { tagDeutsch } from '$lib/zeit';
+	import { zeitraumText } from '$lib/aufgaben';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
 
 	type Todo = {
@@ -24,6 +24,9 @@
 		zustaendigName: string | null;
 		faellig: string | null;
 		faelligZeit?: string | null;
+		vonTag?: string | null;
+		vonZeit?: string | null;
+		mitarbeiter?: { id: string; name: string }[];
 		erledigt: boolean;
 	};
 
@@ -105,7 +108,8 @@
 </script>
 
 {#snippet kachel(todo: Todo)}
-	{@const darfHaken = darfBearbeiten || todo.zustaendigId === benutzerId}
+	{@const darfHaken = darfBearbeiten || todo.zustaendigId === benutzerId || !!todo.mitarbeiter?.some((m) => m.id === benutzerId)}
+	{@const weitere = (todo.mitarbeiter?.length ?? 0) - 1}
 	<div class="kanban-karte" class:ueberfaellig={ueberfaellig(todo)} class:laeuft={laeuft.has(todo.id)}>
 		<div class="karte-inhalt">
 			<div class="td-kopf">
@@ -183,12 +187,12 @@
 				{#if todo.zustaendigName}
 					<span class="karte-zustaendig">
 						<span class="avatar">{todo.zustaendigName.charAt(0)}</span>
-						{todo.zustaendigName}
+						{todo.zustaendigName}{#if weitere > 0}<span title={todo.mitarbeiter?.slice(1).map((m) => m.name).join(', ')}>&nbsp;+{weitere}</span>{/if}
 					</span>
 				{/if}
 				{#if todo.faellig}
 					<span class="karte-faellig" class:ueberfaellig={ueberfaellig(todo)}>
-						{tagDeutsch(todo.faellig)}{todo.faelligZeit ? ` ${todo.faelligZeit}` : ''}
+						{zeitraumText(todo)}
 					</span>
 				{/if}
 			</div>

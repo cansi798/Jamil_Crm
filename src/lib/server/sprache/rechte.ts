@@ -9,6 +9,7 @@ import type { AktionsName } from './aktionen';
  * - Auftrag anlegen: Modul `auftraege` + `auftraege.bearbeiten` und Kunden suchen (`kunden.lesen`); mit eingeplanten
  *   Mitarbeitern zusätzlich Modul `plantafel` + `plantafel.bearbeiten`
  * - Aufgabe anlegen: Modul `auftraege` + `auftraege.bearbeiten`
+ * - Aufgaben-Vorlage auf einen Auftrag anwenden: wie Aufgabe anlegen (Modul `auftraege` + `auftraege.bearbeiten`)
  * - Termin einplanen/verschieben: Modul `plantafel` + `plantafel.bearbeiten`
  * - Angebotsentwurf: Modul `ki_angebote` und `angebote` + `angebote.bearbeiten` + `preise.sehen`
  * - Protokoll: Vorlage starten (Formular) Modul `protokolle` + `protokolle.ausfuellen` oder `protokolle.bearbeiten`;
@@ -44,6 +45,7 @@ export async function pruefeAktionsRechte(
 			if (opts.mitEinsaetzen) await darf(locals, 'plantafel', 'plantafel.bearbeiten');
 			return;
 		case 'todo_anlegen':
+		case 'vorlage_anwenden':
 			return darf(locals, 'auftraege', 'auftraege.bearbeiten');
 		case 'einsatz_anlegen':
 			// eigener Termin nur für sich selbst (msg 2682): auch mit „Erinnerungen nutzen“

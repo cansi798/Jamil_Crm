@@ -98,8 +98,8 @@ describe('Kundenportal', () => {
 			const s = (await ladePortal(token, IP))!;
 			const a = s.auftraege[0];
 			expect(a.schritte).toEqual([
-				{ titel: 'Fliesen abschlagen', erledigt: true, tag: '2026-10-20', laerm: 3, schmutz: 3 },
-				{ titel: 'Fugen', erledigt: false, tag: null, laerm: null, schmutz: 1 }
+				{ titel: 'Fliesen abschlagen', erledigt: true, tag: '2026-10-20', vonTag: null, laerm: 3, schmutz: 3 },
+				{ titel: 'Fugen', erledigt: false, tag: null, vonTag: null, laerm: null, schmutz: 1 }
 			]);
 			expect(JSON.stringify(s)).not.toMatch(/Silikon|schwierig/);
 			// Erscheinungsbild je Betrieb (msg 2953): Standard, dann wie die Website

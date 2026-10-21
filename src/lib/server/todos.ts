@@ -33,6 +33,11 @@ export type Todo = {
 	faellig: string | null;
 	/** Optionale Uhrzeit zur Fälligkeit „HH:MM“ (Erinnerungen ohne Uhrzeit: 8:00). */
 	faelligZeit: string | null;
+	/** Zeitraum (Jamil msg 2977): erster Tag (und Uhrzeit); `faellig` ist dann der letzte Tag. Ohne: ein Tag. */
+	vonTag: string | null;
+	vonZeit: string | null;
+	/** Alle Mitarbeiter der Aufgabe (der Zuständige zuerst); `zustaendigId` = erste Person. */
+	mitarbeiter: { id: string; name: string }[];
 	erledigt: boolean;
 	erledigtAm: string | null;
 	/** Nur in Listen: dem Nutzer direkt zugewiesen (sonst über einen Auftrag, für den er zuständig ist). */
@@ -61,6 +66,8 @@ export const TODO_FELDER = [
 	'zustaendigId',
 	'faellig',
 	'faelligZeit',
+	'vonTag',
+	'vonZeit',
 	'erinnerung1',
 	'erinnerung2',
 	'lautstaerke',
@@ -69,7 +76,9 @@ export const TODO_FELDER = [
 	'intervall',
 	'wiederholungEnde'
 ] as const;
-const AENDERBAR = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'faelligZeit', 'lautstaerke', 'schmutz'] as const;
+const AENDERBAR = ['titel', 'beschreibung', 'zustaendigId', 'faellig', 'faelligZeit', 'vonTag', 'vonZeit', 'lautstaerke', 'schmutz'] as const;
+/** Höchstens so viele Mitarbeiter je Aufgabe. */
+export const MAX_TODO_MITARBEITER = 20;
 
 export const MAX_TODOS = 200;
 /** Höchstens so viele Aufgaben auf einmal (z. B. aus einer Auftrags-Vorlage). */
@@ -116,6 +125,8 @@ type TodoWerte = {
 	zustaendigId: string | null;
 	faellig: string | null;
 	faelligZeit: string | null;
+	vonTag: string | null;
+	vonZeit: string | null;
 	lautstaerke: number | null;
 	schmutz: number | null;
 };
@@ -134,15 +145,78 @@ function pruefeTodoEingabe(e: Record<string, unknown>): TodoWerte {
 		beschreibung: textFeld(e.beschreibung, 'Beschreibung', 500),
 		auftragId: idFeld(e.auftragId, 'Der Auftrag ist ungültig.'),
 		zustaendigId: idFeld(e.zustaendigId, 'Zuständig: ungültige Auswahl.'),
-		faellig: datumFeld(e.faellig),
-		faelligZeit: uhrzeitFeld(e.faelligZeit),
+		...pruefeZeitraum(e),
 		lautstaerke: stufeFeld(e.lautstaerke, 'Lautstärke'),
 		schmutz: stufeFeld(e.schmutz, 'Schmutz')
 	};
 }
 
+/**
+ * Ein Tag (`faellig`, optional `faelligZeit`) oder Zeitraum (`vonTag` [+ `vonZeit`] bis `faellig` [+ `faelligZeit`]).
+ * Ein Zeitraum braucht ein Ende; der Beginn liegt nicht nach dem Ende. Gleicher Tag wie das Ende = ein Tag.
+ */
+export function pruefeZeitraum(e: Record<string, unknown>): { faellig: string | null; faelligZeit: string | null; vonTag: string | null; vonZeit: string | null } {
+	const faellig = datumFeld(e.faellig);
+	const faelligZeit = uhrzeitFeld(e.faelligZeit);
+	let vonTag: string | null = null;
+	if (e.vonTag !== undefined && e.vonTag !== null && e.vonTag !== '') {
+		if (!istTag(e.vonTag)) throw new ApiFehler(400, 'Das Datum „von“ ist ungültig.');
+		vonTag = e.vonTag;
+	}
+	let vonZeit = uhrzeitFeld(e.vonZeit);
+	if (vonTag !== null) {
+		if (faellig === null) throw new ApiFehler(400, 'Zeitraum: Bitte auch das Ende („bis“) angeben.');
+		if (vonTag > faellig) throw new ApiFehler(400, 'Zeitraum: Der Beginn liegt nach dem Ende.');
+		if (vonTag === faellig && vonZeit !== null && faelligZeit !== null && vonZeit > faelligZeit) {
+			throw new ApiFehler(400, 'Zeitraum: Die Uhrzeit „von“ liegt nach „bis“.');
+		}
+		// Gleicher Tag ohne Uhrzeit „von“: einfach ein Tag
+		if (vonTag === faellig && vonZeit === null) vonTag = null;
+	} else {
+		vonZeit = null;
+	}
+	return { faellig, faelligZeit, vonTag, vonZeit };
+}
+
+/** Mitarbeiter-Liste aus Formular/JSON (eine ID oder Liste; leer = niemand), ohne Doppelte. `undefined` = nicht gesendet. */
+export function mitarbeiterListe(w: unknown): string[] | undefined {
+	if (w === undefined) return undefined;
+	const roh = Array.isArray(w) ? w : w === null || w === '' ? [] : [w];
+	const ids = [...new Set(roh.map((x) => idFeld(x, 'Mitarbeiter: ungültige Auswahl.')).filter((x): x is string => x !== null))];
+	if (ids.length > MAX_TODO_MITARBEITER) throw new ApiFehler(400, `Höchstens ${MAX_TODO_MITARBEITER} Mitarbeiter je Aufgabe.`);
+	return ids;
+}
+
+/**
+ * Setzt die Mitarbeiter einer Aufgabe (erste Person = Zuständiger). Neu hinzukommende müssen aktive Mitarbeiter des
+ * Betriebs sein; schon zugewiesene (z. B. inzwischen deaktivierte) dürfen bleiben.
+ */
+async function setzeMitarbeiter(tx: TransactionSql, k: Kontext, todoId: string, ids: string[]): Promise<void> {
+	const alt = (await tx`select benutzer_id from app.todo_mitarbeiter where todo_id = ${todoId} and betrieb_id = ${k.betriebId}`).map(
+		(r) => r.benutzer_id as string
+	);
+	for (const id of ids) if (!alt.includes(id)) await pruefeZustaendig(tx, k, id);
+	await tx`update app.todos set zustaendig_id = ${ids[0] ?? null} where id = ${todoId} and betrieb_id = ${k.betriebId} and zustaendig_id is distinct from ${ids[0] ?? null}`;
+	await tx`delete from app.todo_mitarbeiter where todo_id = ${todoId} and betrieb_id = ${k.betriebId} and not (benutzer_id = any(${ids}::uuid[]))`;
+	for (const id of ids) {
+		await tx`insert into app.todo_mitarbeiter (betrieb_id, todo_id, benutzer_id) values (${k.betriebId}, ${todoId}, ${id}) on conflict do nothing`;
+	}
+}
+
+async function mitarbeiterVon(tx: TransactionSql, k: Kontext, todoId: string): Promise<string[]> {
+	const z = await tx`
+		select tm.benutzer_id from app.todo_mitarbeiter tm join app.todos t on t.id = tm.todo_id and t.betrieb_id = tm.betrieb_id
+		where tm.todo_id = ${todoId} and tm.betrieb_id = ${k.betriebId}
+		order by (tm.benutzer_id = t.zustaendig_id) desc nulls last, tm.angelegt, tm.benutzer_id`;
+	return z.map((r) => r.benutzer_id as string);
+}
+
 const AUSWAHL = `t.id, t.titel, t.beschreibung, t.nacharbeit, t.lautstaerke, t.schmutz, t.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, t.zustaendig_id,
 	b.name as zustaendig_name, to_char(t.faellig, 'YYYY-MM-DD') as faellig, to_char(t.faellig_zeit, 'HH24:MI') as faellig_zeit, t.erledigt_am,
+	to_char(t.von_tag, 'YYYY-MM-DD') as von_tag, to_char(t.von_zeit, 'HH24:MI') as von_zeit,
+	(select coalesce(json_agg(json_build_object('id', tb.id, 'name', tb.name) order by (tm.benutzer_id = t.zustaendig_id) desc nulls last, tm.angelegt, tb.name), '[]'::json)
+		from app.todo_mitarbeiter tm join app.benutzer tb on tb.id = tm.benutzer_id and tb.betrieb_id = tm.betrieb_id
+		where tm.todo_id = t.id and tm.betrieb_id = t.betrieb_id) as mitarbeiter,
 	t.serie_id, s.regel as serie_regel, s.intervall as serie_intervall, to_char(s.ende, 'YYYY-MM-DD') as serie_ende,
 	s.aktiv as serie_aktiv, t.anlage_id, an.bezeichnung as anlage_bezeichnung, nl.angebot_id as nachfass_angebot_id`;
 
@@ -168,6 +242,9 @@ function zuTodo(z: Record<string, any>): Todo {
 		zustaendigName: z.zustaendig_name ?? null,
 		faellig: z.faellig,
 		faelligZeit: z.faellig_zeit ?? null,
+		vonTag: z.von_tag ?? null,
+		vonZeit: z.von_zeit ?? null,
+		mitarbeiter: Array.isArray(z.mitarbeiter) ? z.mitarbeiter : [],
 		erledigt: z.erledigt_am !== null,
 		erledigtAm: z.erledigt_am === null ? null : new Date(z.erledigt_am).toISOString(),
 		serie: z.serie_id
@@ -201,11 +278,17 @@ export async function todoSicht(locals: { nutzer: Nutzer | null }): Promise<Todo
 }
 
 /** Aufträge, an die man Aufgaben hängen darf: alle (mit „Alle Aufträge ansehen“) oder die eigenen. */
-const auftragsSichtAus = (sicht: TodoSicht): Sicht => ({ alle: sicht.auftraegeAlle ?? sicht.alle, benutzerId: sicht.benutzerId });
+export const auftragsSichtAus = (sicht: TodoSicht): Sicht => ({ alle: sicht.auftraegeAlle ?? sicht.alle, benutzerId: sicht.benutzerId });
+
+/** „Aufgabe ist dieser Person zugewiesen“: Zuständiger oder einer der Mitarbeiter der Aufgabe (Alias t). */
+export function todoZugewiesen(tx: TransactionSql, benutzerId: string) {
+	return tx`(coalesce(t.zustaendig_id = ${benutzerId}, false) or exists (
+		select 1 from app.todo_mitarbeiter tm where tm.todo_id = t.id and tm.betrieb_id = t.betrieb_id and tm.benutzer_id = ${benutzerId}))`;
+}
 
 function todoSichtbar(tx: TransactionSql, sicht: Sicht) {
 	if (sicht.alle) return tx`true`;
-	return tx`(t.zustaendig_id = ${sicht.benutzerId} or (a.id is not null and ${sichtbar(tx, { alle: false, benutzerId: sicht.benutzerId })}))`;
+	return tx`(${todoZugewiesen(tx, sicht.benutzerId)} or (a.id is not null and ${sichtbar(tx, { alle: false, benutzerId: sicht.benutzerId })}))`;
 }
 
 async function ladeEines(tx: TransactionSql, k: Kontext, sicht: Sicht, id: string): Promise<Todo> {
@@ -235,18 +318,18 @@ export async function listeTodos(k: Kontext, sicht: Sicht, filter: TodoFilter): 
 	}
 	return mitBetrieb(k, async (tx) => {
 		const z = await tx`
-			select ${tx.unsafe(AUSWAHL)}, coalesce(t.zustaendig_id = ${sicht.benutzerId}, false) as mir_direkt
+			select ${tx.unsafe(AUSWAHL)}, ${todoZugewiesen(tx, sicht.benutzerId)} as mir_direkt
 			from ${tx.unsafe(VON)}
 			where t.betrieb_id = ${k.betriebId}
 				and ${todoSichtbar(tx, sicht)}
 				${filter.auftragId ? tx`and t.auftrag_id = ${filter.auftragId}` : tx``}
 				${nur === 'meine'
-					? tx`and (t.zustaendig_id = ${sicht.benutzerId} or exists (
+					? tx`and (${todoZugewiesen(tx, sicht.benutzerId)} or exists (
 							select 1 from app.auftrag_zustaendige az
 							where az.auftrag_id = t.auftrag_id and az.betrieb_id = t.betrieb_id and az.benutzer_id = ${sicht.benutzerId}))`
 					: tx``}
 				${nur === 'offen' ? tx`and t.erledigt_am is null` : tx``}
-				${filter.zustaendigId ? tx`and t.zustaendig_id = ${filter.zustaendigId}` : tx``}
+				${filter.zustaendigId ? tx`and ${todoZugewiesen(tx, filter.zustaendigId)}` : tx``}
 				${filter.status === 'offen' ? tx`and t.erledigt_am is null` : filter.status === 'erledigt' ? tx`and t.erledigt_am is not null` : tx``}
 			order by (t.erledigt_am is not null), t.faellig asc nulls last, t.angelegt, t.id
 			limit ${MAX_TODOS}`;
@@ -269,6 +352,9 @@ const ALLE = (k: Kontext): TodoSicht => ({ alle: true, benutzerId: k.benutzerId,
 
 export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: Sicht = ALLE(k)): Promise<Todo> {
 	const w = pruefeTodoEingabe(e);
+	// Mehrere Mitarbeiter (Jamil msg 2977); sonst wie bisher der eine Zuständige
+	const mitarbeiter = mitarbeiterListe(e.mitarbeiterIds);
+	if (mitarbeiter !== undefined) w.zustaendigId = mitarbeiter[0] ?? null;
 	const erinnerungen = erinnerungenAusEingabe(e);
 	const wiederholung =
 		e.wiederholung === undefined || e.wiederholung === null || e.wiederholung === ''
@@ -290,6 +376,7 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 			if (!a) throw new ApiFehler(400, 'Der Auftrag wurde nicht gefunden.');
 		}
 		await pruefeZustaendig(tx, k, w.zustaendigId);
+		if (wiederholung && w.vonTag !== null) throw new ApiFehler(400, 'Eine wiederkehrende Aufgabe hat einen Tag, keinen Zeitraum.');
 		// Wiederholung (optional): Serie anlegen; erster Termin = Fälligkeit, ohne Fälligkeit heute
 		let serieId: string | null = null;
 		let faellig = w.faellig;
@@ -302,10 +389,11 @@ export async function legeTodoAn(k: Kontext, e: Record<string, unknown>, sicht: 
 			serieId = s.id;
 		}
 		const [z] = await tx`
-			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, faellig_zeit, lautstaerke, schmutz, serie_id, anlage_id)
+			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, faellig_zeit, von_tag, von_zeit, lautstaerke, schmutz, serie_id, anlage_id)
 			values (${k.betriebId}, ${w.auftragId}, ${w.titel}, ${w.beschreibung}, ${w.zustaendigId}, ${faellig}, ${w.faelligZeit},
-				${w.lautstaerke}, ${w.schmutz}, ${serieId}, ${anlageId})
+				${w.vonTag}, ${w.vonZeit}, ${w.lautstaerke}, ${w.schmutz}, ${serieId}, ${anlageId})
 			returning id`;
+		if (mitarbeiter && mitarbeiter.length > 1) await setzeMitarbeiter(tx, k, z.id, mitarbeiter);
 		// Erinnerungen (Wunsch Jamil msg 2679) für den, der die Aufgabe anlegt
 		if (erinnerungen && erinnerungen.length > 0) {
 			await setzeErinnerungen(tx, k, { todoId: z.id }, erinnerungen, todoFaelligUm(faellig, w.faelligZeit));
@@ -378,9 +466,13 @@ export async function legeTodosAn(
 	k: Kontext,
 	auftragId: string,
 	liste: readonly NeuesTodo[],
-	sicht: Sicht = ALLE(k)
+	sicht: Sicht = ALLE(k),
+	/** Für alle neuen Aufgaben gleich (z. B. „Vorlage übernehmen“): Mitarbeiter und Tag/Zeitraum – sonst ohne. */
+	gemeinsam: { mitarbeiterIds?: unknown; faellig?: unknown; faelligZeit?: unknown; vonTag?: unknown; vonZeit?: unknown } = {}
 ): Promise<Todo[]> {
 	const werte = pruefeTodoListe(liste);
+	const zeit = pruefeZeitraum(gemeinsam);
+	const mitarbeiter = mitarbeiterListe(gemeinsam.mitarbeiterIds) ?? [];
 	const auftrag = idFeld(auftragId, 'Der Auftrag ist ungültig.');
 	if (auftrag === null) throw new ApiFehler(400, 'Der Auftrag ist ungültig.');
 	if (werte.length === 0) return [];
@@ -389,14 +481,18 @@ export async function legeTodosAn(
 			select 1 from app.auftraege a
 			where a.id = ${auftrag} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, auftragsSichtAus(sicht))} for key share of a`;
 		if (!a) throw new ApiFehler(400, 'Der Auftrag wurde nicht gefunden.');
+		for (const m of mitarbeiter) await pruefeZustaendig(tx, k, m);
 		const ids: string[] = [];
 		for (const w of werte) {
 			const [z] = await tx`
-				insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, lautstaerke, schmutz, vorlage_id, vorlage_aufgabe)
-				select ${k.betriebId}, ${auftrag}, ${w.titel}, ${w.beschreibung}, ${w.lautstaerke}, ${w.schmutz}, v.id, case when v.id is null then null else ${w.vorlageAufgabe ?? null}::text end
+				insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, lautstaerke, schmutz, vorlage_id, vorlage_aufgabe,
+					zustaendig_id, faellig, faellig_zeit, von_tag, von_zeit)
+				select ${k.betriebId}, ${auftrag}, ${w.titel}, ${w.beschreibung}, ${w.lautstaerke}, ${w.schmutz}, v.id, case when v.id is null then null else ${w.vorlageAufgabe ?? null}::text end,
+					${mitarbeiter[0] ?? null}::uuid, ${zeit.faellig}::date, ${zeit.faelligZeit}::time, ${zeit.vonTag}::date, ${zeit.vonZeit}::time
 				from (select 1) x left join app.auftrag_vorlagen v on v.id = ${w.vorlageId ?? null}::uuid and v.betrieb_id = ${k.betriebId}
 				returning id`;
 			ids.push(z.id as string);
+			if (mitarbeiter.length > 1) await setzeMitarbeiter(tx, k, z.id as string, mitarbeiter);
 		}
 		const neu: Todo[] = [];
 		for (const id of ids) neu.push(await ladeEines(tx, k, ALLE(k), id));
@@ -419,13 +515,14 @@ export async function aendereTodo(
 	const mitErledigt = Object.hasOwn(e, 'erledigt');
 	const erinnerungen = erinnerungenAusEingabe(e);
 	const mitNacharbeit = Object.hasOwn(e, 'nacharbeit');
-	if (felder.length === 0 && !mitErledigt && !erinnerungen && !mitNacharbeit) throw new ApiFehler(400, 'Nichts zu ändern.');
+	const mitarbeiter = mitarbeiterListe(e.mitarbeiterIds);
+	if (felder.length === 0 && !mitErledigt && !erinnerungen && !mitNacharbeit && mitarbeiter === undefined) throw new ApiFehler(400, 'Nichts zu ändern.');
 	const erledigt = mitErledigt ? erledigtWert(e.erledigt) : null;
 	const nacharbeit = mitNacharbeit ? e.nacharbeit === true || e.nacharbeit === 'true' || e.nacharbeit === 'on' : null;
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
 			select t.titel, t.beschreibung, t.lautstaerke, t.schmutz, t.auftrag_id, t.zustaendig_id, to_char(t.faellig, 'YYYY-MM-DD') as faellig, to_char(t.faellig_zeit, 'HH24:MI') as faellig_zeit, t.erledigt_am,
-				t.serie_id
+				t.serie_id, to_char(t.von_tag, 'YYYY-MM-DD') as von_tag, to_char(t.von_zeit, 'HH24:MI') as von_zeit
 			from ${tx.unsafe(VON)}
 			where t.id = ${id} and t.betrieb_id = ${k.betriebId} and ${todoSichtbar(tx, sicht)} for update of t`;
 		if (!alt) throw nichtGefunden();
@@ -437,17 +534,31 @@ export async function aendereTodo(
 			zustaendigId: alt.zustaendig_id,
 			faellig: alt.faellig,
 			faelligZeit: alt.faellig_zeit,
+			// Altes Formular ohne Zeitraum-Felder: ein vorhandener Zeitraum bleibt, solange er zum Ende passt
+			vonTag: alt.von_tag !== null && (!felder.includes('faellig') || (typeof e.faellig === 'string' && e.faellig >= alt.von_tag)) ? alt.von_tag : null,
+			vonZeit: alt.von_zeit,
 			...Object.fromEntries(felder.map((f) => [f, e[f]]))
 		});
-		if (felder.includes('zustaendigId') && w.zustaendigId !== alt.zustaendig_id) {
+		if (alt.serie_id && w.vonTag !== null) throw new ApiFehler(400, 'Eine wiederkehrende Aufgabe hat einen Tag, keinen Zeitraum.');
+		// Mitarbeiter: ganze Liste (neu) – oder wie bisher nur der Zuständige, der dann den alten in der Liste ersetzt
+		let neueListe: string[] | null = null;
+		if (mitarbeiter !== undefined) {
+			neueListe = mitarbeiter;
+			w.zustaendigId = mitarbeiter[0] ?? null;
+		} else if (felder.includes('zustaendigId') && w.zustaendigId !== alt.zustaendig_id) {
 			await pruefeZustaendig(tx, k, w.zustaendigId);
+			const bisher = (await mitarbeiterVon(tx, k, id)).filter((m) => m !== alt.zustaendig_id && m !== w.zustaendigId);
+			neueListe = w.zustaendigId ? [w.zustaendigId, ...bisher] : bisher;
+			w.zustaendigId = neueListe[0] ?? null;
 		}
 		await tx`
 			update app.todos set titel = ${w.titel}, beschreibung = ${w.beschreibung},
-				lautstaerke = ${w.lautstaerke}, schmutz = ${w.schmutz}, zustaendig_id = ${w.zustaendigId}, faellig = ${w.faellig}, faellig_zeit = ${w.faelligZeit}
+				lautstaerke = ${w.lautstaerke}, schmutz = ${w.schmutz}, faellig = ${w.faellig}, faellig_zeit = ${w.faelligZeit},
+				von_tag = ${w.vonTag}, von_zeit = ${w.vonZeit}
 				${erledigt === null ? tx`` : erledigt ? tx`, erledigt_am = coalesce(erledigt_am, now())` : tx`, erledigt_am = null`}
 				${nacharbeit === null ? tx`` : tx`, nacharbeit = ${nacharbeit}`}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
+		if (neueListe !== null) await setzeMitarbeiter(tx, k, id, neueListe);
 		if (erledigt === true && alt.erledigt_am === null) await naechsteInstanz(tx, k, id);
 		if (erinnerungen) await setzeErinnerungen(tx, k, { todoId: id }, erinnerungen, todoFaelligUm(w.faellig, w.faelligZeit));
 		return ladeEines(tx, k, sicht, id);
@@ -462,10 +573,12 @@ export async function setzeErledigt(k: Kontext, sicht: Sicht, id: string, erledi
 	pruefeId(id);
 	return mitBetrieb(k, async (tx) => {
 		const t = await ladeEines(tx, k, sicht, id);
-		if (t.zustaendigId !== k.benutzerId) throw new ApiFehler(403, 'Nur der Zuständige kann diese Aufgabe abhaken.');
+		if (t.zustaendigId !== k.benutzerId && !t.mitarbeiter.some((m) => m.id === k.benutzerId)) {
+			throw new ApiFehler(403, 'Nur die zugewiesenen Mitarbeiter können diese Aufgabe abhaken.');
+		}
 		await tx`
 			update app.todos set erledigt_am = ${erledigt ? tx`coalesce(erledigt_am, now())` : null}
-			where id = ${id} and betrieb_id = ${k.betriebId} and zustaendig_id = ${k.benutzerId}`;
+			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		if (erledigt && !t.erledigt) await naechsteInstanz(tx, k, id);
 		return ladeEines(tx, k, sicht, id);
 	});
@@ -504,10 +617,18 @@ async function naechsteInstanz(tx: TransactionSql, k: Kontext, todoId: string): 
 	const [aktiv] = t.zustaendig_id
 		? await tx`select 1 from app.benutzer where id = ${t.zustaendig_id} and betrieb_id = ${k.betriebId} and aktiv`
 		: [];
-	await tx`
+	const [neu] = await tx`
 		insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig, lautstaerke, schmutz, serie_id, anlage_id)
 		values (${k.betriebId}, ${t.auftrag_id}, ${t.titel}, ${t.beschreibung}, ${aktiv ? t.zustaendig_id : null}, ${naechster},
-			${t.lautstaerke}, ${t.schmutz}, ${t.serie_id}, ${t.anlage_id})`;
+			${t.lautstaerke}, ${t.schmutz}, ${t.serie_id}, ${t.anlage_id})
+		returning id`;
+	// Weitere (aktive) Mitarbeiter übernehmen
+	await tx`
+		insert into app.todo_mitarbeiter (betrieb_id, todo_id, benutzer_id)
+		select tm.betrieb_id, ${neu.id}, tm.benutzer_id from app.todo_mitarbeiter tm
+		join app.benutzer b on b.id = tm.benutzer_id and b.betrieb_id = tm.betrieb_id and b.aktiv
+		where tm.todo_id = ${todoId} and tm.betrieb_id = ${k.betriebId}
+		on conflict do nothing`;
 }
 
 /** Serie einer Aufgabe beenden (keine neuen Instanzen mehr; bestehende bleiben). Nicht sichtbar → 404. */

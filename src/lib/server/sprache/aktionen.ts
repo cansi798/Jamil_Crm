@@ -37,7 +37,8 @@ export const AKTIONEN = [
 	'abfrage_nachkalkulation',
 	'abfrage_verlust',
 	'portallink_zeigen',
-	'angebot_entscheidung'
+	'angebot_entscheidung',
+	'vorlage_anwenden'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
@@ -83,7 +84,21 @@ export type QuelleDaten = { auftrag: string; quelle: string };
 export type Regel = 'taeglich' | 'woechentlich' | 'monatlich' | 'jaehrlich';
 /** Erinnerung an mich (Wunsch Jamil msgs 2679/2682): Minuten vorher oder fester Zeitpunkt. */
 export type ErinnerungDaten = { vorher_minuten?: number; zeitpunkt?: Zeitangabe };
-export type TodoDaten = { titel: string; zustaendig?: string; faellig?: Zeitangabe; auftrag?: string; wiederholung?: Regel; intervall?: number; erinnerungen?: ErinnerungDaten[] };
+export type TodoDaten = {
+	titel: string;
+	zustaendig?: string;
+	/** Mehrere Mitarbeiter („an Murat und Ali“, Jamil msg 2977) */
+	mitarbeiter?: string[];
+	/** Zeitraum: erster Tag („Montag bis Mittwoch“ → von=montag, faellig=mittwoch) */
+	von?: Zeitangabe;
+	faellig?: Zeitangabe;
+	auftrag?: string;
+	wiederholung?: Regel;
+	intervall?: number;
+	erinnerungen?: ErinnerungDaten[];
+};
+/** „Vorlage Badsanierung auf Auftrag Müller anwenden“ (Jamil msg 2975) */
+export type VorlageAnwendenDaten = { vorlage: string; auftrag: string; alle?: boolean };
 export type ZuweisenDaten = { auftrag: string; mitarbeiter: string[] };
 export type StatusDaten = { auftrag: string; status: 'weiter' | 'anfrage' | 'angebot' | 'beauftragt' | 'in_arbeit' | 'abgenommen' | 'abgerechnet' };
 export type AbhakenDaten = { titel: string; auftrag?: string };
@@ -151,6 +166,7 @@ export type KiAktion =
 	| { aktion: 'abfrage_verlust'; daten: Record<string, never> }
 	| { aktion: 'portallink_zeigen'; daten: { auftrag: string } }
 	| { aktion: 'angebot_entscheidung'; daten: { angebot: string; status: 'angenommen' | 'abgelehnt' } }
+	| { aktion: 'vorlage_anwenden'; daten: VorlageAnwendenDaten }
 	| { aktion: 'unbekannt'; daten: Record<string, never> };
 
 /** Angebotsentwurf der KI: nur Katalogschlüssel, Mengen, Unsicherheit – nie Preise. */
@@ -251,7 +267,9 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		type: 'object',
 		properties: {
 			titel: text(200, 'Was zu tun ist'),
-			zustaendig: text(100, 'Mitarbeiter, der es erledigen soll'),
+			zustaendig: text(100, 'Mitarbeiter, der es erledigen soll (eine Person)'),
+			mitarbeiter: { type: 'array', items: text(100, 'Vorname des Mitarbeiters'), minItems: 2, maxItems: 10, description: 'Nur bei mehreren Mitarbeitern („an Murat und Ali“) statt zustaendig' },
+			von: { ...ZEIT, description: 'Erster Tag bei einem Zeitraum („Montag bis Mittwoch“ → von=montag, faellig=mittwoch) – sonst weglassen' },
 			faellig: ZEIT,
 			auftrag: text(200, 'Auftrag bzw. Kunde, zu dem die Aufgabe gehört'),
 			wiederholung: { type: 'string', enum: ['taeglich', 'woechentlich', 'monatlich', 'jaehrlich'], description: 'Nur bei wiederkehrenden Aufgaben („jede Woche“, „jährlich“)' },
@@ -461,13 +479,23 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		required: ['angebot', 'status'],
 		additionalProperties: false
 	},
+	vorlage_anwenden: {
+		type: 'object',
+		properties: {
+			vorlage: text(200, 'Name der Aufgaben-Vorlage (Auftrags-Vorlage) wie gesprochen, z. B. Badsanierung'),
+			auftrag: text(200, 'Auftrag wie gesprochen (Kundenname, Titel oder Nummer)'),
+			alle: { type: 'boolean', description: 'true nur bei „alle/auch doppelte übernehmen“ – sonst nur fehlende Aufgaben' }
+		},
+		required: ['vorlage', 'auftrag'],
+		additionalProperties: false
+	},
 	unbekannt: { type: 'object', properties: {}, additionalProperties: false }
 };
 
 const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	kunde_anlegen: 'Neuen Kunden anlegen.',
 	auftrag_anlegen: 'Neuen Auftrag anlegen, optional mit Startdatum und eingeplanten Mitarbeitern.',
-	todo_anlegen: 'Neue Aufgabe (Aufgabe) anlegen, optional mit Zuständigem, Fälligkeit und Auftrag.',
+	todo_anlegen: 'Neue Aufgabe (Aufgabe) anlegen, optional mit Mitarbeiter(n), Fälligkeit oder Zeitraum (von … bis) und Auftrag.',
 	einsatz_anlegen: 'Termin/Einsatz von Mitarbeitern bei einem Kunden bzw. Auftrag einplanen.',
 	einsatz_verschieben: 'Bestehenden Termin/Einsatz auf einen anderen Tag oder eine andere Uhrzeit verschieben.',
 	angebot_entwurf: 'Angebotsentwurf für einen Auftrag aus gesprochenen Leistungen erstellen.',
@@ -488,6 +516,8 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	abfrage_verlust: 'Frage beantworten, welche Aufträge Verlust machen („Welche Aufträge machen Verlust?“).',
 	portallink_zeigen: 'Kundenportal eines Auftrags öffnen bzw. Link für den Kunden erzeugen („Kundenportal für Müller“).',
 	angebot_entscheidung: 'Ein versendetes Angebot als angenommen oder abgelehnt eintragen („Angebot Müller ist angenommen“, „Kunde Schmidt hat abgelehnt“).',
+	vorlage_anwenden:
+		'Aufgaben-Vorlage (Auftrags-Vorlage) auf einen bestehenden Auftrag anwenden: ihre Aufgaben kommen zum Auftrag dazu („Vorlage Badsanierung auf Auftrag Müller anwenden“).',
 	buchungslink_zeigen: 'Buchungslink (Online-Buchung) eines Dienstes zeigen bzw. kopieren („Buchungslink für Besichtigung“).',
 	abfrage_nachfassen: 'Frage beantworten, bei welchen Aufträgen/Angeboten das Nachfassen heute fällig oder überfällig ist („Wo muss ich nachfassen?“).',
 	route_heute: 'Route mit den heutigen Terminen anzeigen („Route für heute“, „Zeig mir die Route von Ali“, „Route für Kolonne A“).',

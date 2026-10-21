@@ -4,7 +4,8 @@
 	import { enhance } from '$app/forms';
 	import { REGELN, REGEL_NAMEN } from '$lib/wiederholung';
 	import PersonWahl from './ui/PersonWahl.svelte';
-	import DatumWahl from './ui/DatumWahl.svelte';
+	import ZeitraumWahl from './ZeitraumWahl.svelte';
+	import { personenMitVorschlag } from '$lib/aufgaben';
 	import StufenWahl from './ui/StufenWahl.svelte';
 	import Schalter from './ui/Schalter.svelte';
 	import ErinnerungWahl from './ErinnerungWahl.svelte';
@@ -22,6 +23,7 @@
 		werte = {},
 		mitBelastung = false,
 		standardZustaendig = '',
+		amAuftrag = [],
 		onfertig,
 		onabbrechen
 	}: {
@@ -33,6 +35,8 @@
 		mitBelastung?: boolean;
 		/** Vorgabe für „Zuständig“ (Jamil msg 2811: der angemeldete Benutzer) – änderbar */
 		standardZustaendig?: string;
+		/** Mitarbeiter des Auftrags: stehen in der Auswahl als Vorschlag oben (wählbar ist jeder, Jamil msg 2978) */
+		amAuftrag?: { id: string; name: string }[];
 		/** Eingeklappt (msg 2579): nach erfolgreichem Speichern bzw. „Abbrechen“ wieder zuklappen. */
 		onfertig?: () => void;
 		onabbrechen?: () => void;
@@ -41,8 +45,13 @@
 	// Wiederholen (Wunsch Jamil, msg 2501): täglich/wöchentlich/monatlich/jährlich, „alle N“, optional bis Datum
 	let wiederholen = $state(untrack(() => !!werte.wiederholung));
 	// Beschreibung und Erinnerung sind offen, aber freiwillig (Jamil msg 2809)
-	let zustaendig = $state(untrack(() => werte.zustaendigId ?? standardZustaendig));
+	// Mehrere Mitarbeiter je Aufgabe (Jamil msg 2977)
+	const startListe = () => (werte.mitarbeiterIds ? werte.mitarbeiterIds.split(',').filter(Boolean) : standardZustaendig ? [standardZustaendig] : []);
+	let zustaendige = $state<string[]>(untrack(startListe));
+	const personen = $derived(personenMitVorschlag(mitarbeiter, amAuftrag));
 	let faellig = $state(untrack(() => werte.faellig ?? ''));
+	let vonTag = $state(untrack(() => werte.vonTag ?? ''));
+	let vonZeit = $state(untrack(() => werte.vonZeit ?? ''));
 	let lautstaerke = $state(untrack(() => werte.lautstaerke ?? ''));
 	let schmutz = $state(untrack(() => werte.schmutz ?? ''));
 	let faelligZeit = $state(untrack(() => werte.faelligZeit ?? ''));
@@ -57,8 +66,8 @@
 	use:enhance={() => async ({ result, update }) => {
 		await update();
 		if (result.type === 'success') {
-			faellig = lautstaerke = schmutz = faelligZeit = '';
-			zustaendig = standardZustaendig;
+			faellig = lautstaerke = schmutz = faelligZeit = vonTag = vonZeit = '';
+			zustaendige = standardZustaendig ? [standardZustaendig] : [];
 			wiederholen = false;
 			formNr++;
 			onfertig?.();
@@ -88,14 +97,9 @@
 	{/key}
 
 	<div class="ui-neu-meta" role="group" aria-label="Details zur Aufgabe">
-		<PersonWahl name="zustaendigId" personen={mitarbeiter} bind:wert={zustaendig} />
-		<DatumWahl name="faellig" bind:wert={faellig} />
-		{#if faellig}
-			<label class="td-zeit">
-				<span class="kd-unsichtbar-text">Uhrzeit</span>
-				<input type="time" name="faelligZeit" bind:value={faelligZeit} aria-label="Uhrzeit (optional)" step="300" />
-			</label>
-		{/if}
+		<input type="hidden" name="mitarbeiterFeld" value="1" />
+		<PersonWahl name="mitarbeiterIds" mehrfach label="Mitarbeiter" leerText="Nicht zugewiesen" {personen} bind:werte={zustaendige} />
+		<ZeitraumWahl bind:faellig bind:faelligZeit bind:vonTag bind:vonZeit nurTag={wiederholen} />
 		{#if mitBelastung}
 			<StufenWahl name="lautstaerke" label="Lautstärke" bind:wert={lautstaerke} />
 			<StufenWahl name="schmutz" label="Schmutz" bind:wert={schmutz} />
@@ -140,17 +144,6 @@
 </form>
 
 <style>
-	.td-zeit input {
-		min-height: 2.5rem;
-		width: auto !important;
-	}
-	.kd-unsichtbar-text {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-	}
 	.td-erinnern {
 		display: flex;
 		flex-wrap: wrap;

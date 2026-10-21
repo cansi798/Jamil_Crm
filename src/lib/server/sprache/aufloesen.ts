@@ -308,7 +308,12 @@ async function todoAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { ak
 	bau.werte.titel = d.titel;
 	bau.zeilen.push({ label: 'Aufgabe', wert: d.titel });
 	bau.werte.zustaendigId = null;
-	if (d.zustaendig) {
+	if (d.mitarbeiter && d.mitarbeiter.length > 0) {
+		// Mehrere Mitarbeiter (Jamil msg 2977) – jeder Mitarbeiter des Betriebs (msg 2978)
+		const alle = await aktiveMitarbeiter(k);
+		bau.werte.mitarbeiterIds = mitarbeiterAufloesen(bau, alle, d.mitarbeiter, nutzer.id);
+		bau.zeilen.push({ label: 'Mitarbeiter', wert: mitarbeiterText(alle, bau.werte.mitarbeiterIds, d.mitarbeiter) });
+	} else if (d.zustaendig) {
 		const alle = await aktiveMitarbeiter(k);
 		const [id] = mitarbeiterAufloesen(bau, alle, [d.zustaendig], nutzer.id);
 		// Auswahl heißt bei Aufgaben „zustaendig“
@@ -316,10 +321,24 @@ async function todoAnlegen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { ak
 		bau.werte.zustaendigId = id;
 		bau.zeilen.push({ label: 'Zuständig', wert: mitarbeiterText(alle, [id], [d.zustaendig]) });
 	}
-	const faellig = d.faellig ? loeseTag(d.faellig, jetzt) : null;
+	let faellig = d.faellig ? loeseTag(d.faellig, jetzt) : null;
+	let vonTag = d.von ? loeseTag(d.von, jetzt) : null;
+	if (vonTag && !faellig) [faellig, vonTag] = [vonTag, null];
+	// „Freitag bis Dienstag“: das Ende ist der Wochentag NACH dem Beginn
+	while (vonTag && faellig && faellig < vonTag && d.faellig?.tag === 'wochentag') faellig = tagPlus(faellig, 7);
+	if (vonTag && faellig && vonTag > faellig) bau.fehlt.push('Zeitraum: Der Beginn liegt nach dem Ende.');
+	if (vonTag === faellig) vonTag = null;
 	bau.werte.faellig = faellig;
 	bau.werte.faelligZeit = faellig && d.faellig?.uhrzeit ? d.faellig.uhrzeit : null;
-	if (faellig) bau.zeilen.push({ label: 'Fällig', wert: `${tagLang(faellig)}${bau.werte.faelligZeit ? `, ${bau.werte.faelligZeit} Uhr` : ''}` });
+	bau.werte.vonTag = vonTag;
+	bau.werte.vonZeit = vonTag && d.von?.uhrzeit ? d.von.uhrzeit : null;
+	if (vonTag && faellig) {
+		bau.zeilen.push({
+			label: 'Zeitraum',
+			wert: `${tagLang(vonTag)}${bau.werte.vonZeit ? `, ${bau.werte.vonZeit} Uhr` : ''} – ${tagLang(faellig)}${bau.werte.faelligZeit ? `, ${bau.werte.faelligZeit} Uhr` : ''}`
+		});
+		if (d.wiederholung) bau.fehlt.push('Eine wiederkehrende Aufgabe hat einen Tag, keinen Zeitraum.');
+	} else if (faellig) bau.zeilen.push({ label: 'Fällig', wert: `${tagLang(faellig)}${bau.werte.faelligZeit ? `, ${bau.werte.faelligZeit} Uhr` : ''}` });
 	erinnerungenAufloesen(bau, nutzer, d.erinnerungen, faellig ? ausTagUndUhrzeit(faellig, bau.werte.faelligZeit ?? '08:00') : null, jetzt);
 	if (d.wiederholung) {
 		const { regelText } = await import('../../wiederholung');
@@ -628,6 +647,42 @@ async function auftragAufloesen(bau: Bau, k: Kontext, nutzer: Nutzer, text: stri
 	}
 }
 
+/** „Vorlage Badsanierung auf Auftrag Müller anwenden“ (Jamil msg 2975): Vorlage + Auftrag, Vorschau mit Doppelten. */
+async function vorlageAnwenden(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'vorlage_anwenden' }>['daten']): Promise<Bau> {
+	const bau = neuerBau();
+	await auftragAufloesen(bau, k, nutzer, d.auftrag, false);
+	const { listeVorlagenMitAufgaben } = await import('../auftrag-vorlagen');
+	const { vorlageAufteilen } = await import('../../aufgaben');
+	const vorlagen = (await listeVorlagenMitAufgaben(k)).filter((v) => v.todos.length > 0);
+	const gesprochen = d.vorlage.replace(/\b(?:aufgaben-?|auftrags-?)?vorlagen?\b/gi, ' ').trim();
+	const treffer = passendeVorlagen(vorlagen, gesprochen);
+	bau.werte.vorlageId = null;
+	bau.werte.modus = d.alle ? 'alle' : 'fehlende';
+	if (treffer.length === 1) {
+		const v = treffer[0];
+		bau.werte.vorlageId = v.id;
+		bau.zeilen.push({ label: 'Vorlage', wert: `${v.name} (${v.todos.length} ${v.todos.length === 1 ? 'Aufgabe' : 'Aufgaben'})` });
+		if (bau.werte.auftragId) {
+			const { listeTodos, todoSichtVon } = await import('../todos');
+			const vorhanden = (await listeTodos(k, todoSichtVon(nutzer), { auftragId: bau.werte.auftragId })).map((t) => t.titel);
+			const { neu, doppelt } = vorlageAufteilen(v.todos, vorhanden, bau.werte.modus);
+			if (neu.length === 0) bau.fehlt.push('Alle Aufgaben der Vorlage gibt es am Auftrag schon.');
+			else bau.zeilen.push({ label: 'Neue Aufgaben', wert: neu.map((t) => t.titel).join(', ') });
+			if (doppelt.length > 0 && bau.werte.modus === 'fehlende') {
+				bau.warnungen.push(`${doppelt.length} schon vorhanden – werden übersprungen (${doppelt.map((t) => t.titel).join(', ')}). Mit „alle“ kommen sie trotzdem dazu.`);
+			} else if (doppelt.length > 0) bau.warnungen.push(`${doppelt.length} gibt es schon – sie kommen doppelt dazu.`);
+		}
+	} else if (treffer.length > 1) {
+		bau.auswahl.push({ feld: 'vorlage', frage: 'Welche Aufgaben-Vorlage?', optionen: treffer.slice(0, 8).map((v) => ({ id: v.id, label: `${v.name} (${v.todos.length})` })) });
+		bau.zeilen.push({ label: 'Vorlage', wert: `${d.vorlage} (bitte wählen)` });
+	} else {
+		bau.fehlt.push(vorlagen.length === 0 ? 'Es gibt noch keine Aufgaben-Vorlage (Vorlagen → Auftrags-Vorlagen).' : `Keine Aufgaben-Vorlage „${d.vorlage}“ gefunden.`);
+		bau.zeilen.push({ label: 'Vorlage', wert: `${d.vorlage} (nicht gefunden)` });
+	}
+	bau.warnungen.push('Die neuen Aufgaben sind nicht zugewiesen und ohne Datum – bitte danach am Auftrag einteilen.');
+	return bau;
+}
+
 async function mitarbeiterZuweisen(k: Kontext, nutzer: Nutzer, d: Extract<KiAktion, { aktion: 'mitarbeiter_zuweisen' }>['daten']): Promise<Bau> {
 	const bau = neuerBau();
 	await auftragAufloesen(bau, k, nutzer, d.auftrag, false);
@@ -873,7 +928,8 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_nachkalkulation: 'Nachkalkulation',
 	abfrage_verlust: 'Aufträge mit Verlust',
 	portallink_zeigen: 'Kundenportal',
-	angebot_entscheidung: 'Angebot entschieden'
+	angebot_entscheidung: 'Angebot entschieden',
+	vorlage_anwenden: 'Aufgaben-Vorlage übernehmen'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -897,6 +953,7 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 			return `/plantafel${q({ tag: werte.nachTag })}`;
 		case 'angebot_entwurf':
 		case 'protokoll_ausfuellen':
+		case 'vorlage_anwenden':
 		case 'mitarbeiter_zuweisen':
 		case 'status_aendern':
 		case 'quelle_setzen':
@@ -973,6 +1030,9 @@ export async function loeseAuf(
 				break;
 			case 'angebot_entscheidung':
 				bau = await angebotEntscheidung(k, nutzer, aktion.daten);
+				break;
+			case 'vorlage_anwenden':
+				bau = await vorlageAnwenden(k, nutzer, aktion.daten);
 				break;
 		}
 	} catch (e) {

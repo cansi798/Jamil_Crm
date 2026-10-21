@@ -185,6 +185,11 @@ export function sichtbar(tx: TransactionSql, sicht: Sicht) {
 			where t.auftrag_id = a.id and t.betrieb_id = a.betrieb_id and t.zustaendig_id = ${sicht.benutzerId}
 		)
 		or exists (
+			-- Mitarbeiter einer Aufgabe (mehrere je Aufgabe, Jamil msgs 2977/2978)
+			select 1 from app.todo_mitarbeiter tm join app.todos t on t.id = tm.todo_id and t.betrieb_id = tm.betrieb_id
+			where t.auftrag_id = a.id and t.betrieb_id = a.betrieb_id and tm.benutzer_id = ${sicht.benutzerId}
+		)
+		or exists (
 			select 1 from app.einsaetze e
 			where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id and e.benutzer_id = ${sicht.benutzerId}
 		)

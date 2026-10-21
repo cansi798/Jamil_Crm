@@ -68,7 +68,7 @@ export async function loeseAuf(token: unknown, ip: string): Promise<PortalKontex
 
 export type PortalTermin = { tag: string; von: string; bis: string; art: string; mitarbeiter: string[] };
 /** Arbeitsschritt fürs Portal: Aufgabe des Auftrags mit Lautstärke/Schmutz (1 gering … 3 hoch) – ohne Beschreibung. */
-export type PortalSchritt = { titel: string; erledigt: boolean; tag: string | null; laerm: number | null; schmutz: number | null };
+export type PortalSchritt = { titel: string; erledigt: boolean; tag: string | null; vonTag: string | null; laerm: number | null; schmutz: number | null };
 export type PortalAngebot = { id: string; nummer: string; datum: string; gueltigBis: string; status: string; bruttoCent: number; annehmbar: boolean; entscheidung: { art: string; name: string; zeit: string } | null };
 export type PortalAuftrag = {
 	id: string;
@@ -182,10 +182,10 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		// für den Kunden einstuft; interne Aufgaben (Nachfassen, Material bestellen …) bleiben so unsichtbar.
 		const schritte = a.f_status && MIT_SCHRITTEN.has(a.status)
 			? await tx`
-				select t.titel, t.erledigt_am is not null as erledigt, to_char(t.faellig, 'YYYY-MM-DD') as tag, t.lautstaerke, t.schmutz
+				select t.titel, t.erledigt_am is not null as erledigt, to_char(t.faellig, 'YYYY-MM-DD') as tag, to_char(t.von_tag, 'YYYY-MM-DD') as von_tag, t.lautstaerke, t.schmutz
 				from app.todos t
 				where t.betrieb_id = ${p.betriebId} and t.auftrag_id = ${id} and (t.lautstaerke is not null or t.schmutz is not null)
-				order by t.faellig nulls last, t.angelegt, t.id limit 40`
+				order by coalesce(t.von_tag, t.faellig) nulls last, t.faellig nulls last, t.angelegt, t.id limit 40`
 			: null;
 		// Ansprechpartner: Zuständige des Auftrags (sonst das Büro) – Team: Zuständige + Mitarbeiter kommender Termine
 		let ansprechpartner: string | null = null;
@@ -238,7 +238,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			auftragsbestaetigungen: abs.map((x) => ({ id: x.id, nummer: x.nummer, datum: new Date(x.angelegt).toISOString() })),
 			links: links.map((l) => ({ titel: l.titel, url: l.url })),
 			schritte: schritte
-				? schritte.map((t) => ({ titel: t.titel, erledigt: t.erledigt, tag: t.tag, laerm: t.lautstaerke ?? null, schmutz: t.schmutz ?? null }))
+				? schritte.map((t) => ({ titel: t.titel, erledigt: t.erledigt, tag: t.tag, vonTag: t.von_tag ?? null, laerm: t.lautstaerke ?? null, schmutz: t.schmutz ?? null }))
 				: null,
 			ansprechpartner,
 			team

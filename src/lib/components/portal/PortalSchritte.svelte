@@ -7,7 +7,7 @@
 	 * sichtbar setzen, und je Schritt Lautstärke und Schmutz (gering/mittel/hoch) mit freundlichen Symbolen – damit
 	 * der Kunde planen kann (z. B. Homeoffice an lauten Tagen woanders).
 	 */
-	type Schritt = { titel: string; erledigt: boolean; tag: string | null; laerm: number | null; schmutz: number | null };
+	type Schritt = { titel: string; erledigt: boolean; tag: string | null; vonTag?: string | null; laerm: number | null; schmutz: number | null };
 	let { schritte }: { schritte: Schritt[] } = $props();
 
 	const fertig = $derived(schritte.filter((s) => s.erledigt).length);
@@ -31,7 +31,7 @@
 				</span>
 				<span class="ps-text">
 					<span class="ps-titel">{s.titel}<span class="unsichtbar"> – {s.erledigt ? 'erledigt' : 'offen'}</span></span>
-					{#if s.tag}<span class="ps-tag">{s.erledigt ? 'erledigt' : 'geplant'} · {tagKurz(s.tag)}</span>{/if}
+					{#if s.tag}<span class="ps-tag">{s.erledigt ? 'erledigt' : 'geplant'} · {s.vonTag ? `${tagKurz(s.vonTag)} – ${tagKurz(s.tag)}` : tagKurz(s.tag)}</span>{/if}
 				</span>
 				<span class="ps-pegel">
 					{#if s.laerm}

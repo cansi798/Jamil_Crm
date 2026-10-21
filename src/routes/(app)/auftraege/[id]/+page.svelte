@@ -9,6 +9,7 @@
 	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
+	import VorlageAnwenden from '$lib/components/VorlageAnwenden.svelte';
 	import AuftragLinks from '$lib/components/AuftragLinks.svelte';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import AuftragPartner from '$lib/components/AuftragPartner.svelte';
@@ -394,21 +395,47 @@
 					{#if form?.todoFehler && !form?.todoWerte}
 						<p role="alert" class="kd-fehler">{form.fehler}</p>
 					{/if}
+					{#if form?.vorlageErgebnis}
+						<p class="kd-info" role="status">
+							Vorlage „{form.vorlageErgebnis.name}“ übernommen: {form.vorlageErgebnis.angelegt}
+							{form.vorlageErgebnis.angelegt === 1 ? 'Aufgabe' : 'Aufgaben'} hinzugefügt{form.vorlageErgebnis.uebersprungen.length > 0
+								? `, ${form.vorlageErgebnis.uebersprungen.length} schon vorhanden (übersprungen)`
+								: ''}.
+						</p>
+					{/if}
 					{#if data.darfBearbeiten}
-						<AddPanel label="Aufgabe hinzufügen" offen={!!form?.todoWerte}>
-							{#snippet children(schliessen)}
-								<TodoNeu
-									mitBelastung
-									aktion="?/todoAnlegen"
-									mitarbeiter={data.mitarbeiter}
-									standardZustaendig={data.benutzerId}
-									fehler={form?.todoWerte ? form.fehler : null}
-									werte={form?.todoWerte ?? {}}
-									onfertig={schliessen}
-									onabbrechen={schliessen}
-								/>
-							{/snippet}
-						</AddPanel>
+						<div class="todo-hinzu">
+							<AddPanel label="Aufgabe hinzufügen" offen={!!form?.todoWerte}>
+								{#snippet children(schliessen)}
+									<TodoNeu
+										mitBelastung
+										aktion="?/todoAnlegen"
+										mitarbeiter={data.mitarbeiter}
+										amAuftrag={a.zustaendige}
+										standardZustaendig={data.benutzerId}
+										fehler={form?.todoWerte ? form.fehler : null}
+										werte={form?.todoWerte ?? {}}
+										onfertig={schliessen}
+										onabbrechen={schliessen}
+									/>
+								{/snippet}
+							</AddPanel>
+							{#if data.aufgabenVorlagen.length > 0}
+								<AddPanel label="Aus Vorlage übernehmen" offen={!!form?.vorlageFehler}>
+									{#snippet children(schliessen)}
+										<VorlageAnwenden
+											vorlagen={data.aufgabenVorlagen}
+											vorhandeneTitel={data.todos.map((t) => t.titel)}
+											mitarbeiter={data.mitarbeiter}
+											amAuftrag={a.zustaendige}
+											fehler={form?.vorlageFehler ? form.fehler : null}
+											onfertig={schliessen}
+											onabbrechen={schliessen}
+										/>
+									{/snippet}
+								</AddPanel>
+							{/if}
+						</div>
 					{/if}
 					<TodoListe
 						todos={data.todos}
@@ -416,6 +443,7 @@
 						benutzerId={data.benutzerId}
 						darfBearbeiten={data.darfBearbeiten}
 						mitarbeiter={data.mitarbeiter}
+						amAuftrag={a.zustaendige}
 						aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen', serieBeenden: '?/todoSerieBeenden' }}
 						leer="Noch keine Aufgaben zu diesem Auftrag."
 					/>
@@ -849,6 +877,15 @@
 </main>
 
 <style>
+	/* „Aufgabe hinzufügen“ und „Aus Vorlage übernehmen“ nebeneinander; ein geöffnetes Feld nimmt die ganze Breite */
+	.todo-hinzu {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0 0.5rem;
+	}
+	.todo-hinzu :global(.add-panel.offen) {
+		flex: 1 1 100%;
+	}
 	.af-buchung p {
 		margin: 0 0 0.5rem;
 		line-height: 1.6;

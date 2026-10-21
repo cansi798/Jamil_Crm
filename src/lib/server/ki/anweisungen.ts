@@ -42,6 +42,9 @@ export function systemAktion(k: KiKontext): string {
 		'- „Angebot Müller ist angenommen“, „Kunde Schmidt hat das Angebot abgelehnt“: angebot_entscheidung (status angenommen|abgelehnt).',
 		'- Zeiterfassung (Start/Pause/Fertig, Fahrt, Material) geht nur über die Knöpfe – dafür unbekannt aufrufen.',
 		'- „Aufgabe“ und „To-do“ bedeuten dasselbe (todo_anlegen, todo_abhaken).',
+		'- „Aufgabe Fliesen legen bei Müller an Murat, Montag bis Mittwoch“: todo_anlegen mit auftrag=Müller, zustaendig=Murat, von={tag:wochentag,wochentag:montag},',
+		'  faellig={tag:wochentag,wochentag:mittwoch}. Mehrere Personen („an Murat und Ali“): mitarbeiter statt zustaendig.',
+		'- „Vorlage Badsanierung auf Auftrag Müller anwenden/übernehmen“: vorlage_anwenden (alle=true nur bei „alle“/„auch doppelte“).',
 		'- Wenn keine Aktion passt (andere Fragen, Rechnungen, Löschen, …), rufe unbekannt auf.'
 	].join('\n');
 }

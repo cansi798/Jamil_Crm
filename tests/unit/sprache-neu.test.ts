@@ -90,4 +90,35 @@ describe('Sprache: neue Aktionen (Ersatz-KI)', () => {
 		expect(() => pruefeAktion({ aktion: 'anlage_anlegen', daten: { kunde: { name: 'x' }, typ: 'atom' } })).toThrow();
 		expect(() => pruefeAktion({ aktion: 'abfrage_tagesplan', daten: { zeitraum: 'jahr' } })).toThrow();
 	});
+
+	it('Aufgabe mit Mitarbeiter und Zeitraum (Jamil msg 2977)', async () => {
+		const a = await deute('Aufgabe Fliesen legen bei Müller an Murat, Montag bis Mittwoch');
+		expect(a).toEqual({
+			aktion: 'todo_anlegen',
+			daten: {
+				titel: 'Fliesen legen',
+				zustaendig: 'Murat',
+				auftrag: 'Müller',
+				von: { tag: 'wochentag', wochentag: 'montag' },
+				faellig: { tag: 'wochentag', wochentag: 'mittwoch' }
+			}
+		});
+		expect(() => pruefeAktion(a)).not.toThrow();
+		const b = await deute('Aufgabe Silikon fugen an Murat und Ali, vom 20.10. bis 22.10.');
+		expect(b).toMatchObject({
+			aktion: 'todo_anlegen',
+			daten: { titel: 'Silikon fugen', mitarbeiter: ['Murat', 'Ali'], von: { tag: 'datum', datum: '2026-10-20' }, faellig: { tag: 'datum', datum: '2026-10-22' } }
+		});
+		expect(() => pruefeAktion(b)).not.toThrow();
+	});
+
+	it('Aufgaben-Vorlage auf einen Auftrag anwenden (Jamil msg 2975)', async () => {
+		const a = await deute('Vorlage Badsanierung auf Auftrag Müller anwenden');
+		expect(a).toEqual({ aktion: 'vorlage_anwenden', daten: { vorlage: 'Badsanierung', auftrag: 'Müller' } });
+		expect(() => pruefeAktion(a)).not.toThrow();
+		expect(await deute('Wende die Vorlage Wartung Heizung auf Schulz an, alle')).toEqual({
+			aktion: 'vorlage_anwenden',
+			daten: { vorlage: 'Wartung Heizung', auftrag: 'Schulz', alle: true }
+		});
+	});
 });

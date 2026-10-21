@@ -307,7 +307,7 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 		expect(zeile(k, 'Zuständig')).toBe('Mehmet Kaya');
 		expect(zeile(k, 'Fällig')).toBe(`Freitag, ${deutsch(naechster(4))}`);
 		const v = pruefeVorschlag(a.koerper.vorschlag, u.ids.bueroA, u.betriebA).vorschau;
-		expect(v.werte).toEqual({ titel: 'Silikonfuge erneuern', zustaendigId: mehmetId, faellig: naechster(4), faelligZeit: null, auftragId: null });
+		expect(v.werte).toEqual({ titel: 'Silikonfuge erneuern', zustaendigId: mehmetId, faellig: naechster(4), faelligZeit: null, vonTag: null, vonZeit: null, auftragId: null });
 	});
 
 	it('Termin bei Becker morgen 8 Uhr mit Ali → Einsatz 08:00–16:00', async () => {

@@ -80,10 +80,12 @@ export async function tagesplan(
 				order by e.beginn, e.id
 				limit 50`;
 		const todos = await tx`
-			select t.id, t.titel, to_char(t.faellig, 'YYYY-MM-DD') as faellig, t.auftrag_id, t.nachfass_id, nl.angebot_id
+			select t.id, t.titel, to_char(t.faellig, 'YYYY-MM-DD') as faellig, to_char(t.von_tag, 'YYYY-MM-DD') as von_tag, t.auftrag_id, t.nachfass_id, nl.angebot_id
 			from app.todos t
 			left join app.nachfass_laeufe nl on nl.id = t.nachfass_id and nl.betrieb_id = t.betrieb_id
-			where t.betrieb_id = ${k.betriebId} and t.zustaendig_id = ${personId} and t.erledigt_am is null
+			where t.betrieb_id = ${k.betriebId} and t.erledigt_am is null
+				and (t.zustaendig_id = ${personId} or exists (
+					select 1 from app.todo_mitarbeiter tm where tm.todo_id = t.id and tm.betrieb_id = t.betrieb_id and tm.benutzer_id = ${personId}))
 				and t.faellig is not null
 				and ${opts.nurUeberfaellig ? tx`t.faellig < ${heute}::date` : tx`t.faellig <= ${z.bis}::date`}
 			order by t.faellig, t.titel
@@ -101,7 +103,13 @@ export async function tagesplan(
 			};
 		});
 		const zuTodo = (t: Record<string, any>): PlanEintrag => ({
-			zeit: t.faellig < heute ? `überfällig seit ${tagDeutsch(t.faellig).slice(0, 6)}` : t.faellig === heute ? 'heute' : tagDeutsch(t.faellig).slice(0, 6),
+			zeit: t.faellig < heute
+				? `überfällig seit ${tagDeutsch(t.faellig).slice(0, 6)}`
+				: t.von_tag
+					? `${tagDeutsch(t.von_tag).slice(0, 6)}–${tagDeutsch(t.faellig).slice(0, 6)}`
+					: t.faellig === heute
+						? 'heute'
+						: tagDeutsch(t.faellig).slice(0, 6),
 			titel: t.titel,
 			ort: null,
 			link: t.angebot_id ? `/angebote/${t.angebot_id}#nachfassen` : t.auftrag_id ? `/auftraege/${t.auftrag_id}` : '/todos',

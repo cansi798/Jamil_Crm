@@ -392,6 +392,8 @@ export function deute(text: string, kontext: KiKontext): { aktion: string; daten
 		const wer = kolonne ? `Kolonne ${kolonne[1]}` : person && istNamensWort(person[1]) ? person[1] : undefined;
 		return { aktion: 'abfrage_auslastung', daten: { ...(wer ? { wer } : {}), ...(monat ? { monat } : {}) } };
 	}
+	// „Vorlage Badsanierung auf Auftrag Müller anwenden“ (Jamil msg 2975)
+	if (/\bvorlage\b/.test(l) && /\b(anwenden|anwende|wende|übernehmen|übernimm|übernehme)\b/.test(l) && !/protokoll/.test(l)) return vorlageAnwenden(t);
 	if (istFrage(text, l)) return abfrage(t, kontext);
 	if (/\bnachfass/.test(l) && /\b(wo|wer|welche[nrs]?|was|muss|müssen|fällig|faellig|steht|stehen|anstehend\w*)\b/.test(l) && !/\b(pausier\w*|stopp\w*|anhalten|fortsetz\w*|aufnehm\w*)\b/.test(l))
 		return { aktion: 'abfrage_nachfassen', daten: {} };
@@ -549,6 +551,24 @@ function quelleAus(t: string): { quelle: string; rest: string } | null {
 	return { quelle, rest: t.replace(m[0], ' ') };
 }
 
+/** „Vorlage Badsanierung auf Auftrag Müller anwenden“, „Wende die Vorlage Bad auf Müller an“. */
+function vorlageAnwenden(t: string): { aktion: string; daten: Record<string, unknown> } {
+	const ohneVerb = t
+		.replace(/[,;]?\s*\b(?:alle|auch\s+doppelte)\b/gi, ' ')
+		.replace(/[\s,.!]+$/, '')
+		.replace(/^\s*(?:bitte\s+)?(?:wende|übernimm|übernehme)\s+/i, '')
+		.replace(/\s+(?:anwenden|übernehmen|an)$/i, '');
+	const m = /\b(?:aufgaben-?|auftrags-?)?vorlage\s+(.+?)\s+(?:auf|für|bei|beim|zum|zu)\s+(?:den\s+|dem\s+|die\s+)?(?:auftrag\s+)?(.+)$/i.exec(ohneVerb);
+	return {
+		aktion: 'vorlage_anwenden',
+		daten: {
+			vorlage: m ? sauber(m[1].replace(/^(?:die|der|das)\s+/i, '')) : '?',
+			auftrag: m ? sauber(m[2]) : '?',
+			...(/\b(?:alle|auch\s+doppelte)\b/i.test(t) ? { alle: true } : {})
+		}
+	};
+}
+
 function quelleSetzen(t: string): { aktion: string; daten: Record<string, unknown> } {
 	const auf = /\bauf\s+(?:die\s+|den\s+)?([A-ZÄÖÜa-zäöüß][\wäöüß-]+)\s*$/i.exec(t);
 	const q = auf ? { quelle: auf[1][0].toUpperCase() + auf[1].slice(1) } : quelleAus(t);
@@ -688,9 +708,21 @@ function todo(t: string, kontext: KiKontext): { aktion: string; daten: Record<st
 		if (wdh.intervall > 1) daten.intervall = wdh.intervall;
 		rest = wdh.rest;
 	}
+	// Zeitraum: „Montag bis Mittwoch“, „vom 20.10. bis 22.10.“ (Jamil msg 2977)
+	const TAG_WORT = `(?:nächsten\\s+|kommenden\\s+)?(?:${WOCHENTAGE.join('|')}|übermorgen|morgen|heute|\\d{1,2}\\.\\s?\\d{1,2}\\.?(?:\\d{2,4})?)`;
+	const spanne = new RegExp(`(?:\\b(?:von|vom|ab)\\s+)?\\b(${TAG_WORT})\\s+bis\\s+(?:zum\\s+|einschließlich\\s+)?(${TAG_WORT})`, 'i').exec(rest);
+	if (spanne) {
+		const von = zeitangabe(spanne[1], kontext);
+		const ende = zeitangabe(spanne[2], kontext);
+		if (von && ende) {
+			daten.von = { tag: von.tag, ...(von.wochentag ? { wochentag: von.wochentag } : {}), ...(von.datum ? { datum: von.datum } : {}) };
+			daten.faellig = { tag: ende.tag, ...(ende.wochentag ? { wochentag: ende.wochentag } : {}), ...(ende.datum ? { datum: ende.datum } : {}) };
+			rest = rest.replace(spanne[0], ' ');
+		}
+	}
 	// Fälligkeit: „bis Freitag“, „bis morgen“, „am 23.10.“, sonst eine Tagesangabe irgendwo
-	const bis = new RegExp(`\\b(?:bis|bis zum|am|zum|für)\\s+((?:nächsten\\s+|kommenden\\s+)?(?:${WOCHENTAGE.join('|')}|übermorgen|morgen|heute|\\d{1,2}\\.\\s?\\d{1,2}\\.?(?:\\d{2,4})?|\\d{1,2}\\.\\s+\\w+)(?:\\s+(?:um\\s+)?\\d{1,2}(?::\\d{2})?\\s*uhr)?)`, 'i').exec(rest);
-	const f = zeitangabe(bis ? bis[1] : rest, kontext);
+	const bis = daten.von ? null : new RegExp(`\\b(?:bis|bis zum|am|zum|für)\\s+((?:nächsten\\s+|kommenden\\s+)?(?:${WOCHENTAGE.join('|')}|übermorgen|morgen|heute|\\d{1,2}\\.\\s?\\d{1,2}\\.?(?:\\d{2,4})?|\\d{1,2}\\.\\s+\\w+)(?:\\s+(?:um\\s+)?\\d{1,2}(?::\\d{2})?\\s*uhr)?)`, 'i').exec(rest);
+	const f = daten.von ? undefined : zeitangabe(bis ? bis[1] : rest, kontext);
 	if (f) daten.faellig = { tag: f.tag, ...(f.wochentag ? { wochentag: f.wochentag } : {}), ...(f.datum ? { datum: f.datum } : {}), ...(f.uhrzeit ? { uhrzeit: f.uhrzeit } : {}) };
 	if (bis) rest = rest.replace(bis[0], ' ');
 	rest = ohneZeit(rest);
@@ -719,10 +751,22 @@ function todo(t: string, kontext: KiKontext): { aktion: string; daten: Record<st
 	} else {
 		rest = rest.replace(/^.*?\b(?:todo|aufgabe)\b\s*(?:anlegen)?\s*[:,]?/i, '');
 	}
+	// „… an Murat“ / „… an Murat und Ali“: Mitarbeiter (Jamil msg 2977)
+	const an = /\s(?:an|für)\s+([A-ZÄÖÜ][\wäöüß-]+(?:\s*(?:,|und)\s*[A-ZÄÖÜ][\wäöüß-]+)*)\s*(?:[,.]|$)/.exec(rest);
+	const anNamen = an ? (namensListe(an[1]) ?? (istNamensWort(an[1]) ? [an[1]] : null)) : null;
+	if (an && anNamen && !daten.zustaendig) {
+		if (anNamen.length === 1) daten.zustaendig = anNamen[0];
+		else daten.mitarbeiter = anNamen;
+		rest = rest.replace(an[0], ' ');
+	}
 	const auftragsBezug = /\b(?:zum|für den|beim)\s+auftrag\s+(.+)$/i.exec(rest);
+	const beiKunde = /\s(?:bei|beim)\s+(?:(?:herrn?|frau|familie|firma|kunde|kunden)\s+)?([A-ZÄÖÜ][\wäöüß-]+)/.exec(rest);
 	if (auftragsBezug) {
 		daten.auftrag = sauber(auftragsBezug[1]);
 		rest = rest.replace(auftragsBezug[0], ' ');
+	} else if (beiKunde && istNamensWort(beiKunde[1])) {
+		daten.auftrag = beiKunde[1];
+		rest = rest.replace(beiKunde[0], ' ');
 	}
 	daten.titel = grossAnfang(sauber(rest.replace(/^\s*(?:neues|neue|ein|eine)\s+/i, ''))) || 'Aufgabe';
 	return { aktion: 'todo_anlegen', daten };

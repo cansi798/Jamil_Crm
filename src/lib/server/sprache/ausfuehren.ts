@@ -133,6 +133,9 @@ async function ausfuehrenJe(
 					zustaendigId: w.zustaendigId ?? null,
 					faellig: w.faellig ?? null,
 					faelligZeit: w.faelligZeit ?? null,
+					vonTag: w.vonTag ?? null,
+					vonZeit: w.vonZeit ?? null,
+					...(Array.isArray(w.mitarbeiterIds) ? { mitarbeiterIds: w.mitarbeiterIds } : {}),
 					auftragId: w.auftragId ?? null,
 					...(Array.isArray(w.erinnerungen) && w.erinnerungen.length > 0 ? { erinnerungen: w.erinnerungen } : {}),
 					...(w.wiederholung ? { wiederholung: w.wiederholung, intervall: w.intervall ?? '1' } : {})
@@ -221,6 +224,17 @@ async function ausfuehrenJe(
 			const ids = (w.mitarbeiterIds as (string | null)[]).filter((x): x is string => !!x);
 			const d = await legeDienstAn(k, { name: w.dienst?.name, dauerMin: w.dienst?.dauerMin, modus: ids.length === 1 ? 'fest' : 'beliebig' }, ids);
 			return { status: 201, meldung: `Dienst „${d.name}“ angelegt`, link: `/einstellungen/online-buchung/${d.id}`, warnungen: [] };
+		}
+		case 'vorlage_anwenden': {
+			const { wendeVorlageAn } = await import('../auftrag-vorlagen');
+			const erg = await wendeVorlageAn(k, todoSichtVon(nutzer), w.auftragId, w.vorlageId, w.modus, {}, 'sprache');
+			const n = erg.angelegt.length;
+			return {
+				status: 201,
+				meldung: `Vorlage „${erg.vorlage.name}“ übernommen: ${n} ${n === 1 ? 'Aufgabe' : 'Aufgaben'} hinzugefügt`,
+				link: `/auftraege/${w.auftragId}`,
+				warnungen: erg.uebersprungen.length > 0 ? [`${erg.uebersprungen.length} schon vorhanden – übersprungen`] : []
+			};
 		}
 		case 'protokoll_ausfuellen': {
 			if (w.formular) {

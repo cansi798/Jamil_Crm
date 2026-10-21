@@ -338,6 +338,7 @@ async function inhalt(tx: TransactionSql, k: Kontext, r: Record<string, any>): P
 			from app.todos t left join app.auftraege a on a.id = t.auftrag_id and a.betrieb_id = t.betrieb_id
 			where t.id = ${r.todo_id} and t.betrieb_id = ${k.betriebId}
 				and (${alle} or t.zustaendig_id = ${k.benutzerId}
+					or exists (select 1 from app.todo_mitarbeiter tm where tm.todo_id = t.id and tm.betrieb_id = t.betrieb_id and tm.benutzer_id = ${k.benutzerId})
 					or exists (select 1 from app.auftrag_zustaendige z where z.auftrag_id = t.auftrag_id and z.betrieb_id = t.betrieb_id and z.benutzer_id = ${k.benutzerId})
 					or exists (select 1 from app.einsaetze e where e.auftrag_id = t.auftrag_id and e.betrieb_id = t.betrieb_id and e.benutzer_id = ${k.benutzerId}))`;
 		if (!t || t.erledigt_am) return null;

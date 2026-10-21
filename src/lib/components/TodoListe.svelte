@@ -2,7 +2,8 @@
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
-	import { tagDeutsch } from '$lib/zeit';
+	import ZeitraumWahl from './ZeitraumWahl.svelte';
+	import { personenMitVorschlag, zeitraumText } from '$lib/aufgaben';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
 
 	type Todo = {
@@ -18,6 +19,9 @@
 		zustaendigName: string | null;
 		faellig: string | null;
 		faelligZeit?: string | null;
+		vonTag?: string | null;
+		vonZeit?: string | null;
+		mitarbeiter?: { id: string; name: string }[];
 		erledigt: boolean;
 	};
 
@@ -32,6 +36,7 @@
 		benutzerId,
 		darfBearbeiten = false,
 		mitarbeiter = [],
+		amAuftrag = [],
 		aktionen,
 		leer = 'Keine Aufgaben.'
 	}: {
@@ -40,6 +45,8 @@
 		benutzerId: string;
 		darfBearbeiten?: boolean;
 		mitarbeiter?: { id: string; name: string }[];
+		/** Mitarbeiter des Auftrags – Vorschlag oben in der Auswahl (wählbar ist jeder) */
+		amAuftrag?: { id: string; name: string }[];
 		aktionen: { umschalten: string; aendern: string; loeschen: string; serieBeenden?: string };
 		leer?: string;
 	} = $props();
@@ -51,6 +58,8 @@
 	let erledigteZeigen = $state(false);
 	let aufgeklappt = $state<string | null>(null);
 
+	const personen = $derived(personenMitVorschlag(mitarbeiter, amAuftrag));
+	const leute = (t: Todo) => (t.mitarbeiter && t.mitarbeiter.length > 0 ? t.mitarbeiter : t.zustaendigId && t.zustaendigName ? [{ id: t.zustaendigId, name: t.zustaendigName }] : []);
 	const ueberfaellig = (t: Todo) => !t.erledigt && t.faellig !== null && t.faellig < heute;
 	const umschalten = (id: string) => (aufgeklappt = aufgeklappt === id ? null : id);
 	// Nach dem Speichern zuklappen; Formular nicht leeren (Werte kommen frisch vom Server)
@@ -61,7 +70,8 @@
 </script>
 
 {#snippet zeile(t: Todo)}
-	{@const darfHaken = darfBearbeiten || t.zustaendigId === benutzerId}
+	{@const darfHaken = darfBearbeiten || t.zustaendigId === benutzerId || leute(t).some((m) => m.id === benutzerId)}
+	{@const zeitraum = zeitraumText(t)}
 	<li class="tl-zeile" class:erledigt={t.erledigt} class:ueberfaellig={ueberfaellig(t)}>
 		<div class="tl-kopf">
 			<form method="POST" action={aktionen.umschalten} use:enhance={() => async ({ update }) => update({ reset: false })} class="tl-haken">
@@ -80,10 +90,20 @@
 				{#if t.serie?.aktiv}<span class="tl-serie" title={`Wiederholt sich: ${t.serie.text}`}>↻ {t.serie.text}</span>{/if}
 			</button>
 			<span class="tl-meta">
-				{#if t.zustaendigName}
-					<span class="tl-chip" title={t.zustaendigName}><span class="tl-avatar">{t.zustaendigName.charAt(0)}</span><span class="tl-name">{t.zustaendigName}</span></span>
+				{#if darfBearbeiten && !t.erledigt}
+					<!-- Mitarbeiter direkt in der Zeile zuweisen (Jamil msg 2977): speichert sofort -->
+					<form method="POST" action={aktionen.aendern} use:enhance={() => async ({ update }) => update({ reset: false })} class="tl-wer">
+						<input type="hidden" name="id" value={t.id} />
+						<input type="hidden" name="mitarbeiterFeld" value="1" />
+						<PersonWahl name="mitarbeiterIds" mehrfach klein absenden label={`Mitarbeiter für „${t.titel}“`} leerText="Nicht zugewiesen" {personen} werte={leute(t).map((m) => m.id)} />
+					</form>
+				{:else}
+					{#each leute(t).slice(0, 2) as m (m.id)}
+						<span class="tl-chip" title={m.name}><span class="tl-avatar">{m.name.charAt(0)}</span><span class="tl-name">{m.name}</span></span>
+					{/each}
+					{#if leute(t).length > 2}<span class="tl-mehr" title={leute(t).slice(2).map((m) => m.name).join(', ')}>+{leute(t).length - 2}</span>{/if}
 				{/if}
-				{#if t.faellig}<span class="tl-faellig">{tagDeutsch(t.faellig)}{t.faelligZeit ? ` ${t.faelligZeit}` : ''}</span>{/if}
+				{#if zeitraum}<span class="tl-faellig">{zeitraum}</span>{/if}
 			</span>
 		</div>
 		{#if aufgeklappt === t.id}
@@ -105,10 +125,14 @@
 						<label class="tl-haken"><input type="checkbox" name="nacharbeit" checked={t.nacharbeit} /> Nacharbeit (Fehler beheben, nachbessern)</label>
 						<div class="tl-raster">
 							<div class="ui-feld">
-								Zuständig
-								<PersonWahl name="zustaendigId" personen={mitarbeiter} wert={t.zustaendigId ?? ''} />
+								Mitarbeiter
+								<input type="hidden" name="mitarbeiterFeld" value="1" />
+								<PersonWahl name="mitarbeiterIds" mehrfach label="Mitarbeiter" leerText="Nicht zugewiesen" {personen} werte={leute(t).map((m) => m.id)} />
 							</div>
-							<label>Fällig <input type="date" name="faellig" value={t.faellig ?? ''} /></label>
+							<div class="ui-feld tl-zeitraum">
+								{t.serie ? 'Fällig' : 'Tag oder Zeitraum'}
+								<ZeitraumWahl faellig={t.faellig ?? ''} faelligZeit={t.faelligZeit ?? ''} vonTag={t.vonTag ?? ''} vonZeit={t.vonZeit ?? ''} nurTag={!!t.serie} />
+							</div>
 							<label>
 								Lautstärke
 								<Auswahl name="lautstaerke">
@@ -192,6 +216,7 @@
 	}
 	.tl-kopf {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.5rem;
 		min-height: 2.75rem;
@@ -203,7 +228,8 @@
 		min-height: 2.75rem;
 	}
 	.tl-titel {
-		flex: 1 1 auto;
+		/* Titel behält Platz; Mitarbeiter und Datum rutschen am Handy in die nächste Zeile */
+		flex: 1 1 11rem;
 		min-width: 0;
 		display: flex;
 		flex-wrap: wrap;
@@ -233,9 +259,13 @@
 	}
 	.tl-meta {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
+		justify-content: flex-end;
 		gap: 0.4rem;
-		flex: 0 0 auto;
+		flex: 0 1 auto;
+		margin-left: auto;
+		min-width: 0;
 		font-size: 0.8125rem;
 		color: var(--m365-text-leise);
 	}
@@ -263,6 +293,22 @@
 		color: var(--ui-akzent-auf);
 		font-size: 0.75rem;
 		font-weight: 600;
+	}
+	.tl-mehr {
+		font-weight: 600;
+	}
+	.tl-wer {
+		display: inline-flex;
+		max-width: 100%;
+	}
+	.tl-wer :global(.pw-text) {
+		max-width: 10rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.tl-zeitraum {
+		grid-column: 1 / -1;
 	}
 	.ueberfaellig .tl-faellig {
 		color: var(--m365-fehler);

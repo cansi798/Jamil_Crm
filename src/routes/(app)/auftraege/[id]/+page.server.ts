@@ -14,7 +14,7 @@ import {
 } from '$lib/server/auftraege';
 import { liesProtokoll } from '$lib/server/protokoll';
 import { betriebKontext, hatRecht } from '$lib/server/rechte';
-import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
+import { alsSeitenFehler, formWerte, seitenZugriff } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
 import { anlagenAuswahl } from '$lib/server/anlagen';
 import { holeKolonne, listeKolonnen } from '$lib/server/kolonnen';
@@ -23,7 +23,8 @@ import { verlaufZeile } from '$lib/verlauf';
 import { ausTagUndUhrzeit, berlinTag, istTag } from '$lib/zeit';
 import { holeKunde } from '$lib/server/kunden';
 import { listeKundenNotizen } from '$lib/server/kundenakte';
-import { todoAktionen } from '$lib/server/todo-aktionen';
+import { mitarbeiterAus, todoAktionen } from '$lib/server/todo-aktionen';
+import { listeVorlagenMitAufgaben, vorlagenVerlauf, wendeVorlageAn } from '$lib/server/auftrag-vorlagen';
 import { aktiveMitarbeiter, listeTodos, todoSichtVon } from '$lib/server/todos';
 import { einsaetzeZumAuftrag, legeEinsatzAn } from '$lib/server/plantafel';
 import { angeboteZugriff, legeAngebotAn, listeAngebote, ordneAngebotZu } from '$lib/server/angebote';
@@ -101,13 +102,14 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		const auftragsbestaetigungen = angeboteSichtbar && preise ? await listeAuftragsbestaetigungen(k, auftrag.id) : [];
 		const portalEintraege = darfPortal || auftragsbestaetigungen.length > 0 ? await portalVerlauf(k, auftrag.id) : [];
 		// Links (Jamil msg 2850): sieht jeder, der den Auftrag sieht
-		const [links, linkEintraege] = await Promise.all([listeLinks(k, sicht, auftrag.id), linkVerlauf(k, auftrag.id)]);
+		const [links, linkEintraege, vorlagenEintraege] = await Promise.all([listeLinks(k, sicht, auftrag.id), linkVerlauf(k, auftrag.id), vorlagenVerlauf(k, auftrag.id)]);
 		const verlauf = [
 			...protokoll.eintraege.map((e) => ({ iso: e.zeit, zeile: verlaufZeile(e) })),
 			...protokollEintraege,
 			...zeitEintraege,
 			...portalEintraege,
-			...linkEintraege
+			...linkEintraege,
+			...vorlagenEintraege
 		].sort((x, y) => (x.iso < y.iso ? 1 : x.iso > y.iso ? -1 : 0));
 		// Nachkalkulation (Plan/Ist, Ampel): Chef/Büro mit „Preise sehen“ und „Alle Aufträge ansehen“
 		const nachkalkulation =
@@ -139,6 +141,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			darfProtokollStarten: pr.ausfuellen,
 			todos,
 			mitarbeiter,
+			// „Aus Vorlage übernehmen“ (Jamil msg 2975): Vorlagen mit Aufgaben für Auswahl und Vorschau
+			aufgabenVorlagen: darfBearbeiten ? (await listeVorlagenMitAufgaben(k)).filter((v) => v.todos.length > 0) : [],
 			einsaetze,
 			heute: berlinTag(new Date()),
 			benutzerId: nutzer.id,
@@ -501,6 +505,24 @@ export const actions: Actions = {
 		}
 	},
 	todoAnlegen: todo.anlegen,
+	/** Aufgaben-Vorlage auf diesen Auftrag anwenden – Rechte wie „Aufgabe anlegen“ (Modul + `auftraege.bearbeiten`). */
+	vorlageAnwenden: async ({ locals, params, request }) => {
+		const form = await request.formData();
+		try {
+			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			const erg = await wendeVorlageAn(
+				betriebKontext(locals),
+				todoSichtVon(locals.nutzer!),
+				params.id,
+				text(form, 'vorlageId'),
+				text(form, 'modus') || 'fehlende',
+				{ ...formWerte(form, ['faellig', 'faelligZeit', 'vonTag', 'vonZeit']), ...mitarbeiterAus(form) }
+			);
+			return { vorlageErgebnis: { name: erg.vorlage.name, angelegt: erg.angelegt.length, uebersprungen: erg.uebersprungen } };
+		} catch (e) {
+			return alsFormFehler(e, { vorlageFehler: true });
+		}
+	},
 	todoUmschalten: todo.umschalten,
 	todoAendern: todo.aendern,
 	todoLoeschen: todo.loeschen,
