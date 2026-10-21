@@ -20,6 +20,8 @@ declare global {
 			 * (CSP frame-ancestors). Gesetzt im load der Seite, ausgewertet in hooks.server.ts.
 			 */
 			einbettenErlaubt?: string[];
+			/** Kundenportal: gültiges Portal-Cookie für den Link der URL (Passwort eingegeben, msg 3037). */
+			portalAngemeldet?: boolean;
 		}
 		// interface PageData {}
 		// interface PageState {}

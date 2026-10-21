@@ -10,6 +10,8 @@ import { ApiFehler } from '$lib/server/fehler';
  * nicht indexieren, kein Referrer (der Link enthält das Token).
  */
 export const load: PageServerLoad = async (event) => {
+	// Ohne Portal-Passwort (msg 3037) nichts laden – das Layout zeigt die Passwort-Abfrage
+	if (!event.locals.portalAngemeldet) error(401, 'Bitte geben Sie zuerst Ihr Passwort ein.');
 	event.setHeaders({ ...OEFFENTLICHE_KOPFZEILEN });
 	let seite;
 	try {

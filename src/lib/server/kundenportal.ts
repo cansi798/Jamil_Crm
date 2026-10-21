@@ -6,6 +6,7 @@ import { UUID } from './kunden';
 import { hatRecht, pruefeRecht } from './rechte';
 import { darf } from './tarif';
 import { istTag, tagesGrenzen } from '../zeit';
+import { entschluesseleToken, passwortStand, setzePortalPasswort, verschluesseleToken, type PortalPasswortStand } from './portal-zugang';
 
 /**
  * Kundenportal – Verwaltung im CRM (Jamil msgs 2770–2774 Punkt 4, 2778, 2793; Migrationen 082 + 085).
@@ -13,7 +14,8 @@ import { istTag, tagesGrenzen } from '../zeit';
  * Kunden. Welche: Regel des Betriebs („alle aktiven“ oder „nur markierte“), je Auftrag überschreibbar.
  * Rechte: Modul `kundenportal` + `kundenportal.verwalten`; Aufträge nur in der eigenen Sicht (sichtVon), Angebote nur
  * mit „Angebote bearbeiten“ + „Preise sehen“. Einstellungen mit „Einstellungen“. Tokens: 32 Zufallsbytes
- * (base64url, 43 Zeichen), gespeichert nur als SHA-256 – den Link sieht man nur direkt nach dem Erzeugen.
+ * (base64url, 43 Zeichen), gesucht über SHA-256; seit msg 3036 zusätzlich AES-256-GCM-verschlüsselt (CRM_PORTAL_GEHEIMNIS),
+ * damit Berechtigte den aktiven Link wieder öffnen/kopieren können.
  */
 
 export type PortalZugriff = { k: Kontext; sicht: Sicht; preise: boolean };
@@ -38,7 +40,19 @@ export async function portalEinstellungsZugriff(locals: { nutzer: Nutzer | null 
 export const TOKEN_MUSTER = /^[A-Za-z0-9_-]{43}$/;
 export const tokenHash = (token: string) => createHash('sha256').update(token).digest();
 
-export type PortalLink = { id: string; angelegt: string; laeuftAb: string | null; widerrufen: string | null; letzterZugriff: string | null; zugriffe: number; gueltig: boolean };
+export type PortalLink = {
+	id: string;
+	angelegt: string;
+	laeuftAb: string | null;
+	widerrufen: string | null;
+	letzterZugriff: string | null;
+	zugriffe: number;
+	gueltig: boolean;
+	/** Nur für gültige Links mit verschlüsselter Kopie (Jamil msg 3036): Token zum Wieder-Öffnen; sonst null. */
+	token: string | null;
+	/** Gültiger Link von vor dem Update (nur Hash gespeichert) – lässt sich nicht wieder öffnen. */
+	ohneKopie: boolean;
+};
 export type PortalFreigabe = { sichtbar: boolean | null; status: boolean; termine: boolean; mitarbeiter: boolean; annahme: boolean };
 export type PortalStand = {
 	/** gilt die Regel „alle aktiven“ des Betriebs? */
@@ -110,7 +124,12 @@ export async function portalStand(z: PortalZugriff, auftragId: string): Promise<
 	});
 }
 
-export type KundenPortal = { links: PortalLink[]; auftraege: { id: string; nummer: string; titel: string; imPortal: boolean }[] };
+export type KundenPortal = {
+	links: PortalLink[];
+	auftraege: { id: string; nummer: string; titel: string; imPortal: boolean }[];
+	/** Portal-Passwort: eigenes oder PLZ (msg 3037); `fehlversuche` = falsche Passwörter in den letzten 7 Tagen. */
+	passwort: PortalPasswortStand & { fehlversuche: number };
+};
 
 /** Portal eines Kunden (Kundenseite): Links und welche seiner Aufträge im Portal stehen. */
 export async function kundenPortal(z: PortalZugriff, kundeId: unknown, jetzt = new Date()): Promise<KundenPortal> {
@@ -118,6 +137,10 @@ export async function kundenPortal(z: PortalZugriff, kundeId: unknown, jetzt = n
 	const sichtbare = new Set((await listeAuftraege(z.k, z.sicht, { kundeId: id })).map((a) => a.id));
 	return mitBetrieb(z.k, async (tx) => {
 		const links = await tx`select * from app.portal_links where betrieb_id = ${z.k.betriebId} and kunde_id = ${id} order by angelegt desc limit 20`;
+		const istGueltig = (l: Record<string, any>) => !l.widerrufen_am && (!l.laeuft_ab || new Date(l.laeuft_ab) > jetzt);
+		const [fehl] = await tx`
+			select count(*)::int as n from app.portal_ereignisse e join app.portal_links l on l.id = e.link_id and l.betrieb_id = e.betrieb_id
+			where e.betrieb_id = ${z.k.betriebId} and l.kunde_id = ${id} and e.art = 'anmeldung_fehler' and e.zeit > now() - interval '7 days'`;
 		const auftraege = await tx`
 			select a.id, a.nummer, a.titel, ${tx.unsafe(IM_PORTAL_SQL)} as im_portal
 			from app.auftraege a left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
@@ -130,9 +153,12 @@ export async function kundenPortal(z: PortalZugriff, kundeId: unknown, jetzt = n
 				widerrufen: iso(l.widerrufen_am),
 				letzterZugriff: iso(l.letzter_zugriff),
 				zugriffe: l.zugriffe,
-				gueltig: !l.widerrufen_am && (!l.laeuft_ab || new Date(l.laeuft_ab) > jetzt)
+				gueltig: istGueltig(l),
+				token: istGueltig(l) ? entschluesseleToken(l.token_geheim) : null,
+				ohneKopie: istGueltig(l) && !l.token_geheim
 			})),
-			auftraege: auftraege.filter((a) => sichtbare.has(a.id)).map((a) => ({ id: a.id, nummer: a.nummer, titel: a.titel, imPortal: a.im_portal === true }))
+			auftraege: auftraege.filter((a) => sichtbare.has(a.id)).map((a) => ({ id: a.id, nummer: a.nummer, titel: a.titel, imPortal: a.im_portal === true })),
+			passwort: { ...(await passwortStand(tx, z.k, id)), fehlversuche: Number(fehl?.n ?? 0) }
 		};
 	});
 }
@@ -155,8 +181,8 @@ export async function erzeugeLink(z: PortalZugriff, kundeId: unknown, laeuftAb?:
 	const linkId = await mitBetrieb(k, async (tx) => {
 		await tx`update app.portal_links set widerrufen_am = now() where kunde_id = ${id} and betrieb_id = ${k.betriebId} and widerrufen_am is null`;
 		const [l] = await tx`
-			insert into app.portal_links (betrieb_id, kunde_id, token_hash, laeuft_ab, angelegt_von)
-			values (${k.betriebId}, ${id}, ${tokenHash(token)}, ${ablauf}, ${k.benutzerId}) returning id`;
+			insert into app.portal_links (betrieb_id, kunde_id, token_hash, token_geheim, laeuft_ab, angelegt_von)
+			values (${k.betriebId}, ${id}, ${tokenHash(token)}, ${verschluesseleToken(token)}, ${ablauf}, ${k.benutzerId}) returning id`;
 		if (z.preise && z.sicht.alle) await teileAngeboteDesKunden(tx, k, id);
 		return l.id as string;
 	});
@@ -176,6 +202,12 @@ async function teileAngeboteDesKunden(tx: TransactionSql, k: Kontext, kundeId: s
 		where a.kunde_id = ${kundeId} and an.betrieb_id = ${k.betriebId} and an.status in ('versendet', 'angenommen')
 			and ${tx.unsafe(IM_PORTAL_SQL)}
 		on conflict do nothing`;
+}
+
+/** Portal-Passwort des Kunden setzen oder auf die PLZ zurücksetzen (`null`) – Rechte wie der Portal-Link. */
+export async function portalPasswort(z: PortalZugriff, kundeId: unknown, passwort: string | null): Promise<void> {
+	const id = await kundePruefen(z, kundeId);
+	await setzePortalPasswort(z.k, id, passwort);
 }
 
 export async function widerrufeLink(z: PortalZugriff, kundeId: unknown, linkId: unknown): Promise<void> {

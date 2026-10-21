@@ -254,6 +254,13 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     `sprache`. Ohne das Recht kein Mikrofon-Knopf und 403 in `pruefeSprachZugang` (Aufnahme, getippter Befehl,
     Ausführen inkl. mehrerer Schritte), bevor die KI etwas sieht; die Rechte je Aktion gelten danach wie bisher.
     Standard: Chef und Büro ja, Monteur und eigene Rollen nein (in „Einstellungen → Rollen“ änderbar).
+25. Kundenportal mit Passwort (Migration 103, `src/lib/server/portal-zugang.ts`, Jamil msgs 3035–3037): Vor dem Portal
+    die Passwort-Seite (Standard PLZ des Kunden, eigenes Passwort als Argon2id in `app.portal_passwoerter`); Cookie
+    `kp_sitzung` nur für /portal/<Token> (httpOnly, secure, SameSite=Strict, 30 Tage), gebunden an Link und
+    Passwort-Stand – Widerruf/neues Passwort beenden es. `hooks.server.ts` lässt ohne Cookie nur die Seite (zeigt die
+    Abfrage) und /anmelden durch. Sperre: 5 Fehlversuche je Link/15 Min., 30 je IP; Fehlversuche im Zugriffsprotokoll
+    (`portal_ereignisse`, ohne Passwort). Neue Links zusätzlich AES-256-GCM-verschlüsselt (`CRM_PORTAL_GEHEIMNIS`) →
+    „Kundenportal öffnen“/„Link kopieren“ auf der Kundenseite; gesucht wird weiter nur über den SHA-256-Hash.
 
 ## Installation auf einem eigenen Server
 

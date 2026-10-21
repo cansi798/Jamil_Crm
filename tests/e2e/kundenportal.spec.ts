@@ -33,6 +33,9 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	await karte.getByRole('button', { name: /Link für den Kunden erzeugen|Neuen Link erzeugen/ }).click();
 	const url = await karte.getByLabel('Portal-Link').inputValue();
 	expect(url).toMatch(/\/portal\/[A-Za-z0-9_-]{43}$/);
+	// Passwort (msg 3037): Standard ist die PLZ des Kunden – steht auf der Karte
+	const plz = /Postleitzahl \((\S+)\)/.exec((await karte.getByRole('group', { name: 'Portal-Passwort' }).textContent()) ?? '')?.[1];
+	expect(plz, 'Seed-Kunde ohne PLZ').toBeTruthy();
 	await erwarteKeinQuerScrollen(page, viewport.width);
 
 	// Kunde, ohne Anmeldung
@@ -40,8 +43,13 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	const kunde = await gast.newPage();
 	const antwort = await kunde.goto(new URL(url).pathname);
 	expect(antwort?.headers()['x-robots-tag']).toMatch(/noindex/);
-	expect(antwort?.headers()['referrer-policy']).toBe('no-referrer');
+	// Passwort-Seite: kein Referrer nach außen (same-origin, damit das Formular „Origin“ mitschickt)
+	expect(antwort?.headers()['referrer-policy']).toBe('same-origin');
+	await kunde.getByLabel('Bitte geben Sie Ihr Passwort ein (Ihre Postleitzahl)').fill(plz!);
+	await kunde.getByRole('button', { name: 'Öffnen' }).click();
 	await expect(kunde.getByRole('heading', { name: 'Ladenumbau Trockenbau', exact: true })).toBeVisible();
+	// das Portal selbst wieder ganz ohne Referrer
+	expect((await kunde.reload())?.headers()['referrer-policy']).toBe('no-referrer');
 	// Andere Tests legen weitere Aufträge beim selben Kunden an – nur die eigene Karte prüfen
 	await expect(kunde.getByLabel('Ladenumbau Trockenbau').getByTestId('portal-status')).toBeVisible();
 	// Handwerks-Design (msgs 2848, 2851): Überblick oben, Fortschrittsweg, Kontakt rechts
@@ -81,6 +89,7 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 
 	// Link widerrufen → Portal sagt „nicht gültig“
 	await karte.getByRole('button', { name: 'Widerrufen' }).first().click();
+	await karte.getByRole('button', { name: 'Ja, widerrufen' }).click();
 	await expect(page.getByText('Link widerrufen – er')).toBeVisible();
 	const gast2 = await browser.newContext();
 	const r = await (await gast2.newPage()).goto(new URL(url).pathname);

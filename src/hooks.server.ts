@@ -14,6 +14,8 @@ import { registriereKanal, starteErinnerungsDienst, stoppeErinnerungsDienst } fr
 import { nextcloud } from '$lib/server/nextcloud/konfig';
 import { nextcloudKanal } from '$lib/server/nextcloud/melden';
 import { starteNextcloudDienst, stoppeNextcloudDienst } from '$lib/server/nextcloud/abgleich';
+import { PORTAL_COOKIE, sitzungGueltig } from '$lib/server/portal-zugang';
+import { ipVon } from '$lib/server/buchung-anfrage';
 
 /** Beim Start: Schriften fürs Angebots-PDF müssen da sein – sonst startet der Server nicht (lauter Fehler statt 500 später). */
 export const init: ServerInit = () => {
@@ -94,8 +96,31 @@ const pruefeZugang: Handle = async ({ event, resolve }) => {
  * Jede Antwort – auch Weiterleitungen und die Sperr-Antworten oben – bekommt die Grundschutz-Kopfzeilen
  * (`sicherheit.ts`); die Content-Security-Policy der Seiten setzt SvelteKit selbst (`kit.csp` in `svelte.config.js`).
  */
+/** /portal/<Token>[/…] → Token und Rest des Pfads. */
+const PORTAL_PFAD = /^\/portal\/([A-Za-z0-9_-]{43})(\/.*)?$/;
+
+/**
+ * Kundenportal mit Passwort (Jamil msg 3037): Ohne gültiges Portal-Cookie dieses Links gibt es nur die Portal-Seite
+ * selbst (sie zeigt dann die Passwort-Abfrage) und das Anmelden. Alles andere unter /portal/<Token> – Dokumente, Logo,
+ * AGB, Annahme/Ablehnung (Formular-Aktionen) und künftige Unterseiten – leitet zur Passwort-Abfrage um.
+ */
+const pruefePortal: Handle = async ({ event, resolve }) => {
+	const m = PORTAL_PFAD.exec(event.url.pathname);
+	if (!m) return resolve(event);
+	// Das Portal ist öffentlich: nie mit einer Mitarbeiter-Sitzung (wer dort handelt, handelt als Kunde)
+	event.locals.nutzer = null;
+	const token = m[1];
+	const rest = m[2] ?? '';
+	event.locals.portalAngemeldet = await sitzungGueltig(token, event.cookies.get(PORTAL_COOKIE), ipVon(event)).catch(() => false);
+	if (event.locals.portalAngemeldet) return resolve(event);
+	const seite = rest === '' || rest === '/' || rest === '/__data.json';
+	const formularAktion = event.request.method !== 'GET' && event.request.method !== 'HEAD' && [...event.url.searchParams.keys()].some((k) => k.startsWith('/'));
+	if ((seite && !formularAktion) || (rest === '/anmelden' && event.request.method === 'POST')) return resolve(event);
+	return new Response(null, { status: 303, headers: { location: `/portal/${token}`, 'cache-control': 'private, no-store' } });
+};
+
 export const handle: Handle = async (eingabe) => {
-	const antwort = await pruefeZugang(eingabe);
+	const antwort = await (PORTAL_PFAD.test(eingabe.event.url.pathname) ? pruefePortal(eingabe) : pruefeZugang(eingabe));
 	// Online-Buchung: die Seite (load) legt fest, wo sie eingebettet werden darf (CSP frame-ancestors)
 	return mitSicherheitsKopfzeilen(antwort, eingabe.event.locals.einbettenErlaubt);
 };

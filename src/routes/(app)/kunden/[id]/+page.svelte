@@ -22,6 +22,19 @@
 	let notizText = $state('');
 	/** Jamil msg 3034: „Kunde löschen“ oben rechts; die Rückfrage klappt unter dem Kopf auf (bleibt bei Fehler offen). */
 	let loeschenOffen = $state(false);
+	// Kundenportal: Rückfrage vor dem Widerrufen; „Link kopieren“ mit kurzer Rückmeldung
+	let widerrufFrage = $state<string | null>(null);
+	let kopiert = $state<string | null>(null);
+	async function kopiere(adresse: string) {
+		try {
+			await navigator.clipboard.writeText(adresse);
+			const id = data.portal?.links.find((l) => l.url === adresse)?.id ?? null;
+			kopiert = id;
+			setTimeout(() => (kopiert = null), 2500);
+		} catch {
+			window.prompt('Link kopieren:', adresse);
+		}
+	}
 
 	const TYP_NAMEN = { auftrag: 'Auftrag', angebot: 'Angebot', termin: 'Termin', notiz: 'Notiz', dokument: 'Dokument' } as const;
 	const FILTER = [
@@ -140,11 +153,54 @@
 				</div>
 			{/if}
 			{#each data.portal.links.filter((l) => l.gueltig) as l (l.id)}
-				<div class="kp-link">
+				<div class="kp-link" data-testid="portal-aktiv">
 					<span>Gültiger Link vom {tagDeutsch(berlinTag(new Date(l.angelegt)))}{l.laeuftAb ? ` · bis ${tagDeutsch(berlinTag(new Date(new Date(l.laeuftAb).getTime() - 1)))}` : ''} · {l.zugriffe}× geöffnet</span>
-					<form method="POST" action="?/portalWiderrufen" use:enhance><input type="hidden" name="linkId" value={l.id} /><button type="submit" class="knopf-subtil">Widerrufen</button></form>
+					<div class="kp-knoepfe">
+						{#if l.url}
+							<!-- Aktiven Link wieder öffnen/kopieren (msg 3036) -->
+							<a class="kd-knopf hell" href={l.url} target="_blank" rel="noopener noreferrer">Kundenportal öffnen</a>
+							<button type="button" class="kd-knopf hell" onclick={() => kopiere(l.url!)}>{kopiert === l.id ? 'Kopiert ✓' : 'Link kopieren'}</button>
+						{/if}
+						{#if widerrufFrage === l.id}
+							<form method="POST" action="?/portalWiderrufen" use:enhance={() => async ({ update }) => { widerrufFrage = null; await update(); }} class="kp-frage" role="group" aria-label="Link widerrufen?">
+								<input type="hidden" name="linkId" value={l.id} />
+								<span>Wirklich widerrufen? Der Link funktioniert dann sofort nicht mehr.</span>
+								<button type="button" class="kd-knopf hell" onclick={() => (widerrufFrage = null)}>Abbrechen</button>
+								<button type="submit" class="kd-knopf gefahr">Ja, widerrufen</button>
+							</form>
+						{:else}
+							<button type="button" class="kd-knopf gefahr" onclick={() => (widerrufFrage = l.id)}>Widerrufen</button>
+						{/if}
+					</div>
+					{#if l.ohneKopie}
+						<p class="kd-info kp-alt">Dieser Link wurde vor dem Update erzeugt und lässt sich hier nicht öffnen – zum Öffnen bitte einmal einen neuen Link erzeugen (der alte wird dann ungültig).</p>
+					{/if}
 				</div>
 			{/each}
+			<!-- Portal-Passwort (msg 3037): Standard PLZ, eigenes Passwort möglich -->
+			<div class="kp-passwort" role="group" aria-label="Portal-Passwort">
+				<p class="kp-titel">Passwort für das Portal</p>
+				{#if data.portal.passwort.eigenes}
+					<p class="kd-info">Eigenes Passwort gesetzt{data.portal.passwort.geaendert ? ` (am ${tagDeutsch(berlinTag(new Date(data.portal.passwort.geaendert)))})` : ''}.</p>
+				{:else if data.portal.passwort.plz}
+					<p class="kd-info">Der Kunde öffnet das Portal mit seiner Postleitzahl ({data.portal.passwort.plz}). Für sensible Kunden besser ein eigenes Passwort setzen.</p>
+				{:else}
+					<p class="kd-fehler" role="alert">Der Kunde hat keine Postleitzahl – bitte ein eigenes Passwort setzen, sonst kann er das Portal nicht öffnen.</p>
+				{/if}
+				{#if data.portal.passwort.fehlversuche > 0}
+					<p class="kd-info">{data.portal.passwort.fehlversuche}× falsches Passwort in den letzten 7 Tagen.</p>
+				{/if}
+				<form method="POST" action="?/portalPasswort" use:enhance class="kp-form">
+					<label>Eigenes Passwort (mind. 6 Zeichen) <input type="text" name="passwort" minlength="6" maxlength="100" autocomplete="off" required /></label>
+					<button type="submit" class="kd-knopf hell">Passwort speichern</button>
+				</form>
+				{#if data.portal.passwort.eigenes}
+					<form method="POST" action="?/portalPasswort" use:enhance>
+						<input type="hidden" name="aktion" value="plz" />
+						<button type="submit" class="kd-knopf hell" disabled={!data.portal.passwort.plz}>Auf Postleitzahl zurücksetzen</button>
+					</form>
+				{/if}
+			</div>
 			<form method="POST" action="?/portalLink" use:enhance class="kp-form">
 				<label>Gültig bis (optional) <input type="date" name="laeuftAb" /></label>
 				<button type="submit" class="kd-knopf">{data.portal.links.some((l) => l.gueltig) ? 'Neuen Link erzeugen (alter wird ungültig)' : 'Link für den Kunden erzeugen'}</button>
@@ -494,6 +550,11 @@
 	.kp-neu { display: flex; flex-wrap: wrap; gap: var(--ui-a2); padding: var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-gruen-hell); margin-bottom: var(--ui-a3); }
 	.kp-neu p { margin: 0; flex-basis: 100%; }
 	.kp-neu input { flex: 1 1 14rem; min-height: var(--ui-feld-hoehe); min-width: 0; }
+	.kp-knoepfe { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: center; }
+	.kp-frage { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: center; padding: var(--ui-a2) var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-rot-hell); }
+	.kp-alt { flex-basis: 100%; margin: 0; }
+	.kp-passwort { display: grid; gap: var(--ui-a2); margin: var(--ui-a3) 0; }
+	.kp-passwort p { margin: 0; }
 	.kp-link { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ui-a2); align-items: center; margin-bottom: var(--ui-a2); font-size: var(--ui-schrift-s); }
 	.kp-form { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: flex-end; }
 	.kp-form label { display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }

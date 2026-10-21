@@ -24,10 +24,10 @@ import {
  * Aufträge nur mit Modul `auftraege` und Leserecht (`null` = Bereich ausblenden); mit nur `auftraege.lesen` die eigenen.
  */
 import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachfassen';
-import { erzeugeLink, kundenPortal, portalZugriff, widerrufeLink } from '$lib/server/kundenportal';
+import { erzeugeLink, kundenPortal, portalPasswort, portalZugriff, widerrufeLink } from '$lib/server/kundenportal';
 import { mailVorbereitung } from '$lib/server/mail-vorlagen';
 
-export const load: PageServerLoad = async ({ locals, params }) => {
+export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const k = await seitenZugriff(locals, 'kunden', 'kunden.lesen');
 	const nutzer = locals.nutzer!;
 	const auftraegeLesbar =
@@ -45,7 +45,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		]);
 		// Kundenportal (msg 2793): ein Link je Kunde – Modul kundenportal + Recht kundenportal.verwalten
 		const portalErlaubt = hatRecht(nutzer, 'kundenportal.verwalten') && hatRecht(nutzer, 'auftraege.alle_lesen') && (await hatModul(k.betriebId, 'kundenportal'));
-		const portal = portalErlaubt ? await kundenPortal(await portalZugriff(locals), kunde.id) : null;
+		const portalRoh = portalErlaubt ? await kundenPortal(await portalZugriff(locals), kunde.id) : null;
+		// Aktiven Link wieder öffnen/kopieren (msg 3036): volle Adresse statt Token
+		const basis = (process.env.ORIGIN ?? url?.origin ?? '').replace(/\/$/, '');
+		const portal = portalRoh && {
+			...portalRoh,
+			links: portalRoh.links.map(({ token, ...l }) => ({ ...l, url: token ? `${basis}/portal/${token}` : null }))
+		};
 		// „Mail an Kunden“ und Portal-Link per Mail (Vorlagen-Bibliothek, msg 2789): wer Kunden oder Aufträge bearbeitet
 		const darfMail = hatRecht(nutzer, 'kunden.bearbeiten') || hatRecht(nutzer, 'auftraege.bearbeiten');
 		const preise = hatRecht(nutzer, 'preise.sehen');
@@ -103,6 +109,22 @@ export const actions: Actions = {
 			const r = await erzeugeLink(await portalZugriff(locals), params.id, f.get('laeuftAb'));
 			const basis = (process.env.ORIGIN ?? url.origin).replace(/\/$/, '');
 			return { portalUrl: `${basis}/portal/${r.token}` };
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Portal-Passwort (msg 3037): eigenes setzen oder auf die PLZ zurücksetzen – Rechte wie der Portal-Link. */
+	portalPasswort: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const zuruecksetzen = f.get('aktion') === 'plz';
+			const pw = f.get('passwort');
+			await portalPasswort(await portalZugriff(locals), params.id, zuruecksetzen ? null : typeof pw === 'string' ? pw : '');
+			return {
+				portalMeldung: zuruecksetzen
+					? 'Passwort zurückgesetzt – der Kunde meldet sich wieder mit seiner Postleitzahl an.'
+					: 'Eigenes Passwort gespeichert – bitte dem Kunden mitteilen. Bisherige Anmeldungen im Portal sind damit beendet.'
+			};
 		} catch (e) {
 			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
