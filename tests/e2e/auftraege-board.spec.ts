@@ -94,7 +94,7 @@ test('Desktop: Kachel ziehen ändert den Status, Sprünge und Serverfehler werde
 		await page.getByRole('link', { name: 'Liste', exact: true }).click();
 		await expect(page).toHaveURL(/ansicht=liste/);
 		await expect(page.locator('.kd-liste')).toContainText(titel);
-		await expect(page.locator('.af-reiter')).toBeVisible();
+		await expect(page.getByRole('navigation', { name: 'Status' })).toBeVisible();
 	} finally {
 		await aufraeumen(page, id);
 	}
@@ -165,10 +165,10 @@ test('Aufgaben: Board mit Ziehen und Menü, Rücknahme bei Fehler, Liste', async
 		if (info.project.name !== 'desktop') await page.locator('.ab-reiter').getByRole('button', { name: /^Erledigt/ }).click();
 		await expect(spalte(page, 'erledigt').locator('.ab-karte', { hasText: titel })).toBeVisible();
 
-		// Liste behält den Reiter „Alle“
+		// Liste behält die Auswahl „Alle Personen“
 		await page.getByRole('link', { name: 'Liste', exact: true }).click();
 		await expect(page).toHaveURL(/ansicht=liste/);
-		await expect(page).toHaveURL(/nur=alle/);
+		await expect(page).toHaveURL(/person=alle/);
 		await expect(page.locator('.ab-board')).toHaveCount(0);
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 	} finally {
