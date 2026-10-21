@@ -2,7 +2,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import { anmelden, erwarteKeinQuerScrollen, personenWaehlen } from './hilfe';
 
 /**
- * „Aus Vorlage übernehmen“ am bestehenden Auftrag (Jamil msg 2975) und Mitarbeiter/Zeitraum je Aufgabe (msgs
+ * „Aufgaben aus Vorlage“ am bestehenden Auftrag (Jamil msg 2975) und Mitarbeiter/Zeitraum je Aufgabe (msgs
  * 2977/2978): Vorschau, „nur fehlende“, Verlauf, mehrere Mitarbeiter direkt in der Zeile, Zeitraum im Bearbeiten,
  * zugewiesener Monteur sieht den Auftrag. Legt Vorlage und Auftrag selbst an und räumt am Ende auf.
  */
@@ -54,8 +54,8 @@ test('Vorlage auf bestehenden Auftrag anwenden, Mitarbeiter und Zeitraum je Aufg
 
 		// Knopf neben „Aufgabe hinzufügen“
 		await expect(page.getByRole('button', { name: 'Aufgabe hinzufügen' })).toBeVisible();
-		await page.getByRole('button', { name: 'Aus Vorlage übernehmen' }).click();
-		const feld = page.getByRole('region', { name: 'Aus Vorlage übernehmen' });
+		await page.getByRole('button', { name: 'Aufgaben aus Vorlage', exact: true }).click();
+		const feld = page.getByRole('region', { name: 'Aufgaben aus Vorlage', exact: true });
 		await feld.locator('select[name="vorlageId"]').selectOption(vorlage.id);
 		const vorschau = feld.getByRole('group', { name: 'Vorschau der Aufgaben' });
 		await expect(vorschau.getByRole('listitem')).toHaveCount(3);

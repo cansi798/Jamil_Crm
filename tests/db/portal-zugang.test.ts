@@ -233,6 +233,30 @@ describe('Kundenportal: Passwort und Link', () => {
 		expect(await portalLayout({ ...(ev() as object), url: new URL(`https://crm.test/portal/${token}`) } as never)).toMatchObject({ passwortNoetig: true });
 	});
 
+	it('Auftrag (msg 3050): Portal des Kunden öffnen/kopieren – nur gültiger Link mit Kopie, nur volle Sicht; Seite zeigt nur die Adresse', async () => {
+		const { portalStand } = await import('../../src/lib/server/kundenportal');
+		const { load: auftragLoad } = await import('../../src/routes/(app)/auftraege/[id]/+page.server');
+		const st = (alle = true) => portalStand({ k: zA().k, sicht: { alle, benutzerId: alle ? u.ids.chefA : u.ids.monteurA }, preise: true }, u.auftragA);
+		// eingeschränkte Sicht: Monteur ist dem Auftrag zugewiesen, sieht aber nicht alle Aufträge des Kunden
+		await root`insert into app.auftrag_zustaendige (betrieb_id, auftrag_id, benutzer_id) values (${u.betriebA}, ${u.auftragA}, ${u.ids.monteurA}) on conflict do nothing`;
+		await root`update app.portal_links set widerrufen_am = now() where kunde_id = ${u.kundeA} and widerrufen_am is null`;
+		expect((await st()).kundeLinkToken).toBeNull();
+		const { token, id } = await erzeugeLink(zA(), u.kundeA);
+		expect((await st()).kundeLinkToken).toBe(token);
+		expect((await st(false)).kundeLinkToken).toBeNull();
+		const seite = (await auftragLoad({ locals: { nutzer: u.chefA }, params: { id: u.auftragA }, url: new URL('https://crm.test/x') } as never)) as any;
+		expect(seite.portal.kundeLinkUrl).toMatch(new RegExp(`/portal/${token}$`));
+		expect(JSON.stringify(seite.portal)).not.toContain('kundeLinkToken');
+		// ohne Portal-Recht gar nichts
+		const ohne = { ...u.chefA, rechte: u.chefA.rechte.filter((r) => r !== 'kundenportal.verwalten') };
+		expect(((await auftragLoad({ locals: { nutzer: ohne }, params: { id: u.auftragA }, url: new URL('https://crm.test/x') } as never)) as any).portal).toBeNull();
+		// alter Link (nur Hash) → keine Adresse (die Seite verweist zur Verwaltung beim Kunden)
+		await root`update app.portal_links set token_geheim = null where id = ${id}`;
+		expect((await st()).kundeLinkToken).toBeNull();
+		await widerrufeLink(zA(), u.kundeA, id);
+		expect((await st()).kundeLinkToken).toBeNull();
+	});
+
 	it('Kundenseite: Passwort setzen nur mit Portal-Recht (Monteur 403); Passwort steht nirgends im Klartext', async () => {
 		const form = (felder: Record<string, string>) => new Request('http://localhost/x', { method: 'POST', body: new URLSearchParams(felder) });
 		const chef = (await kundenAktionen.portalPasswort({ locals: { nutzer: u.chefA }, params: { id: u.kundeA }, request: form({ passwort: 'Gartenzaun-42' }) } as never)) as any;

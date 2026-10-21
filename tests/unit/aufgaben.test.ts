@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { personenMitVorschlag, titelSchluessel, vorlageAufteilen, zeitraumText } from '../../src/lib/aufgaben';
 
-/** Helfer für Aufgaben: Zeitraum-Text, Mitarbeiter-Vorschläge, „Aus Vorlage übernehmen“ (Jamil msgs 2975/2977/2978). */
+/** Helfer für Aufgaben: Zeitraum-Text, Mitarbeiter-Vorschläge, „Aufgaben aus Vorlage“ (Jamil msgs 2975/2977/2978). */
 describe('Aufgaben-Helfer', () => {
 	it('Zeitraum als Text: ein Tag, mit Uhrzeit, von–bis', () => {
 		expect(zeitraumText({ faellig: null })).toBeNull();

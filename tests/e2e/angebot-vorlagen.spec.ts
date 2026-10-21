@@ -57,7 +57,7 @@ test('Angebots-Vorlage anlegen, beim Erstellen wählen und im Entwurf einfügen'
 		// 2. Im Auftrag „Angebot erstellen“ mit Beispiel-Vorlage
 		await page.goto(`/auftraege/${auftrag.id}`);
 		await page.getByRole('button', { name: 'Angebot hinzufügen' }).click();
-		await page.getByRole('button', { name: 'Aus Vorlage' }).click();
+		await page.getByRole('button', { name: 'Aus Vorlage', exact: true }).click();
 		await page.getByLabel('Angebots-Vorlage').selectOption({ label: 'Vorlage: Badsanierung komplett (Beispiel)' });
 		await page.getByRole('button', { name: 'Angebot erstellen' }).click();
 		await page.waitForURL(/\/angebote\/[0-9a-f-]{36}$/);
@@ -67,7 +67,7 @@ test('Angebots-Vorlage anlegen, beim Erstellen wählen und im Entwurf einfügen'
 		await expect(page.getByLabel('Einleitung')).toHaveValue(/Sanierung Ihres Badezimmers/);
 
 		// 3. Im Entwurf „+ Aus Vorlage“: eigene Vorlage hinten anhängen, freie Position mit ihrem Preis
-		await page.getByRole('button', { name: '+ Aus Vorlage' }).click();
+		await page.getByRole('button', { name: '+ Aus Vorlage', exact: true }).click();
 		const bereich = page.getByRole('region', { name: 'Aus Vorlage einfügen' });
 		await bereich.getByLabel('Angebots-Vorlage').selectOption({ label: `${name} (2 Positionen)` });
 		await bereich.getByRole('button', { name: 'Einfügen' }).click();

@@ -27,7 +27,7 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	test.skip(!href, 'Seed-Auftrag „Ladenumbau Trockenbau“ fehlt');
 	await page.goto(href!);
 	await expect(page.getByTestId('portal-status-auftrag')).toBeVisible();
-	await page.getByRole('link', { name: 'Link beim Kunden verwalten' }).click();
+	await page.getByRole('link', { name: 'Link beim Kunden verwalten', exact: true }).click();
 	await expect(page).toHaveURL(/\/kunden\//);
 	const karte = page.locator('#kundenportal');
 	await karte.getByRole('button', { name: /Link für den Kunden erzeugen|Neuen Link erzeugen/ }).click();

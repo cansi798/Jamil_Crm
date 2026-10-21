@@ -37,6 +37,18 @@
 	// setzt, und schließt mit „Fertig“; Aufgabe, Termin und Angebot über das gemeinsame AddPanel (zu nach Speichern).
 	let zuweisenOffen = $state(false);
 
+	// Portal-Link des Kunden kopieren (msg 3050)
+	let portalKopiert = $state(false);
+	async function kopierePortal(adresse: string) {
+		try {
+			await navigator.clipboard.writeText(adresse);
+			portalKopiert = true;
+			setTimeout(() => (portalKopiert = false), 2500);
+		} catch {
+			window.prompt('Link kopieren:', adresse);
+		}
+	}
+
 	// „Angebot hinzufügen“: ein Feld mit vier Wegen statt verstreuter Auswahlen und Knöpfe
 	type Weg = 'neu' | 'vorlage' | 'ki' | 'zuordnen';
 	const wegeAngebot = $derived.by(() => {
@@ -434,7 +446,7 @@
 								{/snippet}
 							</AddPanel>
 							{#if data.aufgabenVorlagen.length > 0}
-								<AddPanel label="Aus Vorlage übernehmen" offen={!!form?.vorlageFehler}>
+								<AddPanel label="Aufgaben aus Vorlage" offen={!!form?.vorlageFehler}>
 									{#snippet children(schliessen)}
 										<VorlageAnwenden
 											vorlagen={data.aufgabenVorlagen}
@@ -591,6 +603,12 @@
 						<dd>
 								{#if a.kundeArt === 'kunde'}
 									{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
+									{#if data.portal && a.kundeId && !data.portal.kundeLinkUrl}
+										<!-- Kein (öffnebarer) Portal-Link (msg 3050): zur Verwaltung beim Kunden – hier wird nichts erzeugt -->
+										<span class="af-portal-kurz" data-testid="kunde-portal">
+											<a href={`/kunden/${a.kundeId}#kundenportal`}>Portal-Link beim Kunden verwalten</a>
+										</span>
+									{/if}
 								{:else if a.kundeArt === 'einmal' && a.einmalKunde}
 									{a.einmalKunde.name} <span class="kd-info">(Einmal-Kunde)</span>
 									{#if a.einmalKunde.telefon}<br /><a href={`tel:${a.einmalKunde.telefon.replace(/[^0-9+]/g, '')}`}>{a.einmalKunde.telefon}</a>{/if}
@@ -633,8 +651,9 @@
 								<span class="kd-info">{a.kundeArt === 'einmal' ? '(Einmal-Kunde)' : a.kundeArt === 'kunde' ? '(Kundenadresse)' : ''}</span>
 							</span>
 						{/if}
-						{#if navigationsLink(a.adresse) || telefonLink(a.telefon)}
-							<div class="af-vorort">
+						{#if navigationsLink(a.adresse) || telefonLink(a.telefon) || data.mail || data.portal?.kundeLinkUrl}
+							<!-- Eine Knopfreihe (msgs 3050/3072): Navigieren, Mail an Kunden, Anrufen, Kundenportal -->
+							<div class="af-vorort" data-testid="kunde-aktionen">
 								{#if navigationsLink(a.adresse)}
 									<a class="kd-knopf" href={navigationsLink(a.adresse)} target="_blank" rel="noopener">
 										<svg class="af-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z" /></svg>
@@ -646,6 +665,11 @@
 										<svg class="af-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1Z" /></svg>
 										Anrufen
 									</a>
+								{/if}
+								{#if data.mail}<MailAnKunde vorbereitung={data.mail} />{/if}
+								{#if data.portal?.kundeLinkUrl}
+									<a class="kd-knopf hell" href={data.portal.kundeLinkUrl} target="_blank" rel="noopener noreferrer">Kundenportal öffnen</a>
+									<button type="button" class="kd-knopf hell" onclick={() => kopierePortal(data.portal!.kundeLinkUrl!)}>{portalKopiert ? 'Kopiert ✓' : 'Portal-Link kopieren'}</button>
 								{/if}
 							</div>
 						{/if}
@@ -840,15 +864,6 @@
 				</div>
 			{/if}
 
-			{#if data.mail}
-				<div class="af-k k-mail">
-					<Karte>
-						{#snippet titel()}E-Mail an den Kunden{/snippet}
-						<MailAnKunde vorbereitung={data.mail} />
-					</Karte>
-				</div>
-			{/if}
-
 			{#if data.partner.auftraggeber || data.partner.subunternehmer.length || data.partnerAuswahl.length || data.partner.fremdleistungen?.length}
 				<div class="af-k k-partner" id="partner">
 					<Karte>
@@ -878,7 +893,20 @@
 </main>
 
 <style>
-	/* „Aufgabe hinzufügen“ und „Aus Vorlage übernehmen“ nebeneinander; ein geöffnetes Feld nimmt die ganze Breite */
+	.af-portal-kurz {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.25rem 0.75rem;
+		margin-top: 0.25rem;
+		font-size: var(--ui-schrift-s);
+	}
+	.af-portal-kurz a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+	/* „Aufgabe hinzufügen“ und „Aufgaben aus Vorlage“ nebeneinander; ein geöffnetes Feld nimmt die ganze Breite */
 	.todo-hinzu {
 		display: flex;
 		flex-wrap: wrap;
@@ -944,7 +972,6 @@
 	.k-protokolle { order: 5; }
 	.k-angebote { order: 6; }
 	.k-partner { order: 7; }
-	.k-mail { order: 7; }
 	.k-links { order: 7; }
 	.k-doku { order: 7; }
 	.k-verlauf { order: 8; }
@@ -1060,9 +1087,17 @@
 		border-top: 1px solid var(--ui-rand);
 	}
 	.af-vorort {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
+		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
+	}
+	.af-vorort > :global(*) {
+		flex: 1 1 9rem;
+		min-width: 0;
+	}
+	/* Geöffnete Mail (Vorschau mit Text) nimmt die ganze Breite der Karte */
+	.af-vorort :global(.mk) {
+		flex-basis: 100%;
 	}
 	.af-symbol {
 		width: 1.1rem;

@@ -33,11 +33,23 @@ test('Passwort-Seite → Portal, falsches Passwort, „Kundenportal öffnen“, 
 	const viewport = info.project.name === 'mobil' ? { width: 390, height: 844 } : { width: 1280, height: 800 };
 	const page = await chef(browser, viewport);
 	const name = `Portaltest${info.project.name === 'mobil' ? 'M' : 'D'}${Date.now().toString(36)}`;
-	const kd = await api(page, 'POST', '/api/kunden', { art: 'privat', vorname: 'Eva', nachname: name, plz: '24103', ort: 'Kiel' });
+	const kd = await api(page, 'POST', '/api/kunden', { art: 'privat', vorname: 'Eva', nachname: name, strasse: 'Holtenauer Straße 1', plz: '24103', ort: 'Kiel', telefon: '0431 123456', email: 'eva@example.org' });
 	expect(kd.status).toBe(201);
 	try {
+		// Auftrag des Testkunden (msg 3050): ohne Link nur „Portal-Link beim Kunden verwalten“
+		const auftrag = await api(page, 'POST', '/api/auftraege', { titel: `Portal ${name}`, kundeId: kd.json.id });
+		expect(auftrag.status).toBe(201);
+		await page.goto(`/auftraege/${auftrag.json.id}`);
+		const kundePortal = page.getByTestId('kunde-portal');
+		await expect(kundePortal.getByRole('link', { name: 'Portal-Link beim Kunden verwalten' })).toHaveAttribute('href', `/kunden/${kd.json.id}#kundenportal`);
+		await expect(kundePortal.getByRole('link', { name: 'Kundenportal öffnen' })).toHaveCount(0);
 		await page.goto(`/kunden/${kd.json.id}`);
 		const karte = page.locator('#kundenportal');
+		// Kundenseite: dieselbe Knopfreihe im Kontakt (msg 3072)
+		const kontakt = page.getByTestId('kunde-aktionen');
+		await expect(kontakt.getByRole('link', { name: 'Anrufen' })).toHaveAttribute('href', 'tel:0431123456');
+		await expect(kontakt.getByRole('button', { name: 'Mail an Kunden' })).toBeVisible();
+		await expect(kontakt.getByRole('link', { name: 'Navigieren' })).toBeVisible();
 		await expect(karte.getByRole('group', { name: 'Portal-Passwort' })).toContainText('Postleitzahl (24103)');
 		await karte.getByRole('button', { name: 'Link für den Kunden erzeugen' }).click();
 		const url = await karte.getByLabel('Portal-Link').inputValue();
@@ -54,6 +66,21 @@ test('Passwort-Seite → Portal, falsches Passwort, „Kundenportal öffnen“, 
 		const [tab] = await Promise.all([page.context().waitForEvent('page'), oeffnen.click()]);
 		await expect(passwortFeld(tab)).toBeVisible();
 		await tab.close();
+		// … und dasselbe direkt im Auftrag unter dem Kundennamen
+		await page.goto(`/auftraege/${auftrag.json.id}`);
+		// eine Knopfreihe (msgs 3050/3072): Navigieren, Mail an Kunden, Anrufen, Kundenportal öffnen – keine eigene Mail-Karte
+		const reihe = page.getByTestId('kunde-aktionen');
+		const imAuftrag = reihe.getByRole('link', { name: 'Kundenportal öffnen' });
+		await expect(imAuftrag).toHaveAttribute('target', '_blank');
+		expect(new URL((await imAuftrag.getAttribute('href'))!).pathname).toBe(pfad);
+		await expect(reihe.getByRole('button', { name: 'Portal-Link kopieren' })).toBeVisible();
+		await expect(reihe.getByRole('button', { name: 'Mail an Kunden' })).toBeVisible();
+		await expect(reihe.getByRole('link', { name: 'Anrufen' })).toHaveAttribute('href', 'tel:0431123456');
+		await expect(reihe.getByRole('link', { name: 'Navigieren' })).toBeVisible();
+		await expect(page.getByText('E-Mail an den Kunden')).toHaveCount(0);
+		await expect(kundePortal).toHaveCount(0);
+		await erwarteKeinQuerScrollen(page, viewport.width);
+		await page.goto(`/kunden/${kd.json.id}`);
 
 		// Ohne Cookie: jede Unterseite → Passwort-Seite; kodierte Pfade (Sicherheitsprüfung) → 404, nie die Datei
 		const roh = await browser.newContext();
@@ -113,6 +140,8 @@ test('Passwort-Seite → Portal, falsches Passwort, „Kundenportal öffnen“, 
 		expect((await kunde.goto(pfad))?.status()).toBe(404);
 		await gast.close();
 	} finally {
+		const auftraege = await api(page, 'GET', `/api/auftraege?kunde=${kd.json.id}`);
+		for (const x of auftraege.json ?? []) await api(page, 'DELETE', `/api/auftraege/${x.id}`);
 		await api(page, 'DELETE', `/api/kunden/${kd.json.id}`);
 		await page.context().close().catch(() => {});
 	}

@@ -55,7 +55,7 @@ test('Kundenakte: Notiz schreiben, Dokument hochladen und herunterladen, lösche
 		await page.getByRole('button', { name: 'Dokument hochladen' }).click();
 		await page.locator('input[type="file"][name="datei"]').setInputFiles({ name: 'falsch.pdf', mimeType: 'application/pdf', buffer: Buffer.from('<html>') });
 		await page.getByRole('button', { name: 'Hochladen' }).click();
-		await expect(page.getByRole('alert')).toContainText('passt nicht zum Dateityp');
+		await expect(page.getByRole('alert').filter({ hasText: 'passt nicht zum Dateityp' })).toBeVisible();
 		await expect(dokumente.getByRole('link')).toHaveCount(1);
 		// Kundenportal: echter Abschnitt (mit Recht) oder Platzhalter – nie beides
 		await expect(page.getByRole('heading', { name: 'Kundenportal' })).toHaveCount(1);

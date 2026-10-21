@@ -11,7 +11,7 @@
 	type VorlageAufgabe = { id: string; titel: string; lautstaerke: number | null; schmutz: number | null };
 
 	/**
-	 * „Aus Vorlage übernehmen“ am bestehenden Auftrag (Jamil msg 2975): Vorlage wählen, Vorschau der Aufgaben, bei
+	 * „Aufgaben aus Vorlage“ am bestehenden Auftrag (Jamil msg 2975): Vorlage wählen, Vorschau der Aufgaben, bei
 	 * gleichnamigen Aufgaben „Nur fehlende hinzufügen“ (Standard) oder „Alle hinzufügen“. Optional für alle neuen
 	 * Aufgaben: Mitarbeiter und Tag/Zeitraum (sonst nicht zugewiesen, ohne Datum).
 	 */

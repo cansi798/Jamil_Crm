@@ -60,7 +60,7 @@ async function zeitOderNull(locals: { nutzer: Nutzer | null }): Promise<ZeitZugr
  * Angebote nur mit Modul `angebote` und Recht `angebote.bearbeiten` (sonst `null`); Beträge nur mit `preise.sehen`,
  * Öffnen/Erstellen (`darfAngebote`) nur mit beiden Rechten.
  */
-export const load: PageServerLoad = async ({ locals, params }) => {
+export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const k = await seitenZugriff(locals, 'auftraege', ['auftraege.alle_lesen', 'auftraege.lesen']);
 	const nutzer = locals.nutzer!;
 	return alsSeitenFehler(async () => {
@@ -98,7 +98,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			: [null, null, null, []];
 		// Kundenportal (Jamil msgs 2770–2774, 2778): Links, Freigaben; Auftragsbestätigungen (mit Preisen)
 		const darfPortal = hatRecht(nutzer, 'kundenportal.verwalten') && (await hatModul(k.betriebId, 'kundenportal'));
-		const portal = darfPortal ? await portalStand({ k, sicht, preise: preise && hatRecht(nutzer, 'angebote.bearbeiten') }, auftrag.id) : null;
+		const portalRoh = darfPortal ? await portalStand({ k, sicht, preise: preise && hatRecht(nutzer, 'angebote.bearbeiten') }, auftrag.id) : null;
+		// Portal des Kunden direkt öffnen/kopieren (msg 3050): volle Adresse statt Token
+		const portalBasis = (process.env.ORIGIN ?? url?.origin ?? '').replace(/\/$/, '');
+		const portal = portalRoh && (({ kundeLinkToken, ...rest }) => ({ ...rest, kundeLinkUrl: kundeLinkToken ? `${portalBasis}/portal/${kundeLinkToken}` : null }))(portalRoh);
 		const auftragsbestaetigungen = angeboteSichtbar && preise ? await listeAuftragsbestaetigungen(k, auftrag.id) : [];
 		const portalEintraege = darfPortal || auftragsbestaetigungen.length > 0 ? await portalVerlauf(k, auftrag.id) : [];
 		// Links (Jamil msg 2850): sieht jeder, der den Auftrag sieht
@@ -141,7 +144,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			darfProtokollStarten: pr.ausfuellen,
 			todos,
 			mitarbeiter,
-			// „Aus Vorlage übernehmen“ (Jamil msg 2975): Vorlagen mit Aufgaben für Auswahl und Vorschau
+			// „Aufgaben aus Vorlage“ (Jamil msg 2975): Vorlagen mit Aufgaben für Auswahl und Vorschau
 			aufgabenVorlagen: darfBearbeiten ? (await listeVorlagenMitAufgaben(k)).filter((v) => v.todos.length > 0) : [],
 			einsaetze,
 			heute: berlinTag(new Date()),

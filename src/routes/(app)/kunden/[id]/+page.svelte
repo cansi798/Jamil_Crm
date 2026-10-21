@@ -8,6 +8,7 @@
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
+	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -104,7 +105,14 @@
 				<div class="ka-breit"><dt>Notiz</dt><dd>{k.notiz}</dd></div>
 			{/if}
 		</dl>
-		{#if data.mail}<div class="ka-mail"><MailAnKunde vorbereitung={data.mail} /></div>{/if}
+		<!-- Gleiche Knopfreihe wie im Auftrag (msg 3072): Navigieren, Mail an Kunden, Anrufen -->
+		{#if navigationsLink(adresse) || data.mail || telefonLink(k.telefon)}
+			<div class="ka-mail" data-testid="kunde-aktionen">
+				{#if navigationsLink(adresse)}<a class="kd-knopf hell" href={navigationsLink(adresse)} target="_blank" rel="noopener">Navigieren</a>{/if}
+				{#if data.mail}<MailAnKunde vorbereitung={data.mail} />{/if}
+				{#if telefonLink(k.telefon)}<a class="kd-knopf hell" href={telefonLink(k.telefon)}>Anrufen</a>{/if}
+			</div>
+		{/if}
 	</Abschnitt>
 
 	<Abschnitt titel="Objekte" anzahl={data.objekte.length}>
@@ -176,7 +184,7 @@
 				{:else if data.portal.passwort.plz}
 					<p class="kd-info">Der Kunde öffnet das Portal mit seiner Postleitzahl ({data.portal.passwort.plz}). Für sensible Kunden besser ein eigenes Passwort setzen.</p>
 				{:else}
-					<p class="kd-fehler" role="alert">Der Kunde hat keine Postleitzahl – bitte ein eigenes Passwort setzen, sonst kann er das Portal nicht öffnen.</p>
+					<p class="kd-fehler" role="status" data-testid="portal-ohne-passwort">Der Kunde hat keine Postleitzahl – bitte ein eigenes Passwort setzen, sonst kann er das Portal nicht öffnen.</p>
 				{/if}
 				{#if data.portal.passwort.fehlversuche > 0}
 					<p class="kd-info">{data.portal.passwort.fehlversuche}× falsches Passwort in den letzten 7 Tagen.</p>
@@ -402,7 +410,16 @@
 
 <style>
 	.ka-mail {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--ui-a2);
 		margin-top: var(--ui-a3);
+	}
+	.ka-mail > :global(*) {
+		flex: 0 1 auto;
+	}
+	.ka-mail :global(.mk) {
+		flex-basis: 100%;
 	}
 	.kp-neu :global(.mk) {
 		flex: 1 1 100%;

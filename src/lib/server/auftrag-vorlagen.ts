@@ -197,7 +197,7 @@ export async function loescheVorlage(k: Kontext, id: string): Promise<void> {
 	});
 }
 
-/** Alle Vorlagen mit ihren Aufgaben (für „Aus Vorlage übernehmen“ am Auftrag: Auswahl und Vorschau ohne Nachladen). */
+/** Alle Vorlagen mit ihren Aufgaben (für „Aufgaben aus Vorlage“ am Auftrag: Auswahl und Vorschau ohne Nachladen). */
 export async function listeVorlagenMitAufgaben(k: Kontext): Promise<VorlageMitTodos[]> {
 	return mitBetrieb(k, async (tx) => {
 		const vs = await tx`select id, name, beschreibung, angelegt, geaendert from app.auftrag_vorlagen order by name, id`;

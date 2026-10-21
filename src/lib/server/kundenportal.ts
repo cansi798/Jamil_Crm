@@ -61,6 +61,11 @@ export type PortalStand = {
 	imPortal: boolean;
 	/** hat der Kunde einen gültigen Link? */
 	kundeHatLink: boolean;
+	/**
+	 * Token des gültigen Links zum Öffnen/Kopieren direkt im Auftrag (Jamil msg 3050) – nur mit voller Auftrags-Sicht
+	 * (wie die Link-Verwaltung beim Kunden) und nur für Links mit verschlüsselter Kopie; sonst null.
+	 */
+	kundeLinkToken: string | null;
 	kundeId: string | null;
 	freigabe: PortalFreigabe;
 	angebote: { id: string; nummer: string; status: string; geteilt: boolean }[];
@@ -105,7 +110,7 @@ export async function portalStand(z: PortalZugriff, auftragId: string): Promise<
 			from app.auftraege a left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId}`;
 		const [l] = a.kundeId
-			? await tx`select 1 from app.portal_links where kunde_id = ${a.kundeId} and betrieb_id = ${k.betriebId} and widerrufen_am is null and (laeuft_ab is null or laeuft_ab > now()) limit 1`
+			? await tx`select token_geheim from app.portal_links where kunde_id = ${a.kundeId} and betrieb_id = ${k.betriebId} and widerrufen_am is null and (laeuft_ab is null or laeuft_ab > now()) order by angelegt desc limit 1`
 			: [];
 		const geteilt = await tx`select art, ref_id from app.portal_dokumente where auftrag_id = ${id} and betrieb_id = ${k.betriebId}`;
 		const ist = (art: string, ref: string) => geteilt.some((g) => g.art === art && g.ref_id === ref);
@@ -116,6 +121,7 @@ export async function portalStand(z: PortalZugriff, auftragId: string): Promise<
 			standard: st.standard,
 			imPortal: st.im_portal === true,
 			kundeHatLink: !!l,
+			kundeLinkToken: l && z.sicht.alle ? entschluesseleToken(l.token_geheim) : null,
 			kundeId: a.kundeId,
 			freigabe: f ? { sichtbar: f.sichtbar, status: f.status, termine: f.termine, mitarbeiter: f.mitarbeiter, annahme: f.annahme } : { ...STANDARD_FREIGABE },
 			angebote: angebote.map((x) => ({ id: x.id, nummer: x.nummer, status: x.status, geteilt: ist('angebot', x.id) })),
