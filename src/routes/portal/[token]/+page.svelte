@@ -4,6 +4,7 @@
 	import FortschrittsWeg from '$lib/components/portal/FortschrittsWeg.svelte';
 	import PortalSchritte from '$lib/components/portal/PortalSchritte.svelte';
 	import SkizzenKreis from '$lib/components/portal/SkizzenKreis.svelte';
+	import SkizzenRahmen from '$lib/components/portal/SkizzenRahmen.svelte';
 	import { farbStil } from '$lib/farbe';
 	import { euro } from '$lib/geld';
 	import { tagDeutsch, tagKurz } from '$lib/zeit';
@@ -184,6 +185,8 @@
 
 		{#if offen.length > 0}
 			<section class="pt-karte pt-erledigen" id="zu-erledigen" aria-labelledby="zu-erledigen-titel">
+				<!-- handgezeichneter Rahmen, solange etwas offen ist (msg 3040) -->
+				<SkizzenRahmen seed={4} />
 				<span class="pt-eyebrow">Ihre Zusage</span>
 				{@render titel('Für Sie zu erledigen', 2, 'zu-erledigen-titel')}
 				<ul class="pt-liste">
@@ -615,6 +618,7 @@
 		list-style: none;
 	}
 	.pt-erledigen {
+		position: relative;
 		border-color: var(--ui-akzent-rand);
 		background: var(--ui-akzent-zart);
 	}
