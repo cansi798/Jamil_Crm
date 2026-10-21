@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { baueNavigation, istAktiv, MOBIL_HAUPT } from '../../src/lib/navigation';
+import { aktiverEintrag, baueNavigation, istAktiv, MOBIL_HAUPT } from '../../src/lib/navigation';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import { MODULE } from '../../src/lib/tarife';
 
@@ -14,8 +14,8 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
 		expect(gruppen(nav)).toEqual({
 			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
-			'Stammdaten & Kalkulation': ['Katalog', 'Partner', 'Kalkulation', 'Auftragsquellen', 'Terminarten', 'Briefkopf / Firmenprofil'],
-			'Personal & Zeiten': ['Zeiten', 'Abwesenheiten', 'Kolonnen'],
+			'Stammdaten & Kalkulation': ['Katalog', 'Kalkulation', 'Auftragsquellen', 'Terminarten', 'Briefkopf / Firmenprofil'],
+			'Team & Partner': ['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner'],
 			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen'],
 			Automatisierung: ['Nachfassen', 'Kundenportal & Auftragsbestätigung', 'Online-Buchung', 'Erinnerungen', 'Handy verbinden'],
 			Benutzeradministration: ['Benutzer', 'Nextcloud', 'Rollen']
@@ -30,7 +30,8 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
 		const g = gruppen(nav);
 		expect(g['Benutzeradministration']).toBeUndefined();
-		expect(g['Stammdaten & Kalkulation']).toEqual(['Katalog', 'Partner']);
+		expect(g['Stammdaten & Kalkulation']).toEqual(['Katalog']);
+		expect(g['Team & Partner']).toEqual(['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner']);
 		expect(namen(nav.mehr)).not.toContain('Kalkulation');
 		expect(namen(nav.mehr)).not.toContain('Online-Buchung');
 		expect(namen(nav.mehr)).not.toContain('Terminarten');
@@ -39,7 +40,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Monteur: Start, Kunden, Aufträge, Karte, Aufgaben; nur Auftrags-Vorlagen, Zeiten, Erinnerungen; nie Preise', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Karte', 'Aufgaben']);
-		expect(gruppen(nav)).toEqual({ Vorlagen: ['Auftrags-Vorlagen'], 'Personal & Zeiten': ['Zeiten'], Automatisierung: ['Erinnerungen', 'Handy verbinden'] });
+		expect(gruppen(nav)).toEqual({ Vorlagen: ['Auftrags-Vorlagen'], 'Team & Partner': ['Zeiten'], Automatisierung: ['Erinnerungen', 'Handy verbinden'] });
 		for (const name of ['Ausgangsbelege', 'Katalog', 'Briefkopf / Firmenprofil', 'Kalkulation', 'Nachkalkulation']) {
 			expect(namen([...nav.haupt, ...nav.mehr]), name).not.toContain(name);
 		}
@@ -82,7 +83,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE).haupt)).toEqual(['Start', 'Aufträge', 'Plantafel', 'Karte', 'Aufgaben']);
 		const planer = baueNavigation(betriebsNutzer(['plantafel.bearbeiten']), ALLE_MODULE);
 		expect(namen(planer.haupt)).toEqual(['Start', 'Plantafel']);
-		expect(gruppen(planer)['Personal & Zeiten']).toEqual(['Abwesenheiten', 'Kolonnen']);
+		expect(gruppen(planer)['Team & Partner']).toEqual(['Abwesenheiten', 'Kolonnen']);
 		const ohnePlantafel = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE.filter((m) => m !== 'plantafel'));
 		expect(namen(ohnePlantafel.haupt)).not.toContain('Plantafel');
 		expect(namen(ohnePlantafel.mehr)).not.toContain('Abwesenheiten');
@@ -112,5 +113,37 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		}
 		expect(istAktiv('/ausgangsbelege', '/angebot-vorlagen')).toBe(false);
 		expect(istAktiv('/auftraege', '/angebote/abc')).toBe(false);
+	});
+
+	it('Partner (msg 3089) in „Team & Partner“, nur mit Modul Aufträge und partner.verwalten', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['partner.verwalten']), ALLE_MODULE))).toEqual({ 'Team & Partner': ['Partner'] });
+		expect(namen(baueNavigation(betriebsNutzer(['partner.verwalten']), ALLE_MODULE.filter((m) => m !== 'auftraege')).mehr)).not.toContain('Partner');
+	});
+
+	it('Aufmaß-Vorlagen (msg 3085): eigener Pfad – markiert ist nur „Aufmaß-Vorlagen“, nicht „Protokoll-Vorlagen“', () => {
+		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE);
+		const alle = [...nav.haupt, ...nav.mehr];
+		const name = (pfad: string) => aktiverEintrag(alle, pfad)?.name ?? null;
+		expect(nav.mehr.find((e) => e.name === 'Aufmaß-Vorlagen')?.href).toBe('/einstellungen/aufmass-vorlagen');
+		expect(name('/einstellungen/aufmass-vorlagen')).toBe('Aufmaß-Vorlagen');
+		expect(name('/einstellungen/aufmass-vorlagen/2f1c0b3e-0000-4000-8000-000000000001')).toBe('Aufmaß-Vorlagen');
+		expect(name('/einstellungen/protokoll-vorlagen')).toBe('Protokoll-Vorlagen');
+		expect(name('/einstellungen/protokoll-vorlagen/2f1c0b3e-0000-4000-8000-000000000001')).toBe('Protokoll-Vorlagen');
+		expect(name('/einstellungen/mail-vorlagen/neu')).toBe('E-Mail-Vorlagen');
+	});
+
+	it('Jede Seite markiert genau EINEN Menüpunkt – keine Menü-Adresse mit Suchteil, der genaueste Eintrag gewinnt', () => {
+		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE, { nextcloud: true });
+		const alle = [...nav.haupt, ...nav.mehr];
+		for (const e of alle) {
+			// ein „?…“ im Menü-Link kann die Markierung nicht unterscheiden (Pfad ohne Suchteil) – so entstand msg 3085
+			expect(e.href, e.name).not.toContain('?');
+			expect(aktiverEintrag(alle, e.href!)?.name, e.href!).toBe(e.name);
+		}
+		// Unterseiten: der genaueste Bereich, nicht zusätzlich der übergeordnete
+		expect(aktiverEintrag(alle, '/plantafel/abwesenheiten')?.name).toBe('Abwesenheiten');
+		expect(aktiverEintrag(alle, '/plantafel')?.name).toBe('Plantafel');
+		expect(aktiverEintrag(alle, '/angebote/abc')?.name).toBe('Ausgangsbelege');
+		expect(aktiverEintrag(alle, '/unbekannt')).toBeNull();
 	});
 });

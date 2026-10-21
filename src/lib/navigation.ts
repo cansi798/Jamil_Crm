@@ -74,8 +74,9 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (angeboteMitPreisen) g.vorlagen.push({ name: 'Angebots-Vorlagen', href: '/angebot-vorlagen', symbol: 'angebote' });
 		if (module.includes('protokolle') && hat('protokolle.vorlagen_bearbeiten')) {
 			g.vorlagen.push({ name: 'Protokoll-Vorlagen', href: '/einstellungen/protokoll-vorlagen', symbol: 'angebote' });
-			// Aufmaß-Vorlagen (Jamil msg 2842): gleicher Baukasten, eigene Liste
-			g.vorlagen.push({ name: 'Aufmaß-Vorlagen', href: '/einstellungen/protokoll-vorlagen?art=aufmass', symbol: 'katalog' });
+			// Aufmaß-Vorlagen (Jamil msg 2842): gleicher Baukasten, eigene Liste – mit eigenem Pfad, damit im Menü nur
+			// „Aufmaß-Vorlagen“ markiert ist und nicht auch „Protokoll-Vorlagen“ (Jamil msg 3085)
+			g.vorlagen.push({ name: 'Aufmaß-Vorlagen', href: '/einstellungen/aufmass-vorlagen', symbol: 'katalog' });
 		}
 		// E-Mail-Vorlagen an einem Ort (Jamil msg 2789)
 		if (hat('vorlagen.verwalten')) g.vorlagen.push({ name: 'E-Mail-Vorlagen', href: '/einstellungen/mail-vorlagen', symbol: 'angebote' });
@@ -84,8 +85,6 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (module.includes('katalog') && (hat('katalog.bearbeiten') || hat('angebote.bearbeiten'))) {
 			g.stammdaten.push({ name: 'Katalog', href: '/katalog', symbol: 'katalog' });
 		}
-		// Partner (Jamil msg 2856): Auftraggeber, Subunternehmer, Lieferanten
-		if (module.includes('auftraege') && hat('partner.verwalten')) g.stammdaten.push({ name: 'Partner', href: '/partner', symbol: 'kunden' });
 		// Kalkulation / Stundensatz: Gehälter sind vertraulich – „Preise sehen“ UND „Einstellungen“ (Chef)
 		if (module.includes('katalog') && hat('preise.sehen') && hat('einstellungen')) {
 			g.stammdaten.push({ name: 'Kalkulation', href: '/kalkulation', symbol: 'katalog' });
@@ -98,7 +97,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		// Briefkopf und Logo (für Angebote): Betriebsdaten, ohne Modulbindung
 		if (hat('einstellungen')) g.stammdaten.push({ name: 'Briefkopf / Firmenprofil', href: '/einstellungen/briefkopf', symbol: 'briefkopf' });
 
-		// Personal & Zeiten
+		// Team & Partner (Jamil msg 3089: Partner zu „Personal & Zeiten“, Gruppe umbenannt): Menschen, mit denen der Betrieb
+		// arbeitet – eigenes Personal (Zeiten, Abwesenheiten, Kolonnen) und Partner (Auftraggeber, Subunternehmer, Lieferanten, msg 2856)
 		if (module.includes('zeiterfassung') && (hat('zeiterfassung.nutzen') || hat('zeiterfassung.alle_sehen'))) {
 			g.personal.push({ name: 'Zeiten', href: '/zeiten', symbol: 'abwesenheiten' });
 		}
@@ -106,6 +106,7 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 			g.personal.push({ name: 'Abwesenheiten', href: '/plantafel/abwesenheiten', symbol: 'abwesenheiten' });
 			g.personal.push({ name: 'Kolonnen', href: '/plantafel/kolonnen', symbol: 'benutzer' });
 		}
+		if (module.includes('auftraege') && hat('partner.verwalten')) g.personal.push({ name: 'Partner', href: '/partner', symbol: 'kunden' });
 
 		// Auswertungen
 		// Kennzahlen-Cockpit (Jamil msg 2858): über den ganzen Betrieb, deshalb „Alle Aufträge ansehen“
@@ -149,7 +150,7 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 	const TITEL: Record<string, string> = {
 		vorlagen: 'Vorlagen',
 		stammdaten: 'Stammdaten & Kalkulation',
-		personal: 'Personal & Zeiten',
+		personal: 'Team & Partner',
 		auswertungen: 'Auswertungen',
 		automatisierung: 'Automatisierung',
 		benutzer: nutzer.betriebId ? 'Benutzeradministration' : 'Plattform'
@@ -163,9 +164,22 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 /** Bereiche, zu denen weitere Pfade gehören: ein einzelnes Angebot (/angebote/<id>) liegt in „Ausgangsbelege“. */
 const AUCH_AKTIV: Record<string, readonly string[]> = { '/ausgangsbelege': ['/angebote'] };
 
-/** Ist `href` die aktuelle Seite bzw. ein Bereich, in dem sie liegt? „/“ nur exakt. */
+/** Liegt `pfad` in einem Bereich, der zu `href` gehört? „/“ nur exakt. Mehrere Einträge können zutreffen
+ * (z. B. „Plantafel“ und „Abwesenheiten“ für /plantafel/abwesenheiten) – markiert wird nur `aktiverEintrag`. */
 export function istAktiv(href: string | null, pfad: string): boolean {
 	if (!href) return false;
 	if (href === '/') return pfad === '/';
 	return [href, ...(AUCH_AKTIV[href] ?? [])].some((h) => pfad === h || pfad.startsWith(h + '/'));
+}
+
+/**
+ * Der EINE markierte Eintrag für `pfad` (Jamil msg 3085: nie zwei Menüpunkte gleichzeitig): unter allen zutreffenden
+ * Einträgen der genaueste, d. h. der mit dem längsten Pfad. `null`, wenn keiner passt.
+ */
+export function aktiverEintrag<T extends { href: string | null }>(eintraege: readonly T[], pfad: string): T | null {
+	let bester: T | null = null;
+	for (const e of eintraege) {
+		if (e.href && istAktiv(e.href, pfad) && (!bester || e.href.length > bester.href!.length)) bester = e;
+	}
+	return bester;
 }

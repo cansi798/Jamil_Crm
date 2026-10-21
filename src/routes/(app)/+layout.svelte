@@ -2,7 +2,7 @@
 	import { BELEG_ARTEN, belegPfad } from '$lib/ausgangsbelege';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
-	import { istAktiv, MOBIL_HAUPT } from '$lib/navigation';
+	import { aktiverEintrag, istAktiv, MOBIL_HAUPT } from '$lib/navigation';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
 	import Schnellzugriff from '$lib/components/Schnellzugriff.svelte';
@@ -19,11 +19,10 @@
 	$effect(() => {
 		if (data.benutzerId) merkeNutzer(nutzerKennung(data.benutzerId));
 	});
-	// Aktueller Bereich für die Kopfleiste (Brotkrume): längster passender Navigationseintrag
-	const bereich = $derived.by(() => {
-		const alle = [...(data.navigation?.haupt ?? []), ...(data.navigation?.mehr ?? [])].filter((e) => e.href);
-		return alle.filter((e) => istAktiv(e.href!, pfad)).sort((a, b) => b.href!.length - a.href!.length)[0] ?? null;
-	});
+	// Aktueller Bereich für Kopfleiste (Brotkrume) und Menü: der EINE genaueste Eintrag (Jamil msg 3085 – nie zwei
+	// Menüpunkte gleichzeitig markiert, z. B. /plantafel/abwesenheiten nur „Abwesenheiten“, nicht auch „Plantafel“)
+	const bereich = $derived(aktiverEintrag([...(data.navigation?.haupt ?? []), ...(data.navigation?.mehr ?? [])], pfad));
+	const markiert = (e: { href: string | null }) => (!!bereich && e.href === bereich.href ? 'page' : undefined);
 	// Jamil msg 3060: Auf der Startseite eines Bereichs (z. B. /auftraege) wiederholt der Seitentitel nur die Kopfleiste.
 	// Am Desktop bleibt dann nur die Kopfleiste sichtbar, die h1 wird zur Screenreader-Überschrift (Stil unten).
 	// Am Handy gibt es keine Kopfleiste – dort bleibt die h1 sichtbar. Detailseiten (/auftraege/<id>) behalten ihren Titel.
@@ -80,7 +79,7 @@
 				{#each data.navigation.haupt as e, i (e.name)}
 					<li class:nur-breit-li={i >= MOBIL_HAUPT}>
 						{#if e.href}
-							<a href={e.href} class="eintrag" aria-current={istAktiv(e.href, pfad) ? 'page' : undefined}>
+							<a href={e.href} class="eintrag" aria-current={markiert(e)}>
 								<NavSymbol symbol={e.symbol} />
 								<span class="text"><span class="name">{e.name}</span></span>
 							</a>
@@ -103,13 +102,13 @@
 				</li>
 			</ul>
 			{#each data.navigation.gruppen as g (g.id)}
-				{@const aktiv = g.eintraege.some((e) => istAktiv(e.href, pfad))}
+				{@const aktiv = g.eintraege.some((e) => markiert(e))}
 				<details class="nav-gruppe nur-breit" open={aktiv || !zu[g.id]} ontoggle={(ev) => umschalten(g.id, (ev.currentTarget as HTMLDetailsElement).open)}>
 					<summary class="gruppe">{g.titel}</summary>
 					<ul class="liste verwaltung">
 						{#each g.eintraege as e (e.name)}
 							<li>
-								<a href={e.href} class="eintrag" aria-current={istAktiv(e.href, pfad) ? 'page' : undefined}>
+								<a href={e.href} class="eintrag" aria-current={markiert(e)}>
 									<NavSymbol symbol={e.symbol} />
 									<span class="text"><span class="name">{e.name}</span></span>
 								</a>
