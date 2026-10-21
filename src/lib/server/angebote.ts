@@ -3,6 +3,7 @@ import { ApiFehler } from './fehler';
 import { anzeigeName, textFeld, UUID } from './kunden';
 import { hatRecht, pruefeRecht } from './rechte';
 import { kundeNameAus, sichtbar, sichtVon, type Sicht } from './auftraege';
+import { suchMuster } from '../ausgangsbelege';
 import { darf } from './tarif';
 import { erlaubterAngebotWechsel, istAngebotStatus, type AngebotStatus } from '../angebot-status';
 import { istMwstSatz, leseEuroInCent, leseMenge, positionsSumme, summen, type MwstSatz } from '../geld';
@@ -218,17 +219,21 @@ async function ladeEines(tx: TransactionSql, k: Kontext, id: string, sicht: Sich
 }
 
 /** `ohneAuftrag`: nur noch nicht zugeordnete Angebote; `kundeId`: Kunde des Auftrags bzw. des Angebots. */
-export type AngebotFilter = { auftragId?: string; status?: string; kundeId?: string; ohneAuftrag?: boolean };
+/** `suche`: Nummer, Auftrag (Nummer/Titel) oder Kunde – wie bei den anderen Ausgangsbelegen (Jamil msg 3056). */
+export type AngebotFilter = { auftragId?: string; status?: string; kundeId?: string; ohneAuftrag?: boolean; suche?: string | null };
 
 /** Angebote des Betriebs (neueste zuerst, höchstens 200), optional je Auftrag oder Status. */
 export async function listeAngebote(k: Kontext, filter: AngebotFilter = {}, zg: AngebotZugriff = voll(k)): Promise<AngebotKurz[]> {
 	if (filter.auftragId !== undefined && !UUID.test(filter.auftragId)) throw new ApiFehler(400, 'Ungültiger Auftrag.');
 	if (filter.status !== undefined && !istAngebotStatus(filter.status)) throw new ApiFehler(400, 'Unbekannter Status.');
 	if (filter.kundeId !== undefined && !UUID.test(filter.kundeId)) throw new ApiFehler(400, 'Ungültiger Kunde.');
+	const suche = suchMuster(filter.suche);
 	return mitBetrieb(k, async (tx) => {
 		const z = await tx`
 			select ${tx.unsafe(KOPF)} from ${von(tx)}
 			where an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, zg.sicht)}
+				${suche ? tx`and (an.nummer ilike ${suche} or a.nummer ilike ${suche} or a.titel ilike ${suche} or k.firma ilike ${suche}
+					or k.nachname ilike ${suche} or k.vorname ilike ${suche} or a.einmal_name ilike ${suche})` : tx``}
 				${filter.auftragId ? tx`and an.auftrag_id = ${filter.auftragId}` : tx``}
 				${filter.ohneAuftrag ? tx`and an.auftrag_id is null` : tx``}
 				${filter.kundeId ? tx`and coalesce(a.kunde_id, an.kunde_id) = ${filter.kundeId}` : tx``}

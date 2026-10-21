@@ -1,5 +1,6 @@
 import { mitBetrieb, OEFFENTLICH, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
+import { suchMuster } from '../ausgangsbelege';
 import { ladePdfDaten } from './angebote';
 import { holeLogo, holeProfil } from './betriebsprofil';
 import { angebotPdf } from './pdf/angebot-pdf';
@@ -220,7 +221,7 @@ export const istAbStatus = (w: unknown): w is (typeof AB_STATUS)[number] => type
  */
 export const MAX_ABS = 500;
 export async function listeAlleAuftragsbestaetigungen(k: Kontext, sicht: Sicht, f: AbFilter = {}): Promise<AbZeile[]> {
-	const suche = f.suche?.trim() ? `%${f.suche.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
+	const suche = suchMuster(f.suche);
 	const z = await mitBetrieb(k, (tx) => tx`
 		select ab.id, ab.nummer, ab.angebot_id, ab.angelegt, ab.versand_status, ab.versendet_am,
 			a.id as auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel,
@@ -232,7 +233,7 @@ export async function listeAlleAuftragsbestaetigungen(k: Kontext, sicht: Sicht, 
 		where ab.betrieb_id = ${k.betriebId}
 			and ${sicht.alle ? tx`true` : tx`(a.id is not null and ${sichtbar(tx, sicht)})`}
 			${f.status ? tx`and ab.versand_status = ${f.status}` : tx``}
-			${suche ? tx`and (ab.nummer ilike ${suche} or a.titel ilike ${suche} or a.nummer ilike ${suche} or kd.firma ilike ${suche} or kd.nachname ilike ${suche} or a.einmal_name ilike ${suche})` : tx``}
+			${suche ? tx`and (ab.nummer ilike ${suche} or a.titel ilike ${suche} or a.nummer ilike ${suche} or kd.firma ilike ${suche} or kd.nachname ilike ${suche} or kd.vorname ilike ${suche} or a.einmal_name ilike ${suche})` : tx``}
 		order by ab.angelegt desc, ab.id
 		limit ${MAX_ABS}`);
 	return z.map((r) => ({

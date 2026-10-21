@@ -531,16 +531,16 @@ html .kd-liste > li > a {
 html .kd-liste > li > a:hover {
 	background: var(--ui-akzent-zart);
 }
-html .kd-liste > li:has(.s-anfrage) > a { box-shadow: inset 4px 0 0 var(--ui-grau); }
-html .kd-liste > li:has(.s-angebot) > a { box-shadow: inset 4px 0 0 var(--ui-lila); }
-html .kd-liste > li:has(.s-beauftragt) > a { box-shadow: inset 4px 0 0 var(--ui-blau); }
-html .kd-liste > li:has(.s-in_arbeit) > a { box-shadow: inset 4px 0 0 var(--ui-orange); }
-html .kd-liste > li:has(.s-abgenommen) > a { box-shadow: inset 4px 0 0 var(--ui-gruen); }
-html .kd-liste > li:has(.s-abgerechnet) > a { box-shadow: inset 4px 0 0 #5c6370; }
-html .kd-liste > li:has(.an-status.s-versendet) > a { box-shadow: inset 4px 0 0 var(--ui-blau); }
-html .kd-liste > li:has(.an-status.s-angenommen) > a { box-shadow: inset 4px 0 0 var(--ui-gruen); }
-html .kd-liste > li:has(.an-status.s-abgelehnt) > a { box-shadow: inset 4px 0 0 var(--ui-rot); }
-html .kd-liste > li:has(.an-status.s-entwurf) > a { box-shadow: inset 4px 0 0 var(--ui-grau); }
+html .kd-liste > li:has(.s-anfrage) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-grau); }
+html .kd-liste > li:has(.s-angebot) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-lila); }
+html .kd-liste > li:has(.s-beauftragt) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-blau); }
+html .kd-liste > li:has(.s-in_arbeit) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-orange); }
+html .kd-liste > li:has(.s-abgenommen) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-gruen); }
+html .kd-liste > li:has(.s-abgerechnet) > a:first-child { box-shadow: inset 4px 0 0 #5c6370; }
+html .kd-liste > li:has(.an-status.s-versendet) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-blau); }
+html .kd-liste > li:has(.an-status.s-angenommen) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-gruen); }
+html .kd-liste > li:has(.an-status.s-abgelehnt) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-rot); }
+html .kd-liste > li:has(.an-status.s-entwurf) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-grau); }
 
 /* Listenzeile mit Avatar links (Kunden, Benutzer) */
 html .kd-liste a.zeile-mit-avatar {
@@ -1193,6 +1193,20 @@ html body .seg .seg-teil:not(.ui-nie).an {
 html body :is(.ui-umschalter, .af-ansicht, .pt-ansicht, .af-reiter, .pills, .af-meine, .pt-farbe, .ab-reiter) :is(a, button):not(.ui-nie):focus-visible {
 	outline: none;
 	box-shadow: var(--ui-fokus-ring) !important;
+}
+/* gesperrter Umschalter (Umschalter gesperrt): sichtbar, aber erkennbar nicht bedienbar */
+html body .ui-umschalter button:disabled:not(.ui-nie) {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+html body .ui-umschalter button:disabled:not(.ui-nie):hover {
+	background: transparent !important;
+	color: var(--ui-text-leise) !important;
+}
+/* gesperrtes Suchfeld */
+html body .sf input:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
 }
 /* Board-Reiter (Handy) nur unter 700 px – darüber stehen die Spalten nebeneinander */
 @media (min-width: 700px) {

@@ -21,6 +21,9 @@
 	 * filtert die Liste darunter (aktive Kachel hervorgehoben, erneuter Klick hebt den Filter auf).
 	 * Kompakt (msg 2944): Zahl links, Titel und Hinweis rechts daneben; am Handy Zählkacheln zu dritt, Wertkacheln zu
 	 * zweit je Zeile. Der Block lässt sich ein-/ausblenden (je Benutzer und Seite auf diesem Gerät gemerkt).
+	 * Nie Text verschlucken (msg 3057): Titel und Hinweis brechen um statt „…“; Kacheln mit langem Wert (Betrag, %)
+	 * stellen den Wert über den Titel und verkleinern ihn notfalls passend zur Kachelbreite; der Streifen bricht in die
+	 * nächste Zeile um.
 	 */
 	let {
 		kacheln,
@@ -173,7 +176,7 @@
 	}
 	.kz-reihe {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
 		gap: 0.4rem;
 		margin: 0;
 		padding: 0;
@@ -184,16 +187,16 @@
 	/* nie über die Kachel hinaus (msg 3047: abgeschnittene €-Kachel) – Inhalt bleibt in seiner Zelle */
 	.kz-zelle {
 		min-width: 0;
+		container-type: inline-size;
 	}
-	/* Geldbeträge u. Ä. (keine kurze Zahl): Wert oben, Titel und Hinweis darunter – passt in jede Zellbreite */
+	/* Geldbeträge u. Ä. (keine kurze Zahl): Wert oben, Titel und Hinweis darunter – passt in jede Zellbreite;
+	   die Schrift des Werts richtet sich nach der Kachelbreite statt ihn abzuschneiden (msg 3057) */
 	.kz-zelle:not(.zahl) .kz-kachel {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.kz-zelle:not(.zahl) .kz-wert {
 		grid-row: auto;
-		font-size: 1.2rem;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		font-size: clamp(0.95rem, 11cqi, 1.375rem);
 	}
 	.kz-zelle:not(.zahl) .kz-titel:last-child {
 		grid-row: auto;
@@ -204,6 +207,7 @@
 		grid-template-columns: auto minmax(0, 1fr);
 		grid-template-rows: auto auto;
 		align-items: center;
+		align-content: center; /* neben höheren Kacheln (umbrochener Titel) bleibt der Inhalt kompakt in der Mitte */
 		column-gap: 0.55rem;
 		height: 100%;
 		min-width: 0;
@@ -237,13 +241,16 @@
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
+	/* umbrechen statt abschneiden (msg 3057) */
 	.kz-titel,
 	.kz-info {
-		overflow: hidden;
-		white-space: nowrap;
-		text-overflow: ellipsis;
+		min-width: 0;
+		white-space: normal;
+		overflow-wrap: break-word;
+		hyphens: auto;
 		line-height: 1.3;
 	}
+
 	.kz-titel {
 		color: var(--ui-text);
 		font-size: var(--ui-schrift-xs);

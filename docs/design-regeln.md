@@ -135,6 +135,25 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
 - **Kennzahl-Kacheln** (`KennzahlKacheln`) direkt unter der Filterleiste: Zeitraum-Umschalter + Kacheln; Klick auf
   eine Kachel filtert die Liste, zweiter Klick hebt den Filter auf.
 
+## 10b. Einheitlichkeit (Regel von Jamil, Talk msgs 3054–3056) – STÄNDIGE REGEL
+
+„Je nachdem welche Belegart ich auswähle, sieht das alles anders aus. Bitte mehr Einheit.“ Daraus gilt für immer:
+
+- **Gleiche Arten von Seiten, Reitern und Listen haben immer denselben Aufbau und dieselben Bausteine:**
+  Filterleiste (Suche links → Reiter → Status-Chips → Ansichten rechts) → Kennzahl-Streifen
+  („<TYP> · <ZEITRAUM>“ mit Zeitraum-Umschalter Monat/Quartal/Jahr/12 Mon./Gesamt an derselben Stelle, gleiche
+  Kacheln) → Liste mit gleicher Zeile (Nummer · Kunde, darunter Auftrag · Titel · Datum, Status-Pill rechts).
+- **Neue Reiter oder Seiten benutzen die vorhandenen gemeinsamen Bausteine** statt eine eigene Variante zu bauen.
+  Beispiel Ausgangsbelege: alle Reiter laufen über `components/ausgangsbelege/BelegSeite.svelte` (Server:
+  `lib/server/ausgangsbelege.ts`, Adressen: `lib/ausgangsbelege.ts`); eine neue Belegart ist nur eine neue
+  `+page.svelte`, die `BelegSeite` mit Daten füllt.
+- Was es (noch) nicht gibt, steht **im selben Rahmen** – Suche und Status gesperrt, Platzhalter-Kacheln „–“,
+  Leerzustand mittig in der Listenkarte (Beispiel: Rechnungen vor der Lexware-Anbindung). Nie Teile weglassen.
+- **Vor jedem Commit mit den Geschwister-Seiten vergleichen** (gleiche Reiter-Gruppe, gleiche Art Liste): Suche
+  vorhanden? Gleiche Reihenfolge? Gleiche Kacheln und Zeilen? Bei 1280 und 390 px Bildschirmfotos nebeneinander.
+- **Kennzahl-Kacheln verschlucken nie Text** (msg 3057): Titel brechen um, lange Werte stehen über dem Titel und
+  werden notfalls kleiner, der Streifen bricht in die nächste Zeile um.
+
 ## 10a. Kundenportal
 
 - Gleiches Design wie die App: Anthrazit-Kopf mit Logo, Hausfarbe als Akzent (`farbStil`), Montserrat-Titel.

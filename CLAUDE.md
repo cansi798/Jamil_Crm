@@ -46,3 +46,12 @@ anpassen – und in der Talk-Notiz an Jamil IMMER sagen, was im Menü dazugekomm
 Löschen eines ganzen Datensatzes (Kunde, Objekt, Auftrag, Angebot, Vorlage, Partner, Rolle …) steht immer oben rechts
 im Seitenkopf: `LoeschenKnopf` + `LoeschenPanel` (`src/lib/components/ui/`), Details in `docs/design-regeln.md` 3a.
 Löschknöpfe einzelner Listenzeilen (Notiz, Dokument, Position) bleiben in der Zeile.
+
+## Einheitlichkeit (STÄNDIGE Regel von Jamil, Talk msgs 3054–3056)
+
+Gleiche Arten von Seiten, Reitern und Listen haben immer denselben Aufbau und dieselben Bausteine
+(**Filterleiste → Kennzahl-Streifen → Liste**). Neue Reiter oder Seiten benutzen die vorhandenen gemeinsamen Bausteine
+(z. B. `components/ausgangsbelege/BelegSeite.svelte`, `FilterLeiste`, `KennzahlKacheln`, `Umschalter`) statt eine
+eigene Variante zu bauen. **Vor jedem Commit** die Einheitlichkeit mit den Geschwister-Seiten prüfen (gleiche Suche,
+gleiche Reihenfolge, gleiche Kacheln und Zeilen; Bildschirmfotos bei 1280 und 390 px nebeneinander). Details:
+`docs/design-regeln.md`, Abschnitt 10b.

@@ -1,21 +1,12 @@
 <script lang="ts">
 	/**
 	 * Reiter des Bereichs „Ausgangsbelege“ (Jamil msg 2948): Angebote, Auftragsbestätigungen, Rechnungen – derselbe
-	 * Umschalter wie bei den Status-Chips (docs/design-regeln.md: keine eigenen Reiter bauen). Steht als erstes in der
-	 * Filterleiste, damit Titel und Filterleiste auf allen Hauptseiten an derselben Stelle bleiben („Ruhe“, msg 2919).
+	 * Umschalter wie bei den Status-Chips (docs/design-regeln.md: keine eigenen Reiter bauen). Teil von `BelegSeite`.
 	 */
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
+	import { BELEG_ARTEN, belegPfad, type BelegArt } from '$lib/ausgangsbelege';
 
-	export type BelegArt = 'angebote' | 'auftragsbestaetigungen' | 'rechnungen';
 	let { aktiv }: { aktiv: BelegArt } = $props();
 </script>
 
-<Umschalter
-	label="Ausgangsbelege"
-	{aktiv}
-	eintraege={[
-		{ wert: 'angebote', text: 'Angebote', href: '/ausgangsbelege/angebote' },
-		{ wert: 'auftragsbestaetigungen', text: 'Auftragsbestätigungen', href: '/ausgangsbelege/auftragsbestaetigungen' },
-		{ wert: 'rechnungen', text: 'Rechnungen', href: '/ausgangsbelege/rechnungen' }
-	]}
-/>
+<Umschalter label="Ausgangsbelege" {aktiv} eintraege={BELEG_ARTEN.map((a) => ({ wert: a.wert, text: a.text, href: belegPfad(a.wert) }))} />

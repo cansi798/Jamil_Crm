@@ -9,9 +9,11 @@
 		eintraege,
 		aktiv,
 		label,
-		onwaehle
-	}: { eintraege: readonly Eintrag[]; aktiv: string | null; label: string; onwaehle?: (wert: string) => void } = $props();
-	const alsLinks = $derived(eintraege.every((e) => e.href));
+		onwaehle,
+		gesperrt = false
+	}: { eintraege: readonly Eintrag[]; aktiv: string | null; label: string; onwaehle?: (wert: string) => void; gesperrt?: boolean } = $props();
+	// `gesperrt`: sichtbar, aber nicht bedienbar (z. B. Rechnungs-Status vor der Lexware-Anbindung)
+	const alsLinks = $derived(!gesperrt && eintraege.every((e) => e.href));
 </script>
 
 {#if alsLinks}
@@ -23,7 +25,7 @@
 {:else}
 	<div class="ui-umschalter" role="group" aria-label={label}>
 		{#each eintraege as e (e.wert)}
-			<button type="button" aria-pressed={e.wert === aktiv} onclick={() => onwaehle?.(e.wert)}>{e.text}</button>
+			<button type="button" aria-pressed={e.wert === aktiv} disabled={gesperrt} onclick={() => onwaehle?.(e.wert)}>{e.text}</button>
 		{/each}
 	</div>
 {/if}

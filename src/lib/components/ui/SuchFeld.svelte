@@ -8,8 +8,9 @@
 		name = 'suche',
 		wert = '',
 		label,
-		placeholder = 'Suchen …'
-	}: { name?: string; wert?: string | null; label: string; placeholder?: string } = $props();
+		placeholder = 'Suchen …',
+		gesperrt = false
+	}: { name?: string; wert?: string | null; label: string; placeholder?: string; gesperrt?: boolean } = $props();
 
 	let zeit: ReturnType<typeof setTimeout> | undefined;
 	function eingabe(ev: Event) {
@@ -21,7 +22,7 @@
 
 <div class="sf">
 	<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" /><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
-	<input type="search" {name} value={wert ?? ''} aria-label={label} {placeholder} autocomplete="off" enterkeyhint="search" oninput={eingabe} />
+	<input type="search" {name} value={wert ?? ''} aria-label={label} {placeholder} autocomplete="off" enterkeyhint="search" disabled={gesperrt} oninput={eingabe} />
 </div>
 
 <style>

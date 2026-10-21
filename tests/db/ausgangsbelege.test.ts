@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { schliesseDb } from '../../src/lib/server/db';
 import { baueUmgebung, leereAngebote, type Umgebung } from './hilfe-1c';
 import { listeAlleAuftragsbestaetigungen } from '../../src/lib/server/auftragsbestaetigung';
+import { listeAngebote } from '../../src/lib/server/angebote';
 import { abKennzahlen, speichereKennzahlEinstellungen } from '../../src/lib/server/kennzahlen';
 import { speichereAnsicht } from '../../src/lib/server/ansichten';
 import { zeitraum } from '../../src/lib/kennzahlen';
@@ -106,11 +107,23 @@ describe('Ausgangsbelege', () => {
 		expect(d.kennzahlen).not.toBeNull();
 		for (const n of [u.monteurA, u.ohnePreiseA]) {
 			expect(await fehler(() => abLoad({ locals: { nutzer: n }, url } as never))).toMatchObject({ status: 403 });
-			expect(await fehler(() => reLoad({ locals: { nutzer: n } } as never))).toMatchObject({ status: 403 });
+			expect(await fehler(() => reLoad({ locals: { nutzer: n }, url: new URL('http://t/ausgangsbelege/rechnungen') } as never))).toMatchObject({ status: 403 });
 		}
-		expect(await reLoad({ locals: { nutzer: u.chefA } } as never)).toEqual({});
+		// Rechnungen: gleicher Rahmen wie die anderen Reiter (Zeitraum, Kacheln an/aus), aber keine Daten
+		expect(await reLoad({ locals: { nutzer: u.chefA }, url: new URL('http://t/ausgangsbelege/rechnungen?zeitraum=jahr') } as never)).toEqual({ zeitraum: 'jahr', kennzahlenAn: expect.any(Boolean) });
 		const a = (await angLoad({ locals: { nutzer: u.chefA }, url: new URL('http://t/ausgangsbelege/angebote') } as never)) as { angebote: unknown[] };
 		expect(a.angebote.length).toBe(3);
+		// Suche auch bei Angeboten (Jamil msg 3056) – gleicher Parameter wie bei den ABs
+		const g = (await angLoad({ locals: { nutzer: u.chefA }, url: new URL('http://t/ausgangsbelege/angebote?suche=meier') } as never)) as { angebote: { nummer: string }[]; suche: string };
+		expect(g.suche).toBe('meier');
+		expect(g.angebote.map((x) => x.nummer)).toEqual(['AN-T-2']);
+	});
+
+	it('Angebote: Suche nach Nummer, Auftrag (Titel) und Kunde; Sonderzeichen harmlos', async () => {
+		expect((await listeAngebote(kA(), { suche: 'meier' })).map((x) => x.nummer)).toEqual(['AN-T-2']);
+		expect((await listeAngebote(kA(), { suche: 'an-t-3' })).map((x) => x.nummer)).toEqual(['AN-T-3']);
+		expect(await listeAngebote(kA(), { suche: "%_'\\" })).toEqual([]);
+		expect((await listeAngebote(kA(), { suche: '   ' })).length).toBe(3);
 	});
 
 	it('Umleitungen: /angebote (mit Filtern) → /ausgangsbelege/angebote; /ausgangsbelege → erster Reiter', async () => {

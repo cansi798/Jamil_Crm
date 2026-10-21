@@ -1,31 +1,22 @@
 <script lang="ts">
 	import { mitEinstellungen } from '$lib/kennzahlen';
-	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
-	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
-	import Umschalter from '$lib/components/ui/Umschalter.svelte';
-	import BelegReiter from '$lib/components/ausgangsbelege/BelegReiter.svelte';
+	import type { Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
+	import BelegSeite, { type BelegZeile } from '$lib/components/ausgangsbelege/BelegSeite.svelte';
+	import { belegLink, type BelegFilter } from '$lib/ausgangsbelege';
 	import { ANGEBOT_STATUS, ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { tagDeutsch } from '$lib/zeit';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 
-	const aLink = (o: { status?: string | null; zeitraum?: string }) => {
-		const p = new URLSearchParams();
-		const st = o.status === undefined ? data.status : o.status;
-		if (st) p.set('status', st);
-		const z = o.zeitraum ?? data.zeitraum;
-		if (z !== 'monat') p.set('zeitraum', z);
-		const q = p.toString();
-		return q ? `/ausgangsbelege/angebote?${q}` : '/ausgangsbelege/angebote';
-	};
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+	const auswahl = $derived<BelegFilter>({ suche: data.suche, status: data.status, zeitraum: data.zeitraum });
 	const prozent = (w: number | null) => (w === null ? '–' : `${Math.round(w * 100)} %`);
-	const kacheln = $derived.by((): Kachel[] => {
+	const kacheln = $derived.by((): Kachel[] | null => {
 		const kz = data.kennzahlen;
-		if (!kz) return [];
+		if (!kz) return null;
 		const kl = (id: string, titel: string, wert: string, info: string, ton: Kachel['ton'], filter: boolean) => ({
-			id, titel, wert, info, ton, href: filter ? aLink({ status: data.status === id ? null : id }) : null
+			id, titel, wert, info, ton, href: filter ? belegLink('angebote', auswahl, { status: data.status === id ? null : id }) : null
 		});
 		// Einstellungen je Kennzahl (Jamil msg 2946)
 		const KONFIG: Record<string, string> = { entwurf: 'angebote_entwurf', versendet: 'angebote_offen', angenommen: 'angebote_angenommen', abgelehnt: 'angebote_abgelehnt', abgelaufen: 'angebote_abgelaufen', quote: 'angebote_quote', schnitt: 'angebote_schnitt' };
@@ -39,61 +30,41 @@
 			...(kz.durchschnittCent !== null ? [kl('schnitt', 'Ø Angebotswert', euro(kz.durchschnittCent), 'im Zeitraum abgegeben', 'akzent', false)] : [])
 		], kz, (id) => KONFIG[id] ?? id);
 	});
+	const zeilen = $derived(
+		data.angebote.map((a): BelegZeile => ({
+			id: a.id,
+			href: `/angebote/${a.id}`,
+			nummer: a.nummer,
+			kunde: a.kundeName,
+			auftrag: a.auftragTitel ? [a.auftragNummer, a.auftragTitel].filter(Boolean).join(' · ') : null,
+			datum: tagDeutsch(a.datum),
+			status: { text: ANGEBOT_STATUS_NAMEN[a.status], klasse: `s-${a.status}` },
+			betrag: euro(a.bruttoCent),
+			warnung: a.warnungen.includes('preis_fehlt') ? 'Preis fehlt' : null,
+			pdf: `/api/angebote/${a.id}/pdf`
+		}))
+	);
 </script>
 
 <svelte:head>
 	<title>Angebote · Ausgangsbelege</title>
 </svelte:head>
 
-<main class="kd-seite breit">
-	<header class="seiten-kopf">
-		<div>
-			<h1>Ausgangsbelege</h1>
-			<p class="seiten-meta">Angebote entstehen meist im Auftrag – ein Angebot ohne Auftrag lässt sich später zuordnen.</p>
-		</div>
+<BelegSeite
+	art="angebote"
+	meta="Angebote entstehen meist im Auftrag – ein Angebot ohne Auftrag lässt sich später zuordnen."
+	{auswahl}
+	statusListe={ANGEBOT_STATUS.map((st) => ({ wert: st, text: ANGEBOT_STATUS_NAMEN[st] }))}
+	{kacheln}
+	{zeilen}
+	maxTreffer={data.maxTreffer}
+	fehler={form?.fehler ?? null}
+>
+	{#snippet aktionen()}
 		{#if data.darfOhneAuftrag}
 			<form method="POST" action="?/neu" use:enhance class="seiten-aktionen">
 				<button type="submit" class="kd-knopf" aria-label="+ Angebot ohne Auftrag">+ Angebot</button>
 			</form>
 		{/if}
-	</header>
-	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
-
-	<FilterLeiste ansichten="angebote" form={false} label="Angebote filtern">
-		{#snippet filter()}
-			<BelegReiter aktiv="angebote" />
-			<Umschalter
-				label="Status"
-				aktiv={data.status ?? 'alle'}
-				eintraege={[{ wert: 'alle', text: 'Alle', href: aLink({ status: null }) }, ...ANGEBOT_STATUS.map((st) => ({ wert: st, text: ANGEBOT_STATUS_NAMEN[st], href: aLink({ status: st }) }))]}
-			/>
-		{/snippet}
-	</FilterLeiste>
-
-	{#if kacheln.length > 0}
-		<KennzahlKacheln label="Angebote" {kacheln} zeitraum={data.zeitraum} zeitraumLink={(a) => aLink({ zeitraum: a })} aktiv={data.status} />
-	{/if}
-
-	<ul class="kd-liste">
-		{#each data.angebote as a (a.id)}
-			<li>
-				<a href={`/angebote/${a.id}`}>
-					<span class="af-kopfzeile">
-						<strong>{a.nummer} · {a.kundeName}</strong>
-						<span class={`an-status s-${a.status}`}>{ANGEBOT_STATUS_NAMEN[a.status]}</span>
-					</span>
-					<span class="af-kopfzeile">
-						<span class="kd-info">{a.auftragTitel ?? 'ohne Auftrag'} · {tagDeutsch(a.datum)}</span>
-						<span class="kt-preis">{euro(a.bruttoCent)}</span>
-					</span>
-					{#if a.warnungen.includes('preis_fehlt')}<span class="kt-preis-fehlt">Preis fehlt</span>{/if}
-				</a>
-			</li>
-		{:else}
-			<li class="kd-leer">{data.status ? 'Keine Angebote in diesem Status.' : 'Noch keine Angebote.'}</li>
-		{/each}
-	</ul>
-	{#if data.angebote.length >= data.maxTreffer}
-		<p class="kd-info">Es werden höchstens {data.maxTreffer} Angebote angezeigt.</p>
-	{/if}
-</main>
+	{/snippet}
+</BelegSeite>
