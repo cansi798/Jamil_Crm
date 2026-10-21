@@ -28,5 +28,21 @@ test('Chef: Kennzahlen-Cockpit mit Zeitraum, Formeln und fehlenden Daten', async
 	await expect(page).toHaveURL(/zeitraum=monat/);
 	await expect(karten).toHaveCount(7);
 	await erwarteKeinQuerScrollen(page, viewport.width);
+
+	// Ampel nur als Punkt, immer oben rechts in der Karte, Bedeutung per aria-label (Jamil msg 3093)
+	const lagen = await page.locator('.kzc-karte').evaluateAll((l) =>
+		l.flatMap((karte) => {
+			const punkt = karte.querySelector('.ampel-punkt');
+			if (!punkt) return [];
+			const k = karte.getBoundingClientRect();
+			const p = punkt.getBoundingClientRect();
+			return [{ oben: Math.round(p.top - k.top), rechts: Math.round(k.right - p.right), label: punkt.getAttribute('aria-label') ?? '', text: punkt.textContent ?? '' }];
+		})
+	);
+	for (const l of lagen) {
+		expect(l.label).toMatch(/^Status: /);
+		expect(l.text).toBe('');
+		expect(l).toMatchObject({ oben: lagen[0].oben, rechts: lagen[0].rechts });
+	}
 	await ctx.close();
 });

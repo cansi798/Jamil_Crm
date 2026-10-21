@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AmpelPunkt from '$lib/components/ui/AmpelPunkt.svelte';
 	import { enhance } from '$app/forms';
 	import { flip } from 'svelte/animate';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
@@ -175,9 +176,10 @@
 			<ul class="st-kz-liste">
 				{#each data.cockpit.kennzahlen as kz (kz.id)}
 					<li class={`st-kz ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
+						{#if kz.ampel}<AmpelPunkt ampel={kz.ampel} text={kz.ampelText} />{/if}
 						<strong>{kz.fehlt ? '–' : kennzahlText(kz.info.einheit, kz.wert)}</strong>
 						<span class="st-kz-titel">{kz.info.titel}</span>
-						<small>{kz.fehlt ?? kz.ampelText ?? kz.info.richtwert ?? ''}{kz.seit ? ` · ${kz.seit}` : ''}</small>
+						<small>{kz.fehlt ?? (kz.ampel ? 'Dieser Monat' : kz.info.richtwert ?? '')}{kz.seit ? ` · ${kz.seit}` : ''}</small>
 					</li>
 				{/each}
 			</ul>
@@ -185,9 +187,10 @@
 	{:else if id.startsWith('kz-') && kennzahl(id)}
 		{@const kz = kennzahl(id)!}
 		<a href="/auswertung/kennzahlen" class={`heute-karte st-kz einzeln ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
+			{#if kz.ampel}<AmpelPunkt ampel={kz.ampel} text={kz.ampelText} />{/if}
 			<strong>{kz.fehlt ? '–' : kennzahlText(kz.info.einheit, kz.wert)}</strong>
 			<span class="st-kz-titel">{kz.info.titel}</span>
-			<small>{kz.fehlt ?? kz.ampelText ?? 'Dieser Monat'}{kz.seit ? ` · ${kz.seit}` : ''}</small>
+			<small>{kz.fehlt ?? 'Dieser Monat'}{kz.seit ? ` · ${kz.seit}` : ''}</small>
 		</a>
 	{:else if id === 'handlung' && data.cockpit}
 		<section class="heute-karte" aria-labelledby="st-hb">
@@ -574,9 +577,10 @@
 		list-style: none;
 	}
 	.st-kz {
+		position: relative; /* Ampel-Punkt immer oben rechts (msg 3093) */
 		display: grid;
 		gap: 0.05rem;
-		padding: 0.45rem 0.6rem;
+		padding: 0.45rem 1.5rem 0.45rem 0.6rem;
 		border: 1px solid var(--ui-rand);
 		border-left: 4px solid var(--ui-grau);
 		border-radius: var(--ui-radius);

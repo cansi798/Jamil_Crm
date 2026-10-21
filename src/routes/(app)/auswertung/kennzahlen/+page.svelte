@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
+	import AmpelPunkt from '$lib/components/ui/AmpelPunkt.svelte';
 	import { kennzahlText, ZEITRAUM_ARTEN, ZEITRAUM_NAMEN, type Kennzahl } from '$lib/kennzahlen';
 	import { tagDeutsch, tagPlus } from '$lib/zeit';
 	import type { PageData } from './$types';
@@ -11,7 +12,6 @@
 	let { data }: { data: PageData } = $props();
 	const z = $derived(data.zeitraum);
 	const spanneText = $derived(z.spanne ? `${tagDeutsch(z.spanne.von)} – ${tagDeutsch(tagPlus(z.spanne.bis, -1))}` : 'alle Daten');
-	const AMPEL_NAME = { gruen: 'Grün', gelb: 'Gelb', rot: 'Rot' } as const;
 
 	function trendText(k: Kennzahl): string | null {
 		if (!k.trend) return null;
@@ -60,7 +60,7 @@
 			<li class={`kzc-karte ampel-${k.ampel ?? 'keine'}`} aria-labelledby={`kz-${k.id}`}>
 				<div class="kzc-kopf">
 					<h2 id={`kz-${k.id}`}>{k.info.titel}</h2>
-					{#if k.ampel}<span class="kzc-ampel" title={`Ampel: ${AMPEL_NAME[k.ampel]}`}><span class="kzc-punkt" aria-hidden="true"></span>{k.ampelText}</span>{/if}
+					{#if k.ampel}<AmpelPunkt ampel={k.ampel} text={k.ampelText} />{/if}
 				</div>
 				{#if k.fehlt}
 					<p class="kzc-fehlt">{k.fehlt}</p>
@@ -109,6 +109,7 @@
 		border-radius: var(--ui-radius-karte);
 		background: var(--ui-flaeche);
 		min-width: 0;
+		position: relative; /* Ampel-Punkt immer oben rechts (msg 3093) */
 	}
 	.kzc-karte.ampel-gruen {
 		border-top-color: var(--ui-gruen);
@@ -128,29 +129,8 @@
 	}
 	.kzc-kopf h2 {
 		margin: 0;
+		padding-right: 1.25rem; /* Platz für den Ampel-Punkt */
 		font-size: var(--ui-schrift-m);
-	}
-	.kzc-ampel {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.35rem;
-		font-size: var(--ui-schrift-s);
-		font-weight: 600;
-	}
-	.kzc-punkt {
-		width: 0.7rem;
-		height: 0.7rem;
-		border-radius: 50%;
-		background: var(--ui-grau);
-	}
-	.ampel-gruen .kzc-punkt {
-		background: var(--ui-gruen);
-	}
-	.ampel-gelb .kzc-punkt {
-		background: var(--ui-orange);
-	}
-	.ampel-rot .kzc-punkt {
-		background: var(--ui-rot);
 	}
 	.kzc-wert {
 		margin: 0;

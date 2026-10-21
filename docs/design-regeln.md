@@ -151,6 +151,8 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
   Leerzustand mittig in der Listenkarte (Beispiel: Rechnungen vor der Lexware-Anbindung). Nie Teile weglassen.
 - **Vor jedem Commit mit den Geschwister-Seiten vergleichen** (gleiche Reiter-Gruppe, gleiche Art Liste): Suche
   vorhanden? Gleiche Reihenfolge? Gleiche Kacheln und Zeilen? Bei 1280 und 390 px Bildschirmfotos nebeneinander.
+- **Ampel/Status einer Kennzahl nur als farbiger Punkt, immer oben rechts in der Karte** (msg 3093):
+  Baustein `components/ui/AmpelPunkt.svelte` (Bedeutung über aria-label/title „Status: gesund“), kein Text daneben.
 - **Kennzahl-Kacheln verschlucken nie Text** (msg 3057): Titel brechen um, lange Werte stehen über dem Titel und
   werden notfalls kleiner, der Streifen bricht in die nächste Zeile um.
 

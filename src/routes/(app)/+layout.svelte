@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { BELEG_ARTEN, belegPfad } from '$lib/ausgangsbelege';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { istAktiv, MOBIL_HAUPT } from '$lib/navigation';
@@ -26,7 +27,8 @@
 	// Jamil msg 3060: Auf der Startseite eines Bereichs (z. B. /auftraege) wiederholt der Seitentitel nur die Kopfleiste.
 	// Am Desktop bleibt dann nur die Kopfleiste sichtbar, die h1 wird zur Screenreader-Überschrift (Stil unten).
 	// Am Handy gibt es keine Kopfleiste – dort bleibt die h1 sichtbar. Detailseiten (/auftraege/<id>) behalten ihren Titel.
-	const bereichsStart = $derived(!!bereich?.href && bereich.href.split('?')[0] === pfad);
+	// Reiter eines Bereichs (Ausgangsbelege → Angebote/ABs/Rechnungen) sind ebenfalls dessen Startseite (msgs 3054–3060)
+	const bereichsStart = $derived(!!bereich?.href && (bereich.href.split('?')[0] === pfad || BELEG_ARTEN.some((a) => belegPfad(a.wert) === pfad)));
 	// Logo oben links (msg 3014): Seitenleiste (dunkel) bevorzugt die helle Variante, das Handy (hell) das Briefkopf-Logo
 	const markeName = $derived(data.marke?.name ?? 'CRM System');
 	const logoUrl = (variante: 'dunkel' | 'briefkopf', v: string) => `/api/marke/logo?variante=${variante}&v=${encodeURIComponent(v)}`;
