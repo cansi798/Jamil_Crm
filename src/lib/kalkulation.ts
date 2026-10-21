@@ -4,10 +4,21 @@
  *
  *   Kosten pro Jahr     = Summe der aktiven Kostenzeilen (monatlich × 12, jährlich, einmalig anteilig abgeschrieben)
  *                         + Personalkosten (Bruttojahresgehalt + Arbeitgeber-Anteil) aller Mitarbeiter
- *   Produktive Stunden  = Summe über die Mitarbeiter: Tage im Jahr × effektive Stunden pro Tag
+ *   Produktive Stunden  = Summe über die Mitarbeiter: Tage im Jahr × verrechenbare Stunden pro Tag
  *                         (Standard des Betriebs, je Mitarbeiter überschreibbar)
  *   Kosten-Stundensatz  = Kosten pro Jahr / produktive Stunden            (kostendeckend, Untergrenze)
  *   Verrechnungssatz    = Kosten-Stundensatz × (1 + Wagnis % + Gewinn %)  (empfohlen)
+ *   → das ist der Mischsatz (Durchschnitt aller Mitarbeiter).
+ *
+ * Je Mitarbeiter (Jamil msgs 2998/3000/3002):
+ *   Gemeinkosten-Anteil = alle aktiven Kostenzeilen × (seine Stunden ÷ alle Stunden) – bei gleichen Stunden je Kopf
+ *                         gleich. Auch Kostenzeilen der Kategorie „Personal“ (Löhne, die nicht beim Mitarbeiter
+ *                         stehen, z. B. Büro oder Lohn als Kostenzeile wie in der Excel) zählen dazu: Sie lassen sich
+ *                         keinem Mitarbeiter zuordnen, und nur so ergibt die Summe aller Mitarbeiter genau die
+ *                         Gesamtkosten (Mischsatz bleibt gleich).
+ *   Kostendeckender Tagessatz = (Personalkosten + Gemeinkosten-Anteil) ÷ seine produktiven Tage
+ *   Kostendeckender Stundensatz = Tagessatz ÷ seine verrechenbaren Stunden pro Tag
+ *   Verkaufs-Tages-/Stundensatz = kostendeckend × (1 + Wagnis % + Gewinn %)
  *
  * Geld in ganzen Cent, Ergebnisse kaufmännisch gerundet. Ohne produktive Stunden gibt es keinen Satz (`null`) und
  * `warnungen` sagt warum – nie eine Division durch 0.
@@ -31,7 +42,7 @@ export const INTERVALL_NAMEN: Record<Intervall, string> = { monatlich: 'monatlic
 export type BetriebsWerte = {
 	/** Produktive Tage im Jahr je Mitarbeiter (Standard, z. B. 210). */
 	standardTage: number;
-	/** Effektive Stunden pro Tag (Standard, z. B. 7). */
+	/** Verrechenbare Stunden pro Tag (Standard): was dem Kunden je Tag berechnet wird; Fehltage stecken in den produktiven Tagen. */
 	standardStundenTag: number;
 	/** Wagnis (Risiko) und Gewinn in Prozent – zusammen der Aufschlag auf den Kosten-Stundensatz. */
 	risikoProzent: number;
@@ -90,6 +101,15 @@ export type MitarbeiterErgebnis = {
 	bruttoCent: number;
 	agAnteilCent: number;
 	personalkostenCent: number;
+	/** Anteil an den Gemeinkosten (alle aktiven Kostenzeilen) nach seinem Anteil an den produktiven Stunden. */
+	gemeinkostenCent: number;
+	/** Personalkosten + Gemeinkosten-Anteil (pro Jahr). */
+	kostenCent: number;
+	/** null ohne Tage bzw. Stunden. */
+	kostendeckendTagCent: number | null;
+	kostendeckendStundeCent: number | null;
+	verkaufTagCent: number | null;
+	verkaufStundeCent: number | null;
 };
 
 export type Uebersicht = {
@@ -97,6 +117,8 @@ export type Uebersicht = {
 	kategorien: { kategorie: Kategorie; jahresCent: number }[];
 	/** Summe der aktiven Kostenzeilen pro Jahr. */
 	kostenzeilenCent: number;
+	/** Davon Kostenzeilen der Kategorie „Personal“ (zählen als Gemeinkosten, siehe oben). */
+	personalZeilenCent: number;
 	personalkostenCent: number;
 	gesamtkostenCent: number;
 	monatskostenCent: number;
@@ -137,7 +159,13 @@ export function berechneUebersicht(
 			stunden: runde2(tage * stundenTag),
 			bruttoCent: m.werte.bruttoCent,
 			agAnteilCent: ag,
-			personalkostenCent: m.werte.bruttoCent + ag
+			personalkostenCent: m.werte.bruttoCent + ag,
+			gemeinkostenCent: 0,
+			kostenCent: m.werte.bruttoCent + ag,
+			kostendeckendTagCent: null,
+			kostendeckendStundeCent: null,
+			verkaufTagCent: null,
+			verkaufStundeCent: null
 		};
 	});
 	const personalkostenCent = mitarbeiter.reduce((s, m) => s + m.personalkostenCent, 0);
@@ -153,6 +181,23 @@ export function berechneUebersicht(
 		kostendeckend = Math.round(gesamt / stunden);
 		empfohlen = Math.round((gesamt / stunden) * (1 + aufschlag / 100));
 	}
+	// Je Mitarbeiter: Gemeinkosten nach Stundenanteil, daraus Tages- und Stundensatz
+	for (const m of mitarbeiter) {
+		const eigeneStunden = m.tage * m.stundenTag;
+		const anteil = stunden > 0 ? (kostenzeilenCent * eigeneStunden) / stunden : 0;
+		m.gemeinkostenCent = Math.round(anteil);
+		m.kostenCent = m.personalkostenCent + m.gemeinkostenCent;
+		if (m.tage > 0 && m.stundenTag > 0) {
+			const tag = (m.personalkostenCent + anteil) / m.tage;
+			m.kostendeckendTagCent = Math.round(tag);
+			m.kostendeckendStundeCent = Math.round(tag / m.stundenTag);
+			m.verkaufTagCent = Math.round(tag * (1 + aufschlag / 100));
+			m.verkaufStundeCent = Math.round((tag / m.stundenTag) * (1 + aufschlag / 100));
+		} else if (m.personalkostenCent > 0) {
+			warnungen.push(`${m.name}: ohne produktive Tage bzw. Stunden lässt sich kein eigener Satz berechnen – seine Personalkosten werden nur im Mischsatz von den anderen mitgetragen.`);
+		}
+	}
+
 	let vergleich: Vergleich | null = null;
 	if (b.aktuellerSatzCent !== null && kostendeckend !== null && empfohlen !== null) {
 		vergleich = b.aktuellerSatzCent < kostendeckend ? 'unter_kosten' : b.aktuellerSatzCent < empfohlen ? 'kosten_gedeckt' : 'mit_gewinn';
@@ -161,6 +206,7 @@ export function berechneUebersicht(
 		kostenzeilen,
 		kategorien,
 		kostenzeilenCent,
+		personalZeilenCent: aktiv.filter((z) => z.kategorie === 'personal').reduce((s, z) => s + jahresbetrag(z), 0),
 		personalkostenCent,
 		gesamtkostenCent: gesamt,
 		monatskostenCent: Math.round(gesamt / 12),

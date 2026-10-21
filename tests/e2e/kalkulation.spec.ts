@@ -46,6 +46,15 @@ test('Kalkulation v2: Kostenzeile und Mitarbeiter erfassen, Rechenweg, wieder en
 		await expect(ergebnis).toContainText('200 Tage × 7,5 h');
 		await expect(ergebnis).toContainText('1.500 h/Jahr');
 		await expect(ergebnis).toContainText('43.200,00 €/Jahr');
+		// Satz je Mitarbeiter (msgs 2998/3000/3002): eigene Zeile bzw. Karte mit Tages- und Stundensatz
+		const satzZeile = page.getByRole('table', { name: 'Satz je Mitarbeiter' }).locator(`tr[data-mitarbeiter="${name}"]`);
+		await expect(satzZeile).toContainText('43.200,00 €/Jahr');
+		await expect(satzZeile).toContainText('200 × 7,5 h');
+		await expect(satzZeile).toContainText('€/Tag');
+		await expect(satzZeile).toContainText('€/h');
+		await expect(page.getByRole('table', { name: 'Satz je Mitarbeiter' })).toContainText('Mischsatz (Durchschnitt)');
+		await expect(page.getByText('Verrechenbare Stunden pro Tag (Standard)')).toBeVisible();
+		await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 
 		await page.getByText('So wird gerechnet').click();
 		await expect(page.getByRole('cell', { name: '= Kosten-Stundensatz' })).toBeVisible();

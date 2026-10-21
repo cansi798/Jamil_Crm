@@ -33,6 +33,41 @@ const ma = (id: string, w: Partial<MitarbeiterWerte> = {}) => ({
 	werte: { bruttoCent: 0, agArt: 'euro' as const, agProzent: null, agEuroCent: 0, tageJahr: null, stundenTag: null, ...w }
 });
 
+describe('Kalkulation: Satz je Mitarbeiter (Jamil msgs 2998/3000/3002)', () => {
+	// Gemeinkosten 60.000 €/Jahr; A: 40.000 € + 20 % AG, 210 Tage × 8 h; B: 30.000 € + 9.000 € AG, 105 Tage × 8 h
+	const b8: BetriebsWerte = { ...BETRIEB, standardTage: 210, standardStundenTag: 8, risikoProzent: 5, gewinnProzent: 15 };
+	const leute = [
+		ma('A', { bruttoCent: 4000000, agArt: 'prozent', agProzent: 20 }),
+		ma('B', { bruttoCent: 3000000, agArt: 'euro', agEuroCent: 900000, tageJahr: 105 })
+	];
+	it('Gemeinkosten nach Stundenanteil; Tages-/Stundensatz kostendeckend und Verkauf (+ Wagnis + Gewinn)', () => {
+		const u = berechneUebersicht(b8, [zeile(500000)], leute);
+		const [a, bb] = u.mitarbeiter;
+		// A: 1.680 h von 2.520 h = 2/3 → 40.000 €; B: 1/3 → 20.000 €
+		expect([a.gemeinkostenCent, bb.gemeinkostenCent]).toEqual([4000000, 2000000]);
+		expect([a.kostenCent, bb.kostenCent]).toEqual([8800000, 5900000]);
+		// A: 88.000 € ÷ 210 Tage = 419,05 €/Tag ÷ 8 h = 52,38 €/h; Verkauf × 1,2
+		expect(a).toMatchObject({ kostendeckendTagCent: 41905, kostendeckendStundeCent: 5238, verkaufTagCent: 50286, verkaufStundeCent: 6286 });
+		// B: 59.000 € ÷ 105 Tage = 561,90 €/Tag ÷ 8 h = 70,24 €/h
+		expect(bb).toMatchObject({ kostendeckendTagCent: 56190, kostendeckendStundeCent: 7024, verkaufTagCent: 67429, verkaufStundeCent: 8429 });
+		// Summe je Mitarbeiter = Gesamtkosten; der Mischsatz bleibt der Durchschnitt
+		expect(a.kostenCent + bb.kostenCent).toBe(u.gesamtkostenCent);
+		expect(u.kostendeckendCent).toBe(Math.round(14700000 / 2520));
+	});
+	it('gleiche Stunden → gleicher Gemeinkosten-Anteil je Kopf; Lohn-Kostenzeilen („Personal“) zählen als Gemeinkosten', () => {
+		const u = berechneUebersicht(b8, [zeile(300000), zeile(400000, 'monatlich', { id: 'lohn', kategorie: 'personal' })], [ma('x'), ma('y')]);
+		expect(u.personalZeilenCent).toBe(4800000);
+		expect(u.mitarbeiter.map((m) => m.gemeinkostenCent)).toEqual([4200000, 4200000]);
+		expect(u.mitarbeiter[0].kostendeckendStundeCent).toBe(u.kostendeckendCent);
+	});
+	it('ohne Tage: kein eigener Satz, Warnung; kein Anteil an den Gemeinkosten', () => {
+		const u = berechneUebersicht(b8, [zeile(100000)], [ma('A', { bruttoCent: 3000000, tageJahr: 0 }), ma('B')]);
+		expect(u.mitarbeiter[0]).toMatchObject({ gemeinkostenCent: 0, kostendeckendTagCent: null, verkaufStundeCent: null });
+		expect(u.mitarbeiter[1].gemeinkostenCent).toBe(1200000);
+		expect(u.warnungen.join(' ')).toMatch(/A: ohne produktive Tage/);
+	});
+});
+
 describe('Kalkulation v2: Kostenzeilen', () => {
 	it('Jahresbetrag: monatlich × 12, jährlich, einmalig anteilig abgeschrieben', () => {
 		expect(jahresbetrag(zeile(5450))).toBe(65400);

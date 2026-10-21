@@ -78,6 +78,11 @@ describe('Kalkulation v2', () => {
 			vergleich: 'mit_gewinn'
 		});
 		expect(await ladeFirmensatz(kA())).toEqual({ kostendeckendCent: 3188, empfohlenCent: 3825 });
+		// Satz je Mitarbeiter (msgs 2998/3000/3002): 18.000 € Gemeinkosten nach Stunden (1.470 / 450 von 1.920 h)
+		expect(d.uebersicht.mitarbeiter).toEqual([
+			expect.objectContaining({ gemeinkostenCent: 1_378_125, kostenCent: 5_698_125, kostendeckendTagCent: 27134, kostendeckendStundeCent: 3876, verkaufTagCent: 32561, verkaufStundeCent: 4652 }),
+			expect.objectContaining({ gemeinkostenCent: 421_875, kostenCent: 421_875, kostendeckendTagCent: 4219, kostendeckendStundeCent: 938, verkaufTagCent: 5063, verkaufStundeCent: 1125 })
+		]);
 	});
 
 	it('Kostenzeile ändern (inaktiv), löschen; Betrieb B sieht nichts; fremd/unbekannt → 404; Prüfung → 400', async () => {

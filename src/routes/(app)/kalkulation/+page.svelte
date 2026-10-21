@@ -22,6 +22,7 @@
 	const u = $derived(data.uebersicht);
 	const zahl = (n: number, stellen = 2) => n.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: stellen });
 	const satz = (c: number | null) => (c === null ? '–' : `${euro(c)}/h`);
+	const tagSatz = (c: number | null) => (c === null ? '–' : `${euro(c)}/Tag`);
 	const fehlerIn = (bereich: string) => (form?.bereich === bereich ? form.fehler : null);
 	// Bei Fehlern die Eingaben behalten, sonst die gespeicherten Werte
 	const wert = (bereich: string, feld: string, gespeichert: string) =>
@@ -93,11 +94,11 @@
 			<span class="kk-label">{u.mitarbeiter.length} Mitarbeiter</span>
 		</div>
 		<div class="kk-kachel">
-			<span class="kk-label">Kosten-Stundensatz (kostendeckend)</span>
+			<span class="kk-label">Kosten-Stundensatz (kostendeckend) – Mischsatz (Durchschnitt)</span>
 			<strong aria-label="Kosten-Stundensatz">{satz(u.kostendeckendCent)}</strong>
 		</div>
 		<div class="kk-kachel kk-haupt">
-			<span class="kk-label">Verrechnungssatz (+ {zahl(u.aufschlagProzent)} % Wagnis und Gewinn)</span>
+			<span class="kk-label">Verrechnungssatz – Mischsatz (Durchschnitt, + {zahl(u.aufschlagProzent)} % Wagnis und Gewinn)</span>
 			<strong aria-label="Verrechnungssatz">{satz(u.empfohlenCent)}</strong>
 		</div>
 	</section>
@@ -105,6 +106,66 @@
 		<p><span class={`kk-badge ${VERGLEICH[u.vergleich][1]}`}>{VERGLEICH[u.vergleich][0]} ({euro(b.aktuellerSatzCent)}/h)</span></p>
 	{/if}
 	{#each u.warnungen as w (w)}<p class="kt-hinweis warnung">{w}</p>{/each}
+
+	{#if u.mitarbeiter.length > 0}
+		<Karte>
+			{#snippet titel()}Satz je Mitarbeiter{/snippet}
+			<p class="kd-info">
+				Jeder Mitarbeiter trägt seine Personalkosten (Brutto + Arbeitgeber-Anteil) und einen Anteil an den Gemeinkosten.
+				Gemeinkosten sind alle aktiven Kostenzeilen ({euro(u.kostenzeilenCent)}/Jahr); verteilt werden sie nach seinem Anteil an
+				den produktiven Stunden – bei gleichen Stunden also gleich viel je Kopf. Daraus: kostendeckender Tagessatz =
+				Kosten ÷ produktive Tage, Stundensatz = Tagessatz ÷ verrechenbare Stunden pro Tag; Verkauf = kostendeckend + {zahl(u.aufschlagProzent)} %
+				Wagnis und Gewinn.
+			</p>
+			{#if u.personalZeilenCent > 0}
+				<p class="kt-hinweis">
+					Kostenzeilen der Kategorie „Personal“ ({euro(u.personalZeilenCent)}/Jahr) zählen als Gemeinkosten und werden auf alle
+					verteilt. Für einen genauen Satz je Person das Gehalt beim Mitarbeiter eintragen (Brutto + AG-Anteil) und die Lohn-Kostenzeile
+					ausschalten – sonst zählt es doppelt.
+				</p>
+			{/if}
+			<table class="kk-ma-tabelle" aria-label="Satz je Mitarbeiter">
+				<thead>
+					<tr>
+						<th scope="col">Mitarbeiter</th>
+						<th scope="col">Personalkosten</th>
+						<th scope="col">+ Gemeinkosten</th>
+						<th scope="col">Tage × h/Tag</th>
+						<th scope="col">Kostendeckend Tag</th>
+						<th scope="col">Kostendeckend Stunde</th>
+						<th scope="col">Verkauf Tag</th>
+						<th scope="col">Verkauf Stunde</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each u.mitarbeiter as m (m.id)}
+						<tr data-mitarbeiter={m.name}>
+							<th scope="row">{m.name}</th>
+							<td data-label="Personalkosten">{m.personalkostenCent > 0 ? `${euro(m.personalkostenCent)}/Jahr` : 'Lohn als Kostenzeile'}</td>
+							<td data-label="+ Gemeinkosten">{euro(m.gemeinkostenCent)}/Jahr</td>
+							<td data-label="Tage × h/Tag">{zahl(m.tage, 1)} × {zahl(m.stundenTag)} h</td>
+							<td data-label="Kostendeckend Tag">{tagSatz(m.kostendeckendTagCent)}</td>
+							<td data-label="Kostendeckend Stunde">{satz(m.kostendeckendStundeCent)}</td>
+							<td data-label="Verkauf Tag" class="kk-verkauf">{tagSatz(m.verkaufTagCent)}</td>
+							<td data-label="Verkauf Stunde" class="kk-verkauf"><strong>{satz(m.verkaufStundeCent)}</strong></td>
+						</tr>
+					{/each}
+				</tbody>
+				<tfoot>
+					<tr>
+						<th scope="row">Mischsatz (Durchschnitt)</th>
+						<td data-label="Personalkosten">{euro(u.personalkostenCent)}/Jahr</td>
+						<td data-label="+ Gemeinkosten">{euro(u.kostenzeilenCent)}/Jahr</td>
+						<td data-label="Stunden">{zahl(u.produktiveStunden)} h</td>
+						<td data-label="Kostendeckend Tag">–</td>
+						<td data-label="Kostendeckend Stunde">{satz(u.kostendeckendCent)}</td>
+						<td data-label="Verkauf Tag">–</td>
+						<td data-label="Verkauf Stunde"><strong>{satz(u.empfohlenCent)}</strong></td>
+					</tr>
+				</tfoot>
+			</table>
+		</Karte>
+	{/if}
 
 	{#if ohneBeispiel}
 		<form method="POST" action="?/beispiel" use:enhance class="kk-beispiel">
@@ -204,7 +265,7 @@
 					<input type="text" inputmode="decimal" name="standardTage" required value={wert('firma', 'standardTage', firmaFelder.standardTage)} />
 				</label>
 				<label>
-					Effektive Stunden pro Tag (Standard)
+					Verrechenbare Stunden pro Tag (Standard)
 					<input type="text" inputmode="decimal" name="standardStundenTag" required value={wert('firma', 'standardStundenTag', firmaFelder.standardStundenTag)} />
 				</label>
 				<label>Wagnis (%) <input type="text" inputmode="decimal" name="risikoProzent" required value={wert('firma', 'risikoProzent', firmaFelder.risikoProzent)} /></label>
@@ -224,6 +285,10 @@
 			</div>
 			<button type="submit" class="kd-knopf">Speichern</button>
 		</form>
+		<p class="kd-info">
+			Verrechenbare Stunden pro Tag: Stunden, die du dem Kunden pro Tag berechnest (z. B. 8 bei Tagessatz, 7 wenn nur
+			effektive Arbeitszeit berechnet wird). Fehltage gehören in die produktiven Tage.
+		</p>
 		<p class="kd-info">Tage und Stunden lassen sich je Mitarbeiter überschreiben. Gehälter sieht nur, wer „Preise sehen“ und „Einstellungen“ hat.</p>
 	</Karte>
 
@@ -235,7 +300,7 @@
 				<tr><td>+ Personalkosten (Brutto + Arbeitgeber-Anteil)</td><td>{euro(u.personalkostenCent)}</td></tr>
 				<tr class="kk-summe"><td>= Kosten pro Jahr</td><td>{euro(u.gesamtkostenCent)}</td></tr>
 				<tr><td>÷ produktive Stunden (Σ Tage × Stunden je Mitarbeiter)</td><td>{zahl(u.produktiveStunden)} h</td></tr>
-				<tr class="kk-summe"><td>= Kosten-Stundensatz</td><td>{satz(u.kostendeckendCent)}</td></tr>
+				<tr class="kk-summe"><td>= Kosten-Stundensatz (Mischsatz)</td><td>{satz(u.kostendeckendCent)}</td></tr>
 				<tr><td>× (1 + {zahl(b.risikoProzent)} % Wagnis + {zahl(b.gewinnProzent)} % Gewinn)</td><td></td></tr>
 				<tr class="kk-summe"><td>= Verrechnungssatz</td><td><strong>{satz(u.empfohlenCent)}</strong></td></tr>
 			</tbody>
@@ -316,7 +381,7 @@
 				<input type="text" inputmode="decimal" name="tageJahr" placeholder={`Standard: ${zahl(b.standardTage, 1)}`} value={wert(bereich, 'tageJahr', start.tageJahr)} />
 			</label>
 			<label>
-				Effektive Stunden pro Tag
+				Verrechenbare Stunden pro Tag
 				<input type="text" inputmode="decimal" name="stundenTag" placeholder={`Standard: ${zahl(b.standardStundenTag)}`} value={wert(bereich, 'stundenTag', start.stundenTag)} />
 			</label>
 		</div>
@@ -390,6 +455,77 @@
 		min-height: var(--tippziel, 44px);
 		color: var(--ui-akzent-text);
 		cursor: pointer;
+	}
+	.kk-ma-tabelle {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.875rem;
+		margin-top: 0.75rem;
+	}
+	.kk-ma-tabelle th,
+	.kk-ma-tabelle td {
+		padding: 0.45rem 0.5rem;
+		border-bottom: 1px solid var(--m365-rand);
+		text-align: right;
+		white-space: nowrap;
+	}
+	.kk-ma-tabelle th[scope='row'],
+	.kk-ma-tabelle thead th:first-child {
+		text-align: left;
+		white-space: normal;
+	}
+	.kk-ma-tabelle thead th {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		color: var(--m365-text-leise);
+	}
+	.kk-ma-tabelle tfoot th,
+	.kk-ma-tabelle tfoot td {
+		font-weight: 600;
+		border-bottom: 0;
+	}
+	.kk-verkauf {
+		color: var(--ui-akzent-text);
+	}
+	/* Handy: jede Zeile als Karte, Beschriftung links, Wert rechts */
+	@media (max-width: 899px) {
+		.kk-ma-tabelle thead {
+			display: none;
+		}
+		.kk-ma-tabelle,
+		.kk-ma-tabelle tbody,
+		.kk-ma-tabelle tfoot,
+		.kk-ma-tabelle tr {
+			display: block;
+		}
+		.kk-ma-tabelle tr {
+			padding: 0.6rem 0.75rem;
+			margin-bottom: 0.6rem;
+			border-radius: var(--m365-radius-karte);
+			background: var(--m365-flaeche);
+			box-shadow: var(--m365-schatten);
+		}
+		.kk-ma-tabelle th[scope='row'] {
+			display: block;
+			padding: 0 0 0.35rem;
+			border: 0;
+			font-size: 1rem;
+		}
+		.kk-ma-tabelle td {
+			display: flex;
+			justify-content: space-between;
+			gap: 0.75rem;
+			padding: 0.25rem 0;
+			white-space: normal;
+		}
+		.kk-ma-tabelle td::before {
+			content: attr(data-label);
+			color: var(--m365-text-leise);
+			text-align: left;
+		}
+		.kk-ma-tabelle td:last-child {
+			border-bottom: 0;
+		}
 	}
 	.kk-tabelle {
 		width: 100%;
