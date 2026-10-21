@@ -313,7 +313,7 @@
 	{#if angebot.auftragId}
 		<a href={`/auftraege/${angebot.auftragId}`} class="kd-zurueck">← Auftrag {angebot.auftragNummer}</a>
 	{:else}
-		<a href="/angebote" class="kd-zurueck">← Angebote</a>
+		<a href="/ausgangsbelege/angebote" class="kd-zurueck">← Ausgangsbelege</a>
 	{/if}
 	<div class="af-kopfzeile">
 		<h1>Angebot {angebot.nummer}</h1>

@@ -12,7 +12,7 @@ import { moduleDesBetriebs } from '$lib/server/tarif';
 import { istZeitraumArt, zeitraum } from '$lib/kennzahlen';
 import { berlinTag } from '$lib/zeit';
 
-/** Angebotsliste mit Status-Reitern (`?status=`, unbekannt → alle). Rechte: angebote.bearbeiten + preise.sehen. */
+/** Ausgangsbelege → Angebote (Jamil msg 2948; früher /angebote): Angebotsliste mit Status-Reitern (`?status=`, unbekannt → alle). Rechte: angebote.bearbeiten + preise.sehen. */
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const k = await seitenZugriff(locals, 'angebote', 'angebote.bearbeiten');
 	if (!hatRecht(locals.nutzer!, 'preise.sehen')) error(403, 'Keine Berechtigung');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { baueNavigation, MOBIL_HAUPT } from '../../src/lib/navigation';
+import { baueNavigation, istAktiv, MOBIL_HAUPT } from '../../src/lib/navigation';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import { MODULE } from '../../src/lib/tarife';
 
@@ -11,7 +11,7 @@ const gruppen = (nav: ReturnType<typeof baueNavigation>) => Object.fromEntries(n
 describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Chef: Hauptbereich in fester Reihenfolge, Gruppen mit Einträgen; „Weitere Bereiche“ gibt es nicht mehr', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE, { nextcloud: true });
-		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Angebote', 'Plantafel', 'Karte', 'Aufgaben']);
+		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
 		expect(gruppen(nav)).toEqual({
 			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
 			'Stammdaten & Kalkulation': ['Katalog', 'Partner', 'Kalkulation', 'Auftragsquellen', 'Briefkopf / Firmenprofil'],
@@ -27,7 +27,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 
 	it('Büro: ohne Kalkulation, Rollen, Benutzer, Online-Buchung, Nachfassen-Einstellungen', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.buero), ALLE_MODULE);
-		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Angebote', 'Plantafel', 'Karte', 'Aufgaben']);
+		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
 		const g = gruppen(nav);
 		expect(g['Benutzeradministration']).toBeUndefined();
 		expect(g['Stammdaten & Kalkulation']).toEqual(['Katalog', 'Partner']);
@@ -39,7 +39,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Karte', 'Aufgaben']);
 		expect(gruppen(nav)).toEqual({ Vorlagen: ['Auftrags-Vorlagen'], 'Personal & Zeiten': ['Zeiten'], Automatisierung: ['Erinnerungen'] });
-		for (const name of ['Angebote', 'Katalog', 'Briefkopf / Firmenprofil', 'Kalkulation', 'Nachkalkulation']) {
+		for (const name of ['Ausgangsbelege', 'Katalog', 'Briefkopf / Firmenprofil', 'Kalkulation', 'Nachkalkulation']) {
 			expect(namen([...nav.haupt, ...nav.mehr]), name).not.toContain(name);
 		}
 	});
@@ -59,11 +59,11 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE).mehr)).not.toContain('E-Mail-Vorlagen');
 	});
 
-	it('Angebote, Angebots-Vorlagen nur mit angebote.bearbeiten UND preise.sehen; Kalkulation nur mit preise.sehen UND einstellungen', () => {
+	it('Ausgangsbelege, Angebots-Vorlagen nur mit angebote.bearbeiten UND preise.sehen; Kalkulation nur mit preise.sehen UND einstellungen', () => {
 		const mit = (rechte: string[], module = ALLE_MODULE) => baueNavigation(betriebsNutzer(rechte), module);
 		expect(namen(mit(['angebote.bearbeiten']).haupt)).toEqual(['Start']);
 		expect(namen(mit(['angebote.bearbeiten']).mehr)).toEqual(['Katalog']);
-		expect(namen(mit(['angebote.bearbeiten', 'preise.sehen']).haupt)).toEqual(['Start', 'Angebote']);
+		expect(namen(mit(['angebote.bearbeiten', 'preise.sehen']).haupt)).toEqual(['Start', 'Ausgangsbelege']);
 		expect(namen(mit(['angebote.bearbeiten', 'preise.sehen']).mehr)).toContain('Angebots-Vorlagen');
 		expect(namen(mit(['angebote.bearbeiten', 'preise.sehen'], ALLE_MODULE.filter((m) => m !== 'angebote')).haupt)).toEqual(['Start']);
 		expect(namen(mit(['preise.sehen', 'einstellungen']).mehr)).toContain('Kalkulation');
@@ -95,5 +95,15 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(nav.haupt)).toEqual(['Start']);
 		expect(nav.mehr).toEqual([expect.objectContaining({ name: 'Plattform-Verwaltung', href: '/admin' })]);
 		expect(namen(baueNavigation({ istAdmin: true, betriebId: 'b1', rechte: [] }, ALLE_MODULE).mehr)).not.toContain('Plattform-Verwaltung');
+	});
+
+	it('Ausgangsbelege (msg 2948): Eintrag /ausgangsbelege, aktiv auf allen Reitern und auf einem einzelnen Angebot', () => {
+		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE);
+		expect(nav.haupt.find((e) => e.name === 'Ausgangsbelege')?.href).toBe('/ausgangsbelege');
+		for (const pfad of ['/ausgangsbelege/angebote', '/ausgangsbelege/auftragsbestaetigungen', '/ausgangsbelege/rechnungen', '/angebote/abc']) {
+			expect(istAktiv('/ausgangsbelege', pfad), pfad).toBe(true);
+		}
+		expect(istAktiv('/ausgangsbelege', '/angebot-vorlagen')).toBe(false);
+		expect(istAktiv('/auftraege', '/angebote/abc')).toBe(false);
 	});
 });

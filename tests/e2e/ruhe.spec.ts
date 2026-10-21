@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
  * Läuft mit dem Testzugang „jamil.chef“ (Testmodus der Vorschau).
  */
 const SEITEN = [
-	'/', '/kunden', '/auftraege', '/todos', '/plantafel', '/karte', '/angebote', '/katalog', '/kalkulation', '/zeiten',
+	'/', '/kunden', '/auftraege', '/todos', '/plantafel', '/karte', '/ausgangsbelege/angebote', '/ausgangsbelege/auftragsbestaetigungen', '/ausgangsbelege/rechnungen', '/katalog', '/kalkulation', '/zeiten',
 	'/einstellungen/benutzer', '/einstellungen/rollen', '/einstellungen/briefkopf', '/auftrag-vorlagen', '/angebot-vorlagen', '/plantafel/abwesenheiten'
 ];
 

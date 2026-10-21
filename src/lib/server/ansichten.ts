@@ -11,7 +11,10 @@ import { filterQuery } from '../ansichten';
  * Durchgesetzt auch per RLS (Migration 090).
  */
 
-export const ANSICHT_SEITEN = ['plantafel', 'karte', 'auftraege', 'todos', 'angebote', 'kunden', 'zeiten', 'nachkalkulation'] as const;
+export const ANSICHT_SEITEN = [
+	'plantafel', 'karte', 'auftraege', 'todos', 'angebote', 'kunden', 'zeiten', 'nachkalkulation',
+	'auftragsbestaetigungen', 'rechnungen'
+] as const;
 export type AnsichtSeite = (typeof ANSICHT_SEITEN)[number];
 export const istAnsichtSeite = (w: unknown): w is AnsichtSeite => typeof w === 'string' && (ANSICHT_SEITEN as readonly string[]).includes(w);
 

@@ -17,7 +17,7 @@ test('Kacheln: Zeitraum und Klick-Filter auf Angebote, Aufträge, Kunden', async
 	test.skip(info.project.name !== 'desktop', 'einmal reicht');
 	await alsChef(page);
 
-	await page.goto('/angebote');
+	await page.goto('/ausgangsbelege/angebote');
 	const angebote = page.getByRole('group', { name: 'Angebote: Kennzahlen' });
 	await angebote.getByRole('link', { name: /Entwürfe/ }).click();
 	await expect(page).toHaveURL(/status=entwurf/);

@@ -256,7 +256,7 @@ export function aufgabenZeiten(liste: readonly AufgabenMessung[]): AufgabenZeite
 
 // ——— Einstellungen je Kennzahl (Jamil msg 2946): an/aus und „Erfassen ab“ ———
 
-export type KonfigBereich = 'Cockpit' | 'Kunden' | 'Aufträge' | 'Angebote';
+export type KonfigBereich = 'Cockpit' | 'Kunden' | 'Aufträge' | 'Angebote' | 'Auftragsbestätigungen';
 export type KonfigEintrag = { id: string; bereich: KonfigBereich; titel: string; erklaerung: string };
 
 /** Alle einstellbaren Kennzahlen: die sieben des Cockpits und die Kacheln der Übersichtsseiten (auch auf „Start“). */
@@ -275,7 +275,11 @@ export const KONFIG_KENNZAHLEN: readonly KonfigEintrag[] = [
 	{ id: 'angebote_abgelehnt', bereich: 'Angebote', titel: 'Abgelehnte Angebote', erklaerung: 'im Zeitraum' },
 	{ id: 'angebote_abgelaufen', bereich: 'Angebote', titel: 'Abgelaufene Angebote', erklaerung: 'auch unter „Handlungsbedarf“ auf Start' },
 	{ id: 'angebote_quote', bereich: 'Angebote', titel: 'Annahmequote', erklaerung: 'wie die Abschlussquote im Cockpit' },
-	{ id: 'angebote_schnitt', bereich: 'Angebote', titel: 'Ø Angebotswert', erklaerung: 'abgegebene Angebote im Zeitraum (nur mit Preisen)' }
+	{ id: 'angebote_schnitt', bereich: 'Angebote', titel: 'Ø Angebotswert', erklaerung: 'abgegebene Angebote im Zeitraum (nur mit Preisen)' },
+	// Ausgangsbelege → Auftragsbestätigungen (Jamil msg 2948)
+	{ id: 'ab_bereit', bereich: 'Auftragsbestätigungen', titel: 'Bereit zum Versand', erklaerung: 'erstellt, noch nicht versendet' },
+	{ id: 'ab_versendet', bereich: 'Auftragsbestätigungen', titel: 'Versendete Auftragsbestätigungen', erklaerung: 'im Zeitraum versendet' },
+	{ id: 'ab_erstellt', bereich: 'Auftragsbestätigungen', titel: 'Erstellte Auftragsbestätigungen', erklaerung: 'im Zeitraum erstellt' }
 ];
 export const KONFIG_IDS = KONFIG_KENNZAHLEN.map((k) => k.id);
 export const istKonfigId = (w: unknown): w is string => typeof w === 'string' && KONFIG_IDS.includes(w);

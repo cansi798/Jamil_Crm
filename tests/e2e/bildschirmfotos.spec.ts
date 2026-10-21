@@ -86,7 +86,7 @@ test.describe('Bildschirmfotos', () => {
 		await anmelden(page, 'buero@bauwelt.test');
 		await page.goto('/katalog');
 		await page.screenshot({ path: `${ORDNER}/1c-katalog-mobil.png` });
-		await page.goto('/angebote');
+		await page.goto('/ausgangsbelege/angebote');
 		await page.screenshot({ path: `${ORDNER}/1c-angebote-mobil.png` });
 		await page.getByRole('main').getByRole('link', { name: /Weißenböck/ }).first().click();
 		await expect(page).toHaveURL(/\/angebote\/[0-9a-f-]{36}$/);
@@ -103,14 +103,14 @@ test.describe('Bildschirmfotos', () => {
 		await anmelden(page, 'buero@bauwelt.test');
 		await page.goto('/katalog');
 		await page.screenshot({ path: `${ORDNER}/1c-katalog-desktop.png`, fullPage: true });
-		await page.goto('/angebote');
+		await page.goto('/ausgangsbelege/angebote');
 		await page.screenshot({ path: `${ORDNER}/1c-angebote-desktop.png`, fullPage: true });
 		await page.getByRole('main').getByRole('link', { name: /Weißenböck/ }).first().click();
 		await expect(page).toHaveURL(/\/angebote\/[0-9a-f-]{36}$/);
 		const id = page.url().split('/').pop()!;
 		await page.screenshot({ path: `${ORDNER}/1c-angebot-editor-desktop.png`, fullPage: true });
 		const bytes = await page.evaluate(async (url) => Array.from(new Uint8Array(await (await fetch(url)).arrayBuffer())), `/api/angebote/${id}/pdf`);
-		await page.goto('/angebote?status=versendet');
+		await page.goto('/ausgangsbelege/angebote?status=versendet');
 		await page.getByRole('main').getByRole('link', { name: /AN-\d{4}-/ }).first().click();
 		await expect(page).toHaveURL(/\/angebote\/[0-9a-f-]{36}$/);
 		await page.screenshot({ path: `${ORDNER}/1c-angebot-versendet-desktop.png`, fullPage: true });

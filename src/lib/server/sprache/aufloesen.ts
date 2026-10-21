@@ -906,9 +906,9 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 		case 'anlage_anlegen':
 			return werte.kundeId && werte.objektId ? `/kunden/${werte.kundeId}/objekte/${werte.objektId}` : werte.kundeId ? `/kunden/${werte.kundeId}` : '/kunden';
 		case 'nachfassen_pausieren':
-			return werte.angebotId ? `/angebote/${werte.angebotId}#nachfassen` : '/angebote';
+			return werte.angebotId ? `/angebote/${werte.angebotId}#nachfassen` : '/ausgangsbelege/angebote';
 		case 'angebot_entscheidung':
-			return werte.angebotId ? `/angebote/${werte.angebotId}` : '/angebote';
+			return werte.angebotId ? `/angebote/${werte.angebotId}` : '/ausgangsbelege/angebote';
 		case 'dienst_anlegen':
 			return '/einstellungen/online-buchung';
 		default:

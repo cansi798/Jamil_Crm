@@ -10,12 +10,13 @@
 	 * Kacheln, Start) und nicht gerechnet; „ab“ = Daten davor zählen für diese Kennzahl nicht (Hinweis „erfasst seit …“).
 	 */
 	let { data, form }: { data: PageData; form: ActionData } = $props();
-	const BEREICHE = ['Cockpit', 'Kunden', 'Aufträge', 'Angebote'] as const;
+	const BEREICHE = ['Cockpit', 'Kunden', 'Aufträge', 'Angebote', 'Auftragsbestätigungen'] as const;
 	const TITEL: Record<(typeof BEREICHE)[number], string> = {
 		Cockpit: 'Cockpit (Auswertungen → Kennzahlen, Start)',
 		Kunden: 'Kacheln auf „Kunden“',
 		Aufträge: 'Kacheln auf „Aufträge“',
-		Angebote: 'Kacheln auf „Angebote“'
+		Angebote: 'Kacheln auf „Ausgangsbelege → Angebote“',
+		Auftragsbestätigungen: 'Kacheln auf „Ausgangsbelege → Auftragsbestätigungen“'
 	};
 	const heute = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' }).format(new Date());
 </script>

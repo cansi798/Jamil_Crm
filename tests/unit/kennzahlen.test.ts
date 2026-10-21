@@ -4,6 +4,7 @@ import {
 	grenzenVon,
 	rechneAbschlussquote,
 	rechneAngebote,
+	rechneAuftragsbestaetigungen,
 	rechneAuftraege,
 	rechneDurchlaufzeit,
 	rechneKunden,
@@ -11,6 +12,7 @@ import {
 	rechneProduktivitaet,
 	rechneTermintreue,
 	rechneUmsatzProMitarbeiter,
+	type AbFakt,
 	type AngebotFakt,
 	type AuftragFakt
 } from '../../src/lib/server/kennzahlen';
@@ -255,5 +257,28 @@ describe('Einstellungen je Kennzahl (Jamil msg 2946): „Erfassen ab“ und an/a
 	it('alle Kacheln der Seiten und alle Cockpit-Kennzahlen sind einstellbar (keine doppelten IDs)', () => {
 		expect(new Set(KONFIG_IDS).size).toBe(KONFIG_IDS.length);
 		for (const id of ['abschlussquote', 'zahlungsdauer', 'kunden_aktiv', 'auftraege_status', 'angebote_schnitt']) expect(KONFIG_IDS).toContain(id);
+	});
+});
+
+describe('Kacheln Auftragsbestätigungen (Ausgangsbelege, msg 2948)', () => {
+	const t = (iso: string) => new Date(iso);
+	const abs: AbFakt[] = [
+		{ angelegt: t('2026-10-02T08:00:00Z'), versendetAm: null, status: 'bereit' },
+		{ angelegt: t('2026-09-20T08:00:00Z'), versendetAm: null, status: 'bereit' },
+		{ angelegt: t('2026-09-25T08:00:00Z'), versendetAm: t('2026-10-03T08:00:00Z'), status: 'gesendet' },
+		{ angelegt: t('2026-10-05T08:00:00Z'), versendetAm: t('2026-10-05T09:00:00Z'), status: 'gesendet' },
+		{ angelegt: t('2026-08-01T08:00:00Z'), versendetAm: t('2026-08-02T08:00:00Z'), status: 'gesendet' }
+	];
+	it('bereit = aktueller Stand; versendet/erstellt im Zeitraum', () => {
+		expect(rechneAuftragsbestaetigungen(abs, OKT)).toEqual({ aus: [], seit: {}, bereit: 2, versendet: 2, erstellt: 2 });
+		expect(rechneAuftragsbestaetigungen(abs, zeitraum('alle', '2026-10-21'))).toMatchObject({ bereit: 2, versendet: 3, erstellt: 5 });
+	});
+	it('Einstellungen: aus → 0 und in `aus`; „Erfassen ab“ zählt nur danach angelegte', () => {
+		const r = rechneAuftragsbestaetigungen(abs, OKT, { ab_bereit: { aktiv: false, ab: null }, ab_versendet: { aktiv: true, ab: '2026-10-01' } });
+		expect(r.aus).toEqual(['ab_bereit']);
+		expect(r.bereit).toBe(0);
+		expect(r.versendet).toBe(1);
+		expect(r.seit.ab_versendet).toBe('erfasst seit 01.10.2026');
+		expect(KONFIG_IDS).toEqual(expect.arrayContaining(['ab_bereit', 'ab_versendet', 'ab_erstellt']));
 	});
 });

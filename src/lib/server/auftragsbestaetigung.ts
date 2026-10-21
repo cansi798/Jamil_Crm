@@ -6,6 +6,7 @@ import { angebotPdf } from './pdf/angebot-pdf';
 import { mailVersand } from './nachfassen';
 import { baueMail, holeSignatur, mailWerte, vorlageFuer } from './mail-vorlagen';
 import { UUID } from './kunden';
+import { sichtbar, type Sicht } from './auftraege';
 import { berlinTag } from '../zeit';
 import type { AngebotAngenommen } from './ereignisse';
 
@@ -195,4 +196,53 @@ export async function abMitVorlage(k: Kontext, auftragId: string, abId: unknown,
 		const mail = baueMail(vorlage, { ...werte, 'ab.nummer': ab.nummer }, await holeSignatur(k, tx));
 		await tx`update app.auftragsbestaetigungen set mail_betreff = ${mail.betreff.slice(0, 300)}, mail_text = ${mail.text.slice(0, 5000)} where id = ${abId} and betrieb_id = ${k.betriebId}`;
 	});
+}
+
+// ——— Liste aller Auftragsbestätigungen (Ausgangsbelege, Jamil msg 2948) ———
+
+export type AbZeile = {
+	id: string;
+	nummer: string;
+	kundeName: string;
+	auftrag: { id: string; nummer: string; titel: string } | null;
+	angebotId: string;
+	angelegt: string;
+	versandStatus: 'bereit' | 'gesendet';
+	versendetAm: string | null;
+};
+export type AbFilter = { status?: 'bereit' | 'gesendet' | null; suche?: string | null };
+export const AB_STATUS = ['bereit', 'gesendet'] as const;
+export const istAbStatus = (w: unknown): w is (typeof AB_STATUS)[number] => typeof w === 'string' && (AB_STATUS as readonly string[]).includes(w);
+
+/**
+ * Alle Auftragsbestätigungen in der Sicht des Nutzers (über ihren Auftrag; ohne Auftrag nur mit „Alle Aufträge
+ * ansehen“), neueste zuerst; Filter Status und Suche (Nummer, Auftrag, Kunde).
+ */
+export const MAX_ABS = 500;
+export async function listeAlleAuftragsbestaetigungen(k: Kontext, sicht: Sicht, f: AbFilter = {}): Promise<AbZeile[]> {
+	const suche = f.suche?.trim() ? `%${f.suche.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%` : null;
+	const z = await mitBetrieb(k, (tx) => tx`
+		select ab.id, ab.nummer, ab.angebot_id, ab.angelegt, ab.versand_status, ab.versendet_am,
+			a.id as auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel,
+			coalesce(kd.firma, nullif(btrim(concat_ws(' ', kd.vorname, kd.nachname)), ''), a.einmal_name, 'Ohne Kunde') as kunde_name
+		from app.auftragsbestaetigungen ab
+		join app.angebote an on an.id = ab.angebot_id and an.betrieb_id = ab.betrieb_id
+		left join app.auftraege a on a.id = ab.auftrag_id and a.betrieb_id = ab.betrieb_id
+		left join app.kunden kd on kd.id = coalesce(an.kunde_id, a.kunde_id) and kd.betrieb_id = ab.betrieb_id
+		where ab.betrieb_id = ${k.betriebId}
+			and ${sicht.alle ? tx`true` : tx`(a.id is not null and ${sichtbar(tx, sicht)})`}
+			${f.status ? tx`and ab.versand_status = ${f.status}` : tx``}
+			${suche ? tx`and (ab.nummer ilike ${suche} or a.titel ilike ${suche} or a.nummer ilike ${suche} or kd.firma ilike ${suche} or kd.nachname ilike ${suche} or a.einmal_name ilike ${suche})` : tx``}
+		order by ab.angelegt desc, ab.id
+		limit ${MAX_ABS}`);
+	return z.map((r) => ({
+		id: r.id,
+		nummer: r.nummer,
+		kundeName: r.kunde_name,
+		auftrag: r.auftrag_id ? { id: r.auftrag_id, nummer: r.auftrag_nummer, titel: r.auftrag_titel } : null,
+		angebotId: r.angebot_id,
+		angelegt: new Date(r.angelegt).toISOString(),
+		versandStatus: r.versand_status,
+		versendetAm: r.versendet_am ? new Date(r.versendet_am).toISOString() : null
+	}));
 }

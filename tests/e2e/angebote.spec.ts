@@ -119,8 +119,8 @@ test.describe('Angebote', () => {
 		await expect(page.getByRole('heading', { name: 'Angebote' })).toHaveCount(0);
 		expect(await page.content()).not.toContain('€');
 		const nav = page.getByRole('navigation', { name: 'Hauptnavigation' });
-		await expect(nav.getByRole('link', { name: 'Angebote' })).toHaveCount(0);
-		for (const pfad of ['/angebote', '/katalog', '/einstellungen/briefkopf']) {
+		await expect(nav.getByRole('link', { name: 'Ausgangsbelege' })).toHaveCount(0);
+		for (const pfad of ['/angebote', '/ausgangsbelege/auftragsbestaetigungen', '/ausgangsbelege/rechnungen', '/katalog', '/einstellungen/briefkopf']) {
 			const r = await page.goto(pfad);
 			expect(r?.status(), pfad).toBe(403);
 		}

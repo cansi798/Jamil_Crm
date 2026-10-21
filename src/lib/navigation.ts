@@ -56,8 +56,9 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		// Hauptbereich in der Reihenfolge von Jamil (msg 2815)
 		if (module.includes('kunden') && hat('kunden.lesen')) haupt.push({ name: 'Kunden', href: '/kunden', symbol: 'kunden' });
 		if (auftraegeLesen) haupt.push({ name: 'Aufträge', href: '/auftraege', symbol: 'auftraege' });
-		// Angebote bestehen aus Preisen: nur mit `angebote.bearbeiten` UND `preise.sehen` (Monteur nie)
-		if (angeboteMitPreisen) haupt.push({ name: 'Angebote', href: '/angebote', symbol: 'angebote' });
+		// Ausgangsbelege (Jamil msg 2948, früher „Angebote“): Reiter Angebote, Auftragsbestätigungen, Rechnungen.
+		// Belege enthalten Preise: nur mit `angebote.bearbeiten` UND `preise.sehen` (Monteur nie)
+		if (angeboteMitPreisen) haupt.push({ name: 'Ausgangsbelege', href: '/ausgangsbelege', symbol: 'angebote' });
 		// Plantafel: wer plant oder alle Aufträge sieht. Monteure sehen ihre Einsätze auf „Start“.
 		if (module.includes('plantafel') && (hat('plantafel.bearbeiten') || hat('auftraege.alle_lesen'))) {
 			haupt.push({ name: 'Plantafel', href: '/plantafel', symbol: 'plantafel' });
@@ -153,9 +154,12 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 	return { haupt, gruppen, mehr: gruppen.flatMap((x) => x.eintraege) };
 }
 
+/** Bereiche, zu denen weitere Pfade gehören: ein einzelnes Angebot (/angebote/<id>) liegt in „Ausgangsbelege“. */
+const AUCH_AKTIV: Record<string, readonly string[]> = { '/ausgangsbelege': ['/angebote'] };
+
 /** Ist `href` die aktuelle Seite bzw. ein Bereich, in dem sie liegt? „/“ nur exakt. */
 export function istAktiv(href: string | null, pfad: string): boolean {
 	if (!href) return false;
 	if (href === '/') return pfad === '/';
-	return pfad === href || pfad.startsWith(href + '/');
+	return [href, ...(AUCH_AKTIV[href] ?? [])].some((h) => pfad === h || pfad.startsWith(h + '/'));
 }

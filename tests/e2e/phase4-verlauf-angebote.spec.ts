@@ -35,7 +35,7 @@ test('Angebot ohne Auftrag → im Angebot einem Auftrag zuordnen; zweites im Auf
 		await page.getByRole('button', { name: '+ Angebot ohne Auftrag' }).click();
 		await page.waitForURL(/\/angebote\/[0-9a-f-]{36}$/);
 		angebote.push(page.url().split('/').pop()!);
-		await expect(page.getByRole('link', { name: '← Angebote' })).toBeVisible();
+		await expect(page.getByRole('link', { name: '← Ausgangsbelege' })).toBeVisible();
 		const zuordnen = page.getByRole('region', { name: 'Angebot zuordnen' });
 		await expect(zuordnen).toContainText(`Kunde: E2E-Verlauf ${stempel}`);
 		// 2. Einem Auftrag zuordnen (Suche nach dem Titel)
@@ -46,7 +46,7 @@ test('Angebot ohne Auftrag → im Angebot einem Auftrag zuordnen; zweites im Auf
 		await expect(page.getByRole('region', { name: 'Angebot zuordnen' })).toHaveCount(0);
 
 		// 3. Zweites Angebot ohne Auftrag und Kunde (Angebotsliste) → im Auftrag zuordnen
-		await page.goto('/angebote');
+		await page.goto('/ausgangsbelege/angebote');
 		await page.getByRole('button', { name: '+ Angebot ohne Auftrag' }).click();
 		await page.waitForURL(/\/angebote\/[0-9a-f-]{36}$/);
 		const zweites = page.url().split('/').pop()!;

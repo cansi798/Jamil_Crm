@@ -3,6 +3,7 @@
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
+	import BelegReiter from '$lib/components/ausgangsbelege/BelegReiter.svelte';
 	import { ANGEBOT_STATUS, ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { tagDeutsch } from '$lib/zeit';
@@ -16,7 +17,7 @@
 		const z = o.zeitraum ?? data.zeitraum;
 		if (z !== 'monat') p.set('zeitraum', z);
 		const q = p.toString();
-		return q ? `/angebote?${q}` : '/angebote';
+		return q ? `/ausgangsbelege/angebote?${q}` : '/ausgangsbelege/angebote';
 	};
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	const prozent = (w: number | null) => (w === null ? '–' : `${Math.round(w * 100)} %`);
@@ -41,14 +42,14 @@
 </script>
 
 <svelte:head>
-	<title>Angebote</title>
+	<title>Angebote · Ausgangsbelege</title>
 </svelte:head>
 
 <main class="kd-seite breit">
 	<header class="seiten-kopf">
 		<div>
-			<h1>Angebote</h1>
-			<p class="seiten-meta">Meist im Auftrag erstellt – ein Angebot ohne Auftrag lässt sich später zuordnen.</p>
+			<h1>Ausgangsbelege</h1>
+			<p class="seiten-meta">Angebote entstehen meist im Auftrag – ein Angebot ohne Auftrag lässt sich später zuordnen.</p>
 		</div>
 		{#if data.darfOhneAuftrag}
 			<form method="POST" action="?/neu" use:enhance class="seiten-aktionen">
@@ -60,6 +61,7 @@
 
 	<FilterLeiste ansichten="angebote" form={false} label="Angebote filtern">
 		{#snippet filter()}
+			<BelegReiter aktiv="angebote" />
 			<Umschalter
 				label="Status"
 				aktiv={data.status ?? 'alle'}

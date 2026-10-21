@@ -44,8 +44,8 @@ export async function startCockpit(k: Kontext, sicht: Sicht, opt: { preise: bool
 	const an = (id: string) => !KONFIG[id] || aktiv.aktiv.includes(KONFIG[id]);
 	const handlung: Handlung[] = [
 		{ id: 'nachfassen', titel: 'Nachfassen fällig', anzahl: auftraege.nachfassenFaellig, href: '/auftraege?nachfassen=faellig', ton: 'rot' as const },
-		{ id: 'abgelaufen', titel: 'Angebote abgelaufen', anzahl: angebote.abgelaufen, href: '/angebote?status=versendet', ton: 'orange' as const },
-		{ id: 'entwurf', titel: 'Angebots-Entwürfe', anzahl: angebote.entwurf, href: '/angebote?status=entwurf', ton: 'grau' as const },
+		{ id: 'abgelaufen', titel: 'Angebote abgelaufen', anzahl: angebote.abgelaufen, href: '/ausgangsbelege/angebote?status=versendet', ton: 'orange' as const },
+		{ id: 'entwurf', titel: 'Angebots-Entwürfe', anzahl: angebote.entwurf, href: '/ausgangsbelege/angebote?status=entwurf', ton: 'grau' as const },
 		{ id: 'aufgaben', titel: 'Aufgaben überfällig', anzahl: offen.aufgabenUeberfaellig, href: '/todos?person=alle&status=in-arbeit', ton: 'rot' as const },
 		{ id: 'ohne-termin', titel: 'Beauftragt ohne Termin', anzahl: offen.ohneTermin, href: '/auftraege?ansicht=liste&status=beauftragt', ton: 'blau' as const }
 	].filter((h) => an(h.id));

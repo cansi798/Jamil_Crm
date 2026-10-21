@@ -349,6 +349,28 @@ export function rechneAngebote(angebote: readonly AngebotFakt[], auftraege: read
 	};
 }
 
+/** Auftragsbestätigung als Fakt (Ausgangsbelege, Jamil msg 2948). */
+export type AbFakt = { angelegt: Date; versendetAm: Date | null; status: 'bereit' | 'gesendet' };
+export const AB_IDS = ['ab_bereit', 'ab_versendet', 'ab_erstellt'] as const;
+export type AbKennzahlen = KonfigInfo & {
+	/** Aktueller Stand: erstellt, noch nicht versendet. */
+	bereit: number;
+	/** Im Zeitraum versendet bzw. erstellt. */
+	versendet: number;
+	erstellt: number;
+};
+
+export function rechneAuftragsbestaetigungen(abs: readonly AbFakt[], z: Zeitraum, e?: KennzahlEinstellungen): AbKennzahlen {
+	const g = grenzenVon(z.spanne);
+	const l = (id: string) => (istAktiv(e, id) ? seit(abs, abTag(e, id), angelegtAn) : []);
+	return {
+		...konfigInfo(e, AB_IDS),
+		bereit: l('ab_bereit').filter((a) => a.status === 'bereit').length,
+		versendet: l('ab_versendet').filter((a) => a.status === 'gesendet' && drin(a.versendetAm, g)).length,
+		erstellt: l('ab_erstellt').filter((a) => drin(a.angelegt, g)).length
+	};
+}
+
 // ——— Öffentliche Funktionen (Server) ———
 
 export async function kundenKennzahlen(k: Kontext, sicht: Sicht, z: Zeitraum, opt: { angebote: boolean }, heute = berlinTag(new Date())): Promise<KundenKennzahlen> {
@@ -367,6 +389,23 @@ export async function angebotsKennzahlen(k: Kontext, sicht: Sicht, z: Zeitraum, 
 // ——— Einstellungen je Kennzahl (Jamil msg 2946) ———
 
 /** Einstellungen des Betriebs (nur vom Standard abweichende stehen in der Tabelle). */
+/**
+ * Kacheln „Auftragsbestätigungen“: in der Sicht des Nutzers (über den Auftrag; ohne Auftrag nur mit „Alle Aufträge
+ * ansehen“ – wie die Liste).
+ */
+export async function abKennzahlen(k: Kontext, sicht: Sicht, z: Zeitraum): Promise<AbKennzahlen> {
+	return mitBetrieb(k, async (tx) => {
+		const z2 = await tx`
+			select ab.angelegt, ab.versendet_am, ab.versand_status
+			from app.auftragsbestaetigungen ab
+			left join app.auftraege a on a.id = ab.auftrag_id and a.betrieb_id = ab.betrieb_id
+			where ab.betrieb_id = ${k.betriebId}
+				and ${sicht.alle ? tx`true` : tx`(a.id is not null and ${sichtbar(tx, sicht)})`}`;
+		const fakten: AbFakt[] = z2.map((r) => ({ angelegt: new Date(r.angelegt), versendetAm: r.versendet_am ? new Date(r.versendet_am) : null, status: r.versand_status }));
+		return rechneAuftragsbestaetigungen(fakten, z, await ladeEinstellungen(tx, k));
+	});
+}
+
 async function ladeEinstellungen(tx: TransactionSql, k: Kontext): Promise<KennzahlEinstellungen> {
 	const z = await tx`select kennzahl, aktiv, to_char(ab, 'YYYY-MM-DD') as ab from app.kennzahl_einstellungen where betrieb_id = ${k.betriebId}`;
 	return Object.fromEntries(z.filter((r) => istKonfigId(r.kennzahl)).map((r) => [r.kennzahl as string, { aktiv: r.aktiv as boolean, ab: (r.ab as string | null) ?? null }]));
