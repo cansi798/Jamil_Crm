@@ -15,7 +15,8 @@ import {
 import { abMitVorlage, beiAngebotAngenommen } from '../../src/lib/server/auftragsbestaetigung';
 import { setzeMailVersand } from '../../src/lib/server/nachfassen';
 import { MAIL_ZWECKE } from '../../src/lib/mail-vorlagen';
-import { actions, load } from '../../src/routes/(app)/einstellungen/mail-vorlagen/+page.server';
+import { load } from '../../src/routes/(app)/einstellungen/mail-vorlagen/+page.server';
+import { actions } from '../../src/routes/(app)/einstellungen/mail-vorlagen/neu/+page.server';
 
 /** E-Mail-Vorlagen an einem Ort (Jamil msg 2789): Standards je Zweck, Rechte, Auftragsbestätigung, Mail an Kunden. */
 describe('E-Mail-Vorlagen', () => {
@@ -68,7 +69,7 @@ describe('E-Mail-Vorlagen', () => {
 
 	it('Rechte: Bibliothek nur mit vorlagen.verwalten (Seite 403, Aktion 403)', async () => {
 		expect(() => vorlagenZugriff({ nutzer: u.monteurA })).toThrow();
-		await expect(load({ locals: { nutzer: u.monteurA } } as never)).rejects.toMatchObject({ status: 403 });
+		await expect(load({ locals: { nutzer: u.monteurA }, url: new URL('http://t/einstellungen/mail-vorlagen') } as never)).rejects.toMatchObject({ status: 403 });
 		const f = new FormData();
 		f.set('name', 'Böse');
 		f.set('betreff', 'x');

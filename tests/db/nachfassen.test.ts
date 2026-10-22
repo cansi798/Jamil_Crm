@@ -21,7 +21,10 @@ import { BEISPIEL_WERTE } from '../../src/lib/nachfassen';
 import { berlinTag, tagPlus } from '../../src/lib/zeit';
 import { baueUmgebung, leereAngebote, type Umgebung } from './hilfe-1c';
 import { actions as seite, load as seitenLoad } from '../../src/routes/(app)/einstellungen/nachfassen/+page.server';
-import { actions as mailSeite, load as mailLoad } from '../../src/routes/(app)/einstellungen/mail-vorlagen/+page.server';
+import { actions as mailSeite, load as mailListe } from '../../src/routes/(app)/einstellungen/mail-vorlagen/+page.server';
+import { actions as mailNeu } from '../../src/routes/(app)/einstellungen/mail-vorlagen/neu/+page.server';
+// Liste der E-Mail-Vorlagen (seit msg 3086 mit Zweck-Filter in der Adresse)
+const mailLoad = (e: { locals: unknown }) => mailListe({ ...e, url: new URL('http://localhost/einstellungen/mail-vorlagen') } as never);
 
 /** Automatisches Nachfassen (Jamil msgs 2585, 2633, 2636): Stufen, Läufe mit Aufgabe und fertigem Mailtext, Stopp. */
 describe('Nachfassen', () => {
@@ -157,9 +160,9 @@ describe('Nachfassen', () => {
 			({ locals: { nutzer }, request: new Request('http://localhost/x', { method: 'POST', body: new URLSearchParams(felder) }) }) as never;
 		expect(await seite.standard(req({}))).toMatchObject({ gespeichert: true });
 		expect(await mailSeite.signatur(req({ signatur: '<p>Gruß</p>' }))).toMatchObject({ gespeichert: true });
-		const fehler = (await mailSeite.vorlage(req({ name: '', betreff: 'x', html: '<p>x</p>' }))) as any;
+		const fehler = (await mailNeu.vorlage(req({ name: '', betreff: 'x', html: '<p>x</p>' }))) as any;
 		expect(fehler.status).toBe(400);
-		expect(fehler.data).toMatchObject({ bereich: 'vorlage-neu', werte: { betreff: 'x' } });
+		expect(fehler.data).toMatchObject({ werte: { betreff: 'x' } });
 		// Büro hat „vorlagen.verwalten“ (Vorlage buero), Monteur nicht
 		expect(((await mailSeite.signatur(req({ signatur: 'x' }, u.monteurA))) as any).status).toBe(403);
 		const d = (await seitenLoad({ locals: { nutzer: u.chefA } } as never)) as any;
@@ -167,7 +170,7 @@ describe('Nachfassen', () => {
 		// die beiden Vorschlags-Vorlagen sind „Nachfassen Angebot“; dazu je Zweck ein Standard
 		expect(d.vorlagen.filter((v: any) => v.zweck === 'nachfassen_angebot')).toHaveLength(2);
 		expect(d.vorlagen.filter((v: any) => v.istStandard)).toHaveLength(7);
-		expect((await mailLoad({ locals: { nutzer: u.chefA } } as never) as any).signatur).toBe('<p>Gruß</p>');
+		expect(((await mailLoad({ locals: { nutzer: u.chefA } })) as any).signatur).toBe('<p>Gruß</p>');
 		expect(d.rollen.map((r: any) => r.name)).toContain('Chef');
 	});
 
@@ -181,7 +184,7 @@ describe('Nachfassen', () => {
 		const ohne = await vorschauBeispiele(kA(), false);
 		expect(ohne.find((b) => b.id === id)!.werte.betrag).toBe(BEISPIEL_WERTE.betrag);
 		expect((await vorschauBeispiele(kB(), true)).map((b) => b.id)).not.toContain(id); // RLS
-		const d = (await mailLoad({ locals: { nutzer: u.chefA } } as never)) as any;
+		const d = (await mailLoad({ locals: { nutzer: u.chefA } })) as any;
 		expect(d.beispiele.map((b: any) => b.id)).toContain(id);
 		// Beispielwerte auch für Platzhalter anderer Zwecke (Termin, Portal-Link …)
 		expect(d.beispiele.find((b: any) => b.id === id).werte.termin).toBeTruthy();
