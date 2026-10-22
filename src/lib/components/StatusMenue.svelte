@@ -139,11 +139,13 @@
 						onclick={() => waehle(s)}
 					>
 						<span class="sm-punkt" style:background={STATUS_FARBEN[s]} aria-hidden="true"></span>
-						<span class="sm-name">{STATUS_NAMEN[s]}</span>
+						<!-- Jamil msg 3140: Name nie umbrechen, Grund klein darunter statt daneben -->
+						<span class="sm-text">
+							<span class="sm-name">{STATUS_NAMEN[s]}</span>
+							{#if !aktuell && !ok}<span class="sm-grund">{grund(s)}</span>{/if}
+						</span>
 						{#if aktuell}
 							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
-						{:else if !ok}
-							<span class="sm-grund">{grund(s)}</span>
 						{/if}
 					</button>
 				</li>
@@ -182,6 +184,7 @@
 		position: fixed;
 		z-index: 1000;
 		inset: auto;
+		min-width: 14rem;
 		margin: 0;
 		padding: 0.3rem;
 		list-style: none;
@@ -227,11 +230,18 @@
 		height: 0.625rem;
 		border-radius: 50%;
 	}
-	.sm-name {
+	.sm-text {
 		flex: 1;
+		display: grid;
+		min-width: 0;
+		padding: 0.3rem 0;
+	}
+	.sm-name {
+		white-space: nowrap;
 	}
 	.sm-grund {
 		font-size: 0.6875rem;
+		line-height: 1.3;
 	}
 	.sm-liste svg {
 		flex: none;
