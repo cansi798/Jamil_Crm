@@ -102,6 +102,8 @@ export type PortalMarke = { dunkel: string | null; hintergrund: string | null; t
 export type PortalSeite = {
 	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; /** Logo im Kopf je nach Kopffarbe (msgs 3088, 3126) */ logo: PortalLogo | null; farbe: string | null; marke: PortalMarke };
 	agbUrl: string | null;
+	/** Bestandskunde (Jamil msg 3142): mind. ein Auftrag des Kunden ist abgeschlossen („Projekt erfolgreich beendet“) */
+	bestandskunde: boolean;
 	/** AGB als PDF (msg 3030): Stand der hinterlegten Fassung; abrufbar unter /portal/<token>/agb */
 	agbPdf: { stand: string } | null;
 	widerrufUrl: string | null;
@@ -116,6 +118,20 @@ async function auftraegeImBereich(tx: TransactionSql, p: PortalKontext): Promise
 		where a.betrieb_id = ${p.betriebId} and a.kunde_id = ${p.kundeId} and ${tx.unsafe(IM_PORTAL_SQL)}
 		order by a.angelegt desc limit 20`;
 	return z.map((r) => r.id as string);
+}
+
+/**
+ * Hat der Kunde dieses Links schon einen abgeschlossenen Auftrag (Status `abgerechnet`)? Auch wenn das Portal nur
+ * aktive Aufträge zeigt – nach außen geht nur ja/nein (Karte „Auch nach Projektabschluss für Sie da“, msg 3142).
+ */
+async function istBestandskunde(tx: TransactionSql, p: PortalKontext): Promise<boolean> {
+	const [z] = await tx`
+		select exists (
+			select 1 from app.auftraege a
+			where a.betrieb_id = ${p.betriebId} and a.status = 'abgerechnet'
+				and a.kunde_id = coalesce(${p.kundeId}::uuid, (select x.kunde_id from app.auftraege x where x.id = ${p.auftragId}::uuid and x.betrieb_id = ${p.betriebId}))
+		) as ja`;
+	return z.ja === true;
 }
 
 const ART: Record<string, string> = { montage: 'Arbeiten vor Ort', besichtigung: 'Besichtigung', wartung: 'Wartung' };
@@ -293,6 +309,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		agbUrl: b.agb_url,
 		agbPdf: b.agb_pdf_hochgeladen ? { stand: new Date(b.agb_pdf_hochgeladen).toISOString() } : null,
 		widerrufUrl: b.widerruf_url,
+		bestandskunde: await istBestandskunde(tx, p),
 		auftraege
 	};
 }

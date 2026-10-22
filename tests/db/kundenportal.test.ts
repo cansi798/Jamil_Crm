@@ -79,6 +79,12 @@ describe('Kundenportal', () => {
 		expect(s.betrieb.name).toBe('Bauwelt A');
 		expect(s.auftraege).toHaveLength(1);
 		expect(s.auftraege[0]).toMatchObject({ id: u.auftragA, status: { schluessel: 'anfrage', name: 'Anfrage eingegangen' } });
+		// Karte „Auch nach Projektabschluss für Sie da“ (msg 3142) erst mit einem abgeschlossenen Auftrag
+		expect(s.bestandskunde).toBe(false);
+		const [fertig] = await root`insert into app.auftraege (betrieb_id, kunde_id, titel, status, nummer)
+			select betrieb_id, kunde_id, 'Alt fertig', 'abgerechnet', 'A-TEST-9999' from app.auftraege where id = ${u.auftragA} returning id`;
+		expect((await ladePortal(token, IP))!.bestandskunde).toBe(true);
+		await root`delete from app.auftraege where id = ${fertig.id}`;
 		expect(s.auftraege[0].termine![0].mitarbeiter).toEqual(['Ali']);
 		expect(JSON.stringify(s)).not.toMatch(/Fremd|Monteur|Lindenweg|monteur-a@/);
 		// Freigabe: ohne Termine/Vornamen/Status

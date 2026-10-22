@@ -200,6 +200,10 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
   (`src/lib/portal-kopf.ts`): heller Kopf → normales Logo, dunkler Kopf → helle Variante; ein Feld nur, wenn die
   passende Variante fehlt. Kein Firmenname (steht im Logo, Seitentitel und Alt-Text; ohne Logo steht er da), keine
   Telefonnummer (Kontakt-Karte), keine Linie unter dem Kopf.
+- **„Auch nach Projektabschluss für Sie da“ (Jamil msg 3142):** Karte nach den Aufträgen, sobald ein Auftrag des
+  Kunden abgeschlossen ist (`bestandskunde` in `kundenportal-oeffentlich.ts`). Leistungen als Kacheln mit Skizzen-Kreis.
+  **Noch ohne Funktion:** „Anfrage stellen“ ist gesperrt („bald verfügbar“). Später: daraus eine Anfrage im CRM
+  anlegen (Auftrag im Status „anfrage“ mit gewählter Leistung, Benachrichtigung ans Büro) – TODO im Portal-Code.
 - Animationen nur dort, wo sie etwas erklären (Fortschrittsweg, Haken der Arbeitsschritte, Pegel), alle mit
   `prefers-reduced-motion` abschaltbar.
 - Der Kunde sieht nur Freigegebenes: keine Beschreibungen von Aufgaben, keine internen Aufgaben (ohne
