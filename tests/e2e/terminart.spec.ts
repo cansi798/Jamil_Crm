@@ -103,7 +103,7 @@ test('Terminart anlegen, im Einsatz-Dialog wählen (Dauer → Bis), am Termin se
 	// 4. online buchbar einschalten (Liste) → Buchungsseite erreichbar, Terminart-Name als Überschrift
 	await page.goto('/einstellungen/terminarten');
 	await zeile.getByRole('checkbox', { name: 'online buchbar' }).check();
-	await expect(zeile).toContainText('online buchbar');
+	await expect(zeile).not.toContainText('nur Plantafel');
 	const buchen = await page.context().newPage();
 	await buchen.goto(pfad);
 	await expect(buchen.getByRole('heading', { level: 1 })).toBeVisible();

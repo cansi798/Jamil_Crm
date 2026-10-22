@@ -5,7 +5,6 @@
 	 */
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
-	import SeitenKopf from '$lib/components/ui/SeitenKopf.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
@@ -27,7 +26,7 @@
 </svelte:head>
 
 <main class="kd-seite ta-seite">
-	<SeitenKopf titel="Terminarten" meta={`${anzahl} ${anzahl === 1 ? 'Terminart' : 'Terminarten'}`} />
+	<h1>Terminarten</h1>
 	<p class="kd-info ta-intro">
 		Eine Liste für alles: Die Terminarten (z. B. „Besichtigung“, „Wartung“) wählt ihr beim Einplanen in der
 		<a href="/plantafel">Plantafel</a> aus – mit Farbe und Dauer. Ist eine Terminart <strong>online buchbar</strong>, können Kunden sie auch selbst über die
@@ -46,13 +45,12 @@
 							<span class="ta-text">
 								<strong>{t.name}</strong>
 								<span class="kd-info">
-									{dauerText(t.dauerMin)} · {ORT_NAMEN[t.ortArt]}{t.onlineBuchbar ? ` · ${MODUS_NAMEN[t.modus].split(' (')[0]}` : ''}
+									{dauerText(t.dauerMin)} · {ORT_NAMEN[t.ortArt]} · {t.onlineBuchbar ? MODUS_NAMEN[t.modus].split(' (')[0] : 'nur Plantafel'}
 								</span>
 							</span>
 						</a>
 						<span class="ta-marken">
 							{#if !t.aktiv}<span class="badge badge-grau">ausgeschaltet</span>{/if}
-							{#if t.onlineBuchbar}<span class="badge badge-blau">online buchbar</span>{:else}<span class="badge badge-grau">nur Plantafel</span>{/if}
 							{#if t.onlineBuchbar && t.mitarbeiter.length === 0}<span class="badge badge-rot">ohne Mitarbeiter</span>{/if}
 							{#if t.kommend > 0}<span class="badge badge-gruen">{t.kommend} gebucht</span>{/if}
 							{#each t.mitarbeiter.slice(0, 3) as m (m.id)}<Avatar name={m.name} groesse={24} />{/each}

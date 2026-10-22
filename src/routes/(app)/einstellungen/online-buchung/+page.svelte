@@ -3,8 +3,6 @@
 	import '$lib/stil/kunden.css';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import BuchungenListe from '$lib/components/BuchungenListe.svelte';
-	import Knopf from '$lib/components/ui/Knopf.svelte';
-	import SeitenKopf from '$lib/components/ui/SeitenKopf.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { dauerText, MODUS_NAMEN, ORT_NAMEN } from '$lib/buchung';
 	import type { ActionData, PageData } from './$types';
@@ -19,9 +17,7 @@
 </svelte:head>
 
 <main class="kd-seite ob-seite">
-	<SeitenKopf titel="Online-Buchung">
-		{#snippet aktionen()}<Knopf href="/einstellungen/terminarten" art="sekundaer">Terminarten verwalten</Knopf>{/snippet}
-	</SeitenKopf>
+	<h1>Online-Buchung</h1>
 	<p class="kd-info ob-intro">
 		Kunden buchen Termine selbst über einen Link oder direkt auf eurer Website. Buchbar sind die <strong>Terminarten</strong>, bei denen
 		„online buchbar“ eingeschaltet ist – mit Dauer, Mitarbeitern und eigenen Fragen. Angelegt und geändert werden sie unter
