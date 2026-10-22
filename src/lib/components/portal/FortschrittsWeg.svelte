@@ -11,12 +11,29 @@
 
 	// Waagerecht: Stationen auf einer leicht welligen Linie (fest „von Hand“ verschoben, damit es nicht wie ein Lineal wirkt)
 	const W = 720;
-	const H = 92;
+	const H = 108;
 	const WACKEL = [0, -6, 4, -3, 5, -2, 3, -4];
-	const punkteW = $derived(stufen.map((_, i) => ({ x: 36 + (i * (W - 72)) / Math.max(1, n - 1), y: 34 + WACKEL[i % WACKEL.length] })));
+	const punkteW = $derived(stufen.map((_, i) => ({ x: 56 + (i * (W - 112)) / Math.max(1, n - 1), y: 34 + WACKEL[i % WACKEL.length] })));
 	// Senkrecht (Handy)
 	const ZEILE = 62;
 	const punkteS = $derived(stufen.map((_, i) => ({ x: 22 + WACKEL[(i + 3) % WACKEL.length] * 0.8, y: 22 + i * ZEILE })));
+
+	/**
+	 * Beschriftung waagerecht in höchstens zwei ausgewogenen Zeilen (msg 3131: längere Kundentexte wie „Projekt
+	 * erfolgreich beendet“ dürfen sich nicht überlappen).
+	 */
+	function zeilen(name: string): string[] {
+		const w = name.split(' ');
+		if (w.length < 2) return [name];
+		let beste = [name];
+		let max = Infinity;
+		for (let i = 1; i < w.length; i++) {
+			const z = [w.slice(0, i).join(' '), w.slice(i).join(' ')];
+			const m = Math.max(z[0].length, z[1].length);
+			if (m < max) [beste, max] = [z, m];
+		}
+		return beste;
+	}
 
 	/** Weg durch Punkte als geschwungene Kurven; `bis` = letzter Punkt (einschließlich). */
 	function weg(p: { x: number; y: number }[], bis: number, senkrecht: boolean): string {
@@ -50,7 +67,7 @@
 				{#if i === idx}<circle class="fw-puls" cx={p.x} cy={p.y} r="15" />{/if}
 				<circle class="fw-punkt" cx={p.x} cy={p.y} r="11" filter="url(#fw-skizze)" />
 				{#if i < idx}<path class="fw-haken" d={`M ${p.x - 5} ${p.y} l 3.5 4 l 6.5 -8`} pathLength="1" />{/if}
-				<text x={p.x} y={p.y + 36} text-anchor="middle">{stufen[i].name}</text>
+				<text x={p.x} y={p.y + 34} text-anchor="middle">{#each zeilen(stufen[i].name) as z, j (j)}<tspan x={p.x} dy={j === 0 ? 0 : 15}>{z}</tspan>{/each}</text>
 			</g>
 		{/each}
 	</svg>
