@@ -13,6 +13,7 @@
 	import VorlageAnwenden from '$lib/components/VorlageAnwenden.svelte';
 	import AuftragLinks from '$lib/components/AuftragLinks.svelte';
 	import AuftragUnterlagen from '$lib/components/AuftragUnterlagen.svelte';
+	import { anzeigeDateiname } from '$lib/dateiname';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import AuftragPartner from '$lib/components/AuftragPartner.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
@@ -277,7 +278,7 @@
 						{#if data.portal.angebote.length + data.portal.dateien.length > 0}
 							<p class="af-portal-titel">Freigegebene Dokumente</p>
 							<ul class="af-portal-docs">
-								{#each [...data.portal.angebote.map((x) => ({ art: 'angebot', id: x.id, name: `Angebot ${x.nummer}`, geteilt: x.geteilt })), ...data.portal.dateien.map((x) => ({ art: 'datei', id: x.id, name: x.name, geteilt: x.geteilt }))] as d (d.id)}
+								{#each [...data.portal.angebote.map((x) => ({ art: 'angebot', id: x.id, name: `Angebot ${x.nummer}`, geteilt: x.geteilt })), ...data.portal.dateien.map((x) => ({ art: 'datei', id: x.id, name: anzeigeDateiname(x.name, x.typ, x.angelegt), geteilt: x.geteilt }))] as d (d.id)}
 									<li>
 										<form method="POST" action="?/portalDokument" use:enhance={sofort}>
 											<input type="hidden" name="art" value={d.art} /><input type="hidden" name="refId" value={d.id} />

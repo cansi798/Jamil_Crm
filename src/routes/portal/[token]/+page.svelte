@@ -64,7 +64,7 @@
 
 	// ── Ihre Unterlagen: alles in EINER Liste ─────────────────────────────────────────────────────────────────────
 	type Gruppe = 'angebote' | 'rechnungen' | 'dokumente';
-	type Unterlage = { schluessel: string; etikett: string; ton: string; gruppe: Gruppe; titel: string; datum: string | null; href: string | null; extern: boolean; info: string | null; auftragId: string; text?: string };
+	type Unterlage = { schluessel: string; etikett: string; ton: string; gruppe: Gruppe; titel: string; datum: string | null; href: string; extern: boolean; info: string | null; auftragId: string };
 	const unterlagen = $derived.by((): Unterlage[] => {
 		const l: Unterlage[] = [];
 		for (const a of s.auftraege) {
@@ -84,8 +84,6 @@
 				const etikett = d.art === 'foto' ? 'Foto' : d.art === 'protokoll' ? 'Protokoll' : 'Dokument';
 				l.push({ schluessel: `d-${d.id}`, etikett, ton: 'dokument', gruppe: 'dokumente', titel: d.name, datum: d.datum, href: doc('datei', d.id), extern: false, info: null, auftragId: a.id });
 			}
-			// Freigegebene Notizen (msg 3070): als Textkarte „Notiz vom …“
-			for (const n of a.notizen ?? []) l.push({ schluessel: `n-${n.id}`, etikett: 'Notiz', ton: 'dokument', gruppe: 'dokumente', titel: `Notiz vom ${tagDeutsch(n.datum.slice(0, 10))}`, datum: n.datum, href: null, extern: false, info: null, auftragId: a.id, text: n.text });
 			for (const k of a.links ?? []) l.push({ schluessel: `l-${k.url}`, etikett: 'Link', ton: 'dokument', gruppe: 'dokumente', titel: k.titel, datum: null, href: k.url, extern: true, info: null, auftragId: a.id });
 		}
 		const sortiert = l.sort((x, y) => (y.datum ?? '').localeCompare(x.datum ?? ''));
@@ -95,6 +93,12 @@
 		}
 		return sortiert;
 	});
+	// ── Hinweise von uns (msg 3133): freigegebene Notizen – KEINE Unterlagen, eigener ruhiger Bereich ─────────────────
+	const hinweise = $derived(
+		s.auftraege
+			.flatMap((a) => (a.notizen ?? []).map((n) => ({ ...n, auftrag: a.titel })))
+			.sort((x, y) => y.datum.localeCompare(x.datum))
+	);
 	const FILTER: [Gruppe | 'alle', string][] = [
 		['alle', 'Alle'],
 		['angebote', 'Angebote'],
@@ -163,6 +167,21 @@
 				<span class="pt-k-info">ansehen →</span>
 			</a>
 		</section>
+
+		{#if hinweise.length > 0}
+			<section class="pt-karte pt-hinweise" aria-labelledby="hinweise-titel">
+				<span class="pt-eyebrow">Von Ihrem Handwerksbetrieb</span>
+				{@render titel('Hinweise von uns', 2, 'hinweise-titel')}
+				<ul class="pt-hinweis-liste">
+					{#each hinweise as h (h.id)}
+						<li class="pt-hinweis">
+							<p class="pt-hinweis-text">{h.text}</p>
+							<small>{tagDeutsch(h.datum.slice(0, 10))}{h.von ? ` · ${h.von}` : ''}{s.auftraege.length > 1 ? ` · ${h.auftrag}` : ''}</small>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 
 		{#if form?.erledigt}
 			<p role="status" class="pt-meldung">{form.erledigt === 'angenommen' ? 'Vielen Dank für Ihren Auftrag! Die Auftragsbestätigung finden Sie gleich unter „Ihre Unterlagen“.' : 'Danke für Ihre Rückmeldung.'}</p>
@@ -301,23 +320,13 @@
 				<ul class="pt-doks">
 					{#each g.liste as u (u.schluessel)}
 						<li>
-							{#if u.href}
-								<a class="pt-dok" href={u.href} target="_blank" rel={u.extern ? 'noopener noreferrer external' : 'noopener'}>
-									<span class={`pt-etikett ${u.ton}`}>{u.etikett}</span>
-									<span class="pt-dok-text">
-										<span class="pt-dok-titel">{u.titel}</span>
-										{#if u.info || u.datum}<small>{[datumText(u.datum), u.info].filter(Boolean).join(' · ')}</small>{/if}
-									</span>
-								</a>
-							{:else}
-								<div class="pt-dok pt-notiz">
-									<span class={`pt-etikett ${u.ton}`}>{u.etikett}</span>
-									<span class="pt-dok-text">
-										<span class="pt-dok-titel">{u.titel}</span>
-										{#if u.text}<span class="pt-notiz-text">{u.text}</span>{/if}
-									</span>
-								</div>
-							{/if}
+							<a class="pt-dok" href={u.href} target="_blank" rel={u.extern ? 'noopener noreferrer external' : 'noopener'}>
+								<span class={`pt-etikett ${u.ton}`}>{u.etikett}</span>
+								<span class="pt-dok-text">
+									<span class="pt-dok-titel">{u.titel}</span>
+									{#if u.info || u.datum}<small>{[datumText(u.datum), u.info].filter(Boolean).join(' · ')}</small>{/if}
+								</span>
+							</a>
 						</li>
 					{/each}
 				</ul>
@@ -584,13 +593,29 @@
 	.pt-zeile small {
 		color: var(--ui-text-leise);
 	}
-	/* Ihre Unterlagen */
-	.pt-notiz-text {
-		display: block;
-		margin-top: 0.25rem;
+	/* Hinweise von uns (msg 3133) */
+	.pt-hinweis-liste {
+		list-style: none;
+		margin: 0.5rem 0 0;
+		padding: 0;
+		display: grid;
+		gap: 0.6rem;
+	}
+	.pt-hinweis {
+		padding: 0.75rem 0.9rem;
+		border-left: 3px solid var(--ui-akzent);
+		border-radius: 8px;
+		background: var(--ui-akzent-zart, #faf7f0);
+	}
+	.pt-hinweis-text {
+		margin: 0 0 0.25rem;
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
 	}
+	.pt-hinweis small {
+		color: var(--ui-text-leise);
+	}
+	/* Ihre Unterlagen */
 	.pt-chips {
 		display: flex;
 		flex-wrap: wrap;
@@ -612,13 +637,15 @@
 		color: var(--ui-text-leise);
 		font-weight: 400;
 	}
+	/* Aktiver Filter: Hausfarbe mit automatisch lesbarer Schrift (msg 3133 – vorher weiß auf heller Kopffarbe) */
 	.pt-chips button[aria-pressed='true'] {
-		border-color: var(--pt-dunkel);
-		background: var(--pt-dunkel);
-		color: #fff;
+		border-color: var(--ui-akzent);
+		background: var(--ui-akzent);
+		color: var(--ui-akzent-auf);
 	}
 	.pt-chips button[aria-pressed='true'] small {
-		color: rgb(255 255 255 / 0.75);
+		color: inherit;
+		opacity: 0.8;
 	}
 	.pt-chips button:focus-visible {
 		outline: none;

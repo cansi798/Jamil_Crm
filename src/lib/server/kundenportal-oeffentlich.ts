@@ -16,6 +16,7 @@ import { nurVorname } from '../buchung';
 import type { AuftragStatus } from '../auftrag-status';
 import { summen, istMwstSatz } from '../geld';
 import { berlinTag, berlinUhrzeit, tagKurz } from '../zeit';
+import { anzeigeDateiname } from '../dateiname';
 import { figurFuer, istAnrede, teamRolle, type Figur } from '../portal-figur';
 
 /**
@@ -86,7 +87,7 @@ export type PortalAuftrag = {
 	dateien: { id: string; name: string; typ: string; datum: string; art: 'foto' | 'protokoll' | 'dokument' }[];
 	auftragsbestaetigungen: { id: string; nummer: string; datum: string }[];
 	/** Ausdrücklich freigegebene Notizen (msg 3070) – nie andere. */
-	notizen: { id: string; text: string; datum: string }[];
+	notizen: { id: string; text: string; datum: string; von: string | null }[];
 	/** Links, die ausdrücklich fürs Portal freigegeben sind (Jamil msg 2850; Standard aus) – ohne interne Notiz. */
 	links: { titel: string; url: string }[];
 	/** Arbeitsschritte ab „beauftragt“ (msg 2848) – nur mit freigegebenem Status; sonst null. */
@@ -189,7 +190,10 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		// Notizen nur mit ausdrücklicher Freigabe (portal_dokumente, Art „notiz“; msg 3070)
 		const notizIds = geteilt.filter((g) => g.art === 'notiz').map((g) => g.ref_id as string);
 		const notizen = notizIds.length
-			? await tx`select n.id, n.text, n.angelegt from app.notizen n where n.betrieb_id = ${p.betriebId} and n.auftrag_id = ${id} and n.id = any(${notizIds}::uuid[]) order by n.angelegt`
+			? await tx`
+				select n.id, n.text, n.angelegt, b.name as von from app.notizen n
+				left join app.benutzer b on b.id = n.von_benutzer_id and b.betrieb_id = n.betrieb_id
+				where n.betrieb_id = ${p.betriebId} and n.auftrag_id = ${id} and n.id = any(${notizIds}::uuid[]) order by n.angelegt desc`
 			: [];
 		const links = await tx`select titel, url from app.auftrag_links where betrieb_id = ${p.betriebId} and auftrag_id = ${id} and im_portal order by sortierung, angelegt, id`;
 		// Arbeitsschritte (msg 2848): nur Aufgaben mit Lautstärke oder Schmutz – das sind die Schritte, die der Betrieb
@@ -253,13 +257,15 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			}),
 			dateien: dateien.map((d) => ({
 				id: d.id,
-				name: d.name,
+				// UUID-Namen (Fotos aus der App) lesbar machen (msg 3133); Download behält den echten Namen
+				name: anzeigeDateiname(d.name, d.typ, d.angelegt),
 				typ: d.typ,
 				datum: new Date(d.angelegt).toISOString(),
 				art: d.protokoll ? ('protokoll' as const) : String(d.typ).startsWith('image/') ? ('foto' as const) : ('dokument' as const)
 			})),
 			auftragsbestaetigungen: abs.map((x) => ({ id: x.id, nummer: x.nummer, datum: new Date(x.angelegt).toISOString() })),
-			notizen: notizen.map((n) => ({ id: n.id, text: n.text, datum: new Date(n.angelegt).toISOString() })),
+			// Wer: nach Einstellung „Namen im Portal“ (Vorname, voll oder keine)
+			notizen: notizen.map((n) => ({ id: n.id, text: n.text, datum: new Date(n.angelegt).toISOString(), von: n.von ? nameFuer(namen, n.von) : null })),
 			links: links.map((l) => ({ titel: l.titel, url: l.url })),
 			schritte: schritte
 				? schritte.map((t) => ({ titel: t.titel, erledigt: t.erledigt, tag: t.tag, vonTag: t.von_tag ?? null, laerm: t.lautstaerke ?? null, schmutz: t.schmutz ?? null }))

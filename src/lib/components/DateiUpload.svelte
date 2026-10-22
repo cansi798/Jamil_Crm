@@ -6,6 +6,7 @@
 	 */
 
 	import type { Snippet } from 'svelte';
+	import { anzeigeDateiname } from '$lib/dateiname';
 
 	let {
 		auftragId,
@@ -13,7 +14,7 @@
 		zusatz
 	}: {
 		auftragId: string;
-		dateien: Array<{ id: string; name: string; typ: string; beschreibung: string | null }>;
+		dateien: Array<{ id: string; name: string; typ: string; beschreibung: string | null; angelegt?: string }>;
 		/** Zusatz je Datei vor „Löschen“ (z. B. Schalter „im Kundenportal anzeigen“) */
 		zusatz?: Snippet<[{ id: string; name: string }]>;
 	} = $props();
@@ -106,7 +107,7 @@
 		<ul class="datei-liste">
 			{#each dateien as datei (datei.id)}
 				<li>
-					<span>{datei.name}</span>
+					<span title={datei.name}>{anzeigeDateiname(datei.name, datei.typ, datei.angelegt ?? new Date())}</span>
 					{#if zusatz}{@render zusatz(datei)}{/if}
 					<button use:rueckfrage={'Datei wirklich löschen?'} type="button" class="knopf-gefahr" onclick={() => loeschen(datei.id)}>Löschen</button>
 				</li>

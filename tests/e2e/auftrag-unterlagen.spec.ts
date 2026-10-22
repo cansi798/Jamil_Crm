@@ -80,10 +80,18 @@ test('Notiz und Dokument inline, „Im Kundenportal“ beim Anlegen und in der Z
 		await kunde.goto(pfad);
 		await kunde.getByLabel('Bitte geben Sie Ihr Passwort ein (Ihre Postleitzahl)').fill('24105');
 		await kunde.getByRole('button', { name: 'Öffnen' }).click();
+		// Notizen sind keine Unterlagen (msg 3133): eigener Bereich „Hinweise von uns“, nicht mitgezählt
+		const hinweise = kunde.getByRole('region', { name: 'Hinweise von uns' });
+		await expect(hinweise).toContainText('Bitte Zufahrt freihalten');
 		const unterlagen = kunde.getByRole('region', { name: 'Ihre Unterlagen' });
-		await expect(unterlagen).toContainText('Bitte Zufahrt freihalten');
-		await expect(unterlagen).toContainText(/Notiz vom \d{2}\.\d{2}\.\d{4}/);
+		await expect(unterlagen).not.toContainText('Bitte Zufahrt freihalten');
 		await expect(unterlagen.getByRole('link', { name: /baustelle\.png/ })).toBeVisible();
+		const alle = unterlagen.getByRole('button', { name: /^Alle/ });
+		await expect(alle).toHaveText(/Alle\s*1/);
+		// aktiver Filter gut lesbar: Schrift- und Hintergrundfarbe deutlich verschieden
+		const [fg, bg] = await alle.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor]);
+		const hell = (c: string) => { const [r, g, b] = c.match(/\d+/g)!.map(Number); return (0.299 * r + 0.587 * g + 0.114 * b) / 255; };
+		expect(Math.abs(hell(fg) - hell(bg))).toBeGreaterThan(0.4);
 		await expect(kunde.locator('body')).not.toContainText('zahlt spät');
 		await erwarteKeinQuerScrollen(kunde, viewport.width);
 		await gast.close();

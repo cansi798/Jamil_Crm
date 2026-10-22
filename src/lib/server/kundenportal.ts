@@ -69,7 +69,7 @@ export type PortalStand = {
 	kundeId: string | null;
 	freigabe: PortalFreigabe;
 	angebote: { id: string; nummer: string; status: string; geteilt: boolean }[];
-	dateien: { id: string; name: string; typ: string; geteilt: boolean }[];
+	dateien: { id: string; name: string; typ: string; geteilt: boolean; angelegt: string }[];
 };
 
 const iso = (d: unknown) => (d ? new Date(d as string).toISOString() : null);
@@ -116,7 +116,7 @@ export async function portalStand(z: PortalZugriff, auftragId: string): Promise<
 		const ist = (art: string, ref: string) => geteilt.some((g) => g.art === art && g.ref_id === ref);
 		// Angebote (Preise) nur, wer sie freigeben darf
 		const angebote = z.preise ? await tx`select id, nummer, status from app.angebote where auftrag_id = ${id} and betrieb_id = ${k.betriebId} and status <> 'entwurf' order by angelegt` : [];
-		const dateien = await tx`select id, name, typ from app.dateien where auftrag_id = ${id} and betrieb_id = ${k.betriebId} order by angelegt desc limit 200`;
+		const dateien = await tx`select id, name, typ, angelegt from app.dateien where auftrag_id = ${id} and betrieb_id = ${k.betriebId} order by angelegt desc limit 200`;
 		return {
 			standard: st.standard,
 			imPortal: st.im_portal === true,
@@ -125,7 +125,7 @@ export async function portalStand(z: PortalZugriff, auftragId: string): Promise<
 			kundeId: a.kundeId,
 			freigabe: f ? { sichtbar: f.sichtbar, status: f.status, termine: f.termine, mitarbeiter: f.mitarbeiter, annahme: f.annahme } : { ...STANDARD_FREIGABE },
 			angebote: angebote.map((x) => ({ id: x.id, nummer: x.nummer, status: x.status, geteilt: ist('angebot', x.id) })),
-			dateien: dateien.map((x) => ({ id: x.id, name: x.name, typ: x.typ, geteilt: ist('datei', x.id) }))
+			dateien: dateien.map((x) => ({ id: x.id, name: x.name, typ: x.typ, geteilt: ist('datei', x.id), angelegt: new Date(x.angelegt).toISOString() }))
 		};
 	});
 }

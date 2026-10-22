@@ -4,6 +4,7 @@
 	import Schalter from '$lib/components/ui/Schalter.svelte';
 	import PortalSchalter from '$lib/components/ui/PortalSchalter.svelte';
 	import { tagDeutsch, berlinTag } from '$lib/zeit';
+	import { anzeigeDateiname } from '$lib/dateiname';
 
 	type Dokument = { id: string; name: string; typ: string; groesse: number; angelegt: string; vonId: string | null; vonName: string | null; imPortal: boolean };
 	type Notiz = { id: string; text: string; angelegt: string; vonId: string | null; vonName: string | null; imPortal: boolean };
@@ -44,20 +45,21 @@
 {:else}
 	<ul class="au-liste" aria-label="Dokumente und Notizen">
 		{#each dokumente as d (d.id)}
+			{@const anzeige = anzeigeDateiname(d.name, d.typ, d.angelegt)}
 			<li class="au-eintrag">
-				<a class="au-titel" href={`/api/dateien/${d.id}`} target="_blank" rel="noopener">{d.name}</a>
+				<a class="au-titel" href={`/api/dateien/${d.id}`} target="_blank" rel="noopener" title={d.name}>{anzeige}</a>
 				<p class="au-meta">Dokument · {wann(d.angelegt)} · {groesse(d.groesse)}{d.vonName ? ` · ${d.vonName}` : ''}</p>
 				{#if darfPortal || darfLoeschen(d.vonId) || d.imPortal}
 					<div class="au-werkzeuge">
 						{#if darfPortal}
-							<PortalSchalter aktion="?/unterlagePortal" felder={{ art: 'datei', id: d.id }} an={d.imPortal} label={`„${d.name}“ im Kundenportal anzeigen`} />
+							<PortalSchalter aktion="?/unterlagePortal" felder={{ art: 'datei', id: d.id }} an={d.imPortal} label={`„${anzeige}“ im Kundenportal anzeigen`} />
 						{:else if d.imPortal}
 							<span class="kd-info">im Kundenportal sichtbar</span>
 						{/if}
 						{#if darfLoeschen(d.vonId)}
 							<form method="POST" action="?/unterlageLoeschen" use:enhance={sofort}>
 								<input type="hidden" name="art" value="datei" /><input type="hidden" name="id" value={d.id} />
-								<button type="submit" class="kd-knopf hell klein" aria-label={`Dokument „${d.name}“ löschen`} onclick={(e) => { if (!confirm(`Dokument „${d.name}“ löschen?`)) e.preventDefault(); }}>Löschen</button>
+								<button type="submit" class="kd-knopf hell klein" aria-label={`Dokument „${anzeige}“ löschen`} onclick={(e) => { if (!confirm(`Dokument „${anzeige}“ löschen?`)) e.preventDefault(); }}>Löschen</button>
 							</form>
 						{/if}
 					</div>

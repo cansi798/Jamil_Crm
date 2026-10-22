@@ -97,6 +97,19 @@ describe('Auftrag: Dokumente & Notizen, Freigabe fürs Kundenportal', () => {
 		expect(await root`select 1 from app.dateien`).toHaveLength(0);
 	});
 
+	it('Notizen sind keine Unterlagen (msg 3133): eigenes Feld mit Wer, nicht bei den Dateien; UUID-Fotos mit lesbarem Namen', async () => {
+		await aktion('notizNeu', u.chefA, { text: 'Hinweis an den Kunden', imPortal: 'on' });
+		await aktion('dokumentNeu', u.chefA, { datei: png('a7e7637e-9935-4924-bb59-d561c0dd5eca.png'), imPortal: 'on' });
+		const a = (await portal()).auftraege[0];
+		expect(a.notizen).toMatchObject([{ text: 'Hinweis an den Kunden', von: 'Chef' }]);
+		expect(a.dateien).toHaveLength(1);
+		expect(a.dateien[0].name).toMatch(/^Foto vom \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/);
+		expect(JSON.stringify(a.dateien)).not.toContain('Hinweis');
+		// Download behält den echten Namen
+		const [d] = await root`select id, name from app.dateien`;
+		expect(d.name).toBe('a7e7637e-9935-4924-bb59-d561c0dd5eca.png');
+	});
+
 	it('Portal-Sperre gilt auch für die neuen Inhalte: ohne Passwort-Cookie keine Seite (Notizen) und kein Dokument', async () => {
 		await aktion('notizNeu', u.chefA, { text: 'freigegeben', imPortal: 'on' });
 		await aktion('dokumentNeu', u.chefA, { datei: png('frei.png'), imPortal: 'on' });

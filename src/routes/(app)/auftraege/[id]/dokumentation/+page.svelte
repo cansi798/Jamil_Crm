@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { rueckfrage } from '$lib/rueckfrage';
+	import { anzeigeDateiname } from '$lib/dateiname';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import DateiUpload from '$lib/components/DateiUpload.svelte';
 	import Karte from '$lib/components/Karte.svelte';
@@ -187,7 +188,7 @@
 			{:else}
 				<ul class="kd-liste">
 					{#each dateien as d (d.id)}
-						<li><a href={`/api/dateien/${d.id}`} target="_blank" rel="noopener">{d.name}</a></li>
+						<li><a href={`/api/dateien/${d.id}`} target="_blank" rel="noopener" title={d.name}>{anzeigeDateiname(d.name, d.typ, d.angelegt)}</a></li>
 					{:else}
 						<li class="kd-leer">Keine Fotos oder Dateien vorhanden.</li>
 					{/each}
