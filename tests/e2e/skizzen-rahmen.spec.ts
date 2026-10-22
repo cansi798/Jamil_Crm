@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { erwarteKeinQuerScrollen, portalOeffnen } from './hilfe';
 
 /**
- * Handgezeichneter Rahmen um „Für Sie zu erledigen“ im Kundenportal (Jamil msgs 3040/3052): nur solange etwas offen
+ * Handgezeichneter Rahmen um „Damit wir weitermachen können“ (früher „Für Sie zu erledigen“) im Kundenportal (Jamil msgs 3040/3052): nur solange etwas offen
  * ist, zeichnet sich beim Sichtbarwerden, danach läuft ständig ein Stiftstrich herum, ohne Platzbedarf und ohne Klicks abzufangen; kein Querscrollen am Handy.
  * Läuft nur mit PORTAL_TOKEN (vorübergehender Portal-Link – nie über „Link erzeugen“).
  */

@@ -57,7 +57,10 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	// Andere Tests legen weitere Aufträge beim selben Kunden an – nur die eigene Karte prüfen
 	await expect(kunde.getByLabel('Ladenumbau Trockenbau').getByTestId('portal-status')).toBeVisible();
 	// Handwerks-Design (msgs 2848, 2851): Überblick oben, Fortschrittsweg, Kontakt rechts
-	await expect(kunde.getByRole('region', { name: 'Überblick' })).toContainText('Nächster Termin');
+	await expect(kunde.getByRole('region', { name: 'Überblick' })).toContainText('Ihr nächster Termin');
+	// Kundensprache (msg 3131)
+	await expect(kunde.getByRole('region', { name: 'Überblick' })).toContainText('Damit wir weitermachen können');
+	await expect(kunde.getByRole('region', { name: 'Überblick' })).toContainText('Alle Dokumente an einem Ort');
 	await expect(kunde.getByRole('img', { name: /^Fortschritt:/ }).first()).toBeVisible();
 	await expect(kunde.getByRole('heading', { name: /^(Ihr persönlicher Projektbegleiter|Ihre persönliche Projektbegleiterin)$/ }).first()).toBeVisible();
 	// EIN Bereich „Ihre Unterlagen“ mit Art-Etikett und Filter-Chips (msg 2958)

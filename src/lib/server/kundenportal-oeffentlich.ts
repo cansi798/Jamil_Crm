@@ -5,6 +5,7 @@ import { erzeugeBegrenzung } from './auth/ratelimit';
 import { ladePdfDaten } from './angebote';
 import { holeLogo, holeProfil, type LogoVariante } from './betriebsprofil';
 import { portalLogo, type PortalLogo } from '../portal-kopf';
+import { portalStatusName } from '../portal-status';
 import { angebotPdf } from './pdf/angebot-pdf';
 import { sendePush } from './erinnerungen';
 import { zustaendig } from './auftragsbestaetigung';
@@ -12,7 +13,7 @@ import { melde } from './ereignisse';
 import { agbFassung, holeAgbPdf, IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
 import { UUID } from './kunden';
 import { nurVorname } from '../buchung';
-import { STATUS_NAMEN, type AuftragStatus } from '../auftrag-status';
+import type { AuftragStatus } from '../auftrag-status';
 import { summen, istMwstSatz } from '../geld';
 import { berlinTag, berlinUhrzeit, tagKurz } from '../zeit';
 import { figurFuer, istAnrede, teamRolle, type Figur } from '../portal-figur';
@@ -232,7 +233,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			id: a.id,
 			nummer: a.nummer,
 			titel: a.titel,
-			status: a.f_status ? { schluessel: a.status, name: STATUS_NAMEN[a.status as AuftragStatus] } : null,
+			status: a.f_status ? { schluessel: a.status, name: portalStatusName(a.status as AuftragStatus) } : null,
 			termine,
 			angebote: ang.map((x) => {
 				const pos = (typeof x.positionen === 'string' ? JSON.parse(x.positionen) : x.positionen) as { menge: string | number; einzelpreisCent: string | number }[];

@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * Fortschrittsweg im Kundenportal (Jamil msg 2848): handgezeichneter Weg von „Anfrage“ bis „Abgeschlossen“.
+	 * Fortschrittsweg im Kundenportal (Jamil msg 2848): handgezeichneter Weg von „Anfrage eingegangen“ bis „Projekt erfolgreich beendet“ (Namen: src/lib/portal-status.ts).
 	 * Der erreichte Teil zeichnet sich beim Öffnen in der Hausfarbe nach, die aktuelle Station pulsiert leicht.
 	 * Desktop waagerecht, Handy senkrecht. Bei „Bewegung reduzieren“ steht alles sofort da.
 	 */

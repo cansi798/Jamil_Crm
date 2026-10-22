@@ -3,6 +3,7 @@
 	import PortalFigur from '$lib/components/portal/PortalFigur.svelte';
 	import PortalKopf from '$lib/components/portal/PortalKopf.svelte';
 	import { kopfIstHell } from '$lib/portal-kopf';
+	import { PORTAL_STUFEN } from '$lib/portal-status';
 	import FortschrittsWeg from '$lib/components/portal/FortschrittsWeg.svelte';
 	import PortalSchritte from '$lib/components/portal/PortalSchritte.svelte';
 	import SkizzenKreis from '$lib/components/portal/SkizzenKreis.svelte';
@@ -14,8 +15,8 @@
 
 	/**
 	 * Kundenportal (Jamil msgs 2848, 2851, 2953, 2958) – mobil zuerst:
-	 * 1. drei kleine Kacheln: Nächster Termin · Für Sie zu erledigen · Unterlagen
-	 * 2. „Für Sie zu erledigen“ (nur wenn etwas offen ist): offene Angebote mit „Annehmen“
+	 * 1. drei kleine Kacheln: Ihr nächster Termin · Damit wir weitermachen können · Alle Dokumente an einem Ort (msg 3131)
+	 * 2. „Ihre Entscheidung – Damit wir weitermachen können“ (nur wenn etwas offen ist): offene Angebote mit „Annehmen“
 	 * 3. je Auftrag: Fortschrittsweg, Arbeitsschritte, Termine; persönlicher Projektbegleiter (msg 3120) und Team
 	 * 4. EIN Bereich „Ihre Unterlagen“: Angebote, Auftragsbestätigungen, (Rechnungen), Protokolle, Fotos, Dokumente –
 	 *    neueste zuerst, mit Art-Etikett, Filter-Chips, bei mehreren Aufträgen nach Auftrag gruppiert.
@@ -51,22 +52,7 @@
 	let schritt = $state<{ id: string; art: 'annehmen' | 'ablehnen' } | null>(null);
 	let sendet = $state(false);
 
-	const STUFEN = [
-		{ schluessel: 'anfrage', name: 'Anfrage' },
-		{ schluessel: 'angebot', name: 'Angebot' },
-		{ schluessel: 'beauftragt', name: 'Beauftragt' },
-		{ schluessel: 'in_arbeit', name: 'In Arbeit' },
-		{ schluessel: 'abgenommen', name: 'Fertig' },
-		{ schluessel: 'abgerechnet', name: 'Abgeschlossen' }
-	];
-	const STATUS_KUNDE: Record<string, string> = {
-		anfrage: 'Ihre Anfrage ist bei uns eingegangen',
-		angebot: 'Ihr Angebot ist fertig',
-		beauftragt: 'Beauftragt – wir planen die Arbeiten',
-		in_arbeit: 'Wir sind bei der Arbeit',
-		abgenommen: 'Fertig und abgenommen',
-		abgerechnet: 'Abgeschlossen – vielen Dank!'
-	};
+	// Status in Kundensprache (msg 3131) – eine Stelle für Weg und Statuszeile: src/lib/portal-status.ts
 
 	// ── Kacheln oben ──────────────────────────────────────────────────────────────────────────────────────────────
 	const offen = $derived(s.auftraege.flatMap((a) => a.angebote.filter((x) => x.annehmbar).map((x) => ({ ...x, auftrag: a.titel }))));
@@ -89,7 +75,7 @@
 						: an.status === 'abgelehnt'
 							? 'Abgelehnt'
 							: an.annehmbar
-								? `wartet auf Ihre Zusage · gültig bis ${tagDeutsch(an.gueltigBis)}`
+								? `Ihre Entscheidung steht aus · gültig bis ${tagDeutsch(an.gueltigBis)}`
 								: 'nicht mehr gültig';
 				l.push({ schluessel: `an-${an.id}`, etikett: 'Angebot', ton: 'angebot', gruppe: 'angebote', titel: `Angebot ${an.nummer} · ${euro(an.bruttoCent)}`, datum: an.datum, href: doc('angebot', an.id), extern: false, info, auftragId: a.id });
 			}
@@ -149,7 +135,7 @@
 	<main class="pt-inhalt">
 		<section class="pt-dash" aria-label="Überblick">
 			<div class="pt-kachel">
-				<span class="pt-eyebrow">Nächster Termin</span>
+				<span class="pt-eyebrow">Ihr nächster Termin</span>
 				{#if naechster}
 					<strong>{tagKurz(naechster.tag)}</strong>
 					<span class="pt-k-info">{naechster.von}–{naechster.bis} Uhr</span>
@@ -160,19 +146,19 @@
 			</div>
 			{#if offen.length > 0}
 				<div class="pt-kachel hervor">
-					<span class="pt-eyebrow">Für Sie zu erledigen</span>
+					<span class="pt-eyebrow">Damit wir weitermachen können</span>
 					<strong>{offen.length} {offen.length === 1 ? 'Angebot wartet' : 'Angebote warten'}</strong>
-					<a class="pt-k-knopf" href="#zu-erledigen">auf Ihre Zusage →</a>
+					<a class="pt-k-knopf" href="#zu-erledigen">Ihre Entscheidung steht aus →</a>
 				</div>
 			{:else}
 				<div class="pt-kachel ok">
-					<span class="pt-eyebrow">Für Sie zu erledigen</span>
+					<span class="pt-eyebrow">Damit wir weitermachen können</span>
 					<strong class="pt-ok-zeile"><SkizzenKreis art="ring" groesse={26} seed={5}><svg class="pt-haken" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.7 3.7 7.3-8" /></svg></SkizzenKreis>Alles erledigt</strong>
 					<span class="pt-k-info">nichts offen</span>
 				</div>
 			{/if}
 			<a class="pt-kachel" href="#unterlagen">
-				<span class="pt-eyebrow">Unterlagen</span>
+				<span class="pt-eyebrow">Alle Dokumente an einem Ort</span>
 				<strong>{unterlagen.length}</strong>
 				<span class="pt-k-info">ansehen →</span>
 			</a>
@@ -186,8 +172,8 @@
 			<section class="pt-karte pt-erledigen" id="zu-erledigen" aria-labelledby="zu-erledigen-titel">
 				<!-- handgezeichneter Rahmen, solange etwas offen ist (msg 3040) -->
 				<SkizzenRahmen seed={4} />
-				<span class="pt-eyebrow">Ihre Zusage</span>
-				{@render titel('Für Sie zu erledigen', 2, 'zu-erledigen-titel')}
+				<span class="pt-eyebrow">Ihre Entscheidung</span>
+				{@render titel('Damit wir weitermachen können', 2, 'zu-erledigen-titel')}
 				<ul class="pt-liste">
 					{#each offen as an (an.id)}
 						<li class="pt-offen">
@@ -234,8 +220,8 @@
 						<span class="pt-eyebrow">Auftrag {a.nummer}</span>
 						<h1 id={`t-${a.id}`}>{a.titel}</h1>
 						{#if a.status}
-							<p class="pt-status" data-testid="portal-status">{STATUS_KUNDE[a.status.schluessel] ?? a.status.name}</p>
-							<FortschrittsWeg stufen={STUFEN} aktuell={a.status.schluessel} />
+							<p class="pt-status" data-testid="portal-status">{a.status.name}</p>
+							<FortschrittsWeg stufen={PORTAL_STUFEN} aktuell={a.status.schluessel} />
 						{/if}
 					</div>
 

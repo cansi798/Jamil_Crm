@@ -78,7 +78,7 @@ describe('Kundenportal', () => {
 		const s = (await ladePortal(token, IP))!;
 		expect(s.betrieb.name).toBe('Bauwelt A');
 		expect(s.auftraege).toHaveLength(1);
-		expect(s.auftraege[0]).toMatchObject({ id: u.auftragA, status: { schluessel: 'anfrage' } });
+		expect(s.auftraege[0]).toMatchObject({ id: u.auftragA, status: { schluessel: 'anfrage', name: 'Anfrage eingegangen' } });
 		expect(s.auftraege[0].termine![0].mitarbeiter).toEqual(['Ali']);
 		expect(JSON.stringify(s)).not.toMatch(/Fremd|Monteur|Lindenweg|monteur-a@/);
 		// Freigabe: ohne Termine/Vornamen/Status
