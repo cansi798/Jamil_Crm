@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import PortalFigur from '$lib/components/portal/PortalFigur.svelte';
+	import PortalKopf from '$lib/components/portal/PortalKopf.svelte';
+	import { kopfIstHell } from '$lib/portal-kopf';
 	import FortschrittsWeg from '$lib/components/portal/FortschrittsWeg.svelte';
 	import PortalSchritte from '$lib/components/portal/PortalSchritte.svelte';
 	import SkizzenKreis from '$lib/components/portal/SkizzenKreis.svelte';
@@ -136,22 +138,13 @@
 {/snippet}
 
 <div class="pt" class:gross={m.titelGross} style={stil}>
-	<!-- Kopf (Jamil msgs 3087/3088): Logo groß und ohne weißes Feld (Variante für dunklen Hintergrund), daneben
-	     „Ihr Kundenportal“; kein Firmenname (steht im Logo, Titel und Alt-Text), keine Telefonnummer (steht in der
-	     Kontakt-Karte), keine Linie darunter. Ohne Logo steht der Firmenname da. -->
-	<header class="pt-kopf">
-		<div class="pt-kopf-innen">
-			{#if s.betrieb.hatLogo}
-				<span class="pt-logo" class:auf-weiss={!s.betrieb.logoAufDunkel}><img src={`/portal/${data.token}/logo?v=${s.betrieb.logoAufDunkel ? 'dunkel' : 'hell'}`} alt={`Logo ${s.betrieb.name}`} /></span>
-				<span class="pt-portal">Ihr Kundenportal</span>
-			{:else}
-				<span class="pt-firma">
-					<small>Ihr Kundenportal</small>
-					<strong>{s.betrieb.name}</strong>
-				</span>
-			{/if}
-		</div>
-	</header>
+	<!-- Kopf wie auf der Passwort-Seite (Jamil msgs 3087/3088, 3126): Logo passend zur Kopffarbe, „Ihr Kundenportal“ -->
+	<PortalKopf
+		klasse="pt-kopf"
+		name={s.betrieb.name}
+		hell={kopfIstHell(m.dunkel)}
+		logo={s.betrieb.logo ? { src: `/portal/${data.token}/logo?variante=${s.betrieb.logo.variante}`, feld: s.betrieb.logo.feld } : null}
+	/>
 
 	<main class="pt-inhalt">
 		<section class="pt-dash" aria-label="Überblick">
@@ -384,91 +377,12 @@
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 	}
-	/* Kopf: dunkle Farbe des Betriebs, ohne Linie darunter (msg 3088) */
-	.pt-kopf {
-		background: var(--pt-dunkel);
-		color: #fff;
-	}
-	.pt-kopf-innen,
 	.pt-inhalt,
 	.pt-fuss {
 		max-width: 72rem;
 		margin: 0 auto;
 		padding-left: 16px;
 		padding-right: 16px;
-	}
-	.pt-kopf-innen {
-		display: flex;
-		align-items: center;
-		gap: 0.9rem;
-		min-height: 4.5rem;
-		padding-top: 0.6rem;
-		padding-bottom: 0.6rem;
-	}
-	.pt-logo {
-		display: grid;
-		place-items: center;
-		min-width: 0;
-	}
-	.pt-logo img {
-		display: block;
-		max-height: 3.25rem;
-		max-width: min(13rem, 52vw);
-		object-fit: contain;
-	}
-	/* nur das Briefkopf-Logo (dunkle Schrift) braucht ein helles Feld */
-	.pt-logo.auf-weiss {
-		padding: 0.3rem 0.55rem;
-		border-radius: 8px;
-		background: #fff;
-	}
-	.pt-logo.auf-weiss img {
-		max-height: 2.75rem;
-	}
-	/* „Ihr Kundenportal“ rechts neben dem Logo, durch einen feinen Strich getrennt */
-	.pt-portal {
-		padding-left: 0.9rem;
-		border-left: 1px solid rgb(255 255 255 / 0.28);
-		color: var(--ui-akzent);
-		font-family: var(--pt-titel);
-		font-size: 0.6875rem;
-		font-weight: 700;
-		letter-spacing: 0.14em;
-		line-height: 1.35;
-		text-transform: uppercase;
-	}
-	.pt-firma {
-		display: grid;
-		min-width: 0;
-	}
-	.pt-firma small {
-		color: var(--ui-akzent);
-		font-family: var(--pt-titel);
-		font-size: 0.625rem;
-		font-weight: 700;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-	.pt-firma strong {
-		overflow: hidden;
-		color: #fff;
-		font-family: var(--pt-titel);
-		font-size: 1rem;
-		text-transform: var(--pt-gross);
-		white-space: nowrap;
-		text-overflow: ellipsis;
-	}
-	@media (min-width: 641px) {
-		.pt-kopf-innen {
-			min-height: 5.25rem;
-		}
-		.pt-logo img {
-			max-height: 3.75rem;
-			max-width: 16rem;
-		}
-		.pt-portal {
-			font-size: 0.75rem;
-		}
 	}
 	.pt-inhalt {
 		display: grid;

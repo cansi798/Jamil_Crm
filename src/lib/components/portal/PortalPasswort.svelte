@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { farbStil } from '$lib/farbe';
+	import { kopfIstHell } from '$lib/portal-kopf';
+	import PortalKopf from './PortalKopf.svelte';
 
 	/**
-	 * Passwort-Abfrage des Kundenportals (Jamil msg 3037) im Portal-Design: Kopf in der dunklen Farbe des Betriebs mit
-	 * Akzentlinie, eine Karte mit einem Feld. Ein normales Formular (ohne JavaScript), das an /anmelden schickt.
+	 * Passwort-Abfrage des Kundenportals (Jamil msg 3037) im Portal-Design: derselbe Kopf wie das Portal (`PortalKopf`,
+	 * Logo + „Ihr Kundenportal“, msg 3126), eine Karte mit einem Feld. Ein normales Formular (ohne JavaScript), das an /anmelden schickt.
 	 */
 	let {
 		token,
@@ -11,7 +13,7 @@
 		anmeldung
 	}: {
 		token: string;
-		aussehen: { name: string; farbe: string | null; dunkel: string | null; hintergrund: string | null };
+		aussehen: { name: string; farbe: string | null; dunkel: string | null; hintergrund: string | null; logo: { src: string; feld: 'weiss' | 'dunkel' | null } | null };
 		anmeldung: 'falsch' | 'gesperrt' | 'fehlt' | null;
 	} = $props();
 
@@ -31,7 +33,7 @@
 </svelte:head>
 
 <div class="pp" style={stil}>
-	<header class="pp-kopf"><div class="pp-innen"><span class="pp-name">{aussehen.name}</span></div></header>
+	<PortalKopf name={aussehen.name} logo={aussehen.logo} hell={kopfIstHell(aussehen.dunkel)} />
 	<main class="pp-innen">
 		<form class="pp-karte" method="POST" action={`/portal/${token}/anmelden`}>
 			<h1>Ihr Kundenportal</h1>
@@ -51,25 +53,10 @@
 		color: var(--ui-text, #2d2c2e);
 		font-family: 'Inter', system-ui, sans-serif;
 	}
-	.pp-kopf {
-		background: var(--pt-dunkel);
-		color: #fff;
-		border-bottom: 4px solid var(--ui-akzent);
-	}
 	.pp-innen {
 		max-width: 28rem;
 		margin: 0 auto;
 		padding: 0 16px;
-	}
-	.pp-kopf .pp-innen {
-		max-width: 72rem;
-		padding-top: 1rem;
-		padding-bottom: 1rem;
-	}
-	.pp-name {
-		font-family: 'Montserrat', 'Inter', system-ui, sans-serif;
-		font-weight: 700;
-		font-size: 1.1rem;
 	}
 	.pp-karte {
 		display: grid;

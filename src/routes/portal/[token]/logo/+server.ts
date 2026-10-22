@@ -1,16 +1,17 @@
 import { error } from '@sveltejs/kit';
 import { RASTERBILD, sichereDateiKopfzeilen } from '$lib/server/datei-kopf';
 import type { RequestHandler } from './$types';
-import { portalLogo } from '$lib/server/kundenportal-oeffentlich';
+import { portalLogoDatei } from '$lib/server/kundenportal-oeffentlich';
 import { ipVon, OEFFENTLICHE_KOPFZEILEN } from '$lib/server/buchung-anfrage';
 import { ApiFehler } from '$lib/server/fehler';
 import { pruefePortalSitzung } from '$lib/server/portal-zugang';
 
-/** Logo des Betriebs für das Kundenportal. */
+/** Logo des Betriebs für den Kopf des Kundenportals (Variante passend zur Kopffarbe, msgs 3088, 3126). */
 export const GET: RequestHandler = async (event) => {
 	try {
 		pruefePortalSitzung(event.locals);
-		const logo = await portalLogo(event.params.token, ipVon(event));
+		// ?variante=dunkel: helle Variante für einen dunklen Kopf (sonst das normale Logo)
+		const logo = await portalLogoDatei(event.params.token, ipVon(event), event.url.searchParams.get('variante') === 'dunkel' ? 'dunkel' : 'briefkopf');
 		// Nur Rasterbilder (nie SVG/HTML vom App-Ursprung – gespeichertes XSS)
 		if (!logo || !RASTERBILD.test(logo.typ)) error(404, 'Kein Logo');
 		return new Response(logo.bytes as unknown as BodyInit, {

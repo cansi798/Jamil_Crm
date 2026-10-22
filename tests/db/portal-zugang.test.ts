@@ -1,7 +1,7 @@
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { schliesseDb } from '../../src/lib/server/db';
-import { baueUmgebung, type Umgebung } from './hilfe-1c';
+import { baueUmgebung, testPng, type Umgebung } from './hilfe-1c';
 import { erzeugeLink, kundenPortal, portalPasswort, widerrufeLink } from '../../src/lib/server/kundenportal';
 import { portalFehlversuch } from '../../src/lib/server/kundenportal-oeffentlich';
 import {
@@ -11,6 +11,7 @@ import {
 	cookieOptionen,
 	entschluesseleToken,
 	PORTAL_COOKIE,
+	portalAussehen,
 	pruefeSitzungsWert,
 	sitzungGueltig,
 	sitzungsWert,
@@ -268,5 +269,23 @@ describe('Kundenportal: Passwort und Link', () => {
 		const zurueck = (await kundenAktionen.portalPasswort({ locals: { nutzer: u.chefA }, params: { id: u.kundeA }, request: form({ aktion: 'plz' }) } as never)) as any;
 		expect(zurueck.portalMeldung).toMatch(/Postleitzahl/);
 		expect(await root`select 1 from app.portal_passwoerter where kunde_id = ${u.kundeA}`).toHaveLength(0);
+	});
+
+	it('Passwort-Seite (msg 3126): gleicher Kopf mit Logo passend zur Kopffarbe – als data:-Bild, ohne Zugriff auf /logo', async () => {
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		const hell = Buffer.from(testPng(6, 3));
+		const dunkel = Buffer.from(testPng(8, 4));
+		await root`insert into app.betrieb_profil (betrieb_id, logo, logo_typ, logo_dunkel, logo_dunkel_typ, dunkel_farbe)
+			values (${u.betriebA}, ${hell}, 'image/png', ${dunkel}, 'image/png', '#f4f1eb')
+			on conflict (betrieb_id) do update set logo = excluded.logo, logo_typ = excluded.logo_typ, logo_dunkel = excluded.logo_dunkel,
+				logo_dunkel_typ = excluded.logo_dunkel_typ, dunkel_farbe = excluded.dunkel_farbe`;
+		// heller Kopf → normales Logo ohne Feld
+		const a = await portalAussehen(token, IP);
+		expect(a?.logo).toEqual({ src: `data:image/png;base64,${hell.toString('base64')}`, feld: null });
+		// dunkler Kopf → helle Variante
+		await root`update app.betrieb_profil set dunkel_farbe = '#2d2c2e' where betrieb_id = ${u.betriebA}`;
+		expect((await portalAussehen(token, IP))?.logo).toEqual({ src: `data:image/png;base64,${dunkel.toString('base64')}`, feld: null });
+		await root`update app.betrieb_profil set logo = null, logo_typ = null, logo_dunkel = null, logo_dunkel_typ = null, dunkel_farbe = null where betrieb_id = ${u.betriebA}`;
+		expect((await portalAussehen(token, IP))?.logo).toBeNull();
 	});
 });

@@ -1,3 +1,4 @@
+import { portalLogo } from '../portal-kopf';
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { alsOeffentlich, mitBetrieb, OEFFENTLICH, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
@@ -203,16 +204,39 @@ export async function anmelden(token: string, eingabe: unknown, ip: string): Pro
 }
 
 /** Name, Farbe und Erscheinungsbild für die Passwort-Seite (nur mit gültigem Link). */
-export async function portalAussehen(token: string, ip: string): Promise<{ name: string; farbe: string | null; dunkel: string | null; hintergrund: string | null } | null> {
+/** Höchstgröße des Logos, das die Passwort-Seite direkt einbettet (sonst steht dort der Firmenname). */
+const LOGO_EINGEBETTET_MAX = 300 * 1024;
+
+export type PortalAussehen = {
+	name: string;
+	farbe: string | null;
+	dunkel: string | null;
+	hintergrund: string | null;
+	/** Logo für den Kopf (Jamil msg 3126): als data:-Adresse, denn /portal/<Token>/logo gibt es erst nach dem Passwort */
+	logo: { src: string; feld: 'weiss' | 'dunkel' | null } | null;
+};
+
+export async function portalAussehen(token: string, ip: string): Promise<PortalAussehen | null> {
 	const { loeseAuf } = await import('./kundenportal-oeffentlich');
 	const p = await loeseAuf(token, ip);
 	if (!p) return null;
 	return alsOeffentlich(p.betriebId, 'kundenportal', () =>
 		mitBetrieb({ betriebId: p.betriebId, benutzerId: OEFFENTLICH }, async (tx) => {
 			const [b] = await tx`
-				select coalesce(pr.firmenname, be.name) as name, pr.farbe, pr.dunkel_farbe, pr.hintergrund_farbe
+				select coalesce(pr.firmenname, be.name) as name, pr.farbe, pr.dunkel_farbe, pr.hintergrund_farbe,
+					pr.logo is not null as hat_logo, pr.logo_dunkel is not null as hat_logo_dunkel
 				from app.betriebe be left join app.betrieb_profil pr on pr.betrieb_id = be.id where be.id = ${p.betriebId}`;
-			return { name: b.name, farbe: b.farbe ?? null, dunkel: b.dunkel_farbe ?? null, hintergrund: b.hintergrund_farbe ?? null };
+			const wahl = portalLogo(b.dunkel_farbe, { briefkopf: b.hat_logo === true, dunkel: b.hat_logo_dunkel === true });
+			let logo: PortalAussehen['logo'] = null;
+			if (wahl) {
+				const spalte = wahl.variante === 'dunkel' ? tx`logo_dunkel as bytes, logo_dunkel_typ as typ` : tx`logo as bytes, logo_typ as typ`;
+				const [l] = await tx`select ${spalte} from app.betrieb_profil where betrieb_id = ${p.betriebId}`;
+				// nur Rasterbilder (nie SVG – gespeichertes XSS), nicht zu groß für die Seite
+				if (l?.bytes && /^image\/(png|jpeg)$/.test(l.typ) && l.bytes.length <= LOGO_EINGEBETTET_MAX) {
+					logo = { src: `data:${l.typ};base64,${Buffer.from(l.bytes).toString('base64')}`, feld: wahl.feld };
+				}
+			}
+			return { name: b.name, farbe: b.farbe ?? null, dunkel: b.dunkel_farbe ?? null, hintergrund: b.hintergrund_farbe ?? null, logo };
 		})
 	);
 }

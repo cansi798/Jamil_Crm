@@ -270,6 +270,8 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Abfrage) und /anmelden durch. Sperre: 5 Fehlversuche je Link/15 Min., 30 je IP; Fehlversuche im Zugriffsprotokoll
     (`portal_ereignisse`, ohne Passwort). Neue Links zusätzlich AES-256-GCM-verschlüsselt (`CRM_PORTAL_GEHEIMNIS`) →
     „Kundenportal öffnen“/„Link kopieren“ auf der Kundenseite; gesucht wird weiter nur über den SHA-256-Hash.
+    Die Passwort-Seite zeigt nur Firmenname und Logo (msg 3126, als `data:`-Bild eingebettet, nur PNG/JPEG bis 300 kB);
+    `/portal/<Token>/logo` bleibt hinter dem Passwort.
 26. Dokumente & Notizen im Auftrag (Migration 106, `src/lib/server/auftrag-unterlagen.ts`, Jamil msg 3070): inline wie die
     Links (AddPanel), Speicher wie die Dokumentation (`app.dateien` in der Datenbank, 10 MB, Dateianfang geprüft), wer
     hochgeladen hat (`von_benutzer_id`); „Im Kundenportal“ je Eintrag über `portal_dokumente` (Art `datei`/`notiz`,

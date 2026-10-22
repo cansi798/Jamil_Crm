@@ -52,12 +52,12 @@
 		{/snippet}
 	</DateiFeld>
 
-	<h2 id="logo-dunkel-titel">Helle Variante für dunklen Hintergrund (App und Kundenportal)</h2>
+	<h2 id="logo-dunkel-titel">Helle Variante für dunklen Hintergrund (App)</h2>
 	<p class="kd-info">
-		Für dunkle Flächen: die Seitenleiste der App am Computer (oben links) und der Kopf des Kundenportals. Dort steht diese
-		helle Variante (z. B. weiße Schrift, am besten PNG mit transparentem Hintergrund) groß und ohne weißes Feld. Ohne helle
-		Variante steht das normale Logo dort auf einem weißen Feld. Am Handy (heller Hintergrund) erscheint in der App das Logo von
-		oben.
+		Für die dunkle Seitenleiste der App am Computer (oben links): eine helle Variante (z. B. weiße Schrift, am besten PNG mit
+		transparentem Hintergrund). Ohne helle Variante steht das normale Logo dort auf einem weißen Feld. Am Handy (heller
+		Hintergrund) erscheint in der App das Logo von oben. Im Kundenportal wird das normale Logo verwendet – die helle Variante
+		nur, wenn Sie unten eine dunkle Kopffarbe fürs Portal wählen.
 	</p>
 	<DateiFeld
 		id="logo-dunkel"
@@ -70,7 +70,7 @@
 		entfernenAktion="?/logoDunkelLoeschen"
 		entfernenText="Helle Variante entfernen"
 		ding="Helle Variante"
-		warnung="Die helle Variante wird entfernt. App-Seitenleiste und Kundenportal zeigen dann das normale Logo auf einem weißen Feld."
+		warnung="Die helle Variante wird entfernt. Die Seitenleiste der App zeigt dann das normale Logo auf einem weißen Feld."
 		fehler={logoDunkelFehler}
 		meldung={form && 'logoGespeichert' in form && form.logoGespeichert === 'dunkel' ? 'Helle Variante gespeichert.' : null}
 	>
@@ -141,12 +141,12 @@
 			<h2 id="bk-portal-titel">Erscheinungsbild Kundenportal</h2>
 			<p class="kd-info">So sieht das Portal für Ihre Kunden aus – passend zu Ihrer Website. Die CRM-App selbst nutzt nur die Hausfarbe.</p>
 			<p class="kd-info">
-				Im Kopf des Portals steht Ihr Logo groß auf der dunklen Farbe – die <a href="#logo-dunkel-titel">helle Variante</a>, sonst
-				das normale Logo auf einem weißen Feld – und daneben „Ihr Kundenportal“. Firmenname, Telefon und E-Mail stehen in der
-				Kontakt-Karte darunter.
+				Im Kundenportal wird das normale Logo verwendet, groß und ohne Feld, daneben „Ihr Kundenportal“. Nur bei einer dunklen
+				Kopffarbe nimmt das Portal automatisch die <a href="#logo-dunkel-titel">helle Variante</a>. Firmenname, Telefon und E-Mail
+				stehen in der Kontakt-Karte darunter.
 			</p>
 			<div class="kd-zwei">
-				<label class="bk-farbe">Dunkle Farbe (Kopf) <input type="color" name="dunkelFarbe" value={werte.dunkelFarbe || '#2d2c2e'} /></label>
+				<label class="bk-farbe">Farbe des Kopfs <input type="color" name="dunkelFarbe" value={werte.dunkelFarbe || '#2d2c2e'} /></label>
 				<label class="bk-farbe">Hintergrund <input type="color" name="hintergrundFarbe" value={werte.hintergrundFarbe || '#f6f4f0'} /></label>
 			</div>
 			<div class="kd-zwei">

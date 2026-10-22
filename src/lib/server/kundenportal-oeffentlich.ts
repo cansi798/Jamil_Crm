@@ -3,7 +3,8 @@ import { alsOeffentlich, mitBetrieb, OEFFENTLICH, systemAbfrage, type Kontext, t
 import { ApiFehler } from './fehler';
 import { erzeugeBegrenzung } from './auth/ratelimit';
 import { ladePdfDaten } from './angebote';
-import { holeLogo, holeProfil } from './betriebsprofil';
+import { holeLogo, holeProfil, type LogoVariante } from './betriebsprofil';
+import { portalLogo, type PortalLogo } from '../portal-kopf';
 import { angebotPdf } from './pdf/angebot-pdf';
 import { sendePush } from './erinnerungen';
 import { zustaendig } from './auftragsbestaetigung';
@@ -97,7 +98,7 @@ export type PortalAuftrag = {
 /** Erscheinungsbild des Portals je Betrieb (Migration 096, msg 2953) – leer = Standard */
 export type PortalMarke = { dunkel: string | null; hintergrund: string | null; titelSchrift: 'montserrat' | 'inter'; textSchrift: 'inter' | 'opensans'; titelGross: boolean };
 export type PortalSeite = {
-	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean; /** Logo ist die Variante für dunklen Hintergrund (ohne weißes Feld zeigen) */ logoAufDunkel: boolean; farbe: string | null; marke: PortalMarke };
+	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; /** Logo im Kopf je nach Kopffarbe (msgs 3088, 3126) */ logo: PortalLogo | null; farbe: string | null; marke: PortalMarke };
 	agbUrl: string | null;
 	/** AGB als PDF (msg 3030): Stand der hinterlegten Fassung; abrufbar unter /portal/<token>/agb */
 	agbPdf: { stand: string } | null;
@@ -272,8 +273,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			telefon: b.telefon,
 			email: b.email,
 			web: b.web,
-			hatLogo: b.hat_logo || b.hat_logo_dunkel,
-			logoAufDunkel: b.hat_logo_dunkel === true,
+			logo: portalLogo(b.dunkel_farbe, { briefkopf: b.hat_logo === true, dunkel: b.hat_logo_dunkel === true }),
 			farbe: b.farbe,
 			marke: {
 				dunkel: b.dunkel_farbe ?? null,
@@ -313,16 +313,14 @@ export async function ladePortal(token: unknown, ip: string, jetzt = new Date())
 	);
 }
 
-/**
- * Logo des Betriebs für den dunklen Portal-Kopf (Jamil msg 3088): die Variante für dunklen Hintergrund
- * (Einstellungen → Briefkopf), sonst das Briefkopf-Logo (dann zeigt der Kopf es auf einem weißen Feld).
- */
-export async function portalLogo(token: unknown, ip: string): Promise<{ bytes: Uint8Array; typ: string } | null> {
+/** Logo des Betriebs für den Portal-Kopf: die gewünschte Variante (siehe `portalLogo`), sonst die andere. */
+export async function portalLogoDatei(token: unknown, ip: string, variante: LogoVariante = 'briefkopf'): Promise<{ bytes: Uint8Array; typ: string } | null> {
 	begrenze(ip, 'abruf');
 	const p = await loeseAuf(token, ip);
 	if (!p) return null;
 	const k = { betriebId: p.betriebId, benutzerId: OEFFENTLICH };
-	return alsOeffentlich(p.betriebId, 'kundenportal', async () => (await holeLogo(k, 'dunkel')) ?? holeLogo(k));
+	const andere: LogoVariante = variante === 'dunkel' ? 'briefkopf' : 'dunkel';
+	return alsOeffentlich(p.betriebId, 'kundenportal', async () => (await holeLogo(k, variante)) ?? holeLogo(k, andere));
 }
 
 export type PortalDatei = { name: string; typ: string; bytes: Uint8Array };

@@ -187,9 +187,11 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
 ## 10a. Kundenportal
 
 - Gleiches Design wie die App: Anthrazit-Kopf mit Logo, Hausfarbe als Akzent (`farbStil`), Montserrat-Titel.
-- **Kopf (Jamil msgs 3087/3088):** Logo groß, ohne weißes Feld (helle Variante aus Einstellungen → Briefkopf; nur ohne
-  sie das Briefkopf-Logo auf weißem Feld), daneben klein in Gold „Ihr Kundenportal“. Kein Firmenname (steht im Logo,
-  Seitentitel und Alt-Text; ohne Logo steht er da), keine Telefonnummer (Kontakt-Karte), keine Linie unter dem Kopf.
+- **Kopf (Jamil msgs 3087/3088, 3126):** Baustein `components/portal/PortalKopf.svelte`, gleich auf Portal und
+  Passwort-Seite. Logo groß und ohne Feld, daneben klein „Ihr Kundenportal“. Welches Logo, entscheidet die Kopffarbe
+  (`src/lib/portal-kopf.ts`): heller Kopf → normales Logo, dunkler Kopf → helle Variante; ein Feld nur, wenn die
+  passende Variante fehlt. Kein Firmenname (steht im Logo, Seitentitel und Alt-Text; ohne Logo steht er da), keine
+  Telefonnummer (Kontakt-Karte), keine Linie unter dem Kopf.
 - Animationen nur dort, wo sie etwas erklären (Fortschrittsweg, Haken der Arbeitsschritte, Pegel), alle mit
   `prefers-reduced-motion` abschaltbar.
 - Der Kunde sieht nur Freigegebenes: keine Beschreibungen von Aufgaben, keine internen Aufgaben (ohne
