@@ -180,7 +180,6 @@
 
 		{#if hinweise.length > 0}
 			<section class="pt-karte pt-hinweise" aria-labelledby="hinweise-titel">
-				<span class="pt-eyebrow">Von Ihrem Handwerksbetrieb</span>
 				{@render titel('Hinweise von uns', 2, 'hinweise-titel')}
 				<ul class="pt-hinweis-liste">
 					{#each hinweise as h (h.id)}
