@@ -845,7 +845,7 @@
 	}
 	.pt-dienste {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 0.6rem;
 		margin: 0 0 1rem;
 		padding: 0;
@@ -882,6 +882,11 @@
 	.pt-danach-fuss .pt-knopf:disabled {
 		opacity: 0.55;
 		cursor: not-allowed;
+	}
+	@media (max-width: 760px) {
+		.pt-dienste {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
 	}
 	@media (max-width: 480px) {
 		.pt-dienste {
