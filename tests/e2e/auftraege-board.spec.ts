@@ -79,9 +79,9 @@ test('Desktop: Kachel ziehen ändert den Status, Sprünge und Serverfehler werde
 		expect(await statusVon(page, id)).toBe('angebot');
 
 		// Menü (auch per Tastatur): zurück auf Anfrage
-		await karte.locator('summary').focus();
+		await karte.locator('.sm-knopf').focus();
 		await page.keyboard.press('Enter');
-		await karte.getByRole('button', { name: '← Zurück: Anfrage' }).click();
+		await page.getByRole('menuitemradio', { name: /^Anfrage/ }).click();
 		await expect(spalte(page, 'anfrage').locator('.ab-karte', { hasText: titel })).toBeVisible();
 		await expect.poll(() => statusVon(page, id)).toBe('anfrage');
 
@@ -113,8 +113,8 @@ test('Handy: Status-Reiter statt Spalten, Verschieben über das Menü', async ({
 		await expect(spalte(page, 'anfrage')).toBeVisible();
 		await expect(spalte(page, 'angebot')).toBeHidden();
 		const karte = page.locator('.ab-karte', { hasText: titel });
-		await karte.locator('summary').click();
-		await karte.getByRole('button', { name: 'Weiter →: Angebot' }).click();
+		await karte.locator('.sm-knopf').click();
+		await page.getByRole('menuitemradio', { name: /^Angebot/ }).click();
 		await expect.poll(() => statusVon(page, id)).toBe('angebot');
 		await reiter.getByRole('button', { name: /^Angebot/ }).click();
 		await expect(spalte(page, 'angebot').locator('.ab-karte', { hasText: titel })).toBeVisible();

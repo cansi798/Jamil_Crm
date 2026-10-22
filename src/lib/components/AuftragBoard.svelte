@@ -1,11 +1,12 @@
 <script lang="ts">
 	import KachelBoard from './KachelBoard.svelte';
-	import { STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
+	import { STATUS, STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
+	import StatusMenue from './StatusMenue.svelte';
 	import {
 		aktualisiereKarte,
 		initialen,
 		kurzAdresse,
-		moeglicheZiele,
+		STATUS_FARBEN,
 		verschiebeKarte,
 		zielErlaubt,
 		type BoardSpalte
@@ -56,14 +57,7 @@
 	let fehler = $state(false);
 	let laeuft = $state<Set<string>>(new Set());
 
-	const FARBEN: Record<AuftragStatus, string> = {
-		anfrage: 'var(--m365-text-leicht)',
-		angebot: 'var(--m365-warnung)',
-		beauftragt: 'var(--m365-primaer)',
-		in_arbeit: 'var(--m365-erfolg)',
-		abgenommen: '#8764b8',
-		abgerechnet: 'var(--m365-text-leise)'
-	};
+	const FARBEN = STATUS_FARBEN;
 	const kachelSpalten = $derived<KachelSpalte<Karte>[]>(
 		spalten.map((s) => ({ id: s.status, titel: STATUS_NAMEN[s.status], farbe: FARBEN[s.status], anzahl: s.anzahl, karten: s.karten }))
 	);
@@ -108,10 +102,9 @@
 		meldung = `Nur ein Schritt in der Statuskette: „${STATUS_NAMEN[k.status]}“ kann nicht direkt nach „${STATUS_NAMEN[nach as AuftragStatus]}“.`;
 	}
 
-	function waehle(ev: Event, karte: Karte, nach: AuftragStatus) {
-		(ev.currentTarget as HTMLElement).closest('details')?.removeAttribute('open');
-		void verschiebe(karte, nach);
-	}
+	/** Board: wie beim Ziehen nur ein Schritt (Server-Regel); weitere Sprünge gehen im Auftrag selbst. */
+	const grund = (k: Karte) => (nach: AuftragStatus) =>
+		STATUS.indexOf(nach) > STATUS.indexOf(k.status) ? 'erst die Schritte davor' : 'nur ein Schritt zurück';
 </script>
 
 {#snippet kachel(k: Karte)}
@@ -120,16 +113,14 @@
 		<div class="ab-zeile">
 			<span class="ab-nummer">{k.nummer}</span>
 			{#if darfBearbeiten}
-				<details class="ab-menue">
-					<summary aria-label={`Status von „${k.titel}“ ändern`}>Status ▾</summary>
-					<div class="ab-menue-liste">
-						{#each moeglicheZiele(k.status) as z (z.status)}
-							<button type="button" onclick={(ev) => waehle(ev, k, z.status)} disabled={laeuft.has(k.id)}>
-								{z.richtung === 'zurueck' ? '← Zurück' : 'Weiter →'}: {STATUS_NAMEN[z.status]}
-							</button>
-						{/each}
-					</div>
-				</details>
+				<StatusMenue
+					status={k.status}
+					titel={k.titel}
+					erlaubt={(nach) => zielErlaubt(k.status, nach)}
+					grund={grund(k)}
+					gesperrt={laeuft.has(k.id)}
+					onwaehle={(nach) => void verschiebe(k, nach)}
+				/>
 			{/if}
 		</div>
 		<a href={`/auftraege/${k.id}`} class="ab-titel" draggable="false">{k.titel}</a>
@@ -271,57 +262,6 @@
 		font-weight: 600;
 	}
 
-	.ab-menue {
-		position: relative;
-	}
-	.ab-menue summary {
-		display: inline-flex;
-		align-items: center;
-		min-height: 2rem;
-		padding: 0 0.5rem;
-		border-radius: var(--m365-radius);
-		font-size: 0.75rem;
-		color: var(--ui-akzent-text);
-		cursor: pointer;
-		list-style: none;
-	}
-	.ab-menue summary::-webkit-details-marker {
-		display: none;
-	}
-	.ab-menue summary:hover {
-		background: var(--m365-flaeche-hover);
-	}
-	/* Menü klappt in der Karte auf (nicht schwebend): lange Spalten scrollen in sich und würden es abschneiden */
-	.ab-menue[open] {
-		flex-basis: 100%;
-		text-align: right;
-	}
-	.ab-menue-liste {
-		margin-top: 0.25rem;
-		text-align: left;
-		display: grid;
-		min-width: 0;
-		padding: 0.25rem;
-		background: var(--m365-flaeche);
-		border-radius: var(--m365-radius-karte);
-		box-shadow: var(--m365-schatten-hoch);
-	}
-	.ab-menue-liste button {
-		min-height: var(--tippziel, 44px);
-		padding: 0 0.75rem;
-		border: 0;
-		border-radius: var(--m365-radius);
-		background: transparent;
-		color: var(--m365-text);
-		font: inherit;
-		font-size: 0.8125rem;
-		text-align: left;
-		cursor: pointer;
-	}
-	.ab-menue-liste button:hover,
-	.ab-menue-liste button:focus-visible {
-		background: var(--m365-primaer-hell);
-	}
 	.ab-mehr {
 		margin: 0.5rem 0.25rem 0;
 		font-size: 0.75rem;

@@ -69,3 +69,13 @@ export function initialen(name: string): string {
 	const letzte = teile.length > 1 ? teile[teile.length - 1].charAt(0) : '';
 	return (erste + letzte).toUpperCase();
 }
+
+/** Farbe je Status (Board-Spalten und Farbpunkte im Status-Menü). */
+export const STATUS_FARBEN: Record<AuftragStatus, string> = {
+	anfrage: 'var(--m365-text-leicht)',
+	angebot: 'var(--m365-warnung)',
+	beauftragt: 'var(--m365-primaer)',
+	in_arbeit: 'var(--m365-erfolg)',
+	abgenommen: '#8764b8',
+	abgerechnet: 'var(--m365-text-leise)'
+};
