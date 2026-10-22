@@ -172,7 +172,8 @@
 		width: 3.75rem;
 		height: 3.75rem;
 		padding: 0;
-		border: 3px solid var(--ui-flaeche);
+		/* Jamil msg 3107: weißer Rand dünner */
+		border: 1.5px solid var(--ui-flaeche);
 		border-radius: 50%;
 		background: var(--ui-anthrazit-800);
 		color: var(--ui-akzent);
@@ -186,8 +187,12 @@
 	}
 	.sz-haupt:focus-visible,
 	.sz-eintrag:focus-visible .sz-rund {
-		outline: 3px solid var(--ui-akzent);
+		outline: 2px solid var(--ui-akzent);
 		outline-offset: 2px;
+	}
+	/* Fokusrahmen nur am runden Knopf, nicht als Rechteck um die ganze Zeile */
+	.sz-eintrag:focus-visible {
+		outline: none;
 	}
 	.sz-plus {
 		transition: transform 200ms ease;
@@ -254,7 +259,7 @@
 		justify-content: center;
 		width: 2.75rem;
 		height: 2.75rem;
-		border: 2px solid var(--ui-flaeche);
+		border: 1px solid var(--ui-flaeche);
 		border-radius: 50%;
 		background: var(--ui-anthrazit-800);
 		color: var(--ui-akzent);

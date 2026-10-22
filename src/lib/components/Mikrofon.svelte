@@ -497,7 +497,7 @@
 		justify-content: center;
 		width: 3.75rem;
 		height: 3.75rem;
-		border: 3px solid var(--ui-flaeche);
+		border: 1.5px solid var(--ui-flaeche);
 		border-radius: 50%;
 		background: var(--ui-anthrazit-800);
 		color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
