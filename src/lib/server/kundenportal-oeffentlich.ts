@@ -83,6 +83,8 @@ export type PortalAuftrag = {
 	/** freigegebene Dateien; `art`: Foto (Bild), Protokoll (PDF eines Protokolls) oder Dokument */
 	dateien: { id: string; name: string; typ: string; datum: string; art: 'foto' | 'protokoll' | 'dokument' }[];
 	auftragsbestaetigungen: { id: string; nummer: string; datum: string }[];
+	/** Ausdrücklich freigegebene Notizen (msg 3070) – nie andere. */
+	notizen: { id: string; text: string; datum: string }[];
 	/** Links, die ausdrücklich fürs Portal freigegeben sind (Jamil msg 2850; Standard aus) – ohne interne Notiz. */
 	links: { titel: string; url: string }[];
 	/** Arbeitsschritte ab „beauftragt“ (msg 2848) – nur mit freigegebenem Status; sonst null. */
@@ -182,6 +184,11 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 				from app.dateien d where d.betrieb_id = ${p.betriebId} and d.auftrag_id = ${id} and d.id = any(${dateiIds}::uuid[]) order by d.angelegt`
 			: [];
 		const abs = await tx`select id, nummer, angelegt from app.auftragsbestaetigungen where betrieb_id = ${p.betriebId} and auftrag_id = ${id} order by angelegt`;
+		// Notizen nur mit ausdrücklicher Freigabe (portal_dokumente, Art „notiz“; msg 3070)
+		const notizIds = geteilt.filter((g) => g.art === 'notiz').map((g) => g.ref_id as string);
+		const notizen = notizIds.length
+			? await tx`select n.id, n.text, n.angelegt from app.notizen n where n.betrieb_id = ${p.betriebId} and n.auftrag_id = ${id} and n.id = any(${notizIds}::uuid[]) order by n.angelegt`
+			: [];
 		const links = await tx`select titel, url from app.auftrag_links where betrieb_id = ${p.betriebId} and auftrag_id = ${id} and im_portal order by sortierung, angelegt, id`;
 		// Arbeitsschritte (msg 2848): nur Aufgaben mit Lautstärke oder Schmutz – das sind die Schritte, die der Betrieb
 		// für den Kunden einstuft; interne Aufgaben (Nachfassen, Material bestellen …) bleiben so unsichtbar.
@@ -250,6 +257,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 				art: d.protokoll ? ('protokoll' as const) : String(d.typ).startsWith('image/') ? ('foto' as const) : ('dokument' as const)
 			})),
 			auftragsbestaetigungen: abs.map((x) => ({ id: x.id, nummer: x.nummer, datum: new Date(x.angelegt).toISOString() })),
+			notizen: notizen.map((n) => ({ id: n.id, text: n.text, datum: new Date(n.angelegt).toISOString() })),
 			links: links.map((l) => ({ titel: l.titel, url: l.url })),
 			schritte: schritte
 				? schritte.map((t) => ({ titel: t.titel, erledigt: t.erledigt, tag: t.tag, vonTag: t.von_tag ?? null, laerm: t.lautstaerke ?? null, schmutz: t.schmutz ?? null }))

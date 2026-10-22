@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
+	import PortalSchalter from '$lib/components/ui/PortalSchalter.svelte';
 	import type { AuftragLink } from '$lib/server/auftrag-links';
 
 	/**
@@ -52,13 +53,7 @@
 					{#if darfPortal || darfBearbeiten || l.imPortal}
 						<div class="al-werkzeuge">
 							{#if darfPortal}
-								<form method="POST" action="?/linkPortal" use:enhance={sofort}>
-									<input type="hidden" name="linkId" value={l.id} />
-									<input type="hidden" name="imPortal" value={l.imPortal ? 'nein' : 'ja'} />
-									<button type="submit" class="al-portal" role="switch" aria-checked={l.imPortal} aria-label={`„${l.titel}“ im Kundenportal anzeigen`}>
-										<span class="al-bahn" aria-hidden="true"></span> Im Kundenportal
-									</button>
-								</form>
+								<PortalSchalter aktion="?/linkPortal" felder={{ linkId: l.id }} an={l.imPortal} label={`„${l.titel}“ im Kundenportal anzeigen`} />
 							{:else if l.imPortal}
 								<span class="kd-info">im Kundenportal sichtbar</span>
 							{/if}
@@ -147,49 +142,6 @@
 	}
 	.al-werkzeuge form {
 		margin: 0;
-	}
-	.al-portal {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		min-height: 44px;
-		background: none;
-		border: none;
-		padding: 0;
-		color: var(--ui-text);
-		font: inherit;
-		cursor: pointer;
-	}
-	.al-bahn {
-		position: relative;
-		width: 1.75rem;
-		height: 1rem;
-		border-radius: 1rem;
-		background: var(--ui-rand);
-		transition: background 0.15s;
-	}
-	.al-bahn::after {
-		content: '';
-		position: absolute;
-		top: 0.125rem;
-		left: 0.125rem;
-		width: 0.75rem;
-		height: 0.75rem;
-		border-radius: 50%;
-		background: var(--ui-flaeche, #fff);
-		transition: transform 0.15s;
-	}
-	.al-portal[aria-checked='true'] .al-bahn {
-		background: var(--ui-akzent);
-	}
-	.al-portal[aria-checked='true'] .al-bahn::after {
-		transform: translateX(0.75rem);
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.al-bahn,
-		.al-bahn::after {
-			transition: none;
-		}
 	}
 	.al-leer {
 		margin: 0 0 var(--ui-a3);

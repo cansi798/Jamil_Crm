@@ -12,6 +12,7 @@
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import VorlageAnwenden from '$lib/components/VorlageAnwenden.svelte';
 	import AuftragLinks from '$lib/components/AuftragLinks.svelte';
+	import AuftragUnterlagen from '$lib/components/AuftragUnterlagen.svelte';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import AuftragPartner from '$lib/components/AuftragPartner.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
@@ -885,9 +886,18 @@
 
 			<div class="af-k k-doku">
 				<Karte>
-					{#snippet titel()}Dokumente &amp; Protokolle{/snippet}
-					<p class="kd-info af-doku-text">Fotos, Notizen und Baustellen-Protokolle (mit Unterschrift) zu diesem Auftrag.</p>
-					<a href={`/auftraege/${a.id}/dokumentation`} class="kd-knopf hell">Dokumentation öffnen</a>
+					{#snippet titel()}Dokumente &amp; Notizen{/snippet}
+					<!-- Wie die Links (Jamil msg 3070): direkt hier hinzufügen, je Eintrag „Im Kundenportal“ -->
+					<AuftragUnterlagen
+						dokumente={data.unterlagen.dokumente}
+						notizen={data.unterlagen.notizen}
+						auftragId={a.id}
+						benutzerId={data.benutzerId}
+						darfBearbeiten={data.darfBearbeiten}
+						darfPortal={data.darfUnterlagenPortal}
+						darfAlleLoeschen={data.darfAlleUnterlagenLoeschen}
+						{form}
+					/>
 				</Karte>
 			</div>
 		</aside>
@@ -1230,9 +1240,6 @@
 	}
 	.af-angebote {
 		margin-top: 0;
-	}
-	.af-doku-text {
-		margin: 0 0 0.75rem;
 	}
 	.ki-zustimmung {
 		display: flex;

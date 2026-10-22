@@ -24,6 +24,8 @@ import { ausTagUndUhrzeit, berlinTag, istTag } from '$lib/zeit';
 import { holeKunde } from '$lib/server/kunden';
 import { listeKundenNotizen } from '$lib/server/kundenakte';
 import { mitarbeiterAus, todoAktionen } from '$lib/server/todo-aktionen';
+import { auftragUnterlagen, dokumentHochladen, notizHinzufuegen, unterlageLoeschen } from '$lib/server/auftrag-unterlagen';
+import { zugriffAuftrag } from '$lib/server/dokumentation-zugriff';
 import { listeVorlagenMitAufgaben, vorlagenVerlauf, wendeVorlageAn } from '$lib/server/auftrag-vorlagen';
 import { aktiveMitarbeiter, listeTodos, todoSichtVon } from '$lib/server/todos';
 import { einsaetzeZumAuftrag, legeEinsatzAn } from '$lib/server/plantafel';
@@ -128,6 +130,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			// „Mail an Kunden“ (Vorlagen-Bibliothek, msg 2789): wer den Auftrag bearbeiten darf
 			mail: darfBearbeiten && (auftrag.kundeId || auftrag.einmalKunde) ? await mailVorbereitung(k, { auftragId: auftrag.id }, ['allgemein', 'bewertung'], { preise }) : null,
 			darfLinkPortal: darfBearbeiten && darfPortal,
+			// Dokumente & Notizen direkt im Auftrag (msg 3070)
+			unterlagen: await auftragUnterlagen(k, auftrag.id),
+			darfUnterlagenPortal: darfPortal,
+			darfAlleUnterlagenLoeschen: hatRecht(nutzer, 'einstellungen'),
 			nachkalkulation,
 			portal,
 			auftragsbestaetigungen,
@@ -419,6 +425,55 @@ export const actions: Actions = {
 		}
 	},
 	// ——— Links (Jamil msg 2850) ———
+	/** Dokument hochladen (msg 3070): Rechte wie die Dokumentation (`auftraege.bearbeiten`); Portal nur mit Portal-Recht. */
+	dokumentNeu: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const { k, auftrag } = await zugriffAuftrag(locals, params.id, 'dateien', true);
+			const portal = f.has('imPortal') ? await portalZugriff(locals) : null;
+			const id = await dokumentHochladen(k, auftrag.id, f.get('datei'));
+			if (portal) await setzeDokument(portal, auftrag.id, 'datei', id, true);
+			return { unterlageMeldung: 'Dokument gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { unterlageFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.', unterlageArt: 'datei' });
+		}
+	},
+	/** Notiz (msg 3070): Rechte wie die Dokumentation; im Portal nur, wenn ausdrücklich angehakt (Standard aus). */
+	notizNeu: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const { k, auftrag } = await zugriffAuftrag(locals, params.id, 'notizen', true);
+			const portal = f.has('imPortal') ? await portalZugriff(locals) : null;
+			const id = await notizHinzufuegen(k, auftrag.id, f.get('text'));
+			if (portal) await setzeDokument(portal, auftrag.id, 'notiz', id, true);
+			return { unterlageMeldung: 'Notiz gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { unterlageFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.', unterlageArt: 'notiz', notizText: text(f, 'text') });
+		}
+	},
+	/** „Im Kundenportal“ für Dokument/Notiz umschalten – Modul + „Kundenportal verwalten“. */
+	unterlagePortal: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const art = text(f, 'art');
+			if (art !== 'datei' && art !== 'notiz') throw new ApiFehler(400, 'Unbekannte Art.');
+			await setzeDokument(await portalZugriff(locals), params.id, art, f.get('id'), f.get('imPortal') === 'ja');
+		} catch (e) {
+			return alsFormFehler(e, { unterlageFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Eigenes Dokument / eigene Notiz löschen (Chef mit „Einstellungen“: alle). */
+	unterlageLoeschen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const art = text(f, 'art');
+			if (art !== 'datei' && art !== 'notiz') throw new ApiFehler(400, 'Unbekannte Art.');
+			const { k, auftrag } = await zugriffAuftrag(locals, params.id, art === 'datei' ? 'dateien' : 'notizen', true);
+			await unterlageLoeschen(k, auftrag.id, art, f.get('id'), hatRecht(locals.nutzer!, 'einstellungen'));
+		} catch (e) {
+			return alsFormFehler(e, { unterlageFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
 	linkNeu: async ({ locals, params, request }) => {
 		const f = await request.formData();
 		try {

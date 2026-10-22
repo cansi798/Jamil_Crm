@@ -41,7 +41,9 @@ export async function speichereDatei(
 	typ: string,
 	groesse: number,
 	inhalt: Buffer | Uint8Array,
-	beschreibung?: string
+	beschreibung?: string,
+	/** wer hochlädt (Anzeige „von …“, Löschen eigener Einträge; Migration 106) */
+	vonBenutzerId?: string
 ): Promise<Datei> {
 	if (groesse > DATEI_MAX_BYTES) {
 		throw new ApiFehler(413, 'Die Datei ist zu groß (max. 10 MB)');
@@ -54,8 +56,8 @@ export async function speichereDatei(
 	}
 	return mitBetrieb(k, async (tx) => {
 		const [z] = await tx`
-			insert into app.dateien (betrieb_id, auftrag_id, name, typ, groesse, inhalt, beschreibung)
-			values (${k.betriebId}, ${auftragId}, ${name}, ${typ}, ${groesse}, ${inhalt}, ${beschreibung ?? null})
+			insert into app.dateien (betrieb_id, auftrag_id, name, typ, groesse, inhalt, beschreibung, von_benutzer_id)
+			values (${k.betriebId}, ${auftragId}, ${name}, ${typ}, ${groesse}, ${inhalt}, ${beschreibung ?? null}, ${vonBenutzerId ?? null})
 			returning id, auftrag_id as "auftragId", name, typ, groesse, beschreibung, angelegt`;
 		return z as Datei;
 	});

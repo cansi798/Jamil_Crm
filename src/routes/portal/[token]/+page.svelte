@@ -76,7 +76,7 @@
 
 	// ── Ihre Unterlagen: alles in EINER Liste ─────────────────────────────────────────────────────────────────────
 	type Gruppe = 'angebote' | 'rechnungen' | 'dokumente';
-	type Unterlage = { schluessel: string; etikett: string; ton: string; gruppe: Gruppe; titel: string; datum: string | null; href: string; extern: boolean; info: string | null; auftragId: string };
+	type Unterlage = { schluessel: string; etikett: string; ton: string; gruppe: Gruppe; titel: string; datum: string | null; href: string | null; extern: boolean; info: string | null; auftragId: string; text?: string };
 	const unterlagen = $derived.by((): Unterlage[] => {
 		const l: Unterlage[] = [];
 		for (const a of s.auftraege) {
@@ -96,6 +96,8 @@
 				const etikett = d.art === 'foto' ? 'Foto' : d.art === 'protokoll' ? 'Protokoll' : 'Dokument';
 				l.push({ schluessel: `d-${d.id}`, etikett, ton: 'dokument', gruppe: 'dokumente', titel: d.name, datum: d.datum, href: doc('datei', d.id), extern: false, info: null, auftragId: a.id });
 			}
+			// Freigegebene Notizen (msg 3070): als Textkarte „Notiz vom …“
+			for (const n of a.notizen ?? []) l.push({ schluessel: `n-${n.id}`, etikett: 'Notiz', ton: 'dokument', gruppe: 'dokumente', titel: `Notiz vom ${tagDeutsch(n.datum.slice(0, 10))}`, datum: n.datum, href: null, extern: false, info: null, auftragId: a.id, text: n.text });
 			for (const k of a.links ?? []) l.push({ schluessel: `l-${k.url}`, etikett: 'Link', ton: 'dokument', gruppe: 'dokumente', titel: k.titel, datum: null, href: k.url, extern: true, info: null, auftragId: a.id });
 		}
 		const sortiert = l.sort((x, y) => (y.datum ?? '').localeCompare(x.datum ?? ''));
@@ -314,13 +316,23 @@
 				<ul class="pt-doks">
 					{#each g.liste as u (u.schluessel)}
 						<li>
-							<a class="pt-dok" href={u.href} target="_blank" rel={u.extern ? 'noopener noreferrer external' : 'noopener'}>
-								<span class={`pt-etikett ${u.ton}`}>{u.etikett}</span>
-								<span class="pt-dok-text">
-									<span class="pt-dok-titel">{u.titel}</span>
-									{#if u.info || u.datum}<small>{[datumText(u.datum), u.info].filter(Boolean).join(' · ')}</small>{/if}
-								</span>
-							</a>
+							{#if u.href}
+								<a class="pt-dok" href={u.href} target="_blank" rel={u.extern ? 'noopener noreferrer external' : 'noopener'}>
+									<span class={`pt-etikett ${u.ton}`}>{u.etikett}</span>
+									<span class="pt-dok-text">
+										<span class="pt-dok-titel">{u.titel}</span>
+										{#if u.info || u.datum}<small>{[datumText(u.datum), u.info].filter(Boolean).join(' · ')}</small>{/if}
+									</span>
+								</a>
+							{:else}
+								<div class="pt-dok pt-notiz">
+									<span class={`pt-etikett ${u.ton}`}>{u.etikett}</span>
+									<span class="pt-dok-text">
+										<span class="pt-dok-titel">{u.titel}</span>
+										{#if u.text}<span class="pt-notiz-text">{u.text}</span>{/if}
+									</span>
+								</div>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -656,6 +668,12 @@
 		color: var(--ui-text-leise);
 	}
 	/* Ihre Unterlagen */
+	.pt-notiz-text {
+		display: block;
+		margin-top: 0.25rem;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
 	.pt-chips {
 		display: flex;
 		flex-wrap: wrap;

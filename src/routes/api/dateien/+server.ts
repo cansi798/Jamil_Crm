@@ -31,7 +31,8 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			datei.type,
 			datei.size,
 			Buffer.from(await datei.arrayBuffer()),
-			typeof beschreibung === 'string' && beschreibung !== '' ? beschreibung : undefined
+			typeof beschreibung === 'string' && beschreibung !== '' ? beschreibung : undefined,
+			k.benutzerId
 		);
 		return json(erg, { status: 201 });
 	} catch (e) {

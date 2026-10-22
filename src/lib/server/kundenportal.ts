@@ -243,13 +243,15 @@ export async function setzeFreigabe(z: PortalZugriff, auftragId: unknown, f: Par
 export async function setzeDokument(z: PortalZugriff, auftragId: unknown, art: unknown, refId: unknown, geteilt: boolean): Promise<void> {
 	const { k } = z;
 	const id = (await auftragPruefen(z, auftragId)).id;
-	if (art !== 'angebot' && art !== 'datei') throw new ApiFehler(400, 'Unbekannte Art.');
+	if (art !== 'angebot' && art !== 'datei' && art !== 'notiz') throw new ApiFehler(400, 'Unbekannte Art.');
 	if (art === 'angebot' && !z.preise) throw new ApiFehler(403, 'Keine Berechtigung');
 	if (typeof refId !== 'string' || !UUID.test(refId)) throw new ApiFehler(404, 'Dokument nicht gefunden.');
 	await mitBetrieb(k, async (tx) => {
 		const [da] = art === 'angebot'
 			? await tx`select 1 from app.angebote where id = ${refId} and auftrag_id = ${id} and betrieb_id = ${k.betriebId} and status <> 'entwurf'`
-			: await tx`select 1 from app.dateien where id = ${refId} and auftrag_id = ${id} and betrieb_id = ${k.betriebId}`;
+			: art === 'notiz'
+				? await tx`select 1 from app.notizen where id = ${refId} and auftrag_id = ${id} and betrieb_id = ${k.betriebId}`
+				: await tx`select 1 from app.dateien where id = ${refId} and auftrag_id = ${id} and betrieb_id = ${k.betriebId}`;
 		if (!da) throw new ApiFehler(404, 'Dokument nicht gefunden.');
 		if (geteilt) {
 			await tx`insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id) values (${k.betriebId}, ${id}, ${art}, ${refId}) on conflict do nothing`;

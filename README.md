@@ -224,7 +224,7 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Begrenzung je IP/Link (im Speicher; hinter einem Proxy `ADDRESS_HEADER`/`XFF_DEPTH` setzen), Honigtopf-Feld,
     signierter Zeitstempel (mindestens 3 s). Einbetten nur auf den Domains aus Einstellungen → Online-Buchung bzw.
     `CRM_BUCHUNG_EINBETTEN` (CSP `frame-ancestors` je Seite, `X-Frame-Options` entfällt dort). Recht `buchung.verwalten`.
-    Terminarten (Migration 104, Jamil msg 3074): Die früheren „Dienste“ (Tabelle `app.buchung_dienste`) sind die EINE
+    Terminarten (Migration 106, Jamil msg 3074): Die früheren „Dienste“ (Tabelle `app.buchung_dienste`) sind die EINE
     Liste der Terminarten je Betrieb (Einstellungen → Terminarten); Einsätze können eine haben (`einsaetze.terminart_id`),
     öffentlich buchbar sind nur Terminarten mit „online buchbar“ (auch in `app.buchung_link_aufloesen` geprüft).
 16. Zeiterfassung (Modul `zeiterfassung`, Migration 080): `zeiterfassung.nutzen` (eigene Zeiten und Material) und
@@ -270,6 +270,10 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Abfrage) und /anmelden durch. Sperre: 5 Fehlversuche je Link/15 Min., 30 je IP; Fehlversuche im Zugriffsprotokoll
     (`portal_ereignisse`, ohne Passwort). Neue Links zusätzlich AES-256-GCM-verschlüsselt (`CRM_PORTAL_GEHEIMNIS`) →
     „Kundenportal öffnen“/„Link kopieren“ auf der Kundenseite; gesucht wird weiter nur über den SHA-256-Hash.
+26. Dokumente & Notizen im Auftrag (Migration 106, `src/lib/server/auftrag-unterlagen.ts`, Jamil msg 3070): inline wie die
+    Links (AddPanel), Speicher wie die Dokumentation (`app.dateien` in der Datenbank, 10 MB, Dateianfang geprüft), wer
+    hochgeladen hat (`von_benutzer_id`); „Im Kundenportal“ je Eintrag über `portal_dokumente` (Art `datei`/`notiz`,
+    Standard aus, Baustein `ui/PortalSchalter.svelte` auch für Links). Das Portal zeigt nur ausdrücklich Freigegebenes.
 
 ## Installation auf einem eigenen Server
 
