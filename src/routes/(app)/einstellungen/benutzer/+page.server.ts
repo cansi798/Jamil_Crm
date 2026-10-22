@@ -9,6 +9,7 @@ import {
 	listeBenutzer,
 	listeEinladungen,
 	rollenZurAuswahl,
+	setzeAnrede,
 	widerrufeEinladung
 } from '$lib/server/benutzer';
 
@@ -65,6 +66,18 @@ export const actions: Actions = {
 			return { aktion: 'aendern', id, gespeichert: true };
 		} catch (e) {
 			return alsFormFehler(e, { aktion: 'aendern', id });
+		}
+	},
+	/** Anrede (Herr/Frau/keine Angabe) – wählt die Comic-Figur im Kundenportal (Jamil msg 3113). */
+	anrede: async ({ locals, request }) => {
+		const form = await request.formData();
+		const id = text(form, 'id');
+		try {
+			pruefeRecht(locals, 'benutzer.verwalten');
+			await setzeAnrede(betriebKontext(locals), id, text(form, 'anrede'));
+			return { aktion: 'anrede', id, gespeichert: true };
+		} catch (e) {
+			return alsFormFehler(e, { aktion: 'anrede', id });
 		}
 	},
 	/** Benutzer aktivieren (`aktiv=true`) oder deaktivieren (`aktiv=false`, beendet seine Sitzungen). */

@@ -3,6 +3,7 @@ import { mitBetrieb, type Kontext } from './db';
 import { ApiFehler } from './fehler';
 import { pruefeEinstellungenVerwalter, sperreEinstellungenPruefung } from './rollen';
 import { pruefeGrenze } from './tarif';
+import { istAnrede, type Anrede } from '../portal-figur';
 
 /**
  * Benutzerverwaltung und Einladungen eines Betriebs (Recht `benutzer.verwalten`), gemeinsam genutzt von der API
@@ -21,6 +22,8 @@ export type BenutzerZeile = {
 	aktiv: boolean;
 	rolleId: string | null;
 	rolleName: string | null;
+	/** Herr/Frau (Migration 105) – wählt die Comic-Figur im Kundenportal; null = nicht angegeben. */
+	anrede: Anrede | null;
 	letzteAktivitaet: string | null;
 };
 
@@ -71,7 +74,7 @@ export function listeBenutzer(k: Kontext): Promise<BenutzerZeile[]> {
 	return mitBetrieb(k, async (tx) => {
 		const z = await tx`
 			select b.id, b.name, b.email::text as email, b.aktiv, b.rolle_id, r.name as rolle_name,
-				b.letzte_aktivitaet
+				b.anrede, b.letzte_aktivitaet
 			from app.benutzer b
 			left join app.rollen r on r.id = b.rolle_id
 			order by b.aktiv desc, b.name, b.id`;
@@ -82,6 +85,7 @@ export function listeBenutzer(k: Kontext): Promise<BenutzerZeile[]> {
 			aktiv: b.aktiv,
 			rolleId: b.rolle_id,
 			rolleName: b.rolle_name,
+			anrede: istAnrede(b.anrede) ? b.anrede : null,
 			letzteAktivitaet: b.letzte_aktivitaet ? new Date(b.letzte_aktivitaet).toISOString() : null
 		}));
 	});
@@ -239,5 +243,20 @@ export function aendereBenutzer(
 			await tx`select app.sitzungen_beenden_fuer_benutzer(${id}::uuid)`;
 		}
 		return { id: neu.id, rolleId: neu.rolle_id, aktiv: neu.aktiv };
+	});
+}
+
+/**
+ * Setzt die Anrede (Herr/Frau, leer = nicht angegeben) eines Benutzers des eigenen Betriebs. Sie wählt nur die
+ * Comic-Figur im Kundenportal (Jamil msg 3113) und gibt keine Rechte – deshalb ohne die Rechte-Höhen-Regel.
+ */
+export async function setzeAnrede(k: Kontext, id: string, wert: unknown): Promise<Anrede | null> {
+	if (!UUID.test(id)) throw new ApiFehler(404, 'Benutzer nicht gefunden.');
+	if (wert !== '' && wert !== null && !istAnrede(wert)) throw new ApiFehler(400, 'Bitte Herr, Frau oder keine Angabe wählen.');
+	const anrede = istAnrede(wert) ? wert : null;
+	return mitBetrieb(k, async (tx) => {
+		const r = await tx`update app.benutzer set anrede = ${anrede} where id = ${id}`;
+		if (r.count === 0) throw new ApiFehler(404, 'Benutzer nicht gefunden.');
+		return anrede;
 	});
 }

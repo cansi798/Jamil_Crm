@@ -59,7 +59,7 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	// Handwerks-Design (msgs 2848, 2851): Überblick oben, Fortschrittsweg, Kontakt rechts
 	await expect(kunde.getByRole('region', { name: 'Überblick' })).toContainText('Nächster Termin');
 	await expect(kunde.getByRole('img', { name: /^Fortschritt:/ }).first()).toBeVisible();
-	await expect(kunde.getByRole('heading', { name: 'Ihr Ansprechpartner' }).first()).toBeVisible();
+	await expect(kunde.getByRole('heading', { name: /^(Ihr persönlicher Projektbegleiter|Ihre persönliche Projektbegleiterin)$/ }).first()).toBeVisible();
 	// EIN Bereich „Ihre Unterlagen“ mit Art-Etikett und Filter-Chips (msg 2958)
 	const unterlagen = kunde.getByRole('region', { name: 'Ihre Unterlagen' });
 	await expect(unterlagen).toContainText('Angebot');

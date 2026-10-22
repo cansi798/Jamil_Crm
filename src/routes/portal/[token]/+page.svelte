@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Avatar from '$lib/components/ui/Avatar.svelte';
+	import PortalFigur from '$lib/components/portal/PortalFigur.svelte';
 	import FortschrittsWeg from '$lib/components/portal/FortschrittsWeg.svelte';
 	import PortalSchritte from '$lib/components/portal/PortalSchritte.svelte';
 	import SkizzenKreis from '$lib/components/portal/SkizzenKreis.svelte';
@@ -14,7 +14,7 @@
 	 * Kundenportal (Jamil msgs 2848, 2851, 2953, 2958) – mobil zuerst:
 	 * 1. drei kleine Kacheln: Nächster Termin · Für Sie zu erledigen · Unterlagen
 	 * 2. „Für Sie zu erledigen“ (nur wenn etwas offen ist): offene Angebote mit „Annehmen“
-	 * 3. je Auftrag: Fortschrittsweg, Arbeitsschritte, Termine; Ansprechpartner und Team
+	 * 3. je Auftrag: Fortschrittsweg, Arbeitsschritte, Termine; persönlicher Projektbegleiter (msg 3120) und Team
 	 * 4. EIN Bereich „Ihre Unterlagen“: Angebote, Auftragsbestätigungen, (Rechnungen), Protokolle, Fotos, Dokumente –
 	 *    neueste zuerst, mit Art-Etikett, Filter-Chips, bei mehreren Aufträgen nach Auftrag gruppiert.
 	 * Aussehen je Betrieb (Hausfarbe, dunkle Farbe, Hintergrund, Schriften, Großbuchstaben) – z. B. wie die Website.
@@ -276,9 +276,9 @@
 
 				<aside class="pt-seite" aria-label={`Kontakt zu ${a.titel}`}>
 					<div class="pt-karte pt-ansprech">
-						{@render titel('Ihr Ansprechpartner', 2)}
+						{@render titel(a.ansprechpartner?.figur === 'projektbegleiterin' ? 'Ihre persönliche Projektbegleiterin' : 'Ihr persönlicher Projektbegleiter', 2)}
 						{#if a.ansprechpartner}
-							<p class="pt-person"><Avatar name={a.ansprechpartner} groesse={44} /><span><strong>{a.ansprechpartner}</strong><small>{s.betrieb.name}</small></span></p>
+							<p class="pt-person"><PortalFigur figur={a.ansprechpartner.figur} name={a.ansprechpartner.name} groesse={60} /><span><strong>{a.ansprechpartner.name}</strong><small>{s.betrieb.name}</small></span></p>
 						{:else}
 							<p class="pt-person"><span><strong>{s.betrieb.name}</strong></span></p>
 						{/if}
@@ -291,7 +291,7 @@
 						<div class="pt-karte">
 							{@render titel('Ihr Team', 2)}
 							<ul class="pt-team">
-								{#each a.team as name (name)}<li><Avatar {name} groesse={32} /><span>{name}</span></li>{/each}
+								{#each a.team as person (person.name)}<li><PortalFigur figur={person.figur} name={person.name} groesse={44} /><span>{person.name}</span></li>{/each}
 							</ul>
 						</div>
 					{/if}

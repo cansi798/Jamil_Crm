@@ -14,6 +14,7 @@ import { nurVorname } from '../buchung';
 import { STATUS_NAMEN, type AuftragStatus } from '../auftrag-status';
 import { summen, istMwstSatz } from '../geld';
 import { berlinTag, berlinUhrzeit, tagKurz } from '../zeit';
+import { figurFuer, istAnrede, teamRolle, type Figur } from '../portal-figur';
 
 /**
  * Kundenportal ohne Anmeldung (/portal/<Token>; Jamil msgs 2770–2774 Punkt 4 und 2778).
@@ -66,6 +67,8 @@ export async function loeseAuf(token: unknown, ip: string): Promise<PortalKontex
 	return { linkId: z.link_id, betriebId: z.betrieb_id, auftragId: z.auftrag_id, kundeId: z.kunde_id, hash };
 }
 
+/** Person im Portal: Name nach Einstellung, Comic-Figur nach Rolle und Anrede (msg 3113). */
+export type PortalPerson = { name: string; figur: Figur };
 export type PortalTermin = { tag: string; von: string; bis: string; art: string; mitarbeiter: string[] };
 /** Arbeitsschritt fürs Portal: Aufgabe des Auftrags mit Lautstärke/Schmutz (1 gering … 3 hoch) – ohne Beschreibung. */
 export type PortalSchritt = { titel: string; erledigt: boolean; tag: string | null; vonTag: string | null; laerm: number | null; schmutz: number | null };
@@ -84,10 +87,10 @@ export type PortalAuftrag = {
 	links: { titel: string; url: string }[];
 	/** Arbeitsschritte ab „beauftragt“ (msg 2848) – nur mit freigegebenem Status; sonst null. */
 	schritte: PortalSchritt[] | null;
-	/** Ansprechpartner (msg 2851) – Name nach Einstellung „Namen im Portal“; null bei „keine Namen“. */
-	ansprechpartner: string | null;
-	/** Namen der Mitarbeiter am Auftrag (Zuständige + kommende Termine) – leer bei „keine Namen“ oder Schalter aus. */
-	team: string[];
+	/** Ansprechpartner (msg 2851) – Name nach Einstellung „Namen im Portal“; null bei „keine Namen“. Figur: msg 3113. */
+	ansprechpartner: PortalPerson | null;
+	/** Mitarbeiter am Auftrag (Zuständige + kommende Termine) – leer bei „keine Namen“ oder Schalter aus. */
+	team: PortalPerson[];
 };
 /** Erscheinungsbild des Portals je Betrieb (Migration 096, msg 2953) – leer = Standard */
 export type PortalMarke = { dunkel: string | null; hintergrund: string | null; titelSchrift: 'montserrat' | 'inter'; textSchrift: 'inter' | 'opensans'; titelGross: boolean };
@@ -190,22 +193,31 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 				order by coalesce(t.von_tag, t.faellig) nulls last, t.faellig nulls last, t.angelegt, t.id limit 40`
 			: null;
 		// Ansprechpartner: Zuständige des Auftrags (sonst das Büro) – Team: Zuständige + Mitarbeiter kommender Termine
-		let ansprechpartner: string | null = null;
-		let team: string[] = [];
+		// Figuren (msg 3113): Projektbegleiter (msg 3120) immer als Büro-Figur, im Team nach Rolle (Monteur/Büro) – je nach Anrede.
+		let ansprechpartner: PortalPerson | null = null;
+		let team: PortalPerson[] = [];
 		if (namen !== 'aus') {
 			const wer = await zustaendig(tx, { betriebId: p.betriebId, benutzerId: OEFFENTLICH }, null, id);
 			if (wer) {
-				const [ap] = await tx`select name from app.benutzer where id = ${wer} and betrieb_id = ${p.betriebId}`;
-				ansprechpartner = ap ? nameFuer(namen, ap.name) : null;
+				const [ap] = await tx`select name, anrede from app.benutzer where id = ${wer} and betrieb_id = ${p.betriebId}`;
+				const n = ap ? nameFuer(namen, ap.name) : null;
+				ansprechpartner = n ? { name: n, figur: figurFuer('projektbegleiter', istAnrede(ap.anrede) ? ap.anrede : null) } : null;
 			}
 			if (a.f_mitarbeiter) {
 				const leute = await tx`
-					select distinct b.name from app.benutzer b
+					select b.name, b.anrede, r.rechte from app.benutzer b
+					left join app.rollen r on r.id = b.rolle_id and r.betrieb_id = b.betrieb_id
 					where b.betrieb_id = ${p.betriebId} and b.aktiv and (
 						exists (select 1 from app.auftrag_zustaendige z where z.betrieb_id = b.betrieb_id and z.auftrag_id = ${id} and z.benutzer_id = b.id)
 						or exists (select 1 from app.einsaetze e where e.betrieb_id = b.betrieb_id and e.auftrag_id = ${id} and e.benutzer_id = b.id and e.ende >= ${jetzt}))
-					order by b.name limit 12`;
-				team = [...new Set(leute.map((r) => nameFuer(namen, r.name)).filter((n): n is string => !!n))];
+					order by b.name, b.id limit 12`;
+				const gesehen = new Set<string>();
+				for (const r of leute) {
+					const n = nameFuer(namen, r.name);
+					if (!n || gesehen.has(n)) continue;
+					gesehen.add(n);
+					team.push({ name: n, figur: figurFuer(teamRolle(r.rechte), istAnrede(r.anrede) ? r.anrede : null) });
+				}
 			}
 		}
 		auftraege.push({

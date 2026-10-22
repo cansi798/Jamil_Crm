@@ -6,6 +6,7 @@
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
+	import { ANREDE_NAMEN } from '$lib/portal-figur';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -142,8 +143,20 @@
 						<span class="kd-info">{b.email}</span>
 						<span class="kd-info">{b.rolleName ?? 'Keine Rolle'} · {b.aktiv ? 'aktiv' : 'deaktiviert'}</span>
 					</div>
-					{#if fehlerFuer('aendern', b.id) || fehlerFuer('aktiv', b.id)}
-						<p role="alert" class="kd-fehler bn-breit">{fehlerFuer('aendern', b.id) ?? fehlerFuer('aktiv', b.id)}</p>
+					<!-- Anrede wählt die Comic-Figur im Kundenportal (Jamil msg 3113); speichert sofort beim Wählen -->
+					<form method="POST" action="?/anrede" use:enhance={() => async ({ update }) => update({ reset: false })} class="bn-anrede">
+						<input type="hidden" name="id" value={b.id} />
+						<label class="kd-info" for={`anrede-${b.id}`}>Anrede</label>
+						<Auswahl id={`anrede-${b.id}`} name="anrede" klein aria-label={`Anrede von ${b.name}`} onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+							<option value="" selected={!b.anrede}>–</option>
+							{#each Object.entries(ANREDE_NAMEN) as [wert, name] (wert)}
+								<option value={wert} selected={b.anrede === wert}>{name}</option>
+							{/each}
+						</Auswahl>
+						{#if form && 'gespeichert' in form && form.aktion === 'anrede' && 'id' in form && form.id === b.id}<span class="kd-info" role="status">gespeichert ✓</span>{/if}
+					</form>
+					{#if fehlerFuer('aendern', b.id) || fehlerFuer('aktiv', b.id) || fehlerFuer('anrede', b.id)}
+						<p role="alert" class="kd-fehler bn-breit">{fehlerFuer('aendern', b.id) ?? fehlerFuer('aktiv', b.id) ?? fehlerFuer('anrede', b.id)}</p>
 					{/if}
 					{#if rolleVergebbar}
 						<div class="bn-aktionen">
@@ -172,6 +185,10 @@
 			{/each}
 		</ul>
 		<p class="kd-info">Deaktivierte Benutzer werden sofort abgemeldet und zählen nicht zur Benutzergrenze.</p>
+		<p class="kd-info">
+			Die Anrede bestimmt die gezeichnete Figur im Kundenportal: Projektbegleiter bzw. Projektbegleiterin, im Team
+			Monteur bzw. Monteurin. Ohne Anrede erscheint die männliche Figur.
+		</p>
 	</Abschnitt>
 </main>
 
@@ -199,6 +216,12 @@
 		gap: 0.1rem;
 		min-width: 12rem;
 		flex: 1 1 14rem;
+	}
+	.bn-anrede {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex: 0 0 auto;
 	}
 	.bn-breit {
 		flex-basis: 100%;

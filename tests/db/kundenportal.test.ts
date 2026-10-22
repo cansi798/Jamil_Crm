@@ -111,11 +111,21 @@ describe('Kundenportal', () => {
 			expect((await ladePortal(token, IP))!.betrieb.marke).toEqual({ dunkel: '#2d2c2e', hintergrund: '#f4f1eb', titelSchrift: 'montserrat', textSchrift: 'opensans', titelGross: true });
 			await root`update app.betrieb_profil set dunkel_farbe = null, hintergrund_farbe = null, text_schrift = null, titel_gross = false where betrieb_id = ${u.betriebA}`;
 			// Standard „nur Vorname“: Zuständige (Büro) als Ansprechpartner, Team = Zuständige + kommende Termine
-			expect(a.ansprechpartner).toBe('Büro');
-			expect(a.team).toEqual(['Ali', 'Büro']);
+			// Figuren (msg 3113): ohne Anrede männliche Standardfigur; Monteur-Rolle → Monteur, Büro → Projektbegleiter
+			expect(a.ansprechpartner).toEqual({ name: 'Büro', figur: 'projektbegleiter' });
+			expect(a.team).toEqual([
+				{ name: 'Ali', figur: 'monteur' },
+				{ name: 'Büro', figur: 'projektbegleiter' }
+			]);
+			await root`update app.benutzer set anrede = 'frau' where id in (${u.ids.bueroA}, ${u.ids.monteurA})`;
+			const frau = (await ladePortal(token, IP))!.auftraege[0];
+			expect(frau.ansprechpartner).toEqual({ name: 'Büro', figur: 'projektbegleiterin' });
+			expect(frau.team.map((t) => t.figur)).toEqual(['monteurin', 'projektbegleiterin']);
+			await root`update app.benutzer set anrede = null where id in (${u.ids.bueroA}, ${u.ids.monteurA})`;
 			await root`update app.portal_einstellungen set team_namen = 'voll' where betrieb_id = ${u.betriebA}`;
 			const voll = (await ladePortal(token, IP))!.auftraege[0];
-			expect(voll).toMatchObject({ ansprechpartner: 'Büro A', team: ['Ali Monteur', 'Büro A'] });
+			expect(voll.ansprechpartner?.name).toBe('Büro A');
+			expect(voll.team.map((t) => t.name)).toEqual(['Ali Monteur', 'Büro A']);
 			expect(voll.termine![0].mitarbeiter).toEqual(['Ali Monteur']);
 			await root`update app.portal_einstellungen set team_namen = 'aus' where betrieb_id = ${u.betriebA}`;
 			const aus = (await ladePortal(token, IP))!.auftraege[0];
@@ -125,7 +135,7 @@ describe('Kundenportal', () => {
 			await root`update app.portal_einstellungen set team_namen = 'vorname' where betrieb_id = ${u.betriebA}`;
 			await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: false, termine: true, mitarbeiter: false, annahme: true });
 			const ohne = (await ladePortal(token, IP))!.auftraege[0];
-			expect(ohne).toMatchObject({ schritte: null, team: [], ansprechpartner: 'Büro' });
+			expect(ohne).toMatchObject({ schritte: null, team: [], ansprechpartner: { name: 'Büro', figur: 'projektbegleiter' } });
 		} finally {
 			await root`delete from app.todos where auftrag_id = ${u.auftragA}`;
 			await root`update app.auftraege set status = 'anfrage' where id = ${u.auftragA}`;

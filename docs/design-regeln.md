@@ -185,6 +185,10 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
   `prefers-reduced-motion` abschaltbar.
 - Der Kunde sieht nur Freigegebenes: keine Beschreibungen von Aufgaben, keine internen Aufgaben (ohne
   Lautstärke/Schmutz), Namen nach Einstellung „Namen im Portal“.
+- Personen im Portal als gezeichnete Comic-Figur statt Initialen (Jamil msgs 3113/3120): Baustein
+  `components/portal/PortalFigur.svelte`, Auswahl `figurFuer` in `lib/portal-figur.ts` – „Ihr persönlicher
+  Projektbegleiter“ als Büro-Figur, im Team nach Rolle Monteur/Büro, männlich/weiblich nach Anrede
+  (Einstellungen → Benutzer; ohne Anrede männlich). Hausfarbe über `--ui-akzent`. In der App bleiben Initialen.
 
 ## 11. Prüfen
 
