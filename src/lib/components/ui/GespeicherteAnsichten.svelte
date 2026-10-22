@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { rueckfrage } from '$lib/rueckfrage';
+	import { schwebend, schwebendesDetails } from '$lib/overlay';
 	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -104,14 +105,20 @@
 		await tick();
 		feld?.focus();
 	}
+	let gaWurzel = $state<HTMLDivElement>();
 </script>
 
-<div class="ga">
+<!-- Klick außerhalb und Esc schließen (Regel msg 3116) -->
+<svelte:window
+	onpointerdown={(ev) => { if (offen && gaWurzel && ev.target instanceof Node && !gaWurzel.contains(ev.target)) offen = false; }}
+	onkeydown={(ev) => { if (offen && ev.key === 'Escape' && !(ev.target instanceof Element && ev.target.closest('details[open]'))) { offen = false; knopf?.focus(); } }}
+/>
+<div class="ga" bind:this={gaWurzel}>
 	<button type="button" class="ga-knopf" bind:this={knopf} aria-expanded={offen} aria-haspopup="true" onclick={() => (offen = !offen)}>
 		<span aria-hidden="true">★</span> {aktiv ? aktiv.name : 'Ansichten'}{liste.length ? ` (${liste.length})` : ''}
 	</button>
 	{#if offen}
-		<div class="ga-menue" role="dialog" aria-label="Gespeicherte Ansichten">
+		<div class="ga-menue" role="dialog" aria-label="Gespeicherte Ansichten" use:schwebend={{ anker: () => knopf, onschliessen: () => (offen = false), breite: 'eigen', rechtsBuendig: true, maxHoehe: 560 }}>
 			<!-- Jamil msg 3063: „Komplettansicht“ (alle, ohne Filter) ist immer wählbar und nicht löschbar -->
 			<ul class="ga-liste">
 				<li class:aktiv={jetzt === ''}>
@@ -138,7 +145,7 @@
 								{#if a.eigene}
 									<!-- Jamil msg 3062: Löschen direkt sichtbar (im ⋯-Menü wurde es bei kurzer Liste abgeschnitten) -->
 									<button type="button" class="ga-weg" aria-label={`Ansicht „${a.name}“ löschen`} title="Ansicht löschen" use:rueckfrage={`Ansicht „${a.name}“ wirklich löschen?`} onclick={() => senden('DELETE', `/api/ansichten/${a.id}`)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v5.5M13.5 10.5v5.5" /></svg></button>
-									<details class="ga-mehr">
+									<details class="ga-mehr" use:schwebendesDetails={{ panel: '.ga-aktionen' }}>
 										<summary aria-label={`Ansicht „${a.name}“ bearbeiten`}>⋯</summary>
 										<div class="ga-aktionen">
 											<button type="button" onclick={() => senden('PATCH', `/api/ansichten/${a.id}`, { istStandard: !a.istStandard })}>{a.istStandard ? 'Kein Standard mehr' : 'Als Standard'}</button>
@@ -150,7 +157,7 @@
 									</details>
 								{:else if darfTeilen && a.geteilt}
 									<button type="button" class="ga-weg" aria-label={`Team-Ansicht „${a.name}“ für alle löschen`} title="Für alle löschen" use:rueckfrage={`Team-Ansicht „${a.name}“ von ${a.von ?? '–'} wirklich für alle löschen?`} onclick={() => senden('DELETE', `/api/ansichten/${a.id}`)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10.5 10.5v5.5M13.5 10.5v5.5" /></svg></button>
-									<details class="ga-mehr">
+									<details class="ga-mehr" use:schwebendesDetails={{ panel: '.ga-aktionen' }}>
 										<summary aria-label={`Ansicht „${a.name}“ bearbeiten`}>⋯</summary>
 										<div class="ga-aktionen">
 											<button type="button" class="ga-gefahr" use:rueckfrage={`Team-Ansicht „${a.name}“ von ${a.von ?? '–'} wirklich für alle löschen?`} onclick={() => senden('DELETE', `/api/ansichten/${a.id}`)}>Für alle löschen</button>
@@ -206,14 +213,9 @@
 	.ga-knopf[aria-expanded='true'] {
 		border-color: var(--ui-akzent);
 	}
+	/* schwebt obenauf (use:schwebend, Regel msg 3116) – am Handy wie am Computer am Knopf */
 	.ga-menue {
-		position: absolute;
-		right: 0;
-		top: calc(100% + 0.35rem);
-		z-index: 30;
 		width: min(22rem, calc(100vw - 2rem));
-		max-height: 70vh;
-		overflow: auto;
 		display: grid;
 		gap: 0.5rem;
 		padding: 0.6rem;
@@ -221,16 +223,6 @@
 		border-radius: var(--ui-radius-karte, var(--ui-radius));
 		background: var(--ui-flaeche);
 		box-shadow: var(--ui-schatten-hoch);
-	}
-	@media (max-width: 40rem) {
-		.ga-menue {
-			position: fixed;
-			left: 1rem;
-			right: 1rem;
-			top: auto;
-			bottom: 5rem;
-			width: auto;
-		}
 	}
 	.ga-liste {
 		list-style: none;
@@ -312,10 +304,8 @@
 	.ga-mehr summary::-webkit-details-marker {
 		display: none;
 	}
+	/* schwebt obenauf (use:schwebendesDetails) */
 	.ga-aktionen {
-		position: absolute;
-		right: 0;
-		z-index: 31;
 		display: grid;
 		min-width: 15rem;
 		padding: 0.3rem;

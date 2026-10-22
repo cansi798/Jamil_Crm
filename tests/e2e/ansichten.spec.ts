@@ -28,7 +28,7 @@ for (const [seite, pfad, filter] of [
 		const { ctx, page, viewport } = await anmelden(browser, info.project.name === 'mobil');
 		const name = `E2E ${info.project.name} ${Date.now()}`;
 		await page.goto(`${pfad}?${filter}`);
-		const knopf = page.getByRole('button', { name: /Ansichten|★/ }).first();
+		const knopf = page.locator('.ga-knopf').locator('visible=true').first();
 		await knopf.click();
 		const menue = page.getByRole('dialog', { name: 'Gespeicherte Ansichten' });
 		await menue.getByRole('button', { name: '+ Aktuelle Filter speichern' }).click();

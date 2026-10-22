@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { schwebend } from '$lib/overlay';
 	/**
 	 * Glocke (Wunsch Jamil msg 2679): Zahl der ungelesenen Erinnerungen, Liste zum Aufklappen. Aktualisiert sich jede
 	 * Minute (wenn die Seite sichtbar ist) und beim Zurückkehren in die App.
@@ -78,7 +79,7 @@
 		{#if ungelesen > 0}<span class="gl-zahl" aria-hidden="true">{ungelesen > 99 ? '99+' : ungelesen}</span>{/if}
 	</button>
 	{#if offen}
-		<div class="gl-panel" role="region" aria-label="Benachrichtigungen">
+		<div class="gl-panel" role="region" aria-label="Benachrichtigungen" use:schwebend={{ anker: () => wurzel?.querySelector('.gl-knopf') as HTMLElement | null, onschliessen: () => (offen = false), breite: 'eigen', rechtsBuendig: true, maxHoehe: 480 }}>
 			<header>
 				<strong>Benachrichtigungen</strong>
 				{#if ungelesen > 0}<button type="button" class="gl-link" onclick={() => gelesen()}>Alle gelesen</button>{/if}
@@ -154,10 +155,8 @@
 		line-height: 1.15rem;
 		text-align: center;
 	}
+	/* schwebt obenauf (use:schwebend, Regel msg 3116) */
 	.gl-panel {
-		position: absolute;
-		right: 0;
-		top: calc(100% + 0.4rem);
 		width: min(22rem, calc(100vw - 1.5rem));
 		max-height: min(30rem, 70vh);
 		overflow: auto;

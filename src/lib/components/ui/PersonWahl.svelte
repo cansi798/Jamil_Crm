@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { schwebend } from '$lib/overlay';
 	import { tick } from 'svelte';
 	import Avatar from './Avatar.svelte';
 
@@ -140,7 +141,7 @@
 		<svg class="pw-pfeil" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
 	</button>
 	{#if offen}
-		<div class="ui-popover pw-feld" role={mehrfach ? 'dialog' : undefined} aria-label={mehrfach ? label : undefined}>
+		<div class="ui-popover pw-feld" role={mehrfach ? 'dialog' : undefined} aria-label={mehrfach ? label : undefined} use:schwebend={{ anker: () => wurzel, onschliessen: () => (offen = false), breite: 'eigen' }}>
 			{#if mitSuche}
 				<div class="pw-suche">
 					<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" /><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
@@ -235,11 +236,8 @@
 		flex: none;
 		color: var(--ui-text-leise);
 	}
+	/* schwebt obenauf (use:schwebend, Regel msg 3116) */
 	.pw-feld {
-		position: absolute;
-		z-index: 30;
-		top: calc(100% + 4px);
-		left: 0;
 		width: min(18rem, calc(100vw - 2rem));
 		padding: 0.3rem;
 	}

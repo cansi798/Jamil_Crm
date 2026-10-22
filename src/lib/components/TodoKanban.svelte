@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { schwebendesDetails } from '$lib/overlay';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -115,7 +116,7 @@
 			<div class="td-kopf">
 				<p class="td-titel">{todo.titel}</p>
 				{#if darfBearbeiten}
-					<details class="ab-menue">
+					<details class="ab-menue" use:schwebendesDetails={{ panel: '.ab-menue-liste' }} onpointerdown={(ev) => ev.stopPropagation()}>
 						<summary aria-label={`Status von „${todo.titel}“ ändern`}>Status ▾</summary>
 						<div class="ab-menue-liste">
 							{#each TODO_SPALTEN.filter((s) => s.id !== todoSpalte(todo)) as s (s.id)}
@@ -271,16 +272,11 @@
 	.ab-menue summary:hover {
 		background: var(--m365-flaeche-hover);
 	}
-	/* Menü klappt in der Karte auf (nicht schwebend): lange Spalten scrollen in sich und würden es abschneiden */
-	.ab-menue[open] {
-		flex-basis: 100%;
-		text-align: right;
-	}
+	/* schwebt obenauf am Knopf (use:schwebendesDetails, Regel msg 3116) – die Karte verzieht sich nicht */
 	.ab-menue-liste {
-		margin-top: 0.25rem;
 		text-align: left;
 		display: grid;
-		min-width: 0;
+		min-width: 13rem;
 		padding: 0.25rem;
 		background: var(--m365-flaeche);
 		border-radius: var(--m365-radius-karte);

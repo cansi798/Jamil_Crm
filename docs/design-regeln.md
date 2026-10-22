@@ -183,6 +183,14 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
   Baustein `components/ui/AmpelPunkt.svelte` (Bedeutung über aria-label/title „Status: gesund“), kein Text daneben.
 - **Kennzahl-Kacheln verschlucken nie Text** (msg 3057): Titel brechen um, lange Werte stehen über dem Titel und
   werden notfalls kleiner, der Streifen bricht in die nächste Zeile um.
+- **Alles, was aufklappt, schwebt** (msg 3116): Auswahllisten (`ui/Auswahl`), Menüs (`StatusMenue`, „⋯“-Menüs),
+  Vorschlagslisten (`KundeWahl`, `PersonWahl`, `QuelleChip`), Panels (Glocke, Gespeicherte Ansichten) liegen als
+  Overlay in der obersten Ebene und verschieben nie Inhalt, Karten oder Dialoge. Gemeinsamer Helfer `$lib/overlay`:
+  `schwebend` (Svelte-Action für Listen/Panels), `schwebendesDetails` (für `<details>`-Menüs), `overlayLage`.
+  Verhalten überall gleich: am Auslöser verankert, klappt nach oben, wenn unten kein Platz ist, Höhe auf den freien
+  Platz begrenzt (scrollt in sich), schließt bei Klick außerhalb, Esc, Scrollen außerhalb und Größenänderung (außer
+  man tippt gerade darin). Am Handy (390 px) nie breiter als der Bildschirm. Aufklappbare **Bearbeitungs-Zeilen**
+  (z. B. eine Kostenzeile öffnen und ändern) sind keine Menüs und dürfen in der Liste aufklappen.
 
 ## 10a. Kundenportal
 

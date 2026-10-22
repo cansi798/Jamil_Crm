@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+	import { schwebend } from '$lib/overlay';
 	import Avatar from './Avatar.svelte';
 
 	/**
@@ -23,6 +24,7 @@
 	let meldung = $state<string | null>(null);
 	let laedt = $state(false);
 	let offen = $state(false);
+	let kwWurzel = $state<HTMLDivElement>();
 	let aktiv = $state(0);
 	let zeit: ReturnType<typeof setTimeout> | undefined;
 	let lauf = 0;
@@ -94,7 +96,7 @@
 	}
 </script>
 
-<div class="kw" onfocusout={(ev) => { if (!(ev.currentTarget as HTMLElement).contains(ev.relatedTarget as Node)) offen = false; }}>
+<div class="kw" bind:this={kwWurzel} onfocusout={(ev) => { if (!(ev.currentTarget as HTMLElement).contains(ev.relatedTarget as Node)) offen = false; }}>
 	<div class="kw-feld">
 		<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5" /><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
 		<!-- svelte-ignore a11y_autofocus -->
@@ -118,7 +120,7 @@
 		{#if laedt}<span class="kw-laedt" aria-hidden="true"></span>{/if}
 	</div>
 	{#if offen && (treffer.length > 0 || meldung)}
-		<ul id={`${id}-liste`} class="ui-popover kw-liste" role="listbox" aria-label="Gefundene Kunden">
+		<ul id={`${id}-liste`} class="ui-popover kw-liste" role="listbox" aria-label="Gefundene Kunden" use:schwebend={{ anker: () => kwWurzel, onschliessen: () => (offen = false) }}>
 			{#each treffer as t, i (t.id)}
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<li
@@ -178,12 +180,8 @@
 			transform: rotate(360deg);
 		}
 	}
+	/* schwebt obenauf (use:schwebend, Regel msg 3116) */
 	.kw-liste {
-		position: absolute;
-		z-index: 30;
-		top: calc(100% + 4px);
-		left: 0;
-		right: 0;
 		max-height: 20rem;
 		overflow-y: auto;
 		margin: 0;

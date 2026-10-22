@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import type { HTMLSelectAttributes } from 'svelte/elements';
 	import { tick } from 'svelte';
+	import { overlayLage, zeigeOverlay, type OverlayLage } from '$lib/overlay';
 
 	/**
 	 * Auswahlfeld im App-Stil statt der Browser-Liste (docs/design-regeln.md). Ersetzt <select> 1:1:
@@ -86,30 +87,13 @@
 	 * Formulars: sie verzieht keinen Dialog und schiebt nichts (Jamil msgs 3065/3067). Sie öffnet sich nach unten,
 	 * wenn dort genug Platz ist, sonst nach oben; die Höhe ist auf den freien Platz begrenzt (darin scrollt sie).
 	 */
-	const RAND = 8;
-	let lage = $state<{ links: number; breite: number; oben: number | null; unten: number | null; maxHoehe: number }>({ links: 0, breite: 0, oben: 0, unten: null, maxHoehe: 320 });
+	let lage = $state<OverlayLage>({ links: 0, breite: 0, oben: 0, unten: null, maxHoehe: 320 });
 	function platziere() {
 		if (!wurzel || !liste) return;
-		const r = wurzel.getBoundingClientRect();
-		const vh = window.innerHeight;
-		const vw = document.documentElement.clientWidth;
-		const unten = vh - r.bottom - RAND - 4;
-		const oben = r.top - RAND - 4;
-		const gewuenscht = Math.min(liste.scrollHeight, 320);
-		const nachOben = unten < gewuenscht && oben > unten;
-		const breite = Math.min(Math.max(r.width, 192), vw - 2 * RAND);
-		const links = Math.min(Math.max(RAND, r.left), vw - RAND - breite);
-		lage = nachOben
-			? { links, breite, oben: null, unten: vh - r.top + 4, maxHoehe: Math.max(120, Math.min(320, oben)) }
-			: { links, breite, oben: r.bottom + 4, unten: null, maxHoehe: Math.max(120, Math.min(320, unten)) };
+		lage = overlayLage(wurzel.getBoundingClientRect(), liste.scrollHeight);
 	}
 	function zeigeListe() {
-		if (!liste) return;
-		try {
-			if (typeof liste.showPopover === 'function' && !liste.matches(':popover-open')) liste.showPopover();
-		} catch {
-			/* ohne Popover-API: position: fixed mit hohem z-index */
-		}
+		zeigeOverlay(liste);
 		platziere();
 	}
 	// Scrollen (außerhalb der Liste) oder Größenänderung schließen die Liste – sie würde sonst vom Feld wegrutschen

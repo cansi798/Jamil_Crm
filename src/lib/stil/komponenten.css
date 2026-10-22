@@ -478,6 +478,15 @@ html .ui-feld {
 .ui-popover:focus {
 	outline: none;
 }
+/* Schwebende Listen/Menüs/Panels (Regel msg 3116, $lib/overlay): oberste Ebene, Lage setzt die Action */
+.ui-schwebend {
+	position: fixed;
+	z-index: 1000;
+	inset: auto;
+	margin: 0;
+	overscroll-behavior: contain;
+	color: var(--ui-text);
+}
 
 /* Status-Pills (farbig, Monday-artig) – .ui-pill.gruen/.orange/.rot/.lila/.blau/.grau */
 .ui-pill {

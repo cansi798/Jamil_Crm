@@ -71,3 +71,9 @@ Klick, kein `confirm()`. Details: `docs/design-regeln.md` 3b; in E2E-Tests `best
 Alle „…-Vorlagen“ sind gleich gebaut: Liste mit `vorlagen/VorlagenKopf` („+ Neue Vorlage“ oben rechts) und
 `vorlagen/VorlagenListe` (Zeilen-Aktionen als `vorlagen/ZeilenAktion`), Detailseite mit `SeitenKopf` (Zurück,
 Überzeile = Art, Titel = Name) und „Vorlage löschen“ oben rechts. Neue Vorlagen-Arten genauso bauen.
+
+**Alles, was aufklappt, schwebt** (STÄNDIGE Regel von Jamil, Talk msg 3116): Auswahllisten, Menüs („Status ▾“, „⋯“),
+Vorschlagslisten und Panels liegen als Overlay obenauf und schieben nie Inhalt, Karten oder Dialoge auseinander.
+Immer über den gemeinsamen Helfer `$lib/overlay` (`schwebend`, `schwebendesDetails`, `overlayLage`) – nicht selbst
+positionieren: oberste Ebene (Popover), klappt bei Platzmangel nach oben, Höhe begrenzt (scrollt in sich), schließt
+bei Klick außerhalb, Esc und Scrollen.

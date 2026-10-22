@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { schwebend } from '$lib/overlay';
 	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -66,7 +67,7 @@
 			<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
 		</button>
 		{#if offen}
-			<ul class="ui-popover qc-liste" role="listbox" aria-label="Auftragsquelle wählen">
+			<ul class="ui-popover qc-liste" role="listbox" aria-label="Auftragsquelle wählen" use:schwebend={{ anker: () => knopf, onschliessen: () => (offen = false), minBreite: 208 }}>
 				{#each liste as q (q.id)}
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
 					<li role="option" aria-selected={q.id === wert} tabindex="0" onclick={() => waehle(q.id)} onkeydown={(e) => e.key === 'Enter' && waehle(q.id)}>
@@ -126,11 +127,8 @@
 		width: 12px;
 		height: 12px;
 	}
+	/* schwebt obenauf (use:schwebend, Regel msg 3116) */
 	.qc-liste {
-		position: absolute;
-		z-index: 30;
-		top: calc(100% + 4px);
-		left: 0;
 		min-width: 13rem;
 		margin: 0;
 		padding: 0.3rem;
