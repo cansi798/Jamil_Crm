@@ -35,13 +35,13 @@ for (const [seite, pfad, filter] of [
 		await menue.getByLabel('Name der Ansicht').fill(name);
 		await menue.getByLabel('Als Standard').check();
 		await menue.getByRole('button', { name: 'Speichern' }).click();
-		await expect(menue.getByRole('button', { name: new RegExp(name) })).toBeVisible();
+		await expect(menue.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
 		await erwarteKeinQuerScrollen(page, viewport.width);
 
 		// ohne Filter öffnen, dann aus dem Menü wählen
 		await page.goto(pfad);
 		await page.getByRole('button', { name: /Ansichten|★/ }).first().click();
-		await page.getByRole('dialog', { name: 'Gespeicherte Ansichten' }).getByRole('button', { name: new RegExp(name) }).click();
+		await page.getByRole('dialog', { name: 'Gespeicherte Ansichten' }).getByRole('button', { name: new RegExp(`^${name}`) }).click();
 		await expect(page).toHaveURL(new RegExp(`\\?${filter}`));
 
 		// neuer Besuch (neue Sitzung): Standard greift von selbst
@@ -59,12 +59,12 @@ for (const [seite, pfad, filter] of [
 		await drei.close();
 
 		// löschen
-		await page.getByRole('button', { name: new RegExp(name) }).first().click();
+		await page.getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
 		const m = page.getByRole('dialog', { name: 'Gespeicherte Ansichten' });
-		await m.locator('summary', { has: page.locator(`[aria-label="Ansicht „${name}“ bearbeiten"]`) }).or(m.getByLabel(`Ansicht „${name}“ bearbeiten`)).first().click();
-		await m.getByRole('button', { name: 'Löschen' }).click();
+		// Papierkorb direkt an der Zeile (Jamil msg 3062), danach die Rückfrage (msg 3091)
+		await m.getByRole('button', { name: `Ansicht „${name}“ löschen`, exact: true }).click();
 		await bestaetigen(page);
-		await expect(m.getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
+		await expect(m.getByRole('button', { name: new RegExp(`^${name}`) })).toHaveCount(0);
 		await ctx.close();
 	});
 }

@@ -82,6 +82,8 @@
 	/** Jamil msg 3043: „Auftrag löschen“ (nur Anfragen) oben rechts, Rückfrage unter dem Kopf. */
 	let loeschenOffen = $state(false);
 	const darfLoeschen = $derived(data.darfBearbeiten && a.status === 'anfrage');
+	// robust gegen den Rückgabetyp der Aktionen (nicht jede Aktion liefert loeschFehler)
+	const loeschFehler = $derived(form && 'loeschFehler' in form && form.loeschFehler ? ((form as { fehler?: string }).fehler ?? null) : null);
 </script>
 
 <svelte:head>
@@ -111,7 +113,7 @@
 		</div>
 	</header>
 	{#if darfLoeschen}
-		<LoeschenPanel ding="Auftrag" bind:offen={loeschenOffen} fehler={form?.loeschFehler ? (form.fehler ?? null) : null}>
+		<LoeschenPanel ding="Auftrag" bind:offen={loeschenOffen} fehler={loeschFehler}>
 			Die Anfrage und ihre Aufgaben werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.
 		</LoeschenPanel>
 	{/if}
@@ -132,7 +134,7 @@
 		</aside>
 	{/if}
 
-	{#if form?.fehler && !form?.loeschFehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler && !form?.protokollFehler && !form?.materialFehler}
+	{#if form?.fehler && !loeschFehler && !form?.todoFehler && !form?.terminFehler && !form?.aendernFehler && !form?.protokollFehler && !form?.materialFehler}
 		<p role="alert" class="kd-fehler">{form.fehler}</p>
 	{/if}
 
