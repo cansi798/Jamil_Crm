@@ -596,8 +596,8 @@ export async function sichereProtokollVorlagen(tx: Tx, betriebId: string): Promi
 		const [da] = await tx`select 1 from app.protokoll_vorlagen where betrieb_id = ${betriebId} and lower(name) = lower(${v.name})`;
 		if (da) continue;
 		await tx`
-			insert into app.protokoll_vorlagen (betrieb_id, gruppe_id, version, name, beschreibung, schema)
-			values (${betriebId}, gen_random_uuid(), 1, ${v.name}, ${v.beschreibung}, ${tx.json(v.schema as never)})`;
+			insert into app.protokoll_vorlagen (betrieb_id, gruppe_id, version, name, beschreibung, schema, art)
+			values (${betriebId}, gen_random_uuid(), 1, ${v.name}, ${v.beschreibung}, ${tx.json(v.schema as never)}, ${v.art ?? 'protokoll'})`;
 		neue++;
 	}
 	return neue;

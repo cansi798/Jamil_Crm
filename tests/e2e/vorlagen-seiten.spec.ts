@@ -49,7 +49,8 @@ test('Menü: auf den Aufmaß-Vorlagen ist nur „Aufmaß-Vorlagen“ markiert (m
 	test.skip(info.project.name !== 'desktop', 'Seitenleiste nur am Desktop');
 	await chef(page);
 	await page.goto('/einstellungen/aufmass-vorlagen');
-	const markiert = page.locator('.hauptnav a[aria-current="page"]');
+	// nur sichtbare Einträge (der Handy-Link „Mehr“ ist am Desktop ausgeblendet)
+	const markiert = page.locator('.hauptnav a[aria-current="page"]:visible');
 	await expect(markiert).toHaveCount(1);
 	await expect(markiert).toHaveText('Aufmaß-Vorlagen');
 	await page.goto('/einstellungen/protokoll-vorlagen');

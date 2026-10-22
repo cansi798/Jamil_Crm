@@ -28,6 +28,15 @@ test('Logo oben links und Knöpfe in der Hausfarbe', async ({ page }, info) => {
 	await expect(page.getByLabel('Vorschau der Hausfarbe')).toBeVisible();
 
 	if (hat > 0) {
+		// Jamil msgs 3090/3091: „Logo hochladen“ und „Logo entfernen“ in einer Zeile; Entfernen fragt erst nach
+		const zeile = page.locator('.df-knoepfe').first();
+		await expect(zeile.getByRole('button', { name: 'Logo hochladen' })).toBeVisible();
+		await zeile.getByRole('button', { name: 'Logo entfernen' }).click();
+		const rueckfrage = page.locator('#logo-entfernen');
+		await expect(rueckfrage.getByRole('button', { name: 'Ja, entfernen' })).toBeVisible();
+		await rueckfrage.getByRole('button', { name: 'Abbrechen' }).click();
+		await expect(rueckfrage).toHaveCount(0);
+		await expect(page.getByRole('img', { name: 'Logo des Betriebs' })).toBeVisible();
 		const logo = info.project.name === 'mobil' ? page.locator('.kopf-schmal .marke-logo img') : page.locator('.hauptnav .marke-logo img');
 		await expect(logo).toBeVisible();
 		const box = await logo.boundingBox();
