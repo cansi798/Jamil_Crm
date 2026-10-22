@@ -261,8 +261,9 @@
 		}
 		.ab-board {
 			display: grid;
-			grid-template-columns: repeat(var(--spalten), minmax(12rem, 1fr));
-			gap: 0.75rem;
+			/* gleiches Raster wie die Kennzahl-Kacheln darüber (KennzahlKacheln raster="board", msg 3141) */
+			grid-template-columns: repeat(var(--spalten), minmax(var(--board-spalte-min, 12rem), 1fr));
+			gap: var(--board-luecke, 0.75rem);
 			align-items: start;
 			overflow-x: auto;
 			padding-bottom: 0.5rem;

@@ -30,6 +30,9 @@
 	src: url('/schriften/OpenSans.woff2') format('woff2');
 }
 :root {
+	/* Kanban-Boards und die Kennzahl-Kacheln darüber teilen dasselbe Spaltenraster (msg 3141) */
+	--board-spalte-min: 12rem;
+	--board-luecke: 0.75rem;
 	/* ── Akzent (Standard: Gold; je Betrieb überschrieben über die App-Hülle, siehe farbe.ts) ─────────── */
 	--ui-akzent: #c3a56f; /* Füllung: Hauptknopf, aktive Reiter */
 	--ui-akzent-hover: #b09564;

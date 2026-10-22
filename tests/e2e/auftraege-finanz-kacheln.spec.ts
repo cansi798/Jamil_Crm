@@ -24,7 +24,15 @@ test('Aufträge: Status-Kacheln zeigen Euro und Anzahl, nichts abgeschnitten', a
 		await expect(k.locator('.kz-wert')).toHaveText(/^(–|[\d.]+\s€)$/);
 		await expect(k.locator('.kz-info')).toHaveText(/^\d+ Auftr(ag|äge) · neu im Zeitraum$/);
 	}
-	await expect(kachel('Nachfassen fällig').locator('.kz-wert')).toHaveText(/€/);
+	// msg 3141: nur die 6 Status-Kacheln; „Auftragswert offen“ ruhig im Kopf, „Nachfassen fällig“ nicht mehr hier
+	await expect(gruppe.locator('.kz-kachel')).toHaveCount(6);
+	await expect(kachel('Nachfassen fällig')).toHaveCount(0);
+	// Liste: alle 6 Kacheln in einer Reihe (am Computer)
+	if (info.project.name === 'desktop') {
+		const oben = await gruppe.locator('.kz-zelle').evaluateAll((l) => new Set(l.map((e) => Math.round(e.getBoundingClientRect().top))).size);
+		expect(oben).toBe(1);
+	}
+	await expect(page.locator('.kz-zusatz')).toContainText(/^Offen: [\d.]+\s€ · angenommen, nicht abgerechnet$/);
 	await expect(page.getByText('So wird gerechnet')).toBeVisible();
 	// keine Kachel ragt aus ihrer Zelle, die Reihe nicht aus der Seite
 	const ueber = await gruppe.evaluate((g) => {
@@ -40,5 +48,26 @@ test('Aufträge: Status-Kacheln zeigen Euro und Anzahl, nichts abgeschnitten', a
 	await kachel('In Arbeit').click();
 	await expect(page).toHaveURL(/status=in_arbeit/);
 	await page.screenshot({ path: `test-results/auftraege-kacheln-${info.project.name}.png` });
+
+	// Board: jede Status-Kachel steht genau über ihrer Spalte (gleiches Raster); am Handy Spalten als Reiter
+	await page.goto('/auftraege?ansicht=board&zeitraum=alle');
+	await expect(gruppe.locator('.kz-kachel')).toHaveCount(6);
+	if (info.project.name === 'desktop') {
+		const ids = ['anfrage', 'angebot', 'beauftragt', 'in_arbeit', 'abgenommen', 'abgerechnet'];
+		const kacheln = await gruppe.locator('.kz-zelle').evaluateAll((l) => l.map((e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.width)]; }));
+		const spalten = await Promise.all(ids.map((id) => page.locator(`section[data-spalte="${id}"]`).evaluate((e) => { const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.width)]; })));
+		for (let i = 0; i < 6; i++) {
+			expect(Math.abs(kacheln[i][0] - spalten[i][0]), `Kachel ${ids[i]} links`).toBeLessThanOrEqual(1);
+			expect(Math.abs(kacheln[i][1] - spalten[i][1]), `Kachel ${ids[i]} Breite`).toBeLessThanOrEqual(1);
+		}
+		// scrollt das Board waagerecht, läuft die Kachelreihe mit
+		const board = page.locator('.ab-board');
+		if (await board.evaluate((b) => b.scrollWidth > b.clientWidth)) {
+			await board.evaluate((b) => (b.scrollLeft = 120));
+			await expect.poll(() => gruppe.evaluate((g) => g.scrollLeft)).toBe(await board.evaluate((b) => b.scrollLeft));
+		}
+	}
+	await erwarteKeinQuerScrollen(page, viewport.width);
+	await page.screenshot({ path: `test-results/auftraege-board-kacheln-${info.project.name}.png` });
 	await ctx.close();
 });

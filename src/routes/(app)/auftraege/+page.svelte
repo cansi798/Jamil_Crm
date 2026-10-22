@@ -36,7 +36,7 @@
 	/** Kacheln: ganze Euro (netto), damit die Werte in die Kachel passen */
 	const euroGanz = (cent: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Math.round(cent / 100));
 	const STATUS_TON = { anfrage: 'grau', angebot: 'lila', beauftragt: 'blau', in_arbeit: 'orange', abgenommen: 'gruen', abgerechnet: 'grau' } as const;
-	const aktiveKachel = $derived(data.nachfassenFaellig ? 'nachfassen' : data.ansicht === 'liste' && data.status ? data.status : null);
+	const aktiveKachel = $derived(data.ansicht === 'liste' && data.status ? data.status : null);
 	const kacheln = $derived.by((): Kachel[] => {
 		const kz = data.kennzahlen;
 		if (!kz) return [];
@@ -51,11 +51,33 @@
 			href: aktiveKachel === st ? link({ ansicht: 'liste', status: null }) : link({ ansicht: 'liste', status: st, nachfassen: false }),
 			ton: STATUS_TON[st]
 		}));
-		const nfWert = kz.nachfassenWertCent;
-		l.push({ id: 'nachfassen', titel: 'Nachfassen fällig', wert: nfWert != null ? euroGanz(nfWert) : String(kz.nachfassenFaellig), info: nfWert != null ? `${anzahl(kz.nachfassenFaellig)} · jetzt` : 'jetzt', href: link({ nachfassen: !data.nachfassenFaellig }), ton: 'rot' });
-		if (kz.wertOffenCent != null) l.push({ id: 'wert', titel: 'Auftragswert offen', wert: euroGanz(kz.wertOffenCent), info: 'angenommen, nicht abgerechnet', ton: 'gruen' });
-		// Einstellungen je Kennzahl (Jamil msg 2946)
-		return mitEinstellungen(l, kz, (id) => (id === 'nachfassen' ? 'auftraege_nachfassen' : id === 'wert' ? 'auftraege_wert' : 'auftraege_status'));
+		// msg 3141: nur die 6 Status-Kacheln (genau über den Board-Spalten); „Nachfassen fällig“ steht auf Start und im
+		// Filter, „Auftragswert offen“ als ruhige Angabe im Kopf des Streifens
+		return mitEinstellungen(l, kz, () => 'auftraege_status');
+	});
+	/** „Offen: 2.572 €“ im Kopf – nur mit Preisen und wenn die Kennzahl eingeschaltet ist */
+	const wertOffen = $derived(data.kennzahlen?.wertOffenCent != null && !data.kennzahlen.aus.includes('auftraege_wert') ? data.kennzahlen.wertOffenCent : null);
+	// Kachelreihe scrollt mit dem Board mit (beide gleich breit, falls das Board waagerecht scrollt)
+	let kachelReihe = $state<HTMLDivElement>();
+	$effect(() => {
+		const reihe = kachelReihe;
+		const board = document.querySelector<HTMLElement>('.ab-board');
+		if (!reihe || !board || data.ansicht !== 'board') return;
+		let sperre = false;
+		const mit = (von: HTMLElement, nach: HTMLElement) => () => {
+			if (sperre) return;
+			sperre = true;
+			nach.scrollLeft = von.scrollLeft;
+			requestAnimationFrame(() => (sperre = false));
+		};
+		const a = mit(board, reihe);
+		const b = mit(reihe, board);
+		board.addEventListener('scroll', a, { passive: true });
+		reihe.addEventListener('scroll', b, { passive: true });
+		return () => {
+			board.removeEventListener('scroll', a);
+			reihe.removeEventListener('scroll', b);
+		};
 	});
 	const BEZUG = { zustaendig: 'zuständig', todo: 'eigene Aufgabe', termin: 'eigener Termin' } as const;
 </script>
@@ -124,7 +146,11 @@
 	</FilterLeiste>
 
 	{#if kacheln.length > 0}
-		<KennzahlKacheln label="Aufträge" {kacheln} zeitraum={data.zeitraum} zeitraumLink={(a) => link({ zeitraum: a })} aktiv={aktiveKachel} />
+		<KennzahlKacheln label="Aufträge" {kacheln} zeitraum={data.zeitraum} zeitraumLink={(a) => link({ zeitraum: a })} aktiv={aktiveKachel} raster={data.ansicht === 'board' ? 'board' : 'gleich'} bind:reihe={kachelReihe}>
+			{#snippet zusatz()}
+				{#if wertOffen !== null}<span class="af-offen" title="angenommene Angebote von Aufträgen, die noch nicht abgerechnet sind">Offen: <strong>{euroGanz(wertOffen)}</strong> · angenommen, nicht abgerechnet</span>{/if}
+			{/snippet}
+		</KennzahlKacheln>
 		{#if data.kennzahlen?.wertJeStatusCent}
 			<details class="af-rechnung">
 				<summary>So wird gerechnet</summary>
@@ -132,8 +158,8 @@
 					Beträge netto, ganze Euro. Je Status zählen die im Zeitraum neu angelegten Aufträge (Anzahl klein darunter):
 					Anfrage = neuester Angebotsentwurf (ohne Entwurf „–“) · Angebot = versendete, offene Angebote · Beauftragt, In
 					Arbeit, Abgenommen = angenommene Angebote (Wert der Auftragsbestätigung) · Abgerechnet = Auftragswert, bis die
-					Rechnungen mit der Lexware-Anbindung kommen · Nachfassen fällig = offene Angebote der Aufträge, bei denen das
-					Nachfassen fällig ist (aktueller Stand). Überarbeitete Angebotsfassungen zählen nur einmal.
+					Rechnungen mit der Lexware-Anbindung kommen · „Offen“ oben rechts = angenommene Angebote von Aufträgen, die noch
+					nicht abgerechnet sind (aktueller Stand). Überarbeitete Angebotsfassungen zählen nur einmal.
 				</p>
 			</details>
 		{/if}
@@ -194,6 +220,10 @@
 </main>
 
 <style>
+	.af-offen strong {
+		color: var(--ui-text);
+		font-variant-numeric: tabular-nums;
+	}
 	.af-rechnung {
 		margin: -0.4rem 0 var(--ui-abstand-block);
 	}

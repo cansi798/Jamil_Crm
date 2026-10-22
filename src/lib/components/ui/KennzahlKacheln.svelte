@@ -13,6 +13,7 @@
 </script>
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { ZEITRAUM_ARTEN, ZEITRAUM_NAMEN, type ZeitraumArt } from '$lib/kennzahlen';
 
@@ -30,13 +31,26 @@
 		zeitraum,
 		zeitraumLink,
 		aktiv = null,
-		label = 'Kennzahlen'
+		label = 'Kennzahlen',
+		raster = null,
+		zusatz,
+		reihe = $bindable()
 	}: {
 		kacheln: Kachel[];
 		zeitraum: ZeitraumArt;
 		zeitraumLink: (art: ZeitraumArt) => string;
 		aktiv?: string | null;
 		label?: string;
+		/**
+		 * 'board': Kacheln stehen genau über den Spalten eines Kanban-Boards darunter (gleiches Raster aus
+		 * --board-spalte-min/--board-luecke, je Kachel eine Spalte; msg 3141). 'gleich': alle Kacheln in einer Reihe,
+		 * gleich breit. Sonst frei umbrechend.
+		 */
+		raster?: 'board' | 'gleich' | null;
+		/** kleine Zusatzangabe im Kopf rechts neben dem Zeitraum (z. B. „Offen: 2.572 €“) */
+		zusatz?: Snippet;
+		/** die Kachelreihe (z. B. um sie mit dem Board mitzuscrollen) */
+		reihe?: HTMLDivElement;
 	} = $props();
 
 	/** reine Zählkachel (kurze Zahl) → am Handy schmaler */
@@ -71,6 +85,7 @@
 			<span class="ui-eyebrow">{label} · {ZEITRAUM_NAMEN[zeitraum]}</span>
 			<span class="unsichtbar">– Kennzahlen {zu ? 'einblenden' : 'ausblenden'}</span>
 		</button>
+		{#if zusatz && !zu}<span class="kz-zusatz">{@render zusatz()}</span>{/if}
 		{#if !zu}
 			<nav class="kz-zeitraum" aria-label="Zeitraum">
 				{#each ZEITRAUM_ARTEN as a (a)}
@@ -80,7 +95,7 @@
 		{/if}
 	</div>
 	<!-- bewusst keine Liste: Listenseiten (Tests, Screenreader) finden darunter weiter „die“ Liste der Einträge -->
-	<div class="kz-reihe" id={id} role="group" aria-label={`${label}: Kennzahlen`} hidden={zu}>
+	<div class="kz-reihe" class:raster-board={raster === 'board'} class:raster-gleich={raster === 'gleich'} style:--kz-spalten={raster ? kacheln.length : undefined} bind:this={reihe} id={id} role="group" aria-label={`${label}: Kennzahlen`} hidden={zu}>
 		{#each kacheln as k (k.id)}
 			<div class="kz-zelle" class:zahl={istZahl(k)}>
 				{#if k.href}
@@ -183,6 +198,28 @@
 	}
 	.kz-reihe[hidden] {
 		display: none;
+	}
+	/* Kopf: Zusatzangabe rechts vor dem Zeitraum */
+	.kz-zusatz {
+		margin-left: auto;
+		font-size: var(--ui-schrift-xs);
+		color: var(--ui-text-leise);
+		white-space: nowrap;
+	}
+	/* Raster wie das Kanban-Board darunter: je Kachel eine Spalte, gleiche Breiten und Lücken (msg 3141) */
+	@media (min-width: 700px) {
+		.kz-reihe.raster-board {
+			grid-template-columns: repeat(var(--kz-spalten), minmax(var(--board-spalte-min), 1fr));
+			gap: var(--board-luecke);
+			overflow-x: auto;
+			scrollbar-width: none;
+		}
+		.kz-reihe.raster-board::-webkit-scrollbar {
+			display: none;
+		}
+		.kz-reihe.raster-gleich {
+			grid-template-columns: repeat(var(--kz-spalten), minmax(0, 1fr));
+		}
 	}
 	/* nie über die Kachel hinaus (msg 3047: abgeschnittene €-Kachel) – Inhalt bleibt in seiner Zelle */
 	.kz-zelle {
