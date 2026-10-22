@@ -74,8 +74,7 @@ test('Terminart anlegen, im Einsatz-Dialog wählen (Dauer → Bis), am Termin se
 
 	// 2. Plantafel: eigener Termin in drei Wochen mit dieser Terminart
 	const tag = tagPlus(berlinTag(new Date()), 21);
-	await page.goto(`/plantafel?ansicht=tag&tag=${tag}`);
-	await page.getByRole('button', { name: `Neuer Termin am ${tagKurz(tag)}` }).click();
+	await page.goto(`/plantafel?ansicht=tag&tag=${tag}&neu=1`);
 	const dialog = page.getByRole('dialog', { name: 'Einsatz anlegen' });
 	await expect(dialog).toBeVisible();
 	await dialog.getByText('📌 Eigener Termin (ohne Auftrag)').click();

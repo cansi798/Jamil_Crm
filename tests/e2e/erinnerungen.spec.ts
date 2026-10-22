@@ -46,8 +46,7 @@ test('Eigener Termin über „+“ mit Erinnerung, erscheint im Kalender', async
 	const titel = `E2E Zahnarzt ${info.project.name} ${Date.now()}`;
 	let id: string | null = null;
 	try {
-		await page.goto(`/plantafel?ansicht=tag&tag=${tag}`);
-		await page.getByRole('button', { name: /^Neuer Termin am / }).click();
+		await page.goto(`/plantafel?ansicht=tag&tag=${tag}&neu=1`);
 		const dlg = page.locator('dialog.pt-dialog');
 		await dlg.getByLabel('📌 Eigener Termin (ohne Auftrag)').check();
 		await dlg.getByLabel('Titel *').fill(titel);

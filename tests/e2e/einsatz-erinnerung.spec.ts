@@ -18,8 +18,7 @@ test('Einsatz ohne Erinnerung anlegen', async ({ page }, info) => {
 		if (r.request().method() === 'POST' && r.url().endsWith('/api/einsaetze') && r.status() === 201) angelegt.push((await r.json()).id);
 	});
 	try {
-		await page.goto('/plantafel');
-		await page.getByRole('button', { name: /^Neuer Termin am/ }).first().click();
+		await page.goto('/plantafel?neu=1');
 		const dlg = page.locator('dialog[open]');
 		await expect(dlg.getByRole('heading', { name: 'Einsatz anlegen' })).toBeVisible();
 		await dlg.getByLabel('Auftrag *').selectOption({ index: 1 });
@@ -66,7 +65,7 @@ test('Auswahl-Liste öffnet sich nach oben, wenn unten kein Platz ist', async ({
 	await expect(page).not.toHaveURL(/anmelden/);
 	await page.setViewportSize({ width: 1280, height: 560 });
 	await page.goto('/plantafel');
-	await page.getByRole('button', { name: /^Neuer Termin am/ }).first().click();
+	await page.goto('/plantafel?neu=1');
 	const dlg = page.locator('dialog[open]');
 	const feld = dlg.locator('select[aria-label="und"]');
 	await feld.scrollIntoViewIfNeeded();

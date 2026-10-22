@@ -61,8 +61,8 @@ test('Kalender: Monat mit Balken, Tag antippen, Filter-Chips, Ansichten; am PC v
 		await page.getByRole('button', { name: 'Alle', exact: true }).click();
 		await expect(page).not.toHaveURL(/ma=/);
 
-		// „+“ öffnet den Dialog für den gewählten Tag
-		await page.getByRole('button', { name: /^Neuer Termin am / }).click();
+		// „Neuer Termin“ (Schnellmenü → ?neu=1) öffnet den Dialog für den gewählten Tag
+		await page.goto(page.url() + (page.url().includes('?') ? '&' : '?') + 'neu=1');
 		await expect(page.getByRole('dialog')).toBeVisible();
 		await page.keyboard.press('Escape');
 

@@ -277,11 +277,7 @@
 			onverlaengern={(t, bisTag) => gruppeAnfrage(t.einsaetze[0], { bisTag }, `Termin geht jetzt bis ${tagKurz(bisTag)}.`)}
 			onneu={neuerTermin}
 		/>
-		{#if data.darfPlanen}
-			<button type="button" class="pt-neu" onclick={() => neuerTermin(gewaehlt || data.heute)} aria-label={`Neuer Termin am ${tagKurz(gewaehlt || data.heute)}`}>
-				<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="3" y="5" width="15" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3 9h15M7 3v4M14 3v4" stroke="currentColor" stroke-width="1.7" fill="none"/><circle cx="18" cy="18" r="5" fill="currentColor"/><path d="M18 15.5v5M15.5 18h5" stroke="#fff" stroke-width="1.7"/></svg>
-			</button>
-		{/if}
+		<!-- Jamil msgs 3109/3110: kein eigenes Termin-Symbol mehr – „Neuer Termin“ kommt über das Schnellmenü (+) unten rechts -->
 	{:else}
 	<PlantafelRaster
 		{tage}
@@ -443,26 +439,6 @@
 		font-weight: 700;
 		color: inherit;
 		text-decoration: none;
-	}
-	.pt-neu {
-		position: fixed;
-		z-index: 20;
-		right: 5.5rem;
-		bottom: calc(var(--nav-hoehe) + 0.75rem + env(safe-area-inset-bottom));
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 3.75rem;
-		height: 3.75rem;
-		border: 1px solid var(--m365-rand, #e1dfdd);
-		border-radius: 1rem;
-		background: #fff;
-		color: var(--ui-akzent-text);
-		box-shadow: 0 4px 14px rgb(5 52 107 / 0.25);
-		cursor: pointer;
-	}
-	.pt-neu:hover {
-		background: #eaf2fb;
 	}
 	.pt-links {
 		display: flex;
