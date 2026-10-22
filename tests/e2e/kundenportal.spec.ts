@@ -56,6 +56,8 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	expect((await kunde.reload())?.headers()['referrer-policy']).toBe('no-referrer');
 	// Andere Tests legen weitere Aufträge beim selben Kunden an – nur die eigene Karte prüfen
 	await expect(kunde.getByLabel('Ladenumbau Trockenbau').getByTestId('portal-status')).toBeVisible();
+	// kurze Erklärung unter dem Status (msg 3135)
+	await expect(kunde.getByLabel('Ladenumbau Trockenbau').getByTestId('portal-status-text')).not.toBeEmpty();
 	// Handwerks-Design (msgs 2848, 2851): Überblick oben, Fortschrittsweg, Kontakt rechts
 	await expect(kunde.getByRole('region', { name: 'Überblick' })).toContainText('Ihr nächster Termin');
 	// Kundensprache (msg 3131)

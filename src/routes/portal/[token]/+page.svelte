@@ -3,7 +3,7 @@
 	import PortalFigur from '$lib/components/portal/PortalFigur.svelte';
 	import PortalKopf from '$lib/components/portal/PortalKopf.svelte';
 	import { kopfIstHell } from '$lib/portal-kopf';
-	import { PORTAL_STUFEN } from '$lib/portal-status';
+	import { PORTAL_STUFEN, portalStatusText } from '$lib/portal-status';
 	import FortschrittsWeg from '$lib/components/portal/FortschrittsWeg.svelte';
 	import PortalSchritte from '$lib/components/portal/PortalSchritte.svelte';
 	import SkizzenKreis from '$lib/components/portal/SkizzenKreis.svelte';
@@ -221,12 +221,18 @@
 						<h1 id={`t-${a.id}`}>{a.titel}</h1>
 						{#if a.status}
 							<p class="pt-status" data-testid="portal-status">{a.status.name}</p>
+							<!-- kurze Erklärung zum Status (Jamil msg 3135) -->
+							{@const erkl = portalStatusText(a.status.schluessel, !!a.schritte && a.schritte.length > 0)}
+							<p class="pt-status-text" data-testid="portal-status-text">
+								{erkl.text}{#if erkl.schritteLink}
+									<a href={`#schritte-${a.id}`}>{erkl.schritteLink}</a>.{/if}
+							</p>
 							<FortschrittsWeg stufen={PORTAL_STUFEN} aktuell={a.status.schluessel} />
 						{/if}
 					</div>
 
 					{#if a.schritte && a.schritte.length > 0}
-						<div class="pt-karte">
+						<div class="pt-karte" id={`schritte-${a.id}`}>
 							<span class="pt-eyebrow">Damit Sie planen können</span>
 							{@render titel('Die Arbeitsschritte', 2)}
 							<p class="pt-leise">Wie laut und wie staubig es bei den einzelnen Schritten wird.</p>
@@ -511,6 +517,17 @@
 		margin: 0 0 0.25rem;
 		color: var(--ui-akzent-text);
 		font-weight: 700;
+	}
+	/* eine ruhige Zeile unter dem Status (msg 3135) */
+	.pt-status-text {
+		margin: 0 0 0.5rem;
+		color: var(--ui-text-leise);
+		font-size: var(--ui-schrift-s);
+		line-height: 1.5;
+	}
+	.pt-status-text a {
+		color: var(--ui-akzent-text);
+		font-weight: 600;
 	}
 	.pt-leise {
 		margin: 0;
