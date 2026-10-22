@@ -24,7 +24,7 @@
 <main class="kd-seite breit">
 	<VorlagenKopf
 		titel="Auftrags-Vorlagen"
-		meta="Aufgabenlisten für wiederkehrende Aufträge – beim Anlegen eines Auftrags wählbar."
+		meta="Aufgabenlisten für wiederkehrende Aufträge – beim Anlegen wählbar."
 		neu={data.darfBearbeiten ? { href: '/auftrag-vorlagen/neu' } : null}
 	/>
 	<VorlagenListe {eintraege} leer="Noch keine Vorlagen. Eine Vorlage spart Tipparbeit: Ihre Aufgaben stehen beim nächsten Auftrag sofort bereit.">

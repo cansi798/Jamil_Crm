@@ -41,7 +41,7 @@
 <main class="kd-seite breit">
 	<VorlagenKopf
 		titel="E-Mail-Vorlagen"
-		meta="Alle Texte für Mails an Kunden an einem Ort. Je Zweck ist eine Vorlage der Standard – sie ist überall vorausgewählt, wo eine Mail vorbereitet wird, und lässt sich dort tauschen."
+		meta="Alle Mail-Texte an Kunden – je Zweck ist eine Vorlage der Standard."
 		neu={{ href: data.filter ? `/einstellungen/mail-vorlagen/neu?zweck=${data.filter}` : '/einstellungen/mail-vorlagen/neu' }}
 	/>
 
@@ -53,6 +53,7 @@
 		/>
 	</div>
 
+	<p class="kd-info mv-hinweis">Die Standard-Vorlage ist überall vorausgewählt, wo eine Mail vorbereitet wird, und lässt sich dort tauschen.</p>
 	{#if form && 'fehler' in form && !('bereich' in form)}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 
 	<div class="mv-bloecke">
@@ -88,6 +89,9 @@
 	.mv-filter {
 		margin-bottom: var(--ui-a3);
 		overflow-x: auto;
+	}
+	.mv-hinweis {
+		margin: 0 0 var(--ui-a3);
 	}
 	.mv-bloecke {
 		display: grid;

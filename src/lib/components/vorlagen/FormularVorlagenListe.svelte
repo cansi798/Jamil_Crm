@@ -48,9 +48,7 @@
 <main class="kd-seite breit">
 	<VorlagenKopf
 		titel={art.titel}
-		meta={data.art === 'aufmass'
-			? 'Aufmaß vor Ort: Räume, Maße, berechnete Flächen und Mengen; verknüpft mit dem Katalog wird daraus mit einem Klick ein Angebot. Jede Änderung wird eine neue Version – begonnene Aufmaße behalten ihre.'
-			: 'Formulare für Monteure: Schritte, Pflichtfelder, Fotos, Bedingungen und Unterschrift. Jede Änderung wird eine neue Version – ausgefüllte Protokolle behalten ihre.'}
+		meta={data.art === 'aufmass' ? 'Aufmaß vor Ort: Räume, Maße, Flächen – mit dem Katalog direkt zum Angebot.' : 'Formulare für Monteure: Schritte, Pflichtfelder, Fotos und Unterschrift.'}
 		neu={{ aktion: '?/neu' }}
 	/>
 
@@ -58,7 +56,10 @@
 	{#if form?.uebernommen != null}<p role="status" class="kd-info">{form.uebernommen} Beispielvorlage(n) übernommen.</p>{/if}
 
 	<div class="fv-bloecke">
-		<VorlagenListe eintraege={aktive} leer="Noch keine Vorlage. Legen Sie eine an oder übernehmen Sie ein Beispiel.">
+		<VorlagenListe
+			eintraege={aktive}
+			hinweis={`Jede Änderung wird eine neue Version – ${data.art === 'aufmass' ? 'begonnene Aufmaße' : 'ausgefüllte Protokolle'} behalten ihre.`}
+			leer="Noch keine Vorlage. Legen Sie eine an oder übernehmen Sie ein Beispiel.">
 			{#snippet aktionen(v)}
 				<ZeilenAktion aktion="?/duplizieren" id={v.id} symbol="kopieren">Duplizieren</ZeilenAktion>
 				<ZeilenAktion aktion="?/archivieren" id={v.id} symbol="archiv">Archivieren</ZeilenAktion>

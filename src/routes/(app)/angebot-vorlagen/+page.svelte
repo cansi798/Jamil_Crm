@@ -23,7 +23,7 @@
 <main class="kd-seite breit">
 	<VorlagenKopf
 		titel="Angebots-Vorlagen"
-		meta="Wiederkehrende Angebote als Vorlage: im Angebot über „+ Aus Vorlage“ einfügen oder schon beim „Angebot erstellen“ wählen."
+		meta="Wiederkehrende Angebote – im Angebot über „+ Aus Vorlage“ einfügen."
 		neu={{ href: '/angebot-vorlagen/neu' }}
 	/>
 	<VorlagenListe {eintraege} leer="Noch keine Angebots-Vorlagen. Häufige Angebote einmal anlegen und immer wieder verwenden.">
