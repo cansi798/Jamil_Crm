@@ -13,7 +13,7 @@ set -eu
 # Wartet bis zu 15 Minuten auf einen laufenden Start.
 if command -v flock >/dev/null 2>&1 && [ -z "${VORSCHAU_SPERRE:-}" ]; then
 	export VORSCHAU_SPERRE=1
-	exec flock -w 900 /tmp/crm-vorschau.lock "$0" "$@"
+	exec flock -w 900 /tmp/crm-vorschau.lock sh "$0" "$@"
 fi
 
 cd "$(dirname "$0")/.."
