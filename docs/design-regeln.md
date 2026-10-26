@@ -12,7 +12,7 @@ jede Änderung. Was hier steht, ist in gemeinsamen Bausteinen umgesetzt – **Ba
 | `--ui-akzent-auf` | Text **auf** der Akzentfüllung (dunkel oder weiß, automatisch lesbar) |
 | `--ui-akzent-text` | Akzent als **Text/Link** auf hellem Grund (Kontrast ≥ 4,6 : 1) |
 | `--ui-akzent-hell` / `-zart` / `-rand` | Tönungen (gewählte Zeile, Hover, Rahmen) |
-| `--ui-nav`, `--ui-anthrazit-*` | Seitenleiste, Kopfleiste, Leiste unten |
+| `--ui-nav`, `--ui-anthrazit-*` | Seitenleiste, Kopfleiste (inkl. Logo-Feld) und Leiste unten – alle mit `--ui-nav` im selben Anthrazit (Jamil msg 3319), `--ui-anthrazit-*` nur für Abstufungen |
 | `--ui-hintergrund`, `--ui-flaeche`, `--ui-band`, `--ui-rand` | Seite (warmes Off-White), Karten (weiß), Kopfband, Linien |
 | `--ui-gruen/-orange/-rot/-blau/-lila/-grau` (+ `-hell`) | Statusfarben (Pills, farbiger Rand in Listen) |
 

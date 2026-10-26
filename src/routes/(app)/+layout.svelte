@@ -329,7 +329,7 @@
 			gap: 1rem;
 			height: 3.5rem;
 			padding: 0 1.5rem;
-			background: var(--ui-anthrazit-900);
+			background: var(--ui-nav); /* Jamil msg 3319: gleiches Anthrazit wie die Seitenleiste */
 			color: var(--ui-nav-text);
 		}
 		.kopf-bereich {
@@ -452,7 +452,7 @@
 			min-height: 3.5rem;
 			padding: 0 1.25rem;
 			margin-bottom: 0.5rem;
-			background: var(--ui-anthrazit-900);
+			background: var(--ui-nav); /* Logo-Feld gehört zur Kopfleiste – gleiches Anthrazit (msg 3319) */
 			color: #fff;
 			text-decoration: none;
 		}
