@@ -79,6 +79,12 @@ Paket mit Migration 101 und den neuen Abhängigkeiten `ical.js`/`saxes`, unbeauf
 | Sicherung + Wiederherstellung: App-Passwort gilt danach weiter (207) | ✔ |
 | `9-deinstallieren.sh --ja`: nichts übrig; Vorschau- und Nextcloud-Container unberührt | ✔ |
 
+## Probelauf 27.10.2026 (Portal je Kunde / Bestandskunden, Migrationen 107 und 108, Commit 65f8534)
+
+Paket unbeaufsichtigt installiert (Projekt `crm-pruefprobe`, App-Port 18350, ohne Profile): alle Migrationen bis 108
+angewendet, Admin angelegt, `/api/gesundheit` ok, Sicherung + Wiederherstellung ok (CRM antwortet danach),
+`9-deinstallieren.sh --ja` ohne Reste. Vorschau-Container unberührt.
+
 ## So wiederholen (für Entwickler)
 
 ```sh
