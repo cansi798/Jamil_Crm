@@ -217,6 +217,15 @@
 			<h1>Plantafel</h1>
 			<p class="seiten-meta pt-titel">{titel}</p>
 		</div>
+		<!-- „+ Termin“ oben rechts wie „+ Aufgabe“ (Jamil msg 3416) – legt den Termin am gewählten Tag an -->
+		{#if data.darfPlanen}
+			<div class="seiten-aktionen">
+				<button type="button" class="kd-knopf" onclick={() => neuerTermin(gewaehlt || data.heute)}>
+					<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" /></svg>
+					Termin
+				</button>
+			</div>
+		{/if}
 	</header>
 
 	<FilterLeiste ansichten="plantafel" form={false} label="Plantafel filtern">
@@ -300,8 +309,8 @@
 	{#if data.darfPlanen}
 		<p class="kd-info pt-hilfe">
 			{#if kalender}
-				Tag antippen zeigt seine Termine darunter; Termin antippen öffnet den Auftrag, „Bearbeiten“ den Einsatz. „+“ legt einen
-				Termin am gewählten Tag an. Am PC: Balken mit der Maus auf einen anderen Tag ziehen verschiebt den Termin, der Griff
+				Tag antippen zeigt seine Termine darunter; Termin antippen öffnet den Auftrag, „Bearbeiten“ den Einsatz. „+ Termin“ oben rechts legt
+				einen Termin am gewählten Tag an. Am PC: Balken mit der Maus auf einen anderen Tag ziehen verschiebt den Termin, der Griff
 				„⇥“ am Ende eines mehrtägigen Termins verlängert oder kürzt ihn. Warnungen sind gelb umrandet.
 			{:else}
 				Am PC und Tablet: Kärtchen auf einen anderen Tag oder Mitarbeiter ziehen, um den Einsatz zu verschieben. Mehrtägige

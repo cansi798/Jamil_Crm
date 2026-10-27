@@ -150,7 +150,6 @@
 	<section class="kal-liste" aria-label={`Termine ${tagKurz(tag)}`}>
 		<header>
 			<h2>{tagKurz(tag)}{tag === heute ? ' · heute' : ''}</h2>
-			{#if darfPlanen}<button type="button" class="kd-knopf hell klein" onclick={() => onneu(tag)}>+ Termin</button>{/if}
 		</header>
 		{#if eintraege.length === 0}
 			<p class="kd-info">Keine Termine.</p>
