@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -23,7 +24,7 @@
 		Woher kommen eure Aufträge? Bei jedem neuen Auftrag wird die Auftragsquelle gewählt; die <a href="/auswertung/quellen">Auswertung</a> zeigt, was
 		jede Auftragsquelle bringt. Die Farbe erscheint als Etikett auf den Auftragskarten und in der Liste. Eine Auftragsquelle, die schon an
 		Aufträgen hängt, wird beim Löschen nur ausgeschaltet.
-	</p>
+	<InfoFenster id="quellen.seite" /></p>
 	{#if form && 'ergebnis' in form && form.ergebnis === 'deaktiviert'}
 		<p class="kt-hinweis" role="status">Die Auftragsquelle hängt an Aufträgen und wurde deshalb nur ausgeschaltet.</p>
 	{/if}

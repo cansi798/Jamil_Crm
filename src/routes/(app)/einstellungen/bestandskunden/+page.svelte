@@ -1,4 +1,6 @@
 <script lang="ts">
+	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	/**
 	 * Leistungen für Bestandskunden (Jamil, Talk msg 3408): Was Kunden nach Abschluss eines Auftrags im Kundenportal
 	 * sehen. Alles in EINEM Formular mit „Speichern“; rechts bzw. darunter die Vorschau – genau die Karte des Portals.
@@ -62,18 +64,18 @@
 		<input type="hidden" name="daten" value={daten} />
 		<div class="bk-spalten">
 			<div class="bk-eingabe">
-				<Abschnitt titel="Anzeige im Portal">
-					<Schalter bind:an={aktiv} label="Karte im Kundenportal anzeigen" hinweis="Sie erscheint klein und dezent am Ende des Portals – nur bei Kunden mit einem abgeschlossenen Auftrag („Projekt erfolgreich beendet“)." />
-					<label>Überschrift
+				<Abschnitt titel="Anzeige im Portal" info="bestand.seite">
+					<Schalter bind:an={aktiv} info="bestand.aktiv" label="Karte im Kundenportal anzeigen" hinweis="Sie erscheint klein und dezent am Ende des Portals – nur bei Kunden mit einem abgeschlossenen Auftrag („Projekt erfolgreich beendet“)." />
+					<InfoFeld id="bestand.titel"><label>Überschrift
 						<input type="text" bind:value={titel} maxlength={G.titel} placeholder="Auch nach Abschluss für Sie da" />
-					</label>
-					<label>Kleiner Text darunter (optional)
+					</label></InfoFeld>
+					<InfoFeld id="bestand.text"><label>Kleiner Text darunter (optional)
 						<textarea bind:value={text} rows="3" maxlength={G.text} placeholder="Gerne unterstützen wir Sie auch künftig …"></textarea>
-					</label>
+					</label></InfoFeld>
 					<p class="kd-info">Die Überschrift muss das Wort „Bestandskunde“ nicht enthalten – Sie bestimmen die Wortwahl. Farben und Schrift übernimmt das Portal von Ihrem Briefkopf.</p>
 				</Abschnitt>
 
-				<Abschnitt titel="Leistungen" anzahl={leistungen.length}>
+				<Abschnitt titel="Leistungen" anzahl={leistungen.length} info="bestand.leistungen">
 					{#if leistungen.length === 0}<p class="kd-leer">Keine Leistungen – im Portal erscheint dann nur der Text und die Knöpfe.</p>{/if}
 					<ol class="bk-zeilen" aria-label="Leistungen">
 						{#each leistungen as l, i (i)}
@@ -105,7 +107,7 @@
 					</div>
 				</Abschnitt>
 
-				<Abschnitt titel="Knöpfe mit Link" anzahl={knoepfe.length}>
+				<Abschnitt titel="Knöpfe mit Link" anzahl={knoepfe.length} info="bestand.knoepfe">
 					<p class="kd-info">Zum Beispiel „Termin anfragen“ mit Ihrer Anfrageseite oder „Anrufen“ mit <code>tel:+49…</code>. Erlaubt sind Adressen mit <code>https://</code>, <code>mailto:</code> und <code>tel:</code>. Internetadressen öffnen sich für den Kunden in einem neuen Tab.</p>
 					{#if knoepfe.length === 0}<p class="kd-leer">Noch kein Knopf.</p>{/if}
 					<ol class="bk-zeilen" aria-label="Knöpfe">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import DateiFeld from '$lib/components/ui/DateiFeld.svelte';
@@ -27,7 +28,7 @@
 
 <main class="kd-seite">
 	<h1>Briefkopf</h1>
-	<p class="kd-info">Diese Angaben und das Logo stehen auf jedem Angebot (PDF).</p>
+	<p class="kd-info">Diese Angaben und das Logo stehen auf jedem Angebot (PDF).<InfoFenster id="briefkopf.seite" /></p>
 
 	<h2>Logo</h2>
 	<DateiFeld
@@ -81,7 +82,7 @@
 		{/snippet}
 	</DateiFeld>
 
-	<h2 id="hausfarbe">Hausfarbe</h2>
+	<div class="bk-h2info"><h2 id="hausfarbe">Hausfarbe</h2><InfoFenster id="briefkopf.hausfarbe" /></div>
 	<p class="kd-info">
 		Knöpfe, Links und der aktive Menüpunkt nutzen die Hausfarbe. Beim Hochladen des Logos wird seine Farbe automatisch
 		erkannt und übernommen – solange du keine eigene Farbe gewählt hast. Die Schrift auf Knöpfen wird so gewählt, dass sie
@@ -138,7 +139,7 @@
 			<input type="color" name="farbe" value={werte.farbe || STANDARD_FARBE} />
 		</label>
 		<div class="bk-portal" role="group" aria-labelledby="bk-portal-titel">
-			<h2 id="bk-portal-titel">Erscheinungsbild Kundenportal</h2>
+			<div class="bk-h2info"><h2 id="bk-portal-titel">Erscheinungsbild Kundenportal</h2><InfoFenster id="portal.erscheinungsbild" /></div>
 			<p class="kd-info">So sieht das Portal für Ihre Kunden aus – passend zu Ihrer Website. Die CRM-App selbst nutzt nur die Hausfarbe.</p>
 			<p class="kd-info">
 				Im Kundenportal wird das normale Logo verwendet, groß und ohne Feld, daneben „Ihr Kundenportal“. Nur bei einer dunklen
@@ -187,6 +188,14 @@
 </main>
 
 <style>
+	.bk-h2info {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.bk-h2info :global(h2) {
+		margin: 0;
+	}
 	.bk-portal {
 		display: grid;
 		gap: 0.75rem;

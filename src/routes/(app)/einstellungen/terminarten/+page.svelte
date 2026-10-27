@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	/**
 	 * Terminarten (Jamil msg 3074): eine Liste für Plantafel und Online-Buchung. Reihenfolge = Reihenfolge in der
 	 * Auswahl „Terminart“ im Einsatz-Dialog und auf der Buchungsseite.
@@ -31,7 +32,7 @@
 		Eine Liste für alles: Die Terminarten (z. B. „Besichtigung“, „Wartung“) wählt ihr beim Einplanen in der
 		<a href="/plantafel">Plantafel</a> aus – mit Farbe und Dauer. Ist eine Terminart <strong>online buchbar</strong>, können Kunden sie auch selbst über die
 		<a href="/einstellungen/online-buchung">Online-Buchung</a> buchen. Die Reihenfolge hier ist die Reihenfolge in der Auswahl.
-	</p>
+	<InfoFenster id="terminarten.seite" /></p>
 
 	<Abschnitt titel="Terminarten" anzahl={anzahl}>
 		{#if anzahl === 0}

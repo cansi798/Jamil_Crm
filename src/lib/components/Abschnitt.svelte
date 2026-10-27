@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 
 	/**
 	 * Abschnitt einer Seite: weiße Fläche mit zart getöntem Kopfband (Titel, optional Anzahl, Aktionen rechts).
@@ -12,6 +13,7 @@
 		id,
 		ebene = 2,
 		aktionen,
+		info,
 		children
 	}: {
 		titel: string;
@@ -20,6 +22,8 @@
 		id?: string;
 		ebene?: 2 | 3;
 		aktionen?: Snippet;
+		/** Schlüssel in `$lib/einstellungs-infos.ts`: ⓘ neben dem Titel (Jamil msg 3423) */
+		info?: string;
 		children?: Snippet;
 	} = $props();
 	const titelId = $derived(id ? `${id}-titel` : undefined);
@@ -27,9 +31,12 @@
 
 <section class="abschnitt" {id} aria-labelledby={titelId} aria-label={titelId ? undefined : titel}>
 	<header class="abschnitt-kopf">
-		<svelte:element this={`h${ebene}`} class="abschnitt-titel" id={titelId}>
-			{titel}{#if anzahl != null}<span class="abschnitt-anzahl" aria-hidden="true">{anzahl}</span>{/if}
-		</svelte:element>
+		<div class="abschnitt-titelzeile">
+			<svelte:element this={`h${ebene}`} class="abschnitt-titel" id={titelId}>
+				{titel}{#if anzahl != null}<span class="abschnitt-anzahl" aria-hidden="true">{anzahl}</span>{/if}
+			</svelte:element>
+			{#if info}<InfoFenster id={info} />{/if}
+		</div>
 		{#if aktionen}
 			<div class="abschnitt-aktionen">{@render aktionen()}</div>
 		{/if}
@@ -38,3 +45,12 @@
 		<div class="abschnitt-inhalt">{@render children()}</div>
 	{/if}
 </section>
+
+<style>
+	.abschnitt-titelzeile {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+	}
+</style>

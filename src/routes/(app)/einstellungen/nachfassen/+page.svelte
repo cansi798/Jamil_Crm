@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -48,7 +49,7 @@
 		Nach einer festen Zahl von Tagen legt das CRM eine Aufgabe an und/oder bereitet eine Mail vor – fertig zum Kopieren oder zum Öffnen im
 		Mailprogramm. Es stoppt von selbst, sobald das Angebot angenommen oder abgelehnt ist. Pausieren geht am Angebot, „kein Nachfassen“ beim
 		Kunden. Automatisch versendet wird noch nichts (Mail-Anbindung offen).
-	</p>
+	<InfoFenster id="nachfassen.seite" /></p>
 
 	{#each NACHFASS_ARTEN as art (art)}
 		<Karte>
@@ -165,7 +166,7 @@
 			</label>
 		</div>
 		{#if s}
-			<label class="kd-haken"><input type="checkbox" name="aktiv" value="true" checked={s.aktiv} /><span>Stufe aktiv</span></label>
+			<label class="kd-haken"><input type="checkbox" name="aktiv" value="true" checked={s.aktiv} /><span>Stufe aktiv</span></label> <InfoFenster id="nachfassen.stufe" />
 			<input type="hidden" name="aktiv" value="false" />
 		{/if}
 		<div class="nf-knoepfe">

@@ -41,6 +41,7 @@
 <main class="kd-seite breit">
 	<VorlagenKopf
 		titel="E-Mail-Vorlagen"
+		info="mail-vorlagen.seite"
 		meta="Alle Mail-Texte an Kunden – je Zweck ist eine Vorlage der Standard."
 		neu={{ href: data.filter ? `/einstellungen/mail-vorlagen/neu?zweck=${data.filter}` : '/einstellungen/mail-vorlagen/neu' }}
 	/>

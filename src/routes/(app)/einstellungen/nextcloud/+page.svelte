@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import type { ActionData, PageData } from './$types';
@@ -23,7 +24,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Nextcloud</h1>
-			<p class="seiten-meta">Verbunden mit {data.url}</p>
+			<p class="seiten-meta">Verbunden mit {data.url}<InfoFenster id="nextcloud.seite" /></p>
 		</div>
 	</header>
 

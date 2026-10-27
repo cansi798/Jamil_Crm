@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { untrack } from 'svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
@@ -18,7 +19,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Rollen</h1>
-			<p class="seiten-meta">Eine Rolle legt fest, was ein Benutzer im System sehen und tun darf.</p>
+			<p class="seiten-meta">Eine Rolle legt fest, was ein Benutzer im System sehen und tun darf.<InfoFenster id="rollen.seite" /></p>
 		</div>
 		<div class="seiten-aktionen">
 			<button type="button" class="kd-knopf" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>

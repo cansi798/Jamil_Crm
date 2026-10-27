@@ -1,4 +1,6 @@
 <script lang="ts">
+	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import '$lib/stil/kunden.css';
 	import { enhance } from '$app/forms';
@@ -17,7 +19,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Kundenportal & Auftragsbestätigung</h1>
-			<p class="seiten-meta">Links für die Online-Annahme und was nach der Annahme eines Angebots automatisch passiert.</p>
+			<p class="seiten-meta">Links für die Online-Annahme und was nach der Annahme eines Angebots automatisch passiert.<InfoFenster id="portal.seite" /></p>
 		</div>
 	</header>
 	<p class="kd-info">Was Kunden nach Abschluss eines Auftrags zusätzlich sehen: <a href="/einstellungen/bestandskunden">Leistungen für Bestandskunden</a>.</p>
@@ -25,7 +27,7 @@
 	{#if form?.gespeichert}<p role="status" class="kd-info">Gespeichert.</p>{/if}
 
 	<!-- Jamil msgs 3097/3098: „Allgemeine Geschäftsbedingungen“, Ersetzen und Entfernen nebeneinander wie beim Logo, Entfernen mit Rückfrage -->
-	<Abschnitt titel="Allgemeine Geschäftsbedingungen">
+	<Abschnitt titel="Allgemeine Geschäftsbedingungen" info="portal.agb_pdf">
 		<p class="kd-info">
 			Die Allgemeinen Geschäftsbedingungen (PDF) stehen im Kundenportal beim Häkchen „Ich habe die AGB (PDF) gelesen …“ als Link und
 			unter „Ihre Unterlagen“. Bei jeder Annahme wird festgehalten, welche Fassung der Kunde bestätigt hat.
@@ -60,31 +62,31 @@
 	</Abschnitt>
 	<form method="POST" use:enhance={() => async ({ update }) => update({ reset: false })} class="kd-formular">
 		<Abschnitt titel="Auftragsbestätigung">
-			<Schalter name="abAutomatisch" an={data.e.abAutomatisch} label="Auftragsbestätigung automatisch erstellen" hinweis="Sobald ein Angebot angenommen ist (Kundenportal, Büro oder Sprache): PDF am Auftrag, im Portal sichtbar, Versand vorbereitet. Je Auftrag abschaltbar." />
+			<Schalter name="abAutomatisch" an={data.e.abAutomatisch} label="Auftragsbestätigung automatisch erstellen" info="portal.ab_automatisch" hinweis="Sobald ein Angebot angenommen ist (Kundenportal, Büro oder Sprache): PDF am Auftrag, im Portal sichtbar, Versand vorbereitet. Je Auftrag abschaltbar." />
 		</Abschnitt>
 		<Abschnitt titel="Kundenportal">
 			{#if !data.portalModul}<p class="kd-info">Das Kundenportal ist im aktuellen Tarif nicht enthalten – die Links gelten erst mit dem Modul.</p>{/if}
-			<label>Welche Aufträge stehen im Portal?
+			<InfoFeld id="portal.standard"><label>Welche Aufträge stehen im Portal?
 				<Auswahl name="standard">
 					<option value="alle_aktiven" selected={data.e.standard === 'alle_aktiven'}>alle aktiven Aufträge des Kunden (nicht abgerechnet)</option>
 					<option value="nur_markierte" selected={data.e.standard === 'nur_markierte'}>nur Aufträge mit „Im Portal zeigen: ja“</option>
 				</Auswahl>
-			</label>
+			</label></InfoFeld>
 			<p class="kd-info">Je Auftrag überschreibbar (Karte „Kundenportal“ im Auftrag). Den Link erzeugen Sie auf der Seite des Kunden.</p>
-			<label>Namen von Ansprechpartner und Team im Portal
+			<InfoFeld id="portal.team_namen"><label>Namen von Ansprechpartner und Team im Portal
 				<Auswahl name="teamNamen">
 					<option value="vorname" selected={data.e.teamNamen === 'vorname'}>nur Vorname (z. B. „Sabine“)</option>
 					<option value="voll" selected={data.e.teamNamen === 'voll'}>Vor- und Nachname (z. B. „Sabine Schäfer“)</option>
 					<option value="aus" selected={data.e.teamNamen === 'aus'}>keine Namen zeigen</option>
 				</Auswahl>
-			</label>
+			</label></InfoFeld>
 			<p class="kd-info">Der Kunde sieht, wer sein Ansprechpartner ist und wer am Auftrag arbeitet. Je Auftrag abschaltbar („Namen der Mitarbeiter“).</p>
-			<label>Link zu Ihren Allgemeinen Geschäftsbedingungen (nur, wenn oben kein PDF hinterlegt ist)
+			<InfoFeld id="portal.agb_url"><label>Link zu Ihren Allgemeinen Geschäftsbedingungen (nur, wenn oben kein PDF hinterlegt ist)
 				<input type="url" name="agbUrl" value={data.e.agbUrl ?? ''} placeholder="https://www.ihre-firma.de/agb" maxlength="500" />
-			</label>
-			<label>Link zur Widerrufsbelehrung (optional)
+			</label></InfoFeld>
+			<InfoFeld id="portal.widerruf_url"><label>Link zur Widerrufsbelehrung (optional)
 				<input type="url" name="widerrufUrl" value={data.e.widerrufUrl ?? ''} placeholder="https://www.ihre-firma.de/widerruf" maxlength="500" />
-			</label>
+			</label></InfoFeld>
 		</Abschnitt>
 		<button type="submit" class="kd-knopf">Speichern</button>
 	</form>

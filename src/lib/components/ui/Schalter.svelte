@@ -1,21 +1,35 @@
 <script lang="ts">
+	import InfoFenster from './InfoFenster.svelte';
 	/** Kippschalter (role="switch") statt Häkchen – z. B. „Wiederkehrend“. Optional mit `name` im Formular. */
 	let {
 		an = $bindable(false),
 		label,
 		name,
 		hinweis,
-		klasse = ''
-	}: { an?: boolean; label: string; name?: string; hinweis?: string; klasse?: string } = $props();
+		klasse = '',
+		info
+	}: { an?: boolean; label: string; name?: string; hinweis?: string; klasse?: string; info?: string } = $props();
 </script>
 
-<label class={`sch ${klasse}`}>
-	<input type="checkbox" {name} bind:checked={an} />
-	<span class="sch-bahn" aria-hidden="true"><span class="sch-knopf"></span></span>
-	<span class="sch-text">{label}{#if hinweis}<small>{hinweis}</small>{/if}</span>
-</label>
+{#snippet schalter()}
+	<label class={`sch ${klasse}`}>
+		<input type="checkbox" {name} bind:checked={an} />
+		<span class="sch-bahn" aria-hidden="true"><span class="sch-knopf"></span></span>
+		<span class="sch-text">{label}{#if hinweis}<small>{hinweis}</small>{/if}</span>
+	</label>
+{/snippet}
+{#if info}
+	<span class="sch-zeile">{@render schalter()}<InfoFenster id={info} /></span>
+{:else}
+	{@render schalter()}
+{/if}
 
 <style>
+	.sch-zeile {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.6rem;
+	}
 	.sch {
 		position: relative;
 		display: inline-flex !important;

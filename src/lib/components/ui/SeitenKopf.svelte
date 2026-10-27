@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import InfoFenster from './InfoFenster.svelte';
 
 	/**
 	 * Seitenkopf – auf JEDER Seite gleich (docs/design-regeln.md): optional Zurück-Link und Überzeile, Titel und
@@ -11,7 +12,8 @@
 		ueberzeile,
 		zurueck,
 		aktionen,
-		zusatz
+		zusatz,
+		info
 	}: {
 		titel: string;
 		/** kurze Zeile unter dem Titel (Nummer, Anzahl, Zeitraum …) */
@@ -23,6 +25,8 @@
 		aktionen?: Snippet;
 		/** Inhalt unter Titel/Meta (z. B. Abzeichen) */
 		zusatz?: Snippet;
+		/** Schlüssel in `$lib/einstellungs-infos.ts`: ⓘ am Ende der Meta-Zeile (Jamil msg 3423) */
+		info?: string;
 	} = $props();
 </script>
 
@@ -31,7 +35,7 @@
 	<div class="sk-titel">
 		{#if ueberzeile}<span class="ui-eyebrow">{ueberzeile}</span>{/if}
 		<h1>{titel}</h1>
-		{#if meta}<p class="seiten-meta">{meta}</p>{/if}
+		{#if meta || info}<p class="seiten-meta">{meta ?? ''}{#if info}<InfoFenster id={info} />{/if}</p>{/if}
 		{#if zusatz}{@render zusatz()}{/if}
 	</div>
 	{#if aktionen}

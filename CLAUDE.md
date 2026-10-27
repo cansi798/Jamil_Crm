@@ -35,9 +35,11 @@ Skripte, Kommentare und `ANLEITUNG.md` bleiben auf Deutsch und in einfacher Spra
 ## Menü-Gruppen (Regel von Jamil, Talk msg 2860)
 
 Jede neue Seite bzw. jeder neue Bereich kommt in die passende Gruppe der Navigation (`src/lib/navigation.ts`):
-**Hauptbereich** (Start, Kunden, Aufträge, Ausgangsbelege, Plantafel, Karte, Aufgaben), **Vorlagen**, **Stammdaten &
-Kalkulation**, **Team & Partner** (Zeiten, Abwesenheiten, Kolonnen, Partner – Jamil msg 3089, früher „Personal & Zeiten“),
-**Auswertungen**, **Automatisierung**, **Benutzeradministration**. Einträge
+**Hauptbereich** (Start, Kunden, Aufträge, Ausgangsbelege, Plantafel, Karte, Aufgaben), dann der **Weg des Kunden**
+(Jamil msg 3423): **Anfrage**, **Angebot**, **Auftrag**, **Abschluss & danach** – dort stehen die Einstellungen, wo der Kunde sie
+erlebt –, dann **Vorlagen**, **Team & Partner** (Zeiten, Abwesenheiten, Kolonnen, Partner – Jamil msg 3089),
+**Auswertungen**, **Allgemein** (Funktionen & Automatisierungen, Briefkopf, Erinnerungen, Handy, Was ist neu),
+**Benutzeradministration**. Neue Einstellung → in die Gruppe des Kundenwegs, zu der sie gehört. Einträge
 erscheinen nur mit Modul und Recht. Passt keine Gruppe, eine sinnvolle neue Gruppe anlegen bzw. die Reihenfolge
 anpassen – und in der Talk-Notiz an Jamil IMMER sagen, was im Menü dazugekommen oder verschoben ist und warum.
 `tests/unit/navigation.test.ts` mitziehen. Seiten ohne eigenes Menü (z. B. „Gespeicherte Ansichten“) bekommen keinen Eintrag.
@@ -77,3 +79,14 @@ Vorschlagslisten und Panels liegen als Overlay obenauf und schieben nie Inhalt, 
 Immer über den gemeinsamen Helfer `$lib/overlay` (`schwebend`, `schwebendesDetails`, `overlayLage`) – nicht selbst
 positionieren: oberste Ebene (Popover), klappt bei Platzmangel nach oben, Höhe begrenzt (scrollt in sich), schließt
 bei Klick außerhalb, Esc und Scrollen.
+
+## Einstellungen: Info-Fenster, Übersicht, Neuigkeiten, Ebenen (Jamil, Talk msg 3423)
+
+- **Jede Einstellung hat ein ⓘ** (`ui/InfoFenster.svelte`, Texte zentral in `src/lib/einstellungs-infos.ts`: Was sie verändert ·
+  Wirkt auf · Standard · Beispiel). An Abschnitten `info="…"`, an Schaltern `info="…"`, sonst `<InfoFenster id="…" />`. Eine neue
+  Einstellungsseite ohne ⓘ lässt `tests/unit/einstellungs-infos.test.ts` rot werden.
+- **Jede neue automatische Funktion** kommt in `src/lib/funktionen.ts` („Funktionen & Automatisierungen“) und mit einem Satz und
+  Fundort in `src/lib/neuigkeiten.ts` („Was ist neu“).
+- **Ebenen (Zentralisierung):** kundenbezogene Einstellungen gehören **zum Kunden**, auftragsbezogene zum Auftrag, firmenweite
+  Standardwerte in die Einstellungen; Vererbung Firma → Kunde → (Auftrag nur wenn wirklich auftragsspezifisch). Tabelle und
+  Bestandsaufnahme: `docs/einstellungen-ebenen.md`.

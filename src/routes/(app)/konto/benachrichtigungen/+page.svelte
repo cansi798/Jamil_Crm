@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { onMount } from 'svelte';
 	import '$lib/stil/kunden.css';
 	import type { PageData } from './$types';
@@ -110,7 +111,7 @@
 	<p class="kd-info">
 		Erinnerungen zu Aufgaben und Terminen erscheinen immer in der Glocke oben. Hier schaltest du zusätzlich Push-Nachrichten auf diesem Gerät
 		ein – dann klingelt das Handy bzw. der PC, auch wenn das CRM gerade nicht offen ist.
-	</p>
+	<InfoFenster id="benachrichtigungen.seite" /></p>
 
 	<section class="bn-karte" aria-label="Dieses Gerät">
 		<h2>Dieses Gerät</h2>

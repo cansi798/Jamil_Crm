@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -78,7 +79,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Kalkulation / Stundensatz</h1>
-			<p class="seiten-meta">Kosten ÷ produktive Stunden = Kosten-Stundensatz; mit Wagnis und Gewinn der Verrechnungssatz.</p>
+			<p class="seiten-meta">Kosten ÷ produktive Stunden = Kosten-Stundensatz; mit Wagnis und Gewinn der Verrechnungssatz.<InfoFenster id="kalkulation.seite" /></p>
 		</div>
 	</header>
 

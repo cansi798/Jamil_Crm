@@ -215,6 +215,12 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
   Projektbegleiter“ als Büro-Figur, im Team nach Rolle Monteur/Büro, männlich/weiblich nach Anrede
   (Einstellungen → Benutzer; ohne Anrede männlich). Hausfarbe über `--ui-akzent`. In der App bleiben Initialen.
 
+## 10c. Info-Fenster bei Einstellungen (Jamil msg 3423)
+
+Jede Einstellung erklärt sich selbst: kleines ⓘ (`components/ui/InfoFenster.svelte`) neben Titel, Schalter oder Feld; Tipp/Klick öffnet
+ein schwebendes Fenster (Was sie verändert · Wirkt auf · Standard · Beispiel), Esc und Klick daneben schließen, Tippfläche 44 px.
+Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…" beschriftung="Was bewirkt diese Seite?" />` unter dem Seitenkopf.
+
 ## 11. Prüfen
 
 - Querscrollen bei 390 px: keins. Tippziele ≥ 44 px.

@@ -25,7 +25,7 @@ test('Einstellungen: bearbeiten, Vorschau, Link-Prüfung, speichern, zurücksetz
 	await erwarteKeinQuerScrollen(page, breite);
 
 	// Überschrift ändern → Vorschau folgt sofort
-	await page.getByLabel('Überschrift').fill('E2E Wir bleiben für Sie da');
+	await page.getByLabel('Überschrift', { exact: true }).fill('E2E Wir bleiben für Sie da');
 	await expect(vorschau.getByRole('heading', { name: 'E2E Wir bleiben für Sie da' })).toBeVisible();
 
 	// Leistung hinzufügen, nach oben schieben, wieder entfernen (mit Rückfrage)
@@ -58,21 +58,21 @@ test('Einstellungen: bearbeiten, Vorschau, Link-Prüfung, speichern, zurücksetz
 	await page.getByRole('button', { name: 'Speichern' }).click();
 	await expect(page.getByRole('status')).toContainText('Gespeichert');
 	await page.reload();
-	await expect(page.getByLabel('Überschrift')).toHaveValue('E2E Wir bleiben für Sie da');
+	await expect(page.getByLabel('Überschrift', { exact: true })).toHaveValue('E2E Wir bleiben für Sie da');
 	await expect(page.getByTestId('bestand-knopf').first().getByLabel('Link *')).toHaveValue('https://www.beispiel.de/anfrage');
 
 	// Ausschalten: Vorschau gedimmt mit Hinweis
-	await page.getByLabel('Karte im Kundenportal anzeigen').uncheck();
+	await page.getByRole('checkbox', { name: /Karte im Kundenportal anzeigen/ }).uncheck();
 	await expect(page.getByText('Ausgeschaltet – Kunden sehen die Karte nicht.')).toBeVisible();
 	await erwarteKeinQuerScrollen(page, breite);
 
 	// zurück auf Standard und speichern (Testdaten aufräumen)
-	await page.getByLabel('Karte im Kundenportal anzeigen').check();
+	await page.getByRole('checkbox', { name: /Karte im Kundenportal anzeigen/ }).check();
 	await page.getByRole('button', { name: 'Standard wiederherstellen' }).click();
 	await bestaetigen(page, 'Zurücksetzen');
 	await page.getByRole('button', { name: 'Speichern' }).click();
 	await expect(page.getByRole('status')).toContainText('Gespeichert');
 	await page.reload();
-	await expect(page.getByLabel('Überschrift')).toHaveValue('Auch nach Abschluss für Sie da');
+	await expect(page.getByLabel('Überschrift', { exact: true })).toHaveValue('Auch nach Abschluss für Sie da');
 	await expect(page.getByTestId('bestand-knopf')).toHaveCount(0);
 });

@@ -12,7 +12,8 @@
 		titel,
 		meta,
 		neu,
-		weitere
+		weitere,
+		info
 	}: {
 		titel: string;
 		meta: string;
@@ -20,10 +21,12 @@
 		neu: { href: string } | { aktion: string } | null;
 		/** weitere Aktionen links von „+ Neue Vorlage“ (selten) */
 		weitere?: Snippet;
+		/** Schlüssel in `$lib/einstellungs-infos.ts` (Jamil msg 3423) */
+		info?: string;
 	} = $props();
 </script>
 
-<SeitenKopf {titel} {meta}>
+<SeitenKopf {titel} {meta} {info}>
 	{#snippet aktionen()}
 		{#if weitere}{@render weitere()}{/if}
 		{#if neu && 'href' in neu}

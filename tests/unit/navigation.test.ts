@@ -6,20 +6,27 @@ import { MODULE } from '../../src/lib/tarife';
 const ALLE_MODULE = [...MODULE];
 const betriebsNutzer = (rechte: readonly string[]) => ({ istAdmin: false, betriebId: 'b1', rechte });
 const namen = (eintraege: { name: string }[]) => eintraege.map((e) => e.name);
-const gruppen = (nav: ReturnType<typeof baueNavigation>) => Object.fromEntries(nav.gruppen.map((g) => [g.titel, namen(g.eintraege)]));
+// „Was ist neu“ (msg 3423) steht bei allen Benutzern eines Betriebs – hier ausgeblendet, eigener Test unten
+const gruppen = (nav: ReturnType<typeof baueNavigation>) =>
+	Object.fromEntries(nav.gruppen.map((g) => [g.titel, namen(g.eintraege).filter((n) => n !== 'Was ist neu')]).filter(([, e]) => e.length > 0));
 
 describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Chef: Hauptbereich in fester Reihenfolge, Gruppen mit Einträgen; „Weitere Bereiche“ gibt es nicht mehr', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE, { nextcloud: true });
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
+		// Einstellungen nach dem Weg des Kunden (Jamil msg 3423): Anfrage → Angebot → Auftrag → Abschluss & danach
 		expect(gruppen(nav)).toEqual({
+			Anfrage: ['Auftragsquellen', 'Terminarten', 'Online-Buchung'],
+			Angebot: ['Katalog', 'Kalkulation', 'Nachfassen'],
+			Auftrag: ['Kundenportal & Auftragsbestätigung'],
+			'Abschluss & danach': ['Leistungen für Bestandskunden'],
 			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
-			'Stammdaten & Kalkulation': ['Katalog', 'Kalkulation', 'Auftragsquellen', 'Terminarten', 'Briefkopf / Firmenprofil'],
 			'Team & Partner': ['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner'],
 			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen'],
-			Automatisierung: ['Nachfassen', 'Kundenportal & Auftragsbestätigung', 'Leistungen für Bestandskunden', 'Online-Buchung', 'Erinnerungen', 'Handy verbinden'],
+			Allgemein: ['Funktionen & Automatisierungen', 'Briefkopf / Firmenprofil', 'Erinnerungen', 'Handy verbinden'],
 			Benutzeradministration: ['Benutzer', 'Nextcloud', 'Rollen']
 		});
+		expect(nav.gruppen.map((g) => g.titel).slice(0, 4)).toEqual(['Anfrage', 'Angebot', 'Auftrag', 'Abschluss & danach']);
 		expect(nav.mehr).toEqual(nav.gruppen.flatMap((g) => g.eintraege));
 		expect(nav.haupt[1]).toMatchObject({ href: '/kunden' });
 		expect(nav.haupt.find((e) => e.name === 'Aufgaben')).toMatchObject({ href: '/todos' });
@@ -30,7 +37,8 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
 		const g = gruppen(nav);
 		expect(g['Benutzeradministration']).toBeUndefined();
-		expect(g['Stammdaten & Kalkulation']).toEqual(['Katalog']);
+		expect(g['Angebot']).toEqual(['Katalog']);
+		expect(g['Anfrage']).toBeUndefined();
 		expect(g['Team & Partner']).toEqual(['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner']);
 		expect(namen(nav.mehr)).not.toContain('Kalkulation');
 		expect(namen(nav.mehr)).not.toContain('Online-Buchung');
@@ -40,14 +48,14 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Monteur: Start, Kunden, Aufträge, Karte, Aufgaben; nur Auftrags-Vorlagen, Zeiten, Erinnerungen; nie Preise', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Karte', 'Aufgaben']);
-		expect(gruppen(nav)).toEqual({ Vorlagen: ['Auftrags-Vorlagen'], 'Team & Partner': ['Zeiten'], Automatisierung: ['Erinnerungen', 'Handy verbinden'] });
+		expect(gruppen(nav)).toEqual({ Vorlagen: ['Auftrags-Vorlagen'], 'Team & Partner': ['Zeiten'], Allgemein: ['Erinnerungen', 'Handy verbinden'] });
 		for (const name of ['Ausgangsbelege', 'Katalog', 'Briefkopf / Firmenprofil', 'Kalkulation', 'Nachkalkulation']) {
 			expect(namen([...nav.haupt, ...nav.mehr]), name).not.toContain(name);
 		}
 	});
 
 	it('Handy verbinden (CalDAV, msgs 2964/2980) für alle, die Aufgaben sehen – nur mit Modul Aufträge', () => {
-		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE))['Automatisierung']).toEqual(['Handy verbinden']);
+		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE))['Allgemein']).toEqual(['Handy verbinden']);
 		expect(namen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE.filter((m) => m !== 'auftraege')).mehr)).not.toContain('Handy verbinden');
 		expect(namen(baueNavigation(betriebsNutzer(['kunden.lesen']), ALLE_MODULE).mehr)).not.toContain('Handy verbinden');
 	});
@@ -70,7 +78,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Ausgangsbelege, Angebots-Vorlagen nur mit angebote.bearbeiten UND preise.sehen; Kalkulation nur mit preise.sehen UND einstellungen', () => {
 		const mit = (rechte: string[], module = ALLE_MODULE) => baueNavigation(betriebsNutzer(rechte), module);
 		expect(namen(mit(['angebote.bearbeiten']).haupt)).toEqual(['Start']);
-		expect(namen(mit(['angebote.bearbeiten']).mehr)).toEqual(['Katalog']);
+		expect(namen(mit(['angebote.bearbeiten']).mehr)).toEqual(['Katalog', 'Was ist neu']);
 		expect(namen(mit(['angebote.bearbeiten', 'preise.sehen']).haupt)).toEqual(['Start', 'Ausgangsbelege']);
 		expect(namen(mit(['angebote.bearbeiten', 'preise.sehen']).mehr)).toContain('Angebots-Vorlagen');
 		expect(namen(mit(['angebote.bearbeiten', 'preise.sehen'], ALLE_MODULE.filter((m) => m !== 'angebote')).haupt)).toEqual(['Start']);
@@ -145,5 +153,15 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(aktiverEintrag(alle, '/plantafel')?.name).toBe('Plantafel');
 		expect(aktiverEintrag(alle, '/angebote/abc')?.name).toBe('Ausgangsbelege');
 		expect(aktiverEintrag(alle, '/unbekannt')).toBeNull();
+	});
+
+	it('Was ist neu (msg 3423): für jeden Benutzer eines Betriebs, nicht für die Plattform-Verwaltung', () => {
+		expect(namen(baueNavigation(betriebsNutzer([]), ALLE_MODULE).mehr)).toContain('Was ist neu');
+		expect(namen(baueNavigation({ istAdmin: true, betriebId: null, rechte: [] }, ALLE_MODULE).mehr)).not.toContain('Was ist neu');
+	});
+
+	it('Funktionen & Automatisierungen nur mit „Einstellungen“', () => {
+		expect(namen(baueNavigation(betriebsNutzer(['einstellungen']), ALLE_MODULE).mehr)).toContain('Funktionen & Automatisierungen');
+		expect(namen(baueNavigation(betriebsNutzer(['kunden.lesen']), ALLE_MODULE).mehr)).not.toContain('Funktionen & Automatisierungen');
 	});
 });

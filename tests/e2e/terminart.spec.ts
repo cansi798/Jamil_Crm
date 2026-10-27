@@ -66,7 +66,7 @@ test('Terminart anlegen, im Einsatz-Dialog wählen (Dauer → Bis), am Termin se
 	// nicht online buchbar → der Buchungslink gilt nicht
 	expect((await page.request.get(pfad)).status()).toBe(404);
 
-	// Liste: Eintrag mit „nur Plantafel“; Menü „Terminarten“ unter Stammdaten
+	// Liste: Eintrag mit „nur Plantafel“; Menü „Terminarten“ unter Anfrage
 	await page.goto('/einstellungen/terminarten');
 	const zeile = page.getByTestId('terminart').filter({ hasText: name });
 	await expect(zeile).toContainText('nur Plantafel');

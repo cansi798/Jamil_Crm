@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
@@ -40,7 +41,7 @@
 <svelte:head><title>Handy verbinden</title></svelte:head>
 
 <main class="kd-seite breit">
-	<SeitenKopf titel="Handy verbinden" meta="Deine Aufgaben aus dem CRM in der Erinnerungen-App (iPhone) oder in Tasks.org (Android)" />
+	<SeitenKopf info="handy.seite" titel="Handy verbinden" meta="Deine Aufgaben aus dem CRM in der Erinnerungen-App (iPhone) oder in Tasks.org (Android)" />
 
 	<p class="kd-info ui-lesetext">
 		Abhaken, umbenennen, neues Datum oder eine neue Aufgabe am Handy – alles kommt automatisch zurück ins CRM (und umgekehrt). Du siehst nur deine
@@ -192,7 +193,7 @@
 	<Abschnitt titel="Listen" id="hv-listen">
 		<form method="POST" action="?/listen" use:enhance={() => async ({ update }) => update({ reset: false })}>
 			{#if fehlerIn('listen')}<p class="kd-fehler" role="alert">{fehlerIn('listen')}</p>{/if}
-			<Schalter name="jeAuftrag" label="Für jeden Auftrag eine eigene Liste" hinweis="Aus: alles in „Meine Aufgaben (CRM)“. An: Aufgaben mit Auftrag in einer Liste je Auftrag." bind:an={jeAuftrag} />
+			<Schalter name="jeAuftrag" info="handy.je_auftrag" label="Für jeden Auftrag eine eigene Liste" hinweis="Aus: alles in „Meine Aufgaben (CRM)“. An: Aufgaben mit Auftrag in einer Liste je Auftrag." bind:an={jeAuftrag} />
 			{#if form && 'gespeichert' in form}<p class="kd-info" role="status">Gespeichert. Das Handy zeigt die Listen beim nächsten Abgleich.</p>{/if}
 			<FormFuss><Knopf type="submit" symbol="speichern">Speichern</Knopf></FormFuss>
 		</form>

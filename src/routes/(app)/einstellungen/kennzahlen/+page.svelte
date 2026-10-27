@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
@@ -30,7 +31,7 @@
 			<p class="seiten-meta">
 				Je Kennzahl: <strong>an/aus</strong> (aus = nirgends gezeigt und nicht gerechnet) und <strong>„Erfassen ab“</strong> – Daten
 				davor zählen für diese Kennzahl nicht, z. B. weil sie erst seit dem Start des CRM vollständig sind.
-			</p>
+			<InfoFenster id="kennzahlen.seite" /></p>
 		</div>
 	</header>
 

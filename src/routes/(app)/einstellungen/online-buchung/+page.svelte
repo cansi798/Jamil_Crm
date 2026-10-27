@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -23,7 +24,7 @@
 		„online buchbar“ eingeschaltet ist – mit Dauer, Mitarbeitern und eigenen Fragen. Angelegt und geändert werden sie unter
 		<a href="/einstellungen/terminarten">Terminarten</a>. Gebucht werden nur freie Zeiten aus den
 		<a href="/einstellungen/online-buchung/zeiten">Arbeitszeiten</a> – Termine in der Plantafel, Urlaub und andere Buchungen sind automatisch belegt.
-	</p>
+	<InfoFenster id="buchung.seite" /></p>
 
 	<Abschnitt titel="Online buchbare Terminarten" anzahl={data.terminarten.length}>
 		{#if data.terminarten.length === 0}
@@ -59,7 +60,7 @@
 
 	<BuchungenListe buchungen={data.buchungen} leer="Keine kommenden Buchungen." />
 
-	<Abschnitt titel="Datenschutz und Website">
+	<Abschnitt titel="Datenschutz und Website" info="buchung.datenschutz">
 		<form method="POST" action="?/einstellungen" use:enhance={ohneReset} class="kd-formular">
 			{#if fehlerIn('einstellungen')}<p role="alert" class="kd-fehler">{fehlerIn('einstellungen')}</p>{:else if form && 'gespeichert' in form}<p role="status" class="ob-ok">Gespeichert.</p>{/if}
 			<label>

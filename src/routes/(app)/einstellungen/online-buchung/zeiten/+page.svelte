@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -58,7 +59,7 @@
 	<h1>Arbeitszeiten für Buchungen</h1>
 	<p class="kd-info oz-intro">
 		Nur in diesen Zeiten kann online gebucht werden. Termine in der Plantafel, Urlaub/Krankheit und andere Buchungen werden automatisch abgezogen.
-	</p>
+	<InfoFenster id="buchung.zeiten" /></p>
 
 	{#if data.mitarbeiter.length === 0}
 		<p class="kd-leer">Keine aktiven Mitarbeiter.</p>

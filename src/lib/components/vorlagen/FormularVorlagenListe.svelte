@@ -50,6 +50,7 @@
 		titel={art.titel}
 		meta={data.art === 'aufmass' ? 'Aufmaß vor Ort: Räume, Maße, Flächen – mit dem Katalog direkt zum Angebot.' : 'Formulare für Monteure: Schritte, Pflichtfelder, Fotos und Unterschrift.'}
 		neu={{ aktion: '?/neu' }}
+		info={data.art === 'aufmass' ? 'aufmass-vorlagen.seite' : 'protokoll-vorlagen.seite'}
 	/>
 
 	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
