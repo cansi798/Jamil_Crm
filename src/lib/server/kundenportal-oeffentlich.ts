@@ -17,6 +17,8 @@ import type { AuftragStatus } from '../auftrag-status';
 import { summen, istMwstSatz } from '../geld';
 import { berlinTag, berlinUhrzeit, tagKurz } from '../zeit';
 import { anzeigeDateiname } from '../dateiname';
+import { bestandAusDatenbank, bestandKarteFuer, type BestandKarte } from '../bestandskunden';
+import type { PortalMarke } from '../portal-marke';
 import { figurFuer, istAnrede, teamRolle, type Figur } from '../portal-figur';
 
 /**
@@ -97,13 +99,14 @@ export type PortalAuftrag = {
 	/** Mitarbeiter am Auftrag (Zuständige + kommende Termine) – leer bei „keine Namen“ oder Schalter aus. */
 	team: PortalPerson[];
 };
-/** Erscheinungsbild des Portals je Betrieb (Migration 096, msg 2953) – leer = Standard */
-export type PortalMarke = { dunkel: string | null; hintergrund: string | null; titelSchrift: 'montserrat' | 'inter'; textSchrift: 'inter' | 'opensans'; titelGross: boolean };
+export type { PortalMarke };
 export type PortalSeite = {
 	betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; /** Logo im Kopf je nach Kopffarbe (msgs 3088, 3126) */ logo: PortalLogo | null; farbe: string | null; marke: PortalMarke };
 	agbUrl: string | null;
 	/** Bestandskunde (Jamil msg 3142): mind. ein Auftrag des Kunden ist abgeschlossen („Projekt erfolgreich beendet“) */
 	bestandskunde: boolean;
+	/** Karte „Leistungen für Bestandskunden“ (msg 3408): nur wenn eingeschaltet, Kunde Bestandskunde und etwas darin; sonst null */
+	bestandskarte: BestandKarte | null;
 	/** AGB als PDF (msg 3030): Stand der hinterlegten Fassung; abrufbar unter /portal/<token>/agb */
 	agbPdf: { stand: string } | null;
 	widerrufUrl: string | null;
@@ -147,11 +150,13 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 	const [b] = await tx`
 		select coalesce(pr.firmenname, be.name) as name, pr.telefon, pr.email, pr.web, pr.logo is not null as hat_logo, pr.logo_dunkel is not null as hat_logo_dunkel, pr.farbe,
 			pr.dunkel_farbe, pr.hintergrund_farbe, pr.titel_schrift, pr.text_schrift, coalesce(pr.titel_gross, false) as titel_gross,
-			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen, e.agb_pdf_hochgeladen
+			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen, e.agb_pdf_hochgeladen,
+			e.bestand_aktiv, e.bestand_titel, e.bestand_text, e.bestand_leistungen, e.bestand_knoepfe
 		from app.betriebe be
 		left join app.betrieb_profil pr on pr.betrieb_id = be.id
 		left join app.portal_einstellungen e on e.betrieb_id = be.id
 		where be.id = ${p.betriebId}`;
+	const bestandskunde = await istBestandskunde(tx, p);
 	const heute = berlinTag(jetzt);
 	const namen: TeamNamen = b.team_namen === 'voll' || b.team_namen === 'aus' ? b.team_namen : 'vorname';
 	const auftraege: PortalAuftrag[] = [];
@@ -309,7 +314,8 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		agbUrl: b.agb_url,
 		agbPdf: b.agb_pdf_hochgeladen ? { stand: new Date(b.agb_pdf_hochgeladen).toISOString() } : null,
 		widerrufUrl: b.widerruf_url,
-		bestandskunde: await istBestandskunde(tx, p),
+		bestandskunde,
+		bestandskarte: bestandKarteFuer(bestandAusDatenbank(b), bestandskunde),
 		auftraege
 	};
 }

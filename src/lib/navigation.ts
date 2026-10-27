@@ -128,6 +128,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (hat('einstellungen') && module.includes('angebote')) {
 			g.automatisierung.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
 			g.automatisierung.push({ name: 'Kundenportal & Auftragsbestätigung', href: '/einstellungen/kundenportal', symbol: 'angebote' });
+			// Leistungen für Bestandskunden im Portal (Jamil msg 3408): gleiche Gruppe wie das Kundenportal
+			g.automatisierung.push({ name: 'Leistungen für Bestandskunden', href: '/einstellungen/bestandskunden', symbol: 'angebote' });
 		}
 		// Online-Buchung (Wunsch Jamil msgs 2684/2686): Buchungen, Arbeitszeiten, Datenschutz/Einbetten
 		if (module.includes('auftraege') && module.includes('plantafel') && hat('buchung.verwalten')) {

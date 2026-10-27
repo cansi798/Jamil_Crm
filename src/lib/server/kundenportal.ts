@@ -6,6 +6,8 @@ import { UUID } from './kunden';
 import { hatRecht, pruefeRecht } from './rechte';
 import { darf } from './tarif';
 import { istTag, tagesGrenzen } from '../zeit';
+import { bestandAusDatenbank, pruefeBestand, type BestandEinstellung } from '../bestandskunden';
+import type { PortalMarke } from '../portal-marke';
 import { entschluesseleToken, passwortStand, setzePortalPasswort, verschluesseleToken, type PortalPasswortStand } from './portal-zugang';
 
 /**
@@ -279,6 +281,41 @@ const istTeamNamen = (w: unknown): w is TeamNamen => w === 'vorname' || w === 'v
 export async function ladePortalEinstellungen(k: Kontext): Promise<PortalEinstellungen> {
 	const [e] = await mitBetrieb(k, (tx) => tx`select agb_url, widerruf_url, ab_automatisch, standard, team_namen from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
 	return { agbUrl: e?.agb_url ?? null, widerrufUrl: e?.widerruf_url ?? null, abAutomatisch: e?.ab_automatisch ?? true, standard: e?.standard ?? 'alle_aktiven', teamNamen: istTeamNamen(e?.team_namen) ? e.team_namen : 'vorname' };
+}
+
+// ——— Leistungen für Bestandskunden (Wunsch Jamil, msg 3408) ———
+
+/** Einstellung „Leistungen für Bestandskunden“; ohne gespeicherte Werte gelten die Standardtexte. */
+export async function ladeBestandskunden(k: Kontext): Promise<BestandEinstellung> {
+	const [z] = await mitBetrieb(k, (tx) => tx`
+		select bestand_aktiv, bestand_titel, bestand_text, bestand_leistungen, bestand_knoepfe from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
+	return bestandAusDatenbank(z);
+}
+
+/** Prüft die Eingaben serverseitig (Längen, nur https:/mailto:/tel:-Links) und speichert sie; die Datenbank prüft Grenzen nochmals. */
+export async function speichereBestandskunden(k: Kontext, roh: unknown): Promise<BestandEinstellung> {
+	const r = pruefeBestand(roh);
+	if (!r.ok) throw new ApiFehler(400, r.fehler);
+	const w = r.wert;
+	await mitBetrieb(k, (tx) => tx`
+		insert into app.portal_einstellungen (betrieb_id, bestand_aktiv, bestand_titel, bestand_text, bestand_leistungen, bestand_knoepfe)
+		values (${k.betriebId}, ${w.aktiv}, ${w.titel}, ${w.text}, ${tx.json(w.leistungen)}, ${tx.json(w.knoepfe)})
+		on conflict (betrieb_id) do update set bestand_aktiv = excluded.bestand_aktiv, bestand_titel = excluded.bestand_titel,
+			bestand_text = excluded.bestand_text, bestand_leistungen = excluded.bestand_leistungen, bestand_knoepfe = excluded.bestand_knoepfe`);
+	return w;
+}
+
+/** Erscheinungsbild des Portals für die Vorschau in den Einstellungen (wie im Portal). */
+export async function ladePortalMarke(k: Kontext): Promise<PortalMarke> {
+	const [b] = await mitBetrieb(k, (tx) => tx`
+		select dunkel_farbe, hintergrund_farbe, titel_schrift, text_schrift, coalesce(titel_gross, false) as titel_gross from app.betrieb_profil where betrieb_id = ${k.betriebId}`);
+	return {
+		dunkel: b?.dunkel_farbe ?? null,
+		hintergrund: b?.hintergrund_farbe ?? null,
+		titelSchrift: b?.titel_schrift === 'inter' ? 'inter' : 'montserrat',
+		textSchrift: b?.text_schrift === 'opensans' ? 'opensans' : 'inter',
+		titelGross: b?.titel_gross === true
+	};
 }
 
 // ——— AGB als PDF (Wunsch Jamil, msg 3030) ———

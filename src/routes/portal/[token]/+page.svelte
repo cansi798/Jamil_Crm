@@ -6,9 +6,11 @@
 	import { PORTAL_STUFEN, portalStatusText } from '$lib/portal-status';
 	import FortschrittsWeg from '$lib/components/portal/FortschrittsWeg.svelte';
 	import PortalSchritte from '$lib/components/portal/PortalSchritte.svelte';
+	import BestandskundenKarte from '$lib/components/portal/BestandskundenKarte.svelte';
 	import SkizzenKreis from '$lib/components/portal/SkizzenKreis.svelte';
 	import SkizzenRahmen from '$lib/components/portal/SkizzenRahmen.svelte';
 	import { farbStil } from '$lib/farbe';
+	import { portalMarkeStil } from '$lib/portal-marke';
 	import { euro } from '$lib/geld';
 	import { tagDeutsch, tagKurz } from '$lib/zeit';
 	import type { ActionData, PageData } from './$types';
@@ -26,19 +28,7 @@
 	const s = $derived(data.seite);
 	const m = $derived(s.betrieb.marke);
 	const doc = (art: string, id: string) => `/portal/${data.token}/dokument/${art}/${id}`;
-	const SCHRIFT = { montserrat: "'Montserrat', 'Inter', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", opensans: "'Open Sans', 'Inter', system-ui, sans-serif" };
-	const stil = $derived(
-		[
-			farbStil(data.akzent),
-			'--ui-akzent-dunkel: var(--ui-akzent-text)',
-			`--pt-dunkel: ${m.dunkel ?? '#2d2c2e'}`,
-			`--pt-grund: ${m.hintergrund ?? '#f6f4f0'}`,
-			`--pt-titel: ${SCHRIFT[m.titelSchrift]}`,
-			`--pt-text: ${SCHRIFT[m.textSchrift]}`,
-			`--ui-schrift-titel: ${SCHRIFT[m.titelSchrift]}`,
-			`--pt-gross: ${m.titelGross ? 'uppercase' : 'none'}`
-		].join('; ')
-	);
+	const stil = $derived([farbStil(data.akzent), '--ui-akzent-dunkel: var(--ui-akzent-text)', ...portalMarkeStil(m)].join('; '));
 	const webLink = $derived(s.betrieb.web ? (/^https?:\/\//i.test(s.betrieb.web) ? s.betrieb.web : `https://${s.betrieb.web}`) : null);
 	const telLink = $derived(s.betrieb.telefon ? `tel:${s.betrieb.telefon.replace(/[^0-9+]/g, '')}` : null);
 	const mailLink = (nummer: string) => (s.betrieb.email ? `mailto:${s.betrieb.email}?subject=${encodeURIComponent(`Frage zu ${nummer}`)}` : null);
@@ -53,16 +43,6 @@
 	let sendet = $state(false);
 
 	// Status in Kundensprache (msg 3131) – eine Stelle für Weg und Statuszeile: src/lib/portal-status.ts
-
-	// Leistungen für Bestandskunden (msg 3142) – Symbole als einfache Striche im Skizzen-Stil
-	const DIENSTE = [
-		{ name: 'Hausmeisterservice', pfad: 'M4 11 12 4l8 7M6 9.5V20h12V9.5M10 20v-5h4v5' },
-		{ name: 'Garten- und Grundstückspflege', pfad: 'M12 20v-8M12 12c-4 0-6-3-6-7 4 0 6 3 6 7Zm0 0c4 0 6-3 6-7-4 0-6 3-6 7ZM5 20h14' },
-		{ name: 'Winterdienst', pfad: 'M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5' },
-		{ name: 'Kleinreparaturen', pfad: 'M14.5 5.5a4 4 0 0 0 5 5L12 18l-3 1 1-3 7.5-7.5M4 20l5-5' },
-		{ name: 'Altersgerechte Anpassungen', pfad: 'M7 4v16M7 9h10M17 9v11M12 9v4' },
-		{ name: 'Individuelle Unterstützung', pfad: 'M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z' }
-	];
 
 	// ── Kacheln oben ──────────────────────────────────────────────────────────────────────────────────────────────
 	const offen = $derived(s.auftraege.flatMap((a) => a.angebote.filter((x) => x.annehmbar).map((x) => ({ ...x, auftrag: a.titel }))));
@@ -316,36 +296,6 @@
 			<section class="pt-karte"><p>Hier ist gerade nichts freigegeben.</p></section>
 		{/each}
 
-		<!--
-			Jamil msg 3142: „Auch nach Projektabschluss für Sie da“ – sobald ein Auftrag des Kunden abgeschlossen ist
-			(„Projekt erfolgreich beendet“). Vorerst NUR die Optik.
-			TODO(msg 3142): „Anfrage stellen“ mit Funktion – z. B. eine neue Anfrage (Auftrag im Status „anfrage“) mit
-			gewählter Leistung im CRM anlegen und das Büro benachrichtigen; siehe docs/design-regeln.md 10a.
-		-->
-		{#if s.bestandskunde}
-			<section class="pt-karte pt-danach" aria-labelledby="danach-titel" data-testid="portal-nach-abschluss">
-				<span class="pt-eyebrow">Für Bestandskunden</span>
-				{@render titel('Auch nach Projektabschluss für Sie da', 2, 'danach-titel')}
-				<p class="pt-leise pt-danach-text">
-					Als Bestandskunde können Sie auch künftig auf unsere Unterstützung rund um Haus, Wohnung und Grundstück zurückgreifen.
-				</p>
-				<ul class="pt-dienste">
-					{#each DIENSTE as d, i (d.name)}
-						<li>
-							<SkizzenKreis art="ring" groesse={42} seed={i + 11}>
-								<svg class="pt-dienst-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d={d.pfad} /></svg>
-							</SkizzenKreis>
-							<span>{d.name}</span>
-						</li>
-					{/each}
-				</ul>
-				<div class="pt-danach-fuss">
-					<button type="button" class="pt-knopf" disabled aria-describedby="danach-bald">Anfrage stellen</button>
-					<small id="danach-bald" class="pt-leise">bald verfügbar</small>
-				</div>
-			</section>
-		{/if}
-
 		<section class="pt-karte pt-unterlagen" id="unterlagen" aria-labelledby="unterlagen-titel">
 			<span class="pt-eyebrow">Alles an einem Ort</span>
 			{@render titel('Ihre Unterlagen', 2, 'unterlagen-titel')}
@@ -373,6 +323,9 @@
 				<p class="pt-leise">{filter === 'rechnungen' ? 'Rechnungen erscheinen hier, sobald sie erstellt sind.' : 'Hier ist noch nichts.'}</p>
 			{/each}
 		</section>
+
+		<!-- Leistungen für Bestandskunden (msg 3408): klein und dezent am Ende, nur wenn eingeschaltet und ein Auftrag abgeschlossen ist -->
+		{#if s.bestandskarte}<BestandskundenKarte karte={s.bestandskarte} />{/if}
 	</main>
 
 	<footer class="pt-fuss">
@@ -837,61 +790,6 @@
 	}
 	.pt-ansprech .pt-knoepfe {
 		justify-content: flex-start;
-	}
-	/* Auch nach Projektabschluss für Sie da (msg 3142) */
-	.pt-danach-text {
-		margin: 0.35rem 0 0.9rem;
-		max-width: 46rem;
-	}
-	.pt-dienste {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 0.6rem;
-		margin: 0 0 1rem;
-		padding: 0;
-		list-style: none;
-	}
-	.pt-dienste li {
-		display: flex;
-		align-items: center;
-		gap: 0.65rem;
-		padding: 0.5rem 0.75rem 0.5rem 0.5rem;
-		border: 1px solid var(--ui-rand);
-		border-radius: var(--ui-radius);
-		background: var(--pt-grund);
-		font-weight: 600;
-		font-size: var(--ui-schrift-s);
-		line-height: 1.3;
-	}
-	.pt-dienst-symbol {
-		display: block;
-		width: 1.25rem;
-		height: 1.25rem;
-		fill: none;
-		stroke: var(--ui-akzent-text);
-		stroke-width: 1.8;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-	}
-	.pt-danach-fuss {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.75rem;
-	}
-	.pt-danach-fuss .pt-knopf:disabled {
-		opacity: 0.55;
-		cursor: not-allowed;
-	}
-	@media (max-width: 760px) {
-		.pt-dienste {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-	@media (max-width: 480px) {
-		.pt-dienste {
-			grid-template-columns: minmax(0, 1fr);
-		}
 	}
 	.pt-knopf {
 		display: inline-flex;

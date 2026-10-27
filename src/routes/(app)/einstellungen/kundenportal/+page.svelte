@@ -20,6 +20,7 @@
 			<p class="seiten-meta">Links für die Online-Annahme und was nach der Annahme eines Angebots automatisch passiert.</p>
 		</div>
 	</header>
+	<p class="kd-info">Was Kunden nach Abschluss eines Auftrags zusätzlich sehen: <a href="/einstellungen/bestandskunden">Leistungen für Bestandskunden</a>.</p>
 	{#if form?.fehler && !form?.agbFehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 	{#if form?.gespeichert}<p role="status" class="kd-info">Gespeichert.</p>{/if}
 

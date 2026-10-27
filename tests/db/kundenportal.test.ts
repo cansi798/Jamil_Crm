@@ -13,6 +13,8 @@ import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
 import { FakeKi } from '../../src/lib/server/ki/fake';
 import { GET as agbGet } from '../../src/routes/portal/[token]/agb/+server';
 import { actions as einstellungenAktionen, load as einstellungenLoad } from '../../src/routes/(app)/einstellungen/kundenportal/+page.server';
+import { actions as bestandAktionen, load as bestandLoad } from '../../src/routes/(app)/einstellungen/bestandskunden/+page.server';
+import { ladeBestandskunden } from '../../src/lib/server/kundenportal';
 
 /** Kundenportal und Auftragsbestätigung (Jamil msgs 2770–2774 Punkt 4, 2778). */
 describe('Kundenportal', () => {
@@ -376,6 +378,83 @@ describe('Kundenportal', () => {
 		// PDF-Bytes nie im Änderungsprotokoll
 		const [p] = await root`select count(*)::int as n from app.aenderungen where tabelle = 'portal_einstellungen' and nachher ? 'agb_pdf'`;
 		expect(p.n).toBe(0);
+	});
+
+	it('Leistungen für Bestandskunden (msg 3408): Standard, speichern mit Prüfung, Anzeige nur bei abgeschlossenem Auftrag und eingeschalteter Karte, Rechte, Mandanten', async () => {
+		const sende = (nutzer: unknown, daten: unknown) => {
+			const f = new FormData();
+			f.set('daten', typeof daten === 'string' ? daten : JSON.stringify(daten));
+			return bestandAktionen.default({ locals: { nutzer }, request: new Request('http://t/', { method: 'POST', body: f }) } as never) as Promise<{ gespeichert?: boolean; status?: number; data?: { fehler?: string } }>;
+		};
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		// Standard ohne gespeicherte Werte: an, sechs Leistungen, neutraler Titel
+		expect(await ladeBestandskunden(kA())).toMatchObject({ aktiv: true, titel: 'Auch nach Abschluss für Sie da', knoepfe: [] });
+		expect((await ladeBestandskunden(kA())).leistungen).toHaveLength(6);
+		expect(((await bestandLoad({ locals: { nutzer: u.chefA } } as never)) as { e: { aktiv: boolean } }).e.aktiv).toBe(true);
+		// ohne abgeschlossenen Auftrag keine Karte (Aufträge anderer Tests stehen ggf. schon auf „abgerechnet“)
+		await root`update app.auftraege set status = 'anfrage' where kunde_id = ${u.kundeA} and status = 'abgerechnet'`;
+		await root`delete from app.portal_einstellungen`;
+		expect((await ladePortal(token, IP))!.bestandskarte).toBeNull();
+		const [fertig] = await root`insert into app.auftraege (betrieb_id, kunde_id, titel, status, nummer)
+			select betrieb_id, kunde_id, 'Alt fertig', 'abgerechnet', 'A-TEST-9998' from app.auftraege where id = ${u.auftragA} returning id`;
+		const standard = (await ladePortal(token, IP))!.bestandskarte;
+		expect(standard).toMatchObject({ titel: 'Auch nach Abschluss für Sie da', knoepfe: [] });
+		expect(standard!.leistungen.map((l) => l.titel)).toContain('Winterdienst');
+
+		// Rechte: Monteur darf weder laden noch speichern
+		expect((await sende(u.monteurA, { aktiv: false })).status).toBe(403);
+		await expect(bestandLoad({ locals: { nutzer: u.monteurA } } as never)).rejects.toMatchObject({ status: 403 });
+		// Büro/Chef speichern: eigene Überschrift, Text, Leistungen, Knöpfe
+		const eigen = {
+			aktiv: true,
+			titel: 'Wir bleiben für Sie da',
+			text: 'Rufen Sie uns an.',
+			leistungen: [{ titel: 'Heizungswartung', text: 'Einmal im Jahr', symbol: 'reparatur' }, { titel: 'Notdienst', text: '', symbol: 'telefon' }],
+			knoepfe: [{ text: 'Termin anfragen', url: 'https://www.beispiel.test/anfrage' }, { text: 'Anrufen', url: 'tel:+4940123456' }]
+		};
+		expect(await sende(u.chefA, eigen)).toEqual({ gespeichert: true });
+		const s = (await ladePortal(token, IP))!;
+		expect(s.bestandskarte).toEqual({ titel: eigen.titel, text: eigen.text, leistungen: eigen.leistungen, knoepfe: eigen.knoepfe });
+		// Mandant B sieht nichts davon (Standard), Portal-Karte von A bleibt unverändert
+		expect(await ladeBestandskunden({ betriebId: u.betriebB, benutzerId: u.ids.chefB })).toMatchObject({ titel: 'Auch nach Abschluss für Sie da' });
+		const [zeileB] = await root`select bestand_titel from app.portal_einstellungen where betrieb_id = ${u.betriebB}`;
+		expect(zeileB).toBeUndefined();
+
+		// Serverseitige Prüfung: gefährliche Links, Längen, Anzahl, kaputte Daten – nichts wird gespeichert
+		const vorher = (await ladeBestandskunden(kA()));
+		for (const schlecht of [
+			{ ...eigen, knoepfe: [{ text: 'X', url: 'javascript:alert(1)' }] },
+			{ ...eigen, knoepfe: [{ text: 'X', url: 'http://unsicher.test' }] },
+			{ ...eigen, knoepfe: [{ text: 'X', url: 'data:text/html,hi' }] },
+			{ ...eigen, titel: 'x'.repeat(61) },
+			{ ...eigen, leistungen: Array.from({ length: 11 }, () => ({ titel: 'a', symbol: 'haus' })) },
+			{ ...eigen, knoepfe: Array.from({ length: 5 }, () => eigen.knoepfe[0]) }
+		]) {
+			const r = await sende(u.chefA, schlecht);
+			expect(r.status).toBe(400);
+		}
+		expect((await sende(u.chefA, 'kein json')).status).toBe(400);
+		expect(await ladeBestandskunden(kA())).toEqual(vorher);
+		// Die Datenbank sichert Grenzen zusätzlich ab (auch am Pflichtweg vorbei)
+		await expect(root`update app.portal_einstellungen set bestand_knoepfe = '{"a":1}'::jsonb where betrieb_id = ${u.betriebA}`).rejects.toThrow();
+		await expect(root`update app.portal_einstellungen set bestand_titel = ${'x'.repeat(61)} where betrieb_id = ${u.betriebA}`).rejects.toThrow();
+		// Text mit HTML bleibt Text (Ausgabe geschieht im Portal escaped)
+		expect(await sende(u.chefA, { ...eigen, titel: '<b>Fett</b>', leistungen: [], knoepfe: [] })).toEqual({ gespeichert: true });
+		expect((await ladePortal(token, IP))!.bestandskarte).toMatchObject({ titel: '<b>Fett</b>', leistungen: [] });
+
+		// Ausgeschaltet: keine Karte, obwohl der Kunde Bestandskunde ist
+		expect(await sende(u.chefA, { ...eigen, aktiv: false })).toEqual({ gespeichert: true });
+		const aus = (await ladePortal(token, IP))!;
+		expect(aus.bestandskunde).toBe(true);
+		expect(aus.bestandskarte).toBeNull();
+		// Wieder an, aber Auftrag nicht mehr abgeschlossen: keine Karte
+		await sende(u.chefA, eigen);
+		expect((await ladePortal(token, IP))!.bestandskarte).not.toBeNull();
+		await root`delete from app.auftraege where id = ${fertig.id}`;
+		expect((await ladePortal(token, IP))!.bestandskarte).toBeNull();
+		// Änderung ist im Änderungsprotokoll nachvollziehbar
+		const [p] = await root`select count(*)::int as n from app.aenderungen where betrieb_id = ${u.betriebA} and tabelle = 'portal_einstellungen' and nachher ? 'bestand_titel'`;
+		expect(p.n).toBeGreaterThan(0);
 	});
 });
 

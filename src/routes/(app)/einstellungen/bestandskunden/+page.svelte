@@ -1,0 +1,218 @@
+<script lang="ts">
+	/**
+	 * Leistungen für Bestandskunden (Jamil, Talk msg 3408): Was Kunden nach Abschluss eines Auftrags im Kundenportal
+	 * sehen. Alles in EINEM Formular mit „Speichern“; rechts bzw. darunter die Vorschau – genau die Karte des Portals.
+	 */
+	import { enhance } from '$app/forms';
+	import '$lib/stil/kunden.css';
+	import Abschnitt from '$lib/components/Abschnitt.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
+	import FormFuss from '$lib/components/ui/FormFuss.svelte';
+	import Schalter from '$lib/components/ui/Schalter.svelte';
+	import BestandskundenKarte from '$lib/components/portal/BestandskundenKarte.svelte';
+	import { BESTAND_GRENZEN as G, BESTAND_SYMBOLE, BESTAND_SYMBOL_SCHLUESSEL, bestandStandard, type BestandKnopf, type BestandLeistung } from '$lib/bestandskunden';
+	import { portalMarkeStil } from '$lib/portal-marke';
+	import { rueckfrage } from '$lib/rueckfrage';
+	import type { ActionData, PageData } from './$types';
+
+	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// Arbeitskopie – wird erst mit „Speichern“ übernommen
+	let aktiv = $state(data.e.aktiv);
+	let titel = $state(data.e.titel);
+	let text = $state(data.e.text);
+	let leistungen = $state<BestandLeistung[]>(data.e.leistungen.map((l) => ({ ...l })));
+	let knoepfe = $state<BestandKnopf[]>(data.e.knoepfe.map((k) => ({ ...k })));
+
+	const daten = $derived(JSON.stringify({ aktiv, titel, text, leistungen, knoepfe }));
+	const vorschauStil = $derived(portalMarkeStil(data.marke).join('; '));
+	const karte = $derived({ titel: titel.trim() || bestandStandard().titel, text: text.trim(), leistungen, knoepfe });
+
+	function verschiebe<T>(liste: T[], i: number, richtung: -1 | 1) {
+		const j = i + richtung;
+		if (j < 0 || j >= liste.length) return;
+		[liste[i], liste[j]] = [liste[j], liste[i]];
+	}
+	const neueLeistung = () => leistungen.push({ titel: '', text: '', symbol: 'stern' });
+	const neuerKnopf = () => knoepfe.push({ text: '', url: '' });
+	function zuruecksetzen() {
+		const s = bestandStandard();
+		titel = s.titel;
+		text = s.text;
+		leistungen = s.leistungen;
+		knoepfe = [];
+	}
+	const ohneReset = () => async ({ update }: { update: (o?: { reset?: boolean }) => Promise<void> }) => update({ reset: false });
+</script>
+
+<svelte:head><title>Leistungen für Bestandskunden – Einstellungen</title></svelte:head>
+
+<main class="kd-seite bk-seite">
+	<header class="seiten-kopf">
+		<div>
+			<h1>Leistungen für Bestandskunden</h1>
+			<p class="seiten-meta">Was Kunden im Kundenportal sehen, sobald einer ihrer Aufträge abgeschlossen ist.</p>
+		</div>
+	</header>
+	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
+	{#if form?.gespeichert}<p role="status" class="kd-info">Gespeichert.</p>{/if}
+	{#if !data.portalModul}<p class="kd-info">Das Kundenportal ist im aktuellen Tarif nicht enthalten – die Karte erscheint erst mit dem Modul.</p>{/if}
+
+	<form method="POST" use:enhance={ohneReset} class="kd-formular bk-formular">
+		<input type="hidden" name="daten" value={daten} />
+		<div class="bk-spalten">
+			<div class="bk-eingabe">
+				<Abschnitt titel="Anzeige im Portal">
+					<Schalter bind:an={aktiv} label="Karte im Kundenportal anzeigen" hinweis="Sie erscheint klein und dezent am Ende des Portals – nur bei Kunden mit einem abgeschlossenen Auftrag („Projekt erfolgreich beendet“)." />
+					<label>Überschrift
+						<input type="text" bind:value={titel} maxlength={G.titel} placeholder="Auch nach Abschluss für Sie da" />
+					</label>
+					<label>Kleiner Text darunter (optional)
+						<textarea bind:value={text} rows="3" maxlength={G.text} placeholder="Gerne unterstützen wir Sie auch künftig …"></textarea>
+					</label>
+					<p class="kd-info">Die Überschrift muss das Wort „Bestandskunde“ nicht enthalten – Sie bestimmen die Wortwahl. Farben und Schrift übernimmt das Portal von Ihrem Briefkopf.</p>
+				</Abschnitt>
+
+				<Abschnitt titel="Leistungen" anzahl={leistungen.length}>
+					{#if leistungen.length === 0}<p class="kd-leer">Keine Leistungen – im Portal erscheint dann nur der Text und die Knöpfe.</p>{/if}
+					<ol class="bk-zeilen" aria-label="Leistungen">
+						{#each leistungen as l, i (i)}
+							<li data-testid="bestand-leistung">
+								<div class="bk-felder">
+									<label>Titel *
+										<input type="text" bind:value={l.titel} maxlength={G.leistungTitel} required placeholder="z. B. Winterdienst" />
+									</label>
+									<label>Kurzer Text (optional)
+										<input type="text" bind:value={l.text} maxlength={G.leistungText} placeholder="z. B. Räumen und Streuen ab 6 Uhr" />
+									</label>
+									<label class="bk-symbolwahl">Symbol
+										<Auswahl bind:value={l.symbol}>
+											{#each BESTAND_SYMBOL_SCHLUESSEL as s (s)}<option value={s} selected={l.symbol === s}>{BESTAND_SYMBOLE[s].name}</option>{/each}
+										</Auswahl>
+									</label>
+								</div>
+								<div class="bk-aktionen">
+									<button type="button" class="kd-knopf hell klein" disabled={i === 0} aria-label={`Leistung ${i + 1} nach oben`} onclick={() => verschiebe(leistungen, i, -1)}>↑</button>
+									<button type="button" class="kd-knopf hell klein" disabled={i === leistungen.length - 1} aria-label={`Leistung ${i + 1} nach unten`} onclick={() => verschiebe(leistungen, i, 1)}>↓</button>
+									<button type="button" class="kd-knopf gefahr klein" use:rueckfrage={{ frage: `Leistung „${l.titel || i + 1}“ wirklich entfernen?`, ja: 'Entfernen' }} onclick={() => leistungen.splice(i, 1)}>Entfernen</button>
+								</div>
+							</li>
+						{/each}
+					</ol>
+					<div>
+						<button type="button" class="kd-knopf hell" disabled={leistungen.length >= G.leistungen} onclick={neueLeistung}>+ Leistung hinzufügen</button>
+						{#if leistungen.length >= G.leistungen}<span class="kd-info"> Höchstens {G.leistungen} Leistungen.</span>{/if}
+					</div>
+				</Abschnitt>
+
+				<Abschnitt titel="Knöpfe mit Link" anzahl={knoepfe.length}>
+					<p class="kd-info">Zum Beispiel „Termin anfragen“ mit Ihrer Anfrageseite oder „Anrufen“ mit <code>tel:+49…</code>. Erlaubt sind Adressen mit <code>https://</code>, <code>mailto:</code> und <code>tel:</code>. Internetadressen öffnen sich für den Kunden in einem neuen Tab.</p>
+					{#if knoepfe.length === 0}<p class="kd-leer">Noch kein Knopf.</p>{/if}
+					<ol class="bk-zeilen" aria-label="Knöpfe">
+						{#each knoepfe as k, i (i)}
+							<li data-testid="bestand-knopf">
+								<div class="bk-felder">
+									<label>Beschriftung *
+										<input type="text" bind:value={k.text} maxlength={G.knopfText} required placeholder="z. B. Termin anfragen" />
+									</label>
+									<label class="bk-url">Link *
+										<input type="text" inputmode="url" bind:value={k.url} maxlength={G.url} required placeholder="https://www.ihre-firma.de/anfrage" autocomplete="off" />
+									</label>
+								</div>
+								<div class="bk-aktionen">
+									<button type="button" class="kd-knopf hell klein" disabled={i === 0} aria-label={`Knopf ${i + 1} nach oben`} onclick={() => verschiebe(knoepfe, i, -1)}>↑</button>
+									<button type="button" class="kd-knopf hell klein" disabled={i === knoepfe.length - 1} aria-label={`Knopf ${i + 1} nach unten`} onclick={() => verschiebe(knoepfe, i, 1)}>↓</button>
+									<button type="button" class="kd-knopf gefahr klein" use:rueckfrage={{ frage: `Knopf „${k.text || i + 1}“ wirklich entfernen?`, ja: 'Entfernen' }} onclick={() => knoepfe.splice(i, 1)}>Entfernen</button>
+								</div>
+							</li>
+						{/each}
+					</ol>
+					<div>
+						<button type="button" class="kd-knopf hell" disabled={knoepfe.length >= G.knoepfe} onclick={neuerKnopf}>+ Knopf hinzufügen</button>
+						{#if knoepfe.length >= G.knoepfe}<span class="kd-info"> Höchstens {G.knoepfe} Knöpfe.</span>{/if}
+					</div>
+				</Abschnitt>
+			</div>
+
+			<aside class="bk-vorschau" aria-label="Vorschau">
+				<Abschnitt titel="Vorschau – so sieht der Kunde es">
+					{#if !aktiv}<p class="kt-hinweis warnung" role="note">Ausgeschaltet – Kunden sehen die Karte nicht.</p>{/if}
+					<div class="bk-bild" class:aus={!aktiv} style={vorschauStil} data-testid="bestand-vorschau">
+						<BestandskundenKarte {karte} vorschau />
+					</div>
+				</Abschnitt>
+			</aside>
+		</div>
+
+		<FormFuss>
+			{#snippet links()}
+				<button type="button" class="kd-knopf hell" use:rueckfrage={{ frage: 'Alle Angaben auf die Standardtexte zurücksetzen? (Gespeichert wird erst mit „Speichern“.)', ja: 'Zurücksetzen' }} onclick={zuruecksetzen}>Standard wiederherstellen</button>
+			{/snippet}
+			<button type="submit" class="kd-knopf">Speichern</button>
+		</FormFuss>
+	</form>
+</main>
+
+<style>
+	.bk-spalten {
+		display: grid;
+		gap: 1rem;
+		align-items: start;
+	}
+	@media (min-width: 1100px) {
+		.bk-spalten {
+			grid-template-columns: minmax(0, 1fr) 24rem;
+		}
+		.bk-vorschau {
+			position: sticky;
+			top: 1rem;
+		}
+	}
+	.bk-eingabe {
+		display: grid;
+		gap: 1rem;
+		min-width: 0;
+	}
+	.bk-zeilen {
+		display: grid;
+		gap: 0.6rem;
+		margin: 0 0 0.6rem;
+		padding: 0;
+		list-style: none;
+	}
+	.bk-zeilen li {
+		display: grid;
+		gap: 0.5rem;
+		padding: 0.7rem 0.8rem;
+		border: 1px solid var(--ui-rand);
+		border-radius: var(--ui-radius);
+		background: var(--ui-flaeche);
+	}
+	.bk-felder {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+		gap: 0.5rem 0.75rem;
+	}
+	.bk-url {
+		grid-column: span 2;
+	}
+	@media (max-width: 640px) {
+		.bk-url {
+			grid-column: auto;
+		}
+	}
+	.bk-aktionen {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 0.4rem;
+	}
+	.bk-bild {
+		padding: 0.9rem;
+		border-radius: var(--ui-radius);
+		background: var(--pt-grund);
+	}
+	.bk-bild.aus {
+		opacity: 0.5;
+	}
+</style>
