@@ -17,7 +17,7 @@ export const actions: Actions = {
 		const f = await request.formData();
 		try {
 			const k = await portalEinstellungsZugriff(locals);
-			await speicherePortalEinstellungen(k, { agbUrl: f.get('agbUrl'), widerrufUrl: f.get('widerrufUrl'), abAutomatisch: f.get('abAutomatisch'), standard: f.get('standard'), teamNamen: f.get('teamNamen') });
+			await speicherePortalEinstellungen(k, { agbUrl: f.get('agbUrl'), widerrufUrl: f.get('widerrufUrl'), abAutomatisch: f.get('abAutomatisch'), standard: f.get('standard'), teamNamen: f.get('teamNamen'), freiGesendet: f.get('freiGesendet'), freiStatus: f.get('freiStatus'), freiTermine: f.get('freiTermine'), freiMitarbeiter: f.get('freiMitarbeiter'), freiAnnahme: f.get('freiAnnahme') });
 			return { gespeichert: true };
 		} catch (e) {
 			return alsFormFehler(e);

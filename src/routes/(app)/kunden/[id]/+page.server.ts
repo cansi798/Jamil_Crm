@@ -24,7 +24,7 @@ import {
  * Aufträge nur mit Modul `auftraege` und Leserecht (`null` = Bereich ausblenden); mit nur `auftraege.lesen` die eigenen.
  */
 import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachfassen';
-import { erzeugeLink, kundenPortal, portalPasswort, portalZugriff, widerrufeLink } from '$lib/server/kundenportal';
+import { erzeugeLink, kundenPortal, portalPasswort, portalZugriff, speichereKundenPortal, widerrufeLink } from '$lib/server/kundenportal';
 import { mailVorbereitung } from '$lib/server/mail-vorlagen';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
@@ -125,6 +125,23 @@ export const actions: Actions = {
 					? 'Passwort zurückgesetzt – der Kunde meldet sich wieder mit seiner Postleitzahl an.'
 					: 'Eigenes Passwort gespeichert – bitte dem Kunden mitteilen. Bisherige Anmeldungen im Portal sind damit beendet.'
 			};
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Portal-Einstellungen dieses Kunden (Jamil msgs 3423, 3439): leer = wie in den Einstellungen der Firma. */
+	portalEinstellung: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await speichereKundenPortal(await portalZugriff(locals), params.id, {
+				sichtbar: f.get('sichtbar'),
+				status: f.get('status'),
+				termine: f.get('termine'),
+				mitarbeiter: f.get('mitarbeiter'),
+				annahme: f.get('annahme'),
+				abAutomatisch: f.get('abAutomatisch')
+			});
+			return { portalMeldung: 'Portal-Einstellungen des Kunden gespeichert.' };
 		} catch (e) {
 			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}

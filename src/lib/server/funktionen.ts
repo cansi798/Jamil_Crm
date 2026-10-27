@@ -12,6 +12,8 @@ export type FunktionenStand = {
 	nachfassen: { aktiv: number; gesamt: number };
 	buchung: { terminarten: number };
 	portalLinks: { kunden: number };
+	/** Kunden mit eigenen Portal-Einstellungen (Jamil msg 3439) */
+	kundenEigen: number;
 };
 
 export async function ladeFunktionenStand(k: Kontext): Promise<FunktionenStand> {
@@ -20,12 +22,14 @@ export async function ladeFunktionenStand(k: Kontext): Promise<FunktionenStand> 
 		const [n] = await tx`select count(*) filter (where aktiv)::int as aktiv, count(*)::int as gesamt from app.nachfass_stufen where betrieb_id = ${k.betriebId}`;
 		const [b] = await tx`select count(*)::int as n from app.buchung_dienste where betrieb_id = ${k.betriebId} and aktiv and online_buchbar`;
 		const [p] = await tx`select count(distinct kunde_id)::int as n from app.portal_links where betrieb_id = ${k.betriebId} and kunde_id is not null and widerrufen_am is null and (laeuft_ab is null or laeuft_ab > now())`;
+		const [ke] = await tx`select count(*)::int as n from app.kunden_portal where betrieb_id = ${k.betriebId}`;
 		return {
 			ab_automatisch: e?.ab_automatisch ?? true,
 			bestand_aktiv: e?.bestand_aktiv ?? true,
 			nachfassen: { aktiv: n.aktiv, gesamt: n.gesamt },
 			buchung: { terminarten: b.n },
-			portalLinks: { kunden: p.n }
+			portalLinks: { kunden: p.n },
+			kundenEigen: ke.n
 		};
 	});
 }

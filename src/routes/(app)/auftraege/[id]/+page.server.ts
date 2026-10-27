@@ -41,8 +41,8 @@ import { laufend, zeitenZumAuftrag, zeitVerlauf, zeitZugriff, type ZeitZugriff }
 import { materialHinzufuegen, materialLoeschen, materialStand, materialWieGeplant, setzeMaterialMenge } from '$lib/server/material';
 import { lieferscheinAuslesen } from '$lib/server/ki/lieferschein';
 import { nachkalkulationAuftrag } from '$lib/server/nachkalkulation';
-import { portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe } from '$lib/server/kundenportal';
-import { abEinstellung, abMitVorlage, listeAuftragsbestaetigungen, markiereAbGesendet } from '$lib/server/auftragsbestaetigung';
+import { portalStand, portalVerlauf, portalZugriff, setzeDokument } from '$lib/server/kundenportal';
+import { abMitVorlage, abWirksam, listeAuftragsbestaetigungen, markiereAbGesendet } from '$lib/server/auftragsbestaetigung';
 import { alsWahl, listeMailVorlagen, mailVorbereitung } from '$lib/server/mail-vorlagen';
 import { aendereLink, legeLinkAn, linkVerlauf, listeLinks, loescheLink, setzeLinkImPortal } from '$lib/server/auftrag-links';
 import { auftragPartner, entferneSubunternehmer, fuegeSubunternehmerHinzu, legeFremdleistungAn, loescheFremdleistung, partnerAuswahl, setzeAuftraggeber } from '$lib/server/partner';
@@ -140,7 +140,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			// Vorlagen-Auswahl für noch nicht gesendete Auftragsbestätigungen (Bibliothek, msg 2789)
 			abVorlagen: auftragsbestaetigungen.some((x) => x.versandStatus === 'bereit') ? alsWahl(await listeMailVorlagen(k)) : [],
 			abAutomatischBearbeiten: darfBearbeiten && angeboteSichtbar,
-			abEinstellung: darfBearbeiten && angeboteSichtbar ? await abEinstellung(k, auftrag.id) : null,
+			// wird beim KUNDEN eingestellt (msg 3439): hier nur der wirksame Wert als Hinweis
+			abHinweis: darfBearbeiten && angeboteSichtbar ? { an: await abWirksam(k, auftrag.id), kundeId: auftrag.kundeId } : null,
 			zeit: zg ? { laufend: zeitLaufend, summe: zeitSumme!, verwalten: zg.verwalten } : null,
 			material,
 			preiseSehen: preise,
@@ -514,32 +515,12 @@ export const actions: Actions = {
 			return alsFormFehler(e, { linkFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
 	},
-	portalFreigabe: async ({ locals, params, request }) => {
-		const f = await request.formData();
-		try {
-			await setzeFreigabe(await portalZugriff(locals), params.id, { sichtbar: f.get('sichtbar'), status: f.get('status'), termine: f.get('termine'), mitarbeiter: f.get('mitarbeiter'), annahme: f.get('annahme') });
-			return { portalMeldung: 'Freigabe gespeichert.' };
-		} catch (e) {
-			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
-		}
-	},
 	portalDokument: async ({ locals, params, request }) => {
 		const f = await request.formData();
 		try {
 			await setzeDokument(await portalZugriff(locals), params.id, f.get('art'), f.get('refId'), f.get('geteilt') === 'ja');
 		} catch (e) {
 			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
-		}
-	},
-	/** Auftragsbestätigung automatisch für diesen Auftrag: „wie im Betrieb“, an oder aus (wie beim Nachfassen). */
-	abAutomatisch: async ({ locals, params, request }) => {
-		const w = (await request.formData()).get('wert');
-		try {
-			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
-			const zg = await angeboteZugriff(locals);
-			await setzeAbAutomatisch({ k: betriebKontext(locals), sicht: zg.sicht }, params.id, w === 'an' ? true : w === 'aus' ? false : null);
-		} catch (e) {
-			return alsFormFehler(e);
 		}
 	},
 	abVorlage: async ({ locals, params, request }) => {

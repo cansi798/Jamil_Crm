@@ -13,31 +13,39 @@ gesetzt – nicht beim Auftrag. Dieses Schema gilt für alles Neue und wird für
 | **Benutzer** | Persönliches (Erinnerungen, Handy) | Konto |
 
 Vererbung: **Firma → Kunde → (Auftrag, nur wenn auftragsspezifisch)**. Ein leerer Wert bedeutet „erbt von oben“.
-Die Auftragsseite zeigt für Kundeneinstellungen nur den Hinweis „wird beim Kunden eingestellt“ mit Link.
+Die Auftragsseite zeigt für Kundeneinstellungen nur den Hinweis „wird beim Kunden eingestellt“ mit Link (umgesetzt in Schritt 3).
 
-## Bestandsaufnahme (Stand 27.10.2026, vor Schritt 3)
+## Bestandsaufnahme
 
-| Einstellung | Firma | Kunde | Auftrag | Speicherort | Soll |
-| --- | :-: | :-: | :-: | --- | --- |
-| AGB (PDF/Link), Widerrufs-Link | ● | | | `portal_einstellungen` | Firma |
-| Erscheinungsbild des Portals (Farben, Schrift) | ● | | | `betrieb_profil` | Firma |
-| Welche Aufträge stehen im Portal („alle aktiven“/„nur markierte“) | ● | | ● (`sichtbar`) | `portal_einstellungen.standard`, `portal_auftrag.sichtbar` | Firma → **Kunde** (Auftrag nur Ausnahme) |
-| Namen im Portal (Vorname/voll/aus) | ● | | ● (`mitarbeiter`) | `portal_einstellungen.team_namen`, `portal_auftrag.mitarbeiter` | Firma → **Kunde** |
-| Der Kunde sieht: Status, Termine, Annahme online | | | ● (`status`, `termine`, `annahme`) | `portal_auftrag` | Firma-Standard → **Kunde** |
-| Auftragsbestätigung automatisch | ● | | ● (`auftraege.ab_automatisch`, leer = Firma) | `portal_einstellungen.ab_automatisch` | Firma → **Kunde** |
-| Karte „Leistungen für Bestandskunden“ an/aus | ● | | | `portal_einstellungen.bestand_aktiv` | Firma → **Kunde** (je Kunde ausschaltbar) |
-| Karte: Überschrift, Text, Leistungen, Knöpfe | ● | | | `portal_einstellungen.bestand_*` | Firma |
-| Portal-Link (Ablauf, Widerruf) | | ● | | `portal_links` | Kunde ✔ |
-| Portal-Passwort | | ● | | `portal_zugang` (je Kunde) | Kunde ✔ |
-| Kein automatisches Nachfassen | | ● (`kunden.kein_nachfassen`) | | `kunden` | Kunde ✔ |
-| Nachfassen pausieren (ein Angebot) | | | ● (`angebote.nachfassen_pausiert`) | `angebote` | Auftrag/Angebot ✔ (auftragsspezifisch) |
-| Nachfass-Stufen | ● | | | `nachfass_stufen` | Firma |
-| Einzelnes Dokument/Link/Notiz „Im Kundenportal“ | | | ● | `portal_dokumente` | Auftrag ✔ (auftragsspezifisch) |
-| Online-Buchung, Terminarten, Arbeitszeiten, Quellen | ● | | | `buchung_*`, `auftrag_quellen` | Firma |
-| Mail-Vorlagen, Signatur | ● | | | `mail_vorlagen`, `betrieb_profil` | Firma |
-| Erinnerungen (Push), Handy-Abgleich | | | | Konto (Benutzer) | Benutzer |
+**Vorher (27.10.2026, vor Schritt 3)** lagen die Portal-Freigaben je Auftrag (`portal_auftrag`, `auftraege.ab_automatisch`).
+**Jetzt (Schritt 3, Jamil msg 3439 „Option A“)** gelten sie je Kunde (`kunden_portal`, leer = erbt von der Firma); die Spalten am
+Auftrag bleiben als Altwerte stehen (Migration 108 hat sie je Kunde übernommen), werden aber nicht mehr ausgewertet.
 
-● = hier einstellbar · ✔ = entspricht schon dem Schema.
+| Einstellung | Firma (Standard) | Kunde (überschreibt) | Auftrag | Speicherort |
+| --- | :-: | :-: | :-: | --- |
+| AGB (PDF/Link), Widerrufs-Link | ● | | | `portal_einstellungen` |
+| Erscheinungsbild des Portals (Farben, Schrift) | ● | | | `betrieb_profil` |
+| Aufträge im Portal zeigen („alle aktiven“ / „nur bei ausdrücklich eingeschalteten Kunden“) | ● (`standard`) | ● (`sichtbar`) | – | `portal_einstellungen.standard`, `kunden_portal.sichtbar` |
+| Der Kunde sieht: Status, Termine, Namen der Mitarbeiter, Online-Annahme | ● (`frei_*`) | ● (`frei_*`) | – | `portal_einstellungen.frei_*`, `kunden_portal.frei_*` |
+| Namen-Darstellung (Vorname / voll / keine) | ● (`team_namen`) | – | – | `portal_einstellungen.team_namen` |
+| Auftragsbestätigung automatisch | ● | ● (`ab_automatisch`) | – | `portal_einstellungen`, `kunden_portal` |
+| Karte „Leistungen für Bestandskunden“ an/aus, Texte, Leistungen, Knöpfe | ● | – (bewusst nicht je Kunde) | – | `portal_einstellungen.bestand_*` |
+| Portal-Link (Ablauf, Widerruf), Portal-Passwort | | ● | | `portal_links`, `portal_zugang` |
+| Kein automatisches Nachfassen | | ● (`kunden.kein_nachfassen`) | | `kunden` |
+| Nachfassen pausieren (ein Angebot) | | | ● | `angebote.nachfassen_pausiert` |
+| Nachfass-Stufen | ● | | | `nachfass_stufen` |
+| Einzelnes Dokument/Link/Notiz „Im Kundenportal“ | | | ● (auftragsspezifisch) | `portal_dokumente` |
+| Online-Buchung, Terminarten, Arbeitszeiten, Quellen | ● | | | `buchung_*`, `auftrag_quellen` |
+| Mail-Vorlagen, Signatur | ● | | | `mail_vorlagen`, `betrieb_profil` |
+| Erinnerungen (Push), Handy-Abgleich | | | | Benutzer (Konto) |
+
+● = hier einstellbar. Vererbung: Auftrag → *Kunde des Auftrags* → Firma → Standard (alles an, „alle aktiven Aufträge“).
+Die Wirkung steht an je einer Stelle: `IM_PORTAL_SQL` und `freigabeSql()` in `src/lib/server/kundenportal.ts`,
+`abAutomatisch()` in `auftragsbestaetigung.ts`. Die Auftragsseite zeigt nur den Hinweis „wird beim Kunden eingestellt“ mit Link.
+
+**Migration 108 (Übernahme der Altwerte je Kunde, vorsichtigste Auswahl):** war bei irgendeinem Auftrag des Kunden eine Freigabe
+aus, ist sie beim Kunden aus; Regel „nur markierte“ + ein Auftrag ausdrücklich gezeigt → Kunde ja; Regel „alle aktiven“ + alle
+ausdrücklich ausgeblendet → Kunde nein; Auftragsbestätigung: Abweichung vom Firmenwert wird übernommen. Alles andere erbt.
 
 ## Menü nach dem Weg des Kunden (Schritt 2)
 

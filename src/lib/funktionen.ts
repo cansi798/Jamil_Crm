@@ -17,7 +17,7 @@ export const SCHRITTE: { id: KundenSchritt; titel: string; frage: string }[] = [
 ];
 
 /** Welcher Zustand gehört zur Funktion? `schalter`: genau ein Ein/Aus-Schalter, der hier direkt umgelegt werden kann. */
-export type FunktionsZustand = 'ab_automatisch' | 'bestand_aktiv' | 'nachfassen' | 'buchung' | 'portal_links' | 'keiner';
+export type FunktionsZustand = 'ab_automatisch' | 'bestand_aktiv' | 'nachfassen' | 'buchung' | 'portal_links' | 'kunden_portal' | 'keiner';
 
 export type Funktion = {
 	id: string;
@@ -113,6 +113,18 @@ export const FUNKTIONEN: Funktion[] = [
 		zustand: 'portal_links',
 		modul: 'kundenportal',
 		recht: 'einstellungen'
+	},
+	{
+		id: 'portal-je-kunde',
+		schritt: 'auftrag',
+		name: 'Portal-Einstellungen je Kunde',
+		was: 'Was ein Kunde im Portal sieht und ob für ihn die Auftragsbestätigung automatisch entsteht, stellen Sie beim Kunden ein. Leer heißt: Standard der Firma.',
+		wann: 'Immer, wenn der Kunde sein Portal öffnet oder ein Angebot annimmt.',
+		href: '/kunden',
+		info: 'kunde.portal_seite',
+		zustand: 'kunden_portal',
+		modul: 'kundenportal',
+		recht: 'kundenportal.verwalten'
 	},
 	{
 		id: 'erinnerungen',

@@ -7,6 +7,9 @@
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
+	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
@@ -24,6 +27,17 @@
 	};
 	const groesse = (b: number) => (b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 	let notizText = $state('');
+	// Portal-Einstellungen des Kunden (msg 3439): Auswahl „wie Firma / ja / nein“
+	const dreiWahl = (w: boolean | null) => (w === null ? '' : w ? 'an' : 'aus');
+	const firmaText = (w: boolean) => `Firmen-Standard (${w ? 'ja' : 'nein'})`;
+	const PORTAL_FELDER = [
+		{ name: 'sichtbar', label: 'Aufträge im Portal zeigen', info: 'kunde.sichtbar' },
+		{ name: 'status', label: 'Auftragsstatus zeigen', info: 'kunde.status' },
+		{ name: 'termine', label: 'Nächste Termine zeigen', info: 'kunde.termine' },
+		{ name: 'mitarbeiter', label: 'Namen der Mitarbeiter zeigen', info: 'kunde.mitarbeiter' },
+		{ name: 'annahme', label: 'Angebot online annehmen lassen', info: 'kunde.annahme' },
+		{ name: 'abAutomatisch', label: 'Auftragsbestätigung automatisch erstellen', info: 'kunde.ab_automatisch' }
+	] as const;
 	/** Jamil msg 3034: „Kunde löschen“ oben rechts; die Rückfrage klappt unter dem Kopf auf (bleibt bei Fehler offen). */
 	let loeschenOffen = $state(false);
 	// Kundenportal: Rückfrage vor dem Widerrufen; „Link kopieren“ mit kurzer Rückmeldung
@@ -205,6 +219,25 @@
 				<label>Gültig bis (optional) <input type="date" name="laeuftAb" /></label>
 				<button type="submit" class="kd-knopf">{data.portal.links.some((l) => l.gueltig) ? 'Neuen Link erzeugen (alter wird ungültig)' : 'Link für den Kunden erzeugen'}</button>
 			</form>
+			<!-- Einstellungen gehören zum Kunden, nicht zum Auftrag (Jamil msgs 3423, 3439); leer = Standard der Firma -->
+			<div class="kp-einstellung" role="group" aria-label="Portal-Einstellungen dieses Kunden" data-testid="portal-einstellung">
+				<p class="kp-titel">Einstellungen für diesen Kunden <InfoFenster id="kunde.portal_seite" /></p>
+				<p class="kd-info">Gilt für alle Aufträge dieses Kunden. „Firmen-Standard“ übernimmt die Einstellung unter <a href="/einstellungen/kundenportal">Auftrag → Kundenportal & Auftragsbestätigung</a>.</p>
+				<form method="POST" action="?/portalEinstellung" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form">
+					{#each PORTAL_FELDER as fd (fd.name)}
+						<InfoFeld id={fd.info}>
+							<label>{fd.label}
+								<Auswahl name={fd.name}>
+									<option value="" selected={data.portal.einstellung.kunde[fd.name] === null}>{firmaText(data.portal.einstellung.firma[fd.name])}</option>
+									<option value="an" selected={data.portal.einstellung.kunde[fd.name] === true}>ja</option>
+									<option value="aus" selected={data.portal.einstellung.kunde[fd.name] === false}>nein</option>
+								</Auswahl>
+							</label>
+						</InfoFeld>
+					{/each}
+					<button type="submit" class="kd-knopf">Einstellungen speichern</button>
+				</form>
+			</div>
 			<p class="kp-titel">Im Portal: {data.portal.auftraege.filter((a) => a.imPortal).length} von {data.portal.auftraege.length} Aufträgen</p>
 			<ul class="kd-liste kp-auftraege">
 				{#each data.portal.auftraege as a (a.id)}
@@ -546,6 +579,10 @@
 	.kp-knoepfe { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: center; }
 	.kp-frage { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: center; padding: var(--ui-a2) var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-rot-hell); }
 	.kp-alt { flex-basis: 100%; margin: 0; }
+	.kp-einstellung { display: grid; gap: var(--ui-a2); margin: var(--ui-a3) 0; }
+	.kp-einstellung p { margin: 0; }
+	.kp-einst-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); align-items: end; }
+	.kp-einst-form button { justify-self: start; }
 	.kp-passwort { display: grid; gap: var(--ui-a2); margin: var(--ui-a3) 0; }
 	.kp-passwort p { margin: 0; }
 	.kp-link { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ui-a2); align-items: center; margin-bottom: var(--ui-a2); font-size: var(--ui-schrift-s); }

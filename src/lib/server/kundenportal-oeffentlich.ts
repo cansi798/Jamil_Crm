@@ -10,7 +10,7 @@ import { angebotPdf } from './pdf/angebot-pdf';
 import { sendePush } from './erinnerungen';
 import { zustaendig } from './auftragsbestaetigung';
 import { melde } from './ereignisse';
-import { agbFassung, holeAgbPdf, IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
+import { agbFassung, freigabeSql, holeAgbPdf, IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
 import { UUID } from './kunden';
 import { nurVorname } from '../buchung';
 import type { AuftragStatus } from '../auftrag-status';
@@ -115,9 +115,9 @@ export type PortalSeite = {
 
 async function auftraegeImBereich(tx: TransactionSql, p: PortalKontext): Promise<string[]> {
 	if (p.auftragId) return [p.auftragId];
-	// Alle Aufträge des Kunden, die im Portal stehen (Regel des Betriebs, je Auftrag überschreibbar – msg 2793)
+	// Alle Aufträge des Kunden, die im Portal stehen (Einstellung des Kunden, sonst Regel der Firma – msgs 2793, 3439)
 	const z = await tx`
-		select a.id from app.auftraege a left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
+		select a.id from app.auftraege a
 		where a.betrieb_id = ${p.betriebId} and a.kunde_id = ${p.kundeId} and ${tx.unsafe(IM_PORTAL_SQL)}
 		order by a.angelegt desc limit 20`;
 	return z.map((r) => r.id as string);
@@ -162,9 +162,9 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 	const auftraege: PortalAuftrag[] = [];
 	for (const id of await auftraegeImBereich(tx, p)) {
 		const [a] = await tx`
-			select a.id, a.nummer, a.titel, a.status, coalesce(pa.status, true) as f_status, coalesce(pa.termine, true) as f_termine,
-				coalesce(pa.mitarbeiter, true) as f_mitarbeiter, coalesce(pa.annahme, true) as f_annahme
-			from app.auftraege a left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
+			select a.id, a.nummer, a.titel, a.status, ${tx.unsafe(freigabeSql('status'))} as f_status, ${tx.unsafe(freigabeSql('termine'))} as f_termine,
+				${tx.unsafe(freigabeSql('mitarbeiter'))} as f_mitarbeiter, ${tx.unsafe(freigabeSql('annahme'))} as f_annahme
+			from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${p.betriebId}`;
 		if (!a) continue;
 		let termine: PortalTermin[] | null = null;
@@ -427,7 +427,7 @@ export async function entscheide(token: unknown, angebotId: unknown, e: Entschei
 			const bereich = await auftraegeImBereich(tx, p);
 			const [an] = await tx`
 				select an.id, an.nummer, an.status, an.auftrag_id, an.gueltig_bis, a.status as auftrag_status,
-					coalesce(pa.annahme, true) as annahme, e.agb_url, e.agb_pdf_hash, e.agb_pdf_hochgeladen,
+					${tx.unsafe(freigabeSql('annahme'))} as annahme, e.agb_url, e.agb_pdf_hash, e.agb_pdf_hochgeladen,
 					left(coalesce(
 						case when kd.art = 'firma' then kd.firma || coalesce(' – ' || nullif(btrim(concat_ws(' ', kd.vorname, kd.nachname)), ''), '')
 							else nullif(btrim(concat_ws(' ', kd.vorname, kd.nachname)), '') end,
@@ -436,14 +436,13 @@ export async function entscheide(token: unknown, angebotId: unknown, e: Entschei
 				join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
 				left join app.kunden kd on kd.id = a.kunde_id and kd.betrieb_id = a.betrieb_id
 				join app.portal_dokumente d on d.ref_id = an.id and d.art = 'angebot' and d.auftrag_id = an.auftrag_id and d.betrieb_id = an.betrieb_id
-				left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
 				left join app.portal_einstellungen e on e.betrieb_id = an.betrieb_id
 				where an.id = ${angebotId} and an.betrieb_id = ${p.betriebId} and an.auftrag_id = any(${bereich}::uuid[])
 				for update of an`;
 			if (!an) throw new ApiFehler(404, 'Angebot nicht gefunden.');
 			const name: string = an.kunde_name;
 			if (an.status !== 'versendet') throw new ApiFehler(409, 'Über dieses Angebot wurde schon entschieden.');
-			if (!an.annahme) throw new ApiFehler(403, 'Die Online-Annahme ist für diesen Auftrag nicht freigeschaltet – bitte melden Sie sich bei uns.');
+			if (!an.annahme) throw new ApiFehler(403, 'Die Online-Annahme ist für Sie nicht freigeschaltet – bitte melden Sie sich bei uns.');
 			if (nach === 'angenommen' && berlinTag(new Date()) > new Date(an.gueltig_bis).toISOString().slice(0, 10)) {
 				throw new ApiFehler(409, 'Das Angebot ist abgelaufen – bitte melden Sie sich bei uns.');
 			}

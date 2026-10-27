@@ -23,7 +23,7 @@ export const INFOS: Record<string, Info> = {
 	'portal.seite': {
 		titel: 'Kundenportal & Auftragsbestätigung',
 		was: 'Legt fest, was Ihre Kunden im Kundenportal sehen und was nach der Annahme eines Angebots automatisch geschieht.',
-		wirkt: 'Alle Kunden Ihrer Firma. Einzelne Kunden und Aufträge können davon abweichen.',
+		wirkt: 'Alle Kunden Ihrer Firma. Einzelne Kunden können davon abweichen – das stellen Sie beim Kunden ein.',
 		standard: 'Portal zeigt alle aktiven Aufträge, Namen als Vorname, Auftragsbestätigung entsteht automatisch.',
 		beispiel: 'Ein Kunde öffnet seinen Link und sieht Status, Termine und Unterlagen seines Auftrags.'
 	},
@@ -37,23 +37,79 @@ export const INFOS: Record<string, Info> = {
 	'portal.ab_automatisch': {
 		titel: 'Auftragsbestätigung automatisch erstellen',
 		was: 'Sobald ein Angebot angenommen ist, entsteht ohne Handarbeit die Auftragsbestätigung als PDF am Auftrag.',
-		wirkt: 'Alle neuen Annahmen (Portal, Büro oder Sprache). Je Auftrag lässt sich das abschalten.',
+		wirkt: 'Alle neuen Annahmen (Portal, Büro oder Sprache). Beim einzelnen Kunden lässt es sich abschalten oder wieder einschalten.',
 		standard: 'An.',
 		beispiel: 'Der Kunde nimmt das Angebot online an – die Auftragsbestätigung liegt kurz danach im Auftrag und im Portal bereit.'
 	},
 	'portal.standard': {
 		titel: 'Welche Aufträge stehen im Portal?',
-		was: '„Alle aktiven“ zeigt jedem Kunden alle seine Aufträge, die noch nicht abgerechnet sind. „Nur markierte“ zeigt nur Aufträge, bei denen „Im Portal zeigen: ja“ steht.',
-		wirkt: 'Alle Kunden; je Auftrag überschreibbar.',
-		standard: 'Alle aktiven Aufträge.',
-		beispiel: 'Mit „nur markierte“ sieht der Kunde einen neuen Auftrag erst, wenn Sie ihn bewusst freigeben.'
+		was: '„Bei allen Kunden alle aktiven Aufträge“ zeigt jedem Kunden alle seine Aufträge, die noch nicht abgerechnet sind. „Nur bei Kunden mit ausdrücklicher Einschaltung“ zeigt Aufträge erst, wenn Sie es beim Kunden einschalten.',
+		wirkt: 'Alle Kunden; beim einzelnen Kunden überschreibbar.',
+		standard: 'Bei allen Kunden alle aktiven Aufträge.',
+		beispiel: 'Mit der zweiten Wahl sieht ein Kunde sein Portal erst, wenn Sie bei ihm „Aufträge im Portal zeigen: ja“ einstellen.'
 	},
 	'portal.team_namen': {
 		titel: 'Namen von Ansprechpartner und Team',
 		was: 'Bestimmt, ob der Kunde im Portal nur Vornamen, volle Namen oder gar keine Namen Ihrer Mitarbeiter sieht.',
-		wirkt: 'Alle Kunden im Portal (Ansprechpartner, Team, Termine). Je Auftrag abschaltbar.',
+		wirkt: 'Alle Kunden im Portal (Ansprechpartner, Team, Termine). Beim Kunden lassen sich Namen ganz abschalten.',
 		standard: 'Nur Vorname.',
 		beispiel: '„Sabine“ statt „Sabine Schäfer“ – weniger Daten nach außen.'
+	},
+	'portal.frei': {
+		titel: 'Der Kunde sieht im Portal (Standard)',
+		was: 'Legt fest, ob Kunden im Portal Auftragsstatus, nächste Termine und Namen der Mitarbeiter sehen und ob sie Angebote online annehmen dürfen.',
+		wirkt: 'Alle Kunden, die beim Kunden nichts Eigenes eingestellt haben.',
+		standard: 'Alles an.',
+		beispiel: 'Termine ausschalten: Kunden sehen keine Einsatzzeiten, außer bei Kunden, bei denen Sie es einschalten.'
+	},
+	'kunde.portal_seite': {
+		titel: 'Portal-Einstellungen dieses Kunden',
+		was: 'Hier legen Sie fest, was dieser eine Kunde im Portal sieht und ob für ihn die Auftragsbestätigung automatisch entsteht. „Firmen-Standard“ übernimmt die Einstellung der Firma.',
+		wirkt: 'Alle Aufträge dieses Kunden – nicht andere Kunden.',
+		standard: 'Alles Firmen-Standard.',
+		beispiel: 'Ein Kunde soll keine Namen der Mitarbeiter sehen: dort „Namen der Mitarbeiter zeigen: nein“.'
+	},
+	'kunde.sichtbar': {
+		titel: 'Aufträge im Portal zeigen',
+		was: 'Ob die Aufträge dieses Kunden im Portal erscheinen. Abgerechnete Aufträge stehen nie in der Liste.',
+		wirkt: 'Das Portal dieses Kunden.',
+		standard: 'Firmen-Standard.',
+		beispiel: 'Nein: der Kunde sieht „Hier ist gerade nichts freigegeben“, bis Sie es einschalten.'
+	},
+	'kunde.status': {
+		titel: 'Auftragsstatus zeigen',
+		was: 'Zeigt dem Kunden den Fortschrittsweg und den Status seines Auftrags (z. B. „Arbeiten laufen“).',
+		wirkt: 'Das Portal dieses Kunden.',
+		standard: 'Firmen-Standard.',
+		beispiel: 'Nein bei einem Kunden, der nur Dokumente abholen soll.'
+	},
+	'kunde.termine': {
+		titel: 'Nächste Termine zeigen',
+		was: 'Zeigt dem Kunden die nächsten Einsätze mit Zeitfenster.',
+		wirkt: 'Das Portal dieses Kunden.',
+		standard: 'Firmen-Standard.',
+		beispiel: 'Der Kunde sieht „Mi 28.10., 10–14 Uhr, Arbeiten vor Ort“.'
+	},
+	'kunde.mitarbeiter': {
+		titel: 'Namen der Mitarbeiter zeigen',
+		was: 'Zeigt dem Kunden seinen Ansprechpartner und das Team. Wie die Namen aussehen (Vorname/voll), steht in den Einstellungen der Firma.',
+		wirkt: 'Das Portal dieses Kunden.',
+		standard: 'Firmen-Standard.',
+		beispiel: 'Nein: das Portal nennt keine Namen Ihrer Mitarbeiter.'
+	},
+	'kunde.annahme': {
+		titel: 'Angebot online annehmen lassen',
+		was: 'Der Kunde kann offene Angebote im Portal annehmen oder ablehnen. Aus: er sieht sie nur und meldet sich bei Ihnen.',
+		wirkt: 'Das Portal dieses Kunden.',
+		standard: 'Firmen-Standard.',
+		beispiel: 'Nein bei großen Projekten, die Sie lieber persönlich besprechen.'
+	},
+	'kunde.ab_automatisch': {
+		titel: 'Auftragsbestätigung automatisch erstellen',
+		was: 'Ob nach der Annahme eines Angebots dieses Kunden die Auftragsbestätigung (PDF) von selbst entsteht.',
+		wirkt: 'Alle künftigen Annahmen dieses Kunden.',
+		standard: 'Firmen-Standard.',
+		beispiel: 'Nein bei einem Kunden, dem Sie die Bestätigung selbst schreiben.'
 	},
 	'portal.agb_url': {
 		titel: 'Link zu den AGB',

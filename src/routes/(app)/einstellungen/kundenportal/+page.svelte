@@ -62,17 +62,17 @@
 	</Abschnitt>
 	<form method="POST" use:enhance={() => async ({ update }) => update({ reset: false })} class="kd-formular">
 		<Abschnitt titel="Auftragsbestätigung">
-			<Schalter name="abAutomatisch" an={data.e.abAutomatisch} label="Auftragsbestätigung automatisch erstellen" info="portal.ab_automatisch" hinweis="Sobald ein Angebot angenommen ist (Kundenportal, Büro oder Sprache): PDF am Auftrag, im Portal sichtbar, Versand vorbereitet. Je Auftrag abschaltbar." />
+			<Schalter name="abAutomatisch" an={data.e.abAutomatisch} label="Auftragsbestätigung automatisch erstellen" info="portal.ab_automatisch" hinweis="Sobald ein Angebot angenommen ist (Kundenportal, Büro oder Sprache): PDF am Auftrag, im Portal sichtbar, Versand vorbereitet. Beim Kunden abschaltbar." />
 		</Abschnitt>
 		<Abschnitt titel="Kundenportal">
 			{#if !data.portalModul}<p class="kd-info">Das Kundenportal ist im aktuellen Tarif nicht enthalten – die Links gelten erst mit dem Modul.</p>{/if}
 			<InfoFeld id="portal.standard"><label>Welche Aufträge stehen im Portal?
 				<Auswahl name="standard">
-					<option value="alle_aktiven" selected={data.e.standard === 'alle_aktiven'}>alle aktiven Aufträge des Kunden (nicht abgerechnet)</option>
-					<option value="nur_markierte" selected={data.e.standard === 'nur_markierte'}>nur Aufträge mit „Im Portal zeigen: ja“</option>
+					<option value="alle_aktiven" selected={data.e.standard === 'alle_aktiven'}>bei allen Kunden alle aktiven Aufträge (nicht abgerechnet)</option>
+					<option value="nur_markierte" selected={data.e.standard === 'nur_markierte'}>nur bei Kunden, bei denen es ausdrücklich eingeschaltet ist</option>
 				</Auswahl>
 			</label></InfoFeld>
-			<p class="kd-info">Je Auftrag überschreibbar (Karte „Kundenportal“ im Auftrag). Den Link erzeugen Sie auf der Seite des Kunden.</p>
+			<p class="kd-info">Beim Kunden überschreibbar (Kundenakte → Kundenportal → „Einstellungen für diesen Kunden“). Den Link erzeugen Sie auf der Seite des Kunden.</p>
 			<InfoFeld id="portal.team_namen"><label>Namen von Ansprechpartner und Team im Portal
 				<Auswahl name="teamNamen">
 					<option value="vorname" selected={data.e.teamNamen === 'vorname'}>nur Vorname (z. B. „Sabine“)</option>
@@ -80,7 +80,16 @@
 					<option value="aus" selected={data.e.teamNamen === 'aus'}>keine Namen zeigen</option>
 				</Auswahl>
 			</label></InfoFeld>
-			<p class="kd-info">Der Kunde sieht, wer sein Ansprechpartner ist und wer am Auftrag arbeitet. Je Auftrag abschaltbar („Namen der Mitarbeiter“).</p>
+			<p class="kd-info">Der Kunde sieht, wer sein Ansprechpartner ist und wer am Auftrag arbeitet. Beim Kunden abschaltbar („Namen der Mitarbeiter zeigen“).</p>
+			<fieldset class="kd-gruppe">
+				<legend>Der Kunde sieht im Portal (Standard für alle Kunden) <InfoFenster id="portal.frei" /></legend>
+				<input type="hidden" name="freiGesendet" value="1" />
+				<Schalter name="freiStatus" an={data.e.freiStatus} label="Auftragsstatus" />
+				<Schalter name="freiTermine" an={data.e.freiTermine} label="Nächste Termine (Zeitfenster)" />
+				<Schalter name="freiMitarbeiter" an={data.e.freiMitarbeiter} label="Namen der Mitarbeiter (Team)" />
+				<Schalter name="freiAnnahme" an={data.e.freiAnnahme} label="Angebot online annehmen" />
+			</fieldset>
+			<p class="kd-info">Beim einzelnen Kunden überschreibbar. Die Namen-Darstellung (nur Vorname / voller Name) bleibt eine Einstellung der Firma.</p>
 			<InfoFeld id="portal.agb_url"><label>Link zu Ihren Allgemeinen Geschäftsbedingungen (nur, wenn oben kein PDF hinterlegt ist)
 				<input type="url" name="agbUrl" value={data.e.agbUrl ?? ''} placeholder="https://www.ihre-firma.de/agb" maxlength="500" />
 			</label></InfoFeld>

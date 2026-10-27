@@ -1,8 +1,9 @@
+import { readFileSync } from 'node:fs';
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { antwort, baueUmgebung, jsonAnfrage, leereAngebote, testPng, type Umgebung } from './hilfe-1c';
-import { holeAgbPdfInfo, nachweiseZumAngebot, speichereAgbPdf, erzeugeLink, portalStand, portalVerlauf, portalZugriff, setzeAbAutomatisch, setzeDokument, setzeFreigabe, speicherePortalEinstellungen, widerrufeLink, tokenHash } from '../../src/lib/server/kundenportal';
+import { kundenPortal, holeAgbPdfInfo, ladePortalEinstellungen, nachweiseZumAngebot, speichereAgbPdf, erzeugeLink, portalStand, portalVerlauf, portalZugriff, setzeDokument, speichereKundenPortal, speicherePortalEinstellungen, widerrufeLink, tokenHash } from '../../src/lib/server/kundenportal';
 import { portalAgb, entscheide, ladePortal, portalAbruf, portalAktion, portalDokument, portalFehlversuch } from '../../src/lib/server/kundenportal-oeffentlich';
 import { setzeAngebotStatus } from '../../src/lib/server/angebote';
 import { listeAuftragsbestaetigungen, markiereAbGesendet } from '../../src/lib/server/auftragsbestaetigung';
@@ -13,6 +14,7 @@ import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
 import { FakeKi } from '../../src/lib/server/ki/fake';
 import { GET as agbGet } from '../../src/routes/portal/[token]/agb/+server';
 import { actions as einstellungenAktionen, load as einstellungenLoad } from '../../src/routes/(app)/einstellungen/kundenportal/+page.server';
+import { actions as kundenAktionen } from '../../src/routes/(app)/kunden/[id]/+page.server';
 import { actions as bestandAktionen, load as bestandLoad } from '../../src/routes/(app)/einstellungen/bestandskunden/+page.server';
 import { ladeBestandskunden } from '../../src/lib/server/kundenportal';
 
@@ -57,11 +59,14 @@ describe('Kundenportal', () => {
 		await root`delete from app.portal_links`;
 		await root`delete from app.portal_dokumente`;
 		await root`delete from app.portal_auftrag`;
+		await root`delete from app.kunden_portal`;
 		await root`delete from app.portal_einstellungen`;
 		await root`update app.auftraege set ab_automatisch = null`;
-		// Regel „nur markierte“ + Auftrag A markiert: so steht in den meisten Tests genau ein Auftrag im Portal
+		// Regel „nur ausdrücklich eingeschaltete Kunden“ + Kunde A eingeschaltet: so steht in den meisten Tests genau Kunde A im Portal
 		await root`insert into app.portal_einstellungen (betrieb_id, standard) values (${u.betriebA}, 'nur_markierte')`;
-		await root`insert into app.portal_auftrag (auftrag_id, betrieb_id, sichtbar) values (${u.auftragA}, ${u.betriebA}, true)`;
+		await root`insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar) values (${u.kundeA}, ${u.betriebA}, true)`;
+		// Das Portal zeigt jetzt alle aktiven Aufträge des Kunden (nicht mehr je Auftrag): Aufträge anderer Tests entfernen
+		await root`delete from app.auftraege where kunde_id = ${u.kundeA} and id <> ${u.auftragA}`;
 	});
 
 	it('Rechte: Link erzeugen nur mit Modul kundenportal + Aufträge bearbeiten', async () => {
@@ -89,8 +94,8 @@ describe('Kundenportal', () => {
 		await root`delete from app.auftraege where id = ${fertig.id}`;
 		expect(s.auftraege[0].termine![0].mitarbeiter).toEqual(['Ali']);
 		expect(JSON.stringify(s)).not.toMatch(/Fremd|Monteur|Lindenweg|monteur-a@/);
-		// Freigabe: ohne Termine/Vornamen/Status
-		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: false, termine: false, mitarbeiter: false, annahme: false });
+		// Freigabe beim Kunden: ohne Termine/Vornamen/Status
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', status: 'aus', termine: 'aus', mitarbeiter: 'aus', annahme: 'aus' });
 		const s2 = (await ladePortal(token, IP))!;
 		expect(s2.auftraege[0]).toMatchObject({ status: null, termine: null });
 	});
@@ -139,9 +144,9 @@ describe('Kundenportal', () => {
 			const aus = (await ladePortal(token, IP))!.auftraege[0];
 			expect(aus).toMatchObject({ ansprechpartner: null, team: [] });
 			expect(aus.termine![0].mitarbeiter).toEqual([]);
-			// Schalter „Namen der Mitarbeiter“ am Auftrag aus → kein Team, Status aus → keine Schritte
+			// Schalter „Namen der Mitarbeiter“ beim Kunden aus → kein Team, Status aus → keine Schritte
 			await root`update app.portal_einstellungen set team_namen = 'vorname' where betrieb_id = ${u.betriebA}`;
-			await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: false, termine: true, mitarbeiter: false, annahme: true });
+			await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', status: 'aus', termine: 'an', mitarbeiter: 'aus', annahme: 'an' });
 			const ohne = (await ladePortal(token, IP))!.auftraege[0];
 			expect(ohne).toMatchObject({ schritte: null, team: [], ansprechpartner: { name: 'Büro', figur: 'projektbegleiter' } });
 		} finally {
@@ -245,9 +250,9 @@ describe('Kundenportal', () => {
 	it('Ablehnung mit Grund → Aufgabe; Online-Annahme abgeschaltet → 403', async () => {
 		const an = await versendetesAngebot(u.auftragA);
 		const { token } = await erzeugeLink(zA(), u.kundeA);
-		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: true, termine: true, mitarbeiter: true, annahme: false });
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', annahme: 'aus' });
 		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Hans', agb: true }, IP)).rejects.toMatchObject({ status: 403 });
-		await setzeFreigabe(zA(), u.auftragA, { sichtbar: 'an', status: true, termine: true, mitarbeiter: true, annahme: true });
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an' });
 		const r = await entscheide(token, an.id, { entscheidung: 'abgelehnt', agb: false, grund: 'zu teuer' }, IP);
 		expect(r.status).toBe('abgelehnt');
 		const [t] = await root`select titel, beschreibung from app.todos where titel like ${`%${an.nummer}%abgelehnt%`}`;
@@ -255,39 +260,43 @@ describe('Kundenportal', () => {
 		expect(await listeAuftragsbestaetigungen(kA(), u.auftragA)).toEqual([]);
 	});
 
-	it('Auftragsbestätigung auch bei Annahme im Büro; Schalter je Betrieb aus, je Auftrag wieder an', async () => {
+	it('Auftragsbestätigung auch bei Annahme im Büro; Schalter je Betrieb aus, je Kunde wieder an', async () => {
 		const an = await versendetesAngebot(u.auftragA);
 		const r = await setzeAngebotStatus(kA(), an.id, 'angenommen');
 		expect(r.hinweis).toMatch(/Auftragsbestätigung AB-\d{4}-\d{4} erstellt/);
 		const [ab] = await root`select ausloeser from app.auftragsbestaetigungen where angebot_id = ${an.id}`;
 		expect(ab.ausloeser).toBe('oberflaeche');
-		// Betrieb aus → keine; Auftrag an → doch
+		// Betrieb aus → keine; Kunde an → doch (Jamil msg 3439: eingestellt wird beim Kunden)
 		await speicherePortalEinstellungen(kA(), { abAutomatisch: false });
 		const zwei = await u.neuerAuftrag('angebot', 'Zweiter');
 		const an2 = await versendetesAngebot(zwei);
 		await setzeAngebotStatus(kA(), an2.id, 'angenommen');
 		expect(await listeAuftragsbestaetigungen(kA(), zwei)).toEqual([]);
 		const drei = await u.neuerAuftrag('angebot', 'Dritter');
-		await setzeAbAutomatisch(zA(), drei, true);
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', abAutomatisch: 'an' });
 		const an3 = await versendetesAngebot(drei);
 		await setzeAngebotStatus(kA(), an3.id, 'angenommen');
 		expect(await listeAuftragsbestaetigungen(kA(), drei)).toHaveLength(1);
 	});
 
-	it('Ein Portal je Kunde (msg 2793): Regel „alle aktiven“ zeigt alle offenen Aufträge, „nein“ am Auftrag blendet aus; neuer Link ersetzt den alten', async () => {
+	it('Ein Portal je Kunde (msg 2793): Regel „alle aktiven“ zeigt alle offenen Aufträge, „nein“ beim Kunden blendet alle aus; neuer Link ersetzt den alten', async () => {
 		const zweiter = await u.neuerAuftrag('beauftragt', 'Zweiter Auftrag');
 		const fertig = await u.neuerAuftrag('abgerechnet', 'Längst abgerechnet');
 		const alt = await erzeugeLink(zA(), u.kundeA);
 		const { token } = await erzeugeLink(zA(), u.kundeA);
 		expect(await ladePortal(alt.token, IP)).toBeNull();
-		expect((await ladePortal(token, IP))!.auftraege.map((a) => a.id)).toEqual([u.auftragA]);
+		// Regel „nur ausdrücklich eingeschaltete Kunden“ + Kunde A eingeschaltet: alle aktiven Aufträge von A, nie abgerechnete
+		const eingeschaltet = (await ladePortal(token, IP))!.auftraege.map((a) => a.id);
+		expect(eingeschaltet).toEqual(expect.arrayContaining([u.auftragA, zweiter]));
+		expect(eingeschaltet).not.toContain(fertig);
 		await speicherePortalEinstellungen(kA(), { standard: 'alle_aktiven', abAutomatisch: true });
 		const ids = (await ladePortal(token, IP))!.auftraege.map((a) => a.id);
 		expect(ids).toEqual(expect.arrayContaining([u.auftragA, zweiter]));
 		expect(ids).not.toContain(fertig);
-		await setzeFreigabe(zA(), zweiter, { sichtbar: 'aus', status: true, termine: true, mitarbeiter: true, annahme: true });
-		expect((await ladePortal(token, IP))!.auftraege.map((a) => a.id)).not.toContain(zweiter);
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'aus' });
+		expect((await ladePortal(token, IP))!.auftraege).toEqual([]);
 		expect((await portalStand(zA(), zweiter)).imPortal).toBe(false);
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: '' });
 		expect((await portalStand(zA(), u.auftragA))).toMatchObject({ imPortal: true, kundeHatLink: true, kundeId: u.kundeA });
 		// Monteur ohne „Kundenportal verwalten“: kein Zugriff
 		await expect(portalZugriff({ nutzer: u.monteurA })).rejects.toMatchObject({ status: 403 });
@@ -307,7 +316,7 @@ describe('Kundenportal', () => {
 		const [{ geteilt }] = await root`select count(*)::int as geteilt from app.portal_dokumente where ref_id = ${weiteres.id}`;
 		expect(geteilt).toBe(0);
 		await expect(erzeugeLink({ ...zA(), k: { betriebId: u.betriebB, benutzerId: u.ids.chefB } }, u.kundeA)).rejects.toMatchObject({ status: 404 });
-		await expect(setzeAbAutomatisch(nurEigene, fremd, false)).rejects.toMatchObject({ status: 404 });
+		await expect(speichereKundenPortal(nurEigene, u.kundeA, { abAutomatisch: 'aus' })).rejects.toMatchObject({ status: 403 });
 		await expect(portalStand(nurEigene, fremd)).rejects.toMatchObject({ status: 404 });
 		const [{ n }] = await root`select count(*)::int as n from app.portal_links where kunde_id = ${kd2.id}`;
 		expect(n).toBe(0);
@@ -455,6 +464,129 @@ describe('Kundenportal', () => {
 		// Änderung ist im Änderungsprotokoll nachvollziehbar
 		const [p] = await root`select count(*)::int as n from app.aenderungen where betrieb_id = ${u.betriebA} and tabelle = 'portal_einstellungen' and nachher ? 'bestand_titel'`;
 		expect(p.n).toBeGreaterThan(0);
+	});
+
+	it('Portal-Einstellungen beim Kunden (msg 3439): Vererbung Firma → Kunde, Rückfallwerte, Prüfung, Rechte, Mandanten', async () => {
+		const seite = async (token: string) => (await ladePortal(token, IP))!.auftraege[0];
+		// Firma: Termine aus, alles andere an
+		await speicherePortalEinstellungen(kA(), { standard: 'alle_aktiven', abAutomatisch: true, freiGesendet: '1', freiStatus: 'on', freiMitarbeiter: 'on', freiAnnahme: 'on' });
+		expect(await ladePortalEinstellungen(kA())).toMatchObject({ freiStatus: true, freiTermine: false, freiMitarbeiter: true, freiAnnahme: true });
+		await root`delete from app.kunden_portal`;
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		let a = await seite(token);
+		expect(a.termine).toBeNull();
+		expect(a.status).not.toBeNull();
+		// Kunde überschreibt: Termine ja → erbt nichts mehr für Termine, Rest erbt weiter
+		await speichereKundenPortal(zA(), u.kundeA, { termine: 'an' });
+		a = await seite(token);
+		expect(a.termine).not.toBeNull();
+		expect(a.status).not.toBeNull();
+		let e = (await kundenPortal(zA(), u.kundeA)).einstellung;
+		expect(e.kunde).toEqual({ sichtbar: null, status: null, termine: true, mitarbeiter: null, annahme: null, abAutomatisch: null });
+		expect(e.firma).toMatchObject({ sichtbar: true, termine: false, status: true, abAutomatisch: true });
+		// Kunde leer → Zeile entfällt, erbt wieder
+		await speichereKundenPortal(zA(), u.kundeA, { termine: '' });
+		expect((await root`select count(*)::int as n from app.kunden_portal where kunde_id = ${u.kundeA}`)[0].n).toBe(0);
+		expect((await seite(token)).termine).toBeNull();
+		e = (await kundenPortal(zA(), u.kundeA)).einstellung;
+		expect(Object.values(e.kunde).every((x) => x === null)).toBe(true);
+		// Rückfallwerte: ganz ohne Firmen-Zeile gilt „alles an, alle aktiven Aufträge“
+		await root`delete from app.portal_einstellungen`;
+		a = await seite(token);
+		expect(a.status).not.toBeNull();
+		expect(a.termine).not.toBeNull();
+		expect(await ladePortalEinstellungen(kA())).toMatchObject({ standard: 'alle_aktiven', freiStatus: true, freiTermine: true, freiMitarbeiter: true, freiAnnahme: true });
+		// Prüfung der Eingaben und Zugriff
+		await expect(speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'vielleicht' })).rejects.toMatchObject({ status: 400 });
+		await expect(speichereKundenPortal(zA(), u.kundeA, { status: 'ja' })).rejects.toMatchObject({ status: 400 });
+		await expect(speichereKundenPortal(zA(), 'kein-uuid', {})).rejects.toMatchObject({ status: 404 });
+		await expect(speichereKundenPortal(zA(), u.kundeB, { status: 'aus' })).rejects.toMatchObject({ status: 404 });
+		await expect(speichereKundenPortal({ ...zA(), k: { betriebId: u.betriebB, benutzerId: u.ids.chefB } }, u.kundeA, { status: 'aus' })).rejects.toMatchObject({ status: 404 });
+		const nurEigene = { k: { betriebId: u.betriebA, benutzerId: u.ids.monteurA }, sicht: { alle: false, benutzerId: u.ids.monteurA }, preise: false };
+		await expect(speichereKundenPortal(nurEigene, u.kundeA, { status: 'aus' })).rejects.toMatchObject({ status: 403 });
+		// Seitenaktion beim Kunden: Monteur 403, Büro/Chef speichern
+		const sende = (nutzer: unknown, felder: Record<string, string>) =>
+			kundenAktionen.portalEinstellung({ locals: { nutzer }, params: { id: u.kundeA }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams(felder) }) } as never) as unknown as Promise<{ status?: number; portalMeldung?: string }>;
+		expect((await sende(u.monteurA, { status: 'aus' })).status).toBe(403);
+		expect((await sende(u.chefA, { sichtbar: 'bla' })).status).toBe(400);
+		expect(await sende(u.bueroA, { status: 'aus', abAutomatisch: 'aus' })).toMatchObject({ portalMeldung: expect.stringContaining('gespeichert') });
+		expect((await seite(token)).status).toBeNull();
+		// Mandanten: Betrieb B sieht die Zeile von A nie, und eine Zeile für einen fremden Kunden ist nicht möglich
+		expect((await u.alsApp(u.betriebB, u.ids.chefB, (tx) => tx`select count(*)::int as n from app.kunden_portal`))[0].n).toBe(0);
+		expect((await u.alsApp(u.betriebA, u.ids.chefA, (tx) => tx`select count(*)::int as n from app.kunden_portal`))[0].n).toBe(1);
+		await expect(root`insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar) values (${u.kundeB}, ${u.betriebA}, true)`).rejects.toThrow();
+		// Auftragsbestätigung: Kunde „aus“ schlägt Firma „an“, Kunde leer erbt
+		await speichereKundenPortal(zA(), u.kundeA, { abAutomatisch: 'aus' });
+		const an1 = await versendetesAngebot(u.auftragA);
+		await setzeAngebotStatus(kA(), an1.id, 'angenommen');
+		expect(await listeAuftragsbestaetigungen(kA(), u.auftragA)).toEqual([]);
+		await speichereKundenPortal(zA(), u.kundeA, { abAutomatisch: '' });
+		const zwei = await u.neuerAuftrag('angebot', 'Zweiter für AB');
+		const an2 = await versendetesAngebot(zwei);
+		await setzeAngebotStatus(kA(), an2.id, 'angenommen');
+		expect(await listeAuftragsbestaetigungen(kA(), zwei)).toHaveLength(1);
+	});
+
+	it('Auftragsseite (msg 3439): nur Hinweis „wird beim Kunden eingestellt“, keine Portal-Schalter mehr; Dokument-Freigabe bleibt', async () => {
+		const { load: auftragLoad, actions: auftragAktionen } = await import('../../src/routes/(app)/auftraege/[id]/+page.server');
+		await erzeugeLink(zA(), u.kundeA);
+		const laden = async () => (await auftragLoad({ locals: { nutzer: u.chefA }, params: { id: u.auftragA }, url: new URL('https://crm.test/x') } as never)) as any;
+		let seite = await laden();
+		expect(seite.portal.freigabe).toBeUndefined();
+		expect(seite.portal.standard).toBeUndefined();
+		expect(seite.portal.kundeId).toBe(u.kundeA);
+		expect(seite.abHinweis).toMatchObject({ an: true, kundeId: u.kundeA });
+		await speichereKundenPortal(zA(), u.kundeA, { abAutomatisch: 'aus' });
+		seite = await laden();
+		expect(seite.abHinweis.an).toBe(false);
+		expect((auftragAktionen as Record<string, unknown>).portalFreigabe).toBeUndefined();
+		expect((auftragAktionen as Record<string, unknown>).abAutomatisch).toBeUndefined();
+		expect((auftragAktionen as Record<string, unknown>).portalDokument).toBeTypeOf('function');
+		expect(Array.isArray(seite.portal.dateien)).toBe(true);
+	});
+
+	it('Migration 108: bisherige Werte am Auftrag werden je Kunde übernommen (vorsichtigste Auswahl), nichts geht verloren', async () => {
+		const [kd2] = await root`insert into app.kunden (betrieb_id, art, nachname) values (${u.betriebA}, 'privat', 'Migration Zwei') returning id`;
+		const [kd3] = await root`insert into app.kunden (betrieb_id, art, nachname) values (${u.betriebA}, 'privat', 'Migration Drei') returning id`;
+		const o = async (kunde: string, titel: string) => (await root`insert into app.auftraege (betrieb_id, kunde_id, titel) values (${u.betriebA}, ${kunde}, ${titel}) returning id`)[0].id as string;
+		const zweiterA = await o(u.kundeA, 'Mig A2');
+		const aKd2 = await o(kd2.id, 'Mig K2');
+		const aKd3 = await o(kd3.id, 'Mig K3');
+		// Altwerte: Kunde A: Auftrag 1 ausdrücklich im Portal, Status aus; Auftrag 2 Auftragsbestätigung aus.
+		// Kunde 2: einziger Auftrag ausdrücklich ausgeblendet. Kunde 3: nur Standardwerte.
+		await root`insert into app.portal_auftrag (auftrag_id, betrieb_id, sichtbar, status) values (${u.auftragA}, ${u.betriebA}, true, false) on conflict (auftrag_id) do update set sichtbar = true, status = false`;
+		await root`update app.auftraege set ab_automatisch = false where id = ${zweiterA}`;
+		await root`insert into app.portal_auftrag (auftrag_id, betrieb_id, sichtbar) values (${aKd2}, ${u.betriebA}, false)`;
+		await root`insert into app.portal_auftrag (auftrag_id, betrieb_id, termine, mitarbeiter, annahme) values (${aKd3}, ${u.betriebA}, false, false, false)`;
+		const teil = readFileSync('db/migrations/108_portal_je_kunde.sql', 'utf8');
+		const uebernahme = teil.slice(teil.indexOf('-- Übernahme der bisherigen Werte'));
+		const zeile = async (id: string) => (await root`select sichtbar, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch from app.kunden_portal where kunde_id = ${id}`)[0];
+		// Regel „nur markierte“ (Firma): Kunde A hatte einen ausdrücklich gezeigten Auftrag → Kunde ja
+		await root`delete from app.kunden_portal`;
+		await root.unsafe(uebernahme);
+		expect(await zeile(u.kundeA)).toEqual({ sichtbar: true, frei_status: false, frei_termine: null, frei_mitarbeiter: null, frei_annahme: null, ab_automatisch: false });
+		expect(await zeile(kd2.id)).toBeUndefined(); // „nur markierte“: ausdrücklich ausgeblendet = Standard, nichts zu übernehmen
+		expect(await zeile(kd3.id)).toEqual({ sichtbar: null, frei_status: null, frei_termine: false, frei_mitarbeiter: false, frei_annahme: false, ab_automatisch: null });
+		// Regel „alle aktiven“: ausdrücklich ausgeblendeter Kunde bleibt ausgeblendet
+		await root`update app.portal_einstellungen set standard = 'alle_aktiven' where betrieb_id = ${u.betriebA}`;
+		await root`delete from app.kunden_portal`;
+		await root.unsafe(uebernahme);
+		expect((await zeile(kd2.id)).sichtbar).toBe(false);
+		expect((await zeile(u.kundeA)).sichtbar).toBeNull();
+		// zweiter Lauf ändert nichts (idempotent) und die Altwerte am Auftrag sind unverändert
+		await root.unsafe(uebernahme);
+		expect((await root`select count(*)::int as n from app.kunden_portal`)[0].n).toBe(3);
+		expect((await root`select status from app.portal_auftrag where auftrag_id = ${u.auftragA}`)[0].status).toBe(false);
+		expect((await root`select ab_automatisch from app.auftraege where id = ${zweiterA}`)[0].ab_automatisch).toBe(false);
+		// Firma ab aus + Auftrag ab an → Kunde an
+		await root`update app.portal_einstellungen set ab_automatisch = false where betrieb_id = ${u.betriebA}`;
+		await root`update app.auftraege set ab_automatisch = true where id = ${aKd2}`;
+		await root`delete from app.kunden_portal`;
+		await root.unsafe(uebernahme);
+		expect((await zeile(kd2.id)).ab_automatisch).toBe(true);
+		// Aufräumen
+		await root`delete from app.auftraege where id in (${zweiterA}, ${aKd2}, ${aKd3})`;
+		await root`delete from app.kunden where id in (${kd2.id}, ${kd3.id})`;
 	});
 });
 

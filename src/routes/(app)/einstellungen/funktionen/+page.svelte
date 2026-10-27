@@ -23,6 +23,8 @@
 				return s.buchung.terminarten === 0 ? 'Keine Terminart online buchbar' : `${s.buchung.terminarten} Terminart${s.buchung.terminarten === 1 ? '' : 'en'} online buchbar`;
 			case 'portal_links':
 				return s.portalLinks.kunden === 0 ? 'Noch kein Kunde mit Portal-Link' : `${s.portalLinks.kunden} Kunde${s.portalLinks.kunden === 1 ? '' : 'n'} mit Portal-Link`;
+			case 'kunden_portal':
+				return s.kundenEigen === 0 ? 'Alle Kunden: Standard der Firma' : `${s.kundenEigen} Kunde${s.kundenEigen === 1 ? '' : 'n'} mit eigenen Einstellungen`;
 			default:
 				return null;
 		}

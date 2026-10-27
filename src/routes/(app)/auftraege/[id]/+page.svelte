@@ -202,7 +202,7 @@
 					</Karte>
 				</div>
 			{/if}
-			{#if data.auftragsbestaetigungen.length > 0 || data.abEinstellung}
+			{#if data.auftragsbestaetigungen.length > 0 || data.abHinweis}
 				<div class="af-k k-ab" id="auftragsbestaetigung">
 					<Karte>
 						{#snippet titel()}Auftragsbestätigung{/snippet}
@@ -232,16 +232,11 @@
 						{:else}
 							<p class="kd-info">Sobald ein Angebot angenommen ist (Kundenportal, Büro oder Sprache), entsteht hier automatisch die Auftragsbestätigung.</p>
 						{/each}
-						{#if data.abEinstellung}
-							<form method="POST" action="?/abAutomatisch" use:enhance={sofort} class="af-inline af-ab-schalter">
-								<label>Automatisch erstellen
-									<Auswahl name="wert" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-										<option value="" selected={data.abEinstellung?.auftrag == null}>wie im Betrieb ({data.abEinstellung?.betrieb ? 'an' : 'aus'})</option>
-										<option value="an" selected={data.abEinstellung?.auftrag === true}>an</option>
-										<option value="aus" selected={data.abEinstellung?.auftrag === false}>aus</option>
-									</Auswahl>
-								</label>
-							</form>
+						{#if data.abHinweis}
+							<!-- Einstellungen des Kunden gehören zum Kunden (Jamil msg 3439): hier nur der Hinweis -->
+							<p class="kd-info" data-testid="ab-hinweis">
+								Automatisch erstellen: <strong>{data.abHinweis.an ? 'an' : 'aus'}</strong> – wird beim Kunden eingestellt{#if data.abHinweis.kundeId}: <a href={`/kunden/${data.abHinweis.kundeId}#kundenportal`}>zu den Einstellungen des Kunden</a>{/if}.
+							</p>
 						{/if}
 					</Karte>
 				</div>
@@ -251,7 +246,6 @@
 					<Karte>
 						{#snippet titel()}Kundenportal{/snippet}
 						{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
-						{#if form?.portalMeldung}<p role="status" class="kd-info">{form.portalMeldung}</p>{/if}
 						<p class="af-portal-status" data-testid="portal-status-auftrag">
 							{data.portal.imPortal ? 'Dieser Auftrag steht im Kundenportal.' : 'Dieser Auftrag steht nicht im Kundenportal.'}
 							{#if data.portal.kundeId}
@@ -261,20 +255,12 @@
 								Ohne Kunden in der Kundendatenbank gibt es kein Portal.
 							{/if}
 						</p>
-						<form method="POST" action="?/portalFreigabe" use:enhance={sofort} class="af-portal-freigabe">
-							<label class="af-portal-wahl">Im Portal zeigen
-								<Auswahl name="sichtbar" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-									<option value="" selected={data.portal.freigabe.sichtbar === null}>nach Regel ({data.portal.standard === 'alle_aktiven' ? 'alle aktiven Aufträge' : 'nur markierte'})</option>
-									<option value="an" selected={data.portal.freigabe.sichtbar === true}>ja</option>
-									<option value="aus" selected={data.portal.freigabe.sichtbar === false}>nein</option>
-								</Auswahl>
-							</label>
-							<p class="af-portal-titel">Der Kunde sieht:</p>
-							<label><input type="checkbox" name="status" value="ja" checked={data.portal.freigabe.status} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Auftragsstatus</label>
-							<label><input type="checkbox" name="termine" value="ja" checked={data.portal.freigabe.termine} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Nächste Termine (Zeitfenster)</label>
-							<label><input type="checkbox" name="mitarbeiter" value="ja" checked={data.portal.freigabe.mitarbeiter} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Namen der Mitarbeiter (Team)</label>
-							<label><input type="checkbox" name="annahme" value="ja" checked={data.portal.freigabe.annahme} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> Angebot online annehmen</label>
-						</form>
+						{#if data.portal.kundeId}
+							<!-- Einstellungen des Kunden (Aufträge zeigen, Status, Termine, Namen, Online-Annahme) – Jamil msg 3439 -->
+							<p class="kd-info" data-testid="portal-hinweis-kunde">
+								Was der Kunde im Portal sieht, wird beim Kunden eingestellt: <a href={`/kunden/${data.portal.kundeId}#kundenportal`}>zu den Einstellungen des Kunden</a>. Hier geben Sie nur einzelne Dokumente frei.
+							</p>
+						{/if}
 						{#if data.portal.angebote.length + data.portal.dateien.length > 0}
 							<p class="af-portal-titel">Freigegebene Dokumente</p>
 							<ul class="af-portal-docs">
@@ -1352,11 +1338,7 @@
 	.af-ab p { margin: 0; }
 	.af-ab-knoepfe { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: flex-end; }
 	.af-portal-docs { list-style: none; margin: var(--ui-a2) 0; padding: 0; display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }
-	.af-portal-freigabe { display: grid; gap: var(--ui-a1); margin-top: var(--ui-a3); }
-	.af-portal-freigabe label, .af-portal-docs label { display: flex; gap: var(--ui-a2); align-items: center; min-height: 2.25rem; }
+	.af-portal-docs label { display: flex; gap: var(--ui-a2); align-items: center; min-height: 2.25rem; }
 	.af-portal-titel { margin: var(--ui-a2) 0 0; font-weight: 600; font-size: var(--ui-schrift-s); }
-	.af-ab-schalter { margin-top: var(--ui-a2); }
 	.af-portal-status { margin: 0 0 var(--ui-a2); font-size: var(--ui-schrift-s); }
-	.af-portal-wahl { display: flex; gap: var(--ui-a2); align-items: center; flex-wrap: wrap; }
-	.af-ab-schalter label { display: flex; gap: var(--ui-a2); align-items: center; font-size: var(--ui-schrift-s); }
 </style>

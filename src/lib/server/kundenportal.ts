@@ -55,11 +55,8 @@ export type PortalLink = {
 	/** Gültiger Link von vor dem Update (nur Hash gespeichert) – lässt sich nicht wieder öffnen. */
 	ohneKopie: boolean;
 };
-export type PortalFreigabe = { sichtbar: boolean | null; status: boolean; termine: boolean; mitarbeiter: boolean; annahme: boolean };
 export type PortalStand = {
-	/** gilt die Regel „alle aktiven“ des Betriebs? */
-	standard: 'alle_aktiven' | 'nur_markierte';
-	/** wird der Auftrag im Portal gezeigt (Regel + Einstellung am Auftrag)? */
+	/** wird der Auftrag im Portal gezeigt (Einstellung des Kunden, sonst Regel der Firma)? */
 	imPortal: boolean;
 	/** hat der Kunde einen gültigen Link? */
 	kundeHatLink: boolean;
@@ -69,13 +66,11 @@ export type PortalStand = {
 	 */
 	kundeLinkToken: string | null;
 	kundeId: string | null;
-	freigabe: PortalFreigabe;
 	angebote: { id: string; nummer: string; status: string; geteilt: boolean }[];
 	dateien: { id: string; name: string; typ: string; geteilt: boolean; angelegt: string }[];
 };
 
 const iso = (d: unknown) => (d ? new Date(d as string).toISOString() : null);
-const STANDARD_FREIGABE: PortalFreigabe = { sichtbar: null, status: true, termine: true, mitarbeiter: true, annahme: true };
 
 async function auftragPruefen(z: { k: Kontext; sicht: Sicht }, auftragId: unknown) {
 	if (typeof auftragId !== 'string' || !UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
@@ -95,21 +90,31 @@ async function kundePruefen(z: PortalZugriff, kundeId: unknown): Promise<string>
 	return kd.id;
 }
 
-/** SQL-Bedingung „Auftrag a ist im Portal“ (Regel des Betriebs, Einstellung am Auftrag). */
-export const IM_PORTAL_SQL = `(coalesce(pa.sichtbar,
-	coalesce((select e.standard from app.portal_einstellungen e where e.betrieb_id = a.betrieb_id), 'alle_aktiven') = 'alle_aktiven'
-	and a.status <> 'abgerechnet'))`;
+/**
+ * SQL-Bedingung „Auftrag a ist im Portal“ (Jamil msgs 3423, 3439): Einstellung des Kunden, sonst Regel der Firma; abgerechnete
+ * Aufträge stehen nie in der Liste (der Kunde ist dann Bestandskunde). Braucht nur den Alias `a` für app.auftraege.
+ */
+export const IM_PORTAL_SQL = `(coalesce(
+	(select kp.sichtbar from app.kunden_portal kp where kp.kunde_id = a.kunde_id and kp.betrieb_id = a.betrieb_id),
+	coalesce((select e.standard from app.portal_einstellungen e where e.betrieb_id = a.betrieb_id), 'alle_aktiven') = 'alle_aktiven')
+	and a.status <> 'abgerechnet')`;
+
+export type FreigabeFeld = 'status' | 'termine' | 'mitarbeiter' | 'annahme';
+/** SQL „wirksame Freigabe“ eines Auftrags a: Kunde → Firma → an. */
+export const freigabeSql = (feld: FreigabeFeld) => {
+	if (!['status', 'termine', 'mitarbeiter', 'annahme'].includes(feld)) throw new Error('Unbekannte Freigabe');
+	return `coalesce((select kp.frei_${feld} from app.kunden_portal kp where kp.kunde_id = a.kunde_id and kp.betrieb_id = a.betrieb_id),
+	(select e.frei_${feld} from app.portal_einstellungen e where e.betrieb_id = a.betrieb_id), true)`;
+};
 
 export async function portalStand(z: PortalZugriff, auftragId: string): Promise<PortalStand> {
 	const { k } = z;
 	const a = await auftragPruefen(z, auftragId);
 	const id = a.id;
 	return mitBetrieb(k, async (tx) => {
-		const [f] = await tx`select sichtbar, status, termine, mitarbeiter, annahme from app.portal_auftrag where auftrag_id = ${id} and betrieb_id = ${k.betriebId}`;
 		const [st] = await tx`
-			select coalesce((select standard from app.portal_einstellungen where betrieb_id = ${k.betriebId}), 'alle_aktiven') as standard,
-				${tx.unsafe(IM_PORTAL_SQL)} as im_portal
-			from app.auftraege a left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
+			select ${tx.unsafe(IM_PORTAL_SQL)} as im_portal
+			from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId}`;
 		const [l] = a.kundeId
 			? await tx`select token_geheim from app.portal_links where kunde_id = ${a.kundeId} and betrieb_id = ${k.betriebId} and widerrufen_am is null and (laeuft_ab is null or laeuft_ab > now()) order by angelegt desc limit 1`
@@ -120,12 +125,10 @@ export async function portalStand(z: PortalZugriff, auftragId: string): Promise<
 		const angebote = z.preise ? await tx`select id, nummer, status from app.angebote where auftrag_id = ${id} and betrieb_id = ${k.betriebId} and status <> 'entwurf' order by angelegt` : [];
 		const dateien = await tx`select id, name, typ, angelegt from app.dateien where auftrag_id = ${id} and betrieb_id = ${k.betriebId} order by angelegt desc limit 200`;
 		return {
-			standard: st.standard,
 			imPortal: st.im_portal === true,
 			kundeHatLink: !!l,
 			kundeLinkToken: l && z.sicht.alle ? entschluesseleToken(l.token_geheim) : null,
 			kundeId: a.kundeId,
-			freigabe: f ? { sichtbar: f.sichtbar, status: f.status, termine: f.termine, mitarbeiter: f.mitarbeiter, annahme: f.annahme } : { ...STANDARD_FREIGABE },
 			angebote: angebote.map((x) => ({ id: x.id, nummer: x.nummer, status: x.status, geteilt: ist('angebot', x.id) })),
 			dateien: dateien.map((x) => ({ id: x.id, name: x.name, typ: x.typ, geteilt: ist('datei', x.id), angelegt: new Date(x.angelegt).toISOString() }))
 		};
@@ -137,6 +140,8 @@ export type KundenPortal = {
 	auftraege: { id: string; nummer: string; titel: string; imPortal: boolean }[];
 	/** Portal-Passwort: eigenes oder PLZ (msg 3037); `fehlversuche` = falsche Passwörter in den letzten 7 Tagen. */
 	passwort: PortalPasswortStand & { fehlversuche: number };
+	/** Einstellungen dieses Kunden (leer = erbt von der Firma) */
+	einstellung: KundenPortalEinstellung;
 };
 
 /** Portal eines Kunden (Kundenseite): Links und welche seiner Aufträge im Portal stehen. */
@@ -151,7 +156,7 @@ export async function kundenPortal(z: PortalZugriff, kundeId: unknown, jetzt = n
 			where e.betrieb_id = ${z.k.betriebId} and l.kunde_id = ${id} and e.art = 'anmeldung_fehler' and e.zeit > now() - interval '7 days'`;
 		const auftraege = await tx`
 			select a.id, a.nummer, a.titel, ${tx.unsafe(IM_PORTAL_SQL)} as im_portal
-			from app.auftraege a left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
+			from app.auftraege a
 			where a.betrieb_id = ${z.k.betriebId} and a.kunde_id = ${id} order by a.angelegt desc limit 50`;
 		return {
 			links: links.map((l) => ({
@@ -166,7 +171,8 @@ export async function kundenPortal(z: PortalZugriff, kundeId: unknown, jetzt = n
 				ohneKopie: istGueltig(l) && !l.token_geheim
 			})),
 			auftraege: auftraege.filter((a) => sichtbare.has(a.id)).map((a) => ({ id: a.id, nummer: a.nummer, titel: a.titel, imPortal: a.im_portal === true })),
-			passwort: { ...(await passwortStand(tx, z.k, id)), fehlversuche: Number(fehl?.n ?? 0) }
+			passwort: { ...(await passwortStand(tx, z.k, id)), fehlversuche: Number(fehl?.n ?? 0) },
+			einstellung: await ladeKundenWerte(tx, z.k, id)
 		};
 	});
 }
@@ -206,7 +212,6 @@ async function teileAngeboteDesKunden(tx: TransactionSql, k: Kontext, kundeId: s
 		insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id)
 		select ${k.betriebId}, an.auftrag_id, 'angebot', an.id from app.angebote an
 		join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
-		left join app.portal_auftrag pa on pa.auftrag_id = a.id and pa.betrieb_id = a.betrieb_id
 		where a.kunde_id = ${kundeId} and an.betrieb_id = ${k.betriebId} and an.status in ('versendet', 'angenommen')
 			and ${tx.unsafe(IM_PORTAL_SQL)}
 		on conflict do nothing`;
@@ -228,17 +233,72 @@ export async function widerrufeLink(z: PortalZugriff, kundeId: unknown, linkId: 
 	if (zeilen.length === 0) throw new ApiFehler(404, 'Link nicht gefunden oder schon widerrufen.');
 }
 
-/** Freigaben je Auftrag: im Portal sichtbar (leer = Regel), Status, Termine, Vornamen, Online-Annahme. */
-export async function setzeFreigabe(z: PortalZugriff, auftragId: unknown, f: Partial<Record<keyof PortalFreigabe, unknown>>): Promise<void> {
+/**
+ * Portal-Einstellungen eines KUNDEN (Jamil msgs 3423, 3439, „Option A“): Aufträge im Portal zeigen, Freigaben, Auftrags-
+ * bestätigung automatisch. `null` = erbt von der Firma (`firma` zeigt deren Wert, damit die Oberfläche „wie in den Firmen-
+ * Einstellungen (ja)“ sagen kann). Auf der Auftragsseite gibt es dafür nur noch den Hinweis „wird beim Kunden eingestellt“.
+ */
+export type KundenPortalWerte = { sichtbar: boolean | null; status: boolean | null; termine: boolean | null; mitarbeiter: boolean | null; annahme: boolean | null; abAutomatisch: boolean | null };
+export type FirmaPortalWerte = { sichtbar: boolean; status: boolean; termine: boolean; mitarbeiter: boolean; annahme: boolean; abAutomatisch: boolean };
+export type KundenPortalEinstellung = { kunde: KundenPortalWerte; firma: FirmaPortalWerte };
+
+export const KUNDEN_PORTAL_FELDER = ['sichtbar', 'status', 'termine', 'mitarbeiter', 'annahme', 'abAutomatisch'] as const;
+
+async function ladeKundenWerte(tx: TransactionSql, k: Kontext, kundeId: string): Promise<KundenPortalEinstellung> {
+	const [kp] = await tx`select sichtbar, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch from app.kunden_portal where kunde_id = ${kundeId} and betrieb_id = ${k.betriebId}`;
+	const [e] = await tx`select standard, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch from app.portal_einstellungen where betrieb_id = ${k.betriebId}`;
+	return {
+		kunde: {
+			sichtbar: kp?.sichtbar ?? null,
+			status: kp?.frei_status ?? null,
+			termine: kp?.frei_termine ?? null,
+			mitarbeiter: kp?.frei_mitarbeiter ?? null,
+			annahme: kp?.frei_annahme ?? null,
+			abAutomatisch: kp?.ab_automatisch ?? null
+		},
+		firma: {
+			sichtbar: (e?.standard ?? 'alle_aktiven') === 'alle_aktiven',
+			status: e?.frei_status ?? true,
+			termine: e?.frei_termine ?? true,
+			mitarbeiter: e?.frei_mitarbeiter ?? true,
+			annahme: e?.frei_annahme ?? true,
+			abAutomatisch: e?.ab_automatisch ?? true
+		}
+	};
+}
+
+/** Eingabe der Auswahl „wie die Firma / ja / nein“: '' → null (erbt), 'an' → true, 'aus' → false, alles andere 400. */
+function dreiWerte(w: unknown, name: string): boolean | null {
+	if (w === undefined || w === null || w === '') return null;
+	if (w === 'an' || w === true) return true;
+	if (w === 'aus' || w === false) return false;
+	throw new ApiFehler(400, `Ungültiger Wert für „${name}“.`);
+}
+
+/** Speichert die Portal-Einstellungen des Kunden; sind alle leer, wird die Zeile entfernt (alles erbt). */
+export async function speichereKundenPortal(z: PortalZugriff, kundeId: unknown, f: Partial<Record<(typeof KUNDEN_PORTAL_FELDER)[number], unknown>>): Promise<KundenPortalWerte> {
 	const { k } = z;
-	const id = (await auftragPruefen(z, auftragId)).id;
-	const b = (w: unknown) => w === true || w === 'ja' || w === 'on';
-	const sichtbar = f.sichtbar === 'an' || f.sichtbar === true ? true : f.sichtbar === 'aus' || f.sichtbar === false ? false : null;
-	await mitBetrieb(k, (tx) => tx`
-		insert into app.portal_auftrag (auftrag_id, betrieb_id, sichtbar, status, termine, mitarbeiter, annahme)
-		values (${id}, ${k.betriebId}, ${sichtbar}, ${b(f.status)}, ${b(f.termine)}, ${b(f.mitarbeiter)}, ${b(f.annahme)})
-		on conflict (auftrag_id) do update set sichtbar = excluded.sichtbar, status = excluded.status, termine = excluded.termine,
-			mitarbeiter = excluded.mitarbeiter, annahme = excluded.annahme`);
+	const id = await kundePruefen(z, kundeId);
+	const w: KundenPortalWerte = {
+		sichtbar: dreiWerte(f.sichtbar, 'Aufträge im Portal'),
+		status: dreiWerte(f.status, 'Auftragsstatus'),
+		termine: dreiWerte(f.termine, 'Nächste Termine'),
+		mitarbeiter: dreiWerte(f.mitarbeiter, 'Namen der Mitarbeiter'),
+		annahme: dreiWerte(f.annahme, 'Angebot online annehmen'),
+		abAutomatisch: dreiWerte(f.abAutomatisch, 'Auftragsbestätigung automatisch')
+	};
+	await mitBetrieb(k, async (tx) => {
+		if (Object.values(w).every((x) => x === null)) {
+			await tx`delete from app.kunden_portal where kunde_id = ${id} and betrieb_id = ${k.betriebId}`;
+			return;
+		}
+		await tx`
+			insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch)
+			values (${id}, ${k.betriebId}, ${w.sichtbar}, ${w.status}, ${w.termine}, ${w.mitarbeiter}, ${w.annahme}, ${w.abAutomatisch})
+			on conflict (kunde_id) do update set sichtbar = excluded.sichtbar, frei_status = excluded.frei_status, frei_termine = excluded.frei_termine,
+				frei_mitarbeiter = excluded.frei_mitarbeiter, frei_annahme = excluded.frei_annahme, ab_automatisch = excluded.ab_automatisch`;
+	});
+	return w;
 }
 
 /** Dokument (Angebot oder Datei des Auftrags) fürs Portal freigeben bzw. zurücknehmen. */
@@ -263,24 +323,16 @@ export async function setzeDokument(z: PortalZugriff, auftragId: unknown, art: u
 	});
 }
 
-/** Auftragsbestätigung automatisch je Auftrag: true/false oder null (= wie im Betrieb). */
-export async function setzeAbAutomatisch(z: { k: Kontext; sicht: Sicht }, auftragId: unknown, wert: boolean | null): Promise<void> {
-	const { k } = z;
-	if (typeof auftragId !== 'string' || !UUID.test(auftragId)) throw new ApiFehler(404, 'Auftrag nicht gefunden.');
-	await holeAuftrag(k, z.sicht, auftragId);
-	await mitBetrieb(k, (tx) => tx`update app.auftraege set ab_automatisch = ${wert} where id = ${auftragId} and betrieb_id = ${k.betriebId}`);
-}
-
 export type TeamNamen = 'vorname' | 'voll' | 'aus';
 export const TEAM_NAMEN: Record<TeamNamen, string> = { vorname: 'nur Vorname', voll: 'Vor- und Nachname', aus: 'keine Namen' };
-export type PortalEinstellungen = { agbUrl: string | null; widerrufUrl: string | null; abAutomatisch: boolean; standard: 'alle_aktiven' | 'nur_markierte'; teamNamen: TeamNamen };
+export type PortalEinstellungen = { agbUrl: string | null; widerrufUrl: string | null; abAutomatisch: boolean; standard: 'alle_aktiven' | 'nur_markierte'; teamNamen: TeamNamen; freiStatus: boolean; freiTermine: boolean; freiMitarbeiter: boolean; freiAnnahme: boolean };
 /** Hinterlegtes AGB-PDF (msg 3030): Fassung = SHA-256 + Zeitpunkt des Hochladens. */
 export type AgbPdf = { hash: string; hochgeladen: string; groesse: number };
 const istTeamNamen = (w: unknown): w is TeamNamen => w === 'vorname' || w === 'voll' || w === 'aus';
 
 export async function ladePortalEinstellungen(k: Kontext): Promise<PortalEinstellungen> {
-	const [e] = await mitBetrieb(k, (tx) => tx`select agb_url, widerruf_url, ab_automatisch, standard, team_namen from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
-	return { agbUrl: e?.agb_url ?? null, widerrufUrl: e?.widerruf_url ?? null, abAutomatisch: e?.ab_automatisch ?? true, standard: e?.standard ?? 'alle_aktiven', teamNamen: istTeamNamen(e?.team_namen) ? e.team_namen : 'vorname' };
+	const [e] = await mitBetrieb(k, (tx) => tx`select agb_url, widerruf_url, ab_automatisch, standard, team_namen, frei_status, frei_termine, frei_mitarbeiter, frei_annahme from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
+	return { agbUrl: e?.agb_url ?? null, widerrufUrl: e?.widerruf_url ?? null, abAutomatisch: e?.ab_automatisch ?? true, standard: e?.standard ?? 'alle_aktiven', teamNamen: istTeamNamen(e?.team_namen) ? e.team_namen : 'vorname', freiStatus: e?.frei_status ?? true, freiTermine: e?.frei_termine ?? true, freiMitarbeiter: e?.frei_mitarbeiter ?? true, freiAnnahme: e?.frei_annahme ?? true };
 }
 
 // ——— Leistungen für Bestandskunden (Wunsch Jamil, msg 3408) ———
@@ -397,6 +449,8 @@ function url(w: unknown, name: string): string | null {
 	return w.trim();
 }
 
+const an = (w: unknown) => w === true || w === 'ja' || w === 'on';
+
 export async function speicherePortalEinstellungen(k: Kontext, e: Record<string, unknown>): Promise<PortalEinstellungen> {
 	const w: PortalEinstellungen = {
 		agbUrl: url(e.agbUrl, 'AGB'),
@@ -404,13 +458,19 @@ export async function speicherePortalEinstellungen(k: Kontext, e: Record<string,
 		abAutomatisch: e.abAutomatisch === true || e.abAutomatisch === 'ja' || e.abAutomatisch === 'on',
 		standard: e.standard === 'nur_markierte' ? 'nur_markierte' : 'alle_aktiven',
 		// fehlt das Feld (ältere Formulare, Tests), bleibt der Standard „nur Vorname“
-		teamNamen: istTeamNamen(e.teamNamen) ? e.teamNamen : 'vorname'
-	};
+		teamNamen: istTeamNamen(e.teamNamen) ? e.teamNamen : 'vorname',
+		// Freigaben-Standard (msg 3439): mit Kennzeichen „freiGesendet“ (Formular) zählt ein fehlendes Häkchen als „aus“, sonst
+		// (ältere Formulare, Tests) bleibt der Standard „an“
+		...Object.fromEntries(
+			(['freiStatus', 'freiTermine', 'freiMitarbeiter', 'freiAnnahme'] as const).map((n) => [n, e.freiGesendet ? an(e[n]) : e[n] === undefined ? true : an(e[n])])
+		)
+	} as PortalEinstellungen;
 	await mitBetrieb(k, (tx) => tx`
-		insert into app.portal_einstellungen (betrieb_id, agb_url, widerruf_url, ab_automatisch, standard, team_namen)
-		values (${k.betriebId}, ${w.agbUrl}, ${w.widerrufUrl}, ${w.abAutomatisch}, ${w.standard}, ${w.teamNamen})
+		insert into app.portal_einstellungen (betrieb_id, agb_url, widerruf_url, ab_automatisch, standard, team_namen, frei_status, frei_termine, frei_mitarbeiter, frei_annahme)
+		values (${k.betriebId}, ${w.agbUrl}, ${w.widerrufUrl}, ${w.abAutomatisch}, ${w.standard}, ${w.teamNamen}, ${w.freiStatus}, ${w.freiTermine}, ${w.freiMitarbeiter}, ${w.freiAnnahme})
 		on conflict (betrieb_id) do update set agb_url = excluded.agb_url, widerruf_url = excluded.widerruf_url,
-			ab_automatisch = excluded.ab_automatisch, standard = excluded.standard, team_namen = excluded.team_namen`);
+			ab_automatisch = excluded.ab_automatisch, standard = excluded.standard, team_namen = excluded.team_namen,
+			frei_status = excluded.frei_status, frei_termine = excluded.frei_termine, frei_mitarbeiter = excluded.frei_mitarbeiter, frei_annahme = excluded.frei_annahme`);
 	return w;
 }
 

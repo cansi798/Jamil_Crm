@@ -77,7 +77,7 @@ describe('Funktionen & Automatisierungen', () => {
 
 	it('jeder Link führt zu einem Menüpunkt', () => {
 		const nav = baueNavigation({ istAdmin: false, betriebId: 'b', rechte: VORLAGEN.chef }, [...MODULE]);
-		const ziele = new Set(nav.mehr.map((e) => e.href));
+		const ziele = new Set([...nav.haupt, ...nav.mehr].map((e) => e.href));
 		for (const f of FUNKTIONEN) expect(ziele.has(f.href), `${f.id} → ${f.href}`).toBe(true);
 	});
 

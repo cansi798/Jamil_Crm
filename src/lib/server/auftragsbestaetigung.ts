@@ -46,14 +46,20 @@ const zu = (z: Record<string, any>): Auftragsbestaetigung => ({
 	angelegt: new Date(z.angelegt).toISOString()
 });
 
-/** Ist die automatische Auftragsbestätigung für diesen Auftrag an? (Auftrag → Betrieb → Standard an) */
+/** Ist die automatische Auftragsbestätigung für diesen Auftrag an? (Kunde des Auftrags → Firma → Standard an; Jamil msg 3439) */
 export async function abAutomatisch(tx: TransactionSql, k: Kontext, auftragId: string | null): Promise<boolean> {
 	const [z] = await tx`
 		select coalesce(
-			(select a.ab_automatisch from app.auftraege a where a.id = ${auftragId} and a.betrieb_id = ${k.betriebId}),
+			(select kp.ab_automatisch from app.auftraege a join app.kunden_portal kp on kp.kunde_id = a.kunde_id and kp.betrieb_id = a.betrieb_id
+				where a.id = ${auftragId} and a.betrieb_id = ${k.betriebId}),
 			(select e.ab_automatisch from app.portal_einstellungen e where e.betrieb_id = ${k.betriebId}),
 			true) as an`;
 	return z.an === true;
+}
+
+/** Wirksamer Wert für die Anzeige am Auftrag (Kunde → Firma → an); eingestellt wird beim Kunden (Jamil msg 3439). */
+export async function abWirksam(k: Kontext, auftragId: string): Promise<boolean> {
+	return mitBetrieb(k, (tx) => abAutomatisch(tx, k, auftragId));
 }
 
 async function naechsteNummer(tx: TransactionSql, k: Kontext): Promise<string> {
@@ -171,15 +177,6 @@ export async function markiereAbGesendet(k: Kontext, id: unknown): Promise<void>
 		if (!z) throw new ApiFehler(404, 'Auftragsbestätigung nicht gefunden oder schon gesendet.');
 		if (z.todo_id) await tx`update app.todos set erledigt_am = now() where id = ${z.todo_id} and betrieb_id = ${k.betriebId} and erledigt_am is null`;
 	});
-}
-
-/** Schalter „Auftragsbestätigung automatisch“: Wert am Auftrag (null = wie im Betrieb) und Wert des Betriebs. */
-export async function abEinstellung(k: Kontext, auftragId: string): Promise<{ auftrag: boolean | null; betrieb: boolean }> {
-	const [z] = await mitBetrieb(k, (tx) => tx`
-		select a.ab_automatisch as auftrag, coalesce(e.ab_automatisch, true) as betrieb
-		from app.auftraege a left join app.portal_einstellungen e on e.betrieb_id = a.betrieb_id
-		where a.id = ${auftragId} and a.betrieb_id = ${k.betriebId}`);
-	return { auftrag: z?.auftrag ?? null, betrieb: z?.betrieb ?? true };
 }
 
 /**
