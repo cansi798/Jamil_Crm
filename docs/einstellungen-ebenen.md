@@ -41,7 +41,10 @@ Auftrag bleiben als Altwerte stehen (Migration 108 hat sie je Kunde übernommen)
 
 ● = hier einstellbar. Vererbung: Auftrag → *Kunde des Auftrags* → Firma → Standard (alles an, „alle aktiven Aufträge“).
 Die Wirkung steht an je einer Stelle: `IM_PORTAL_SQL` und `freigabeSql()` in `src/lib/server/kundenportal.ts`,
-`abAutomatisch()` in `auftragsbestaetigung.ts`. Die Auftragsseite zeigt nur den Hinweis „wird beim Kunden eingestellt“ mit Link.
+`abAutomatisch()` in `auftragsbestaetigung.ts`. Die Auftragsseite zeigt nur den Hinweis „wird beim Kunden eingestellt“ mit Link
+(den Link nur, wenn der Nutzer die Einstellung in der Kundenakte auch sieht: Modul Kundenportal, „Kundenportal verwalten“, „Alle
+Aufträge ansehen“; Auftrag ohne Kunden → es gilt die Firma). Wird beim Kunden „Aufträge im Portal zeigen“ eingeschaltet und hat er
+einen gültigen Link, erscheinen seine schon versendeten Angebote im Portal – genau wie beim Erzeugen des Links (msg 2793).
 
 **Migration 108 (Übernahme der Altwerte je Kunde, vorsichtigste Auswahl):** war bei irgendeinem Auftrag des Kunden eine Freigabe
 aus, ist sie beim Kunden aus; Regel „nur markierte“ + ein Auftrag ausdrücklich gezeigt → Kunde ja; Regel „alle aktiven“ + alle

@@ -25,7 +25,7 @@ test('Kundenakte: Portal-Einstellungen des Kunden; Auftrag zeigt nur den Hinweis
 	await expect(page.getByText('Im Portal zeigen', { exact: true })).toHaveCount(0);
 	await expect(page.getByText('Der Kunde sieht:')).toHaveCount(0);
 	await page.getByTestId('portal-hinweis-kunde').getByRole('link', { name: /Einstellungen des Kunden/ }).click();
-	await expect(page).toHaveURL(/\/kunden\/[0-9a-f-]{36}#kundenportal$/);
+	await expect(page).toHaveURL(/\/kunden\/[0-9a-f-]{36}#portal-einstellung$/);
 
 	// Kundenakte: Einstellungen für diesen Kunden
 	const block = page.getByTestId('portal-einstellung');

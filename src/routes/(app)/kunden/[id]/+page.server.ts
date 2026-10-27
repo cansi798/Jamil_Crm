@@ -64,6 +64,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			portalMail,
 			kunde,
 			portal,
+			// Link „Firmen-Standard“ zu den Einstellungen nur für Nutzer mit dem Recht dazu (sonst 403)
+			darfFirmenEinstellungen: hatRecht(nutzer, 'einstellungen'),
 			objekte,
 			auftraege: auftraege as Auftrag[] | null,
 			darfAuftragAnlegen: auftraegeLesbar && hatRecht(nutzer, 'auftraege.bearbeiten'),
@@ -141,9 +143,9 @@ export const actions: Actions = {
 				annahme: f.get('annahme'),
 				abAutomatisch: f.get('abAutomatisch')
 			});
-			return { portalMeldung: 'Portal-Einstellungen des Kunden gespeichert.' };
+			return { einstellungMeldung: 'Portal-Einstellungen des Kunden gespeichert.' };
 		} catch (e) {
-			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+			return alsFormFehler(e, { einstellungFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
 	},
 	portalWiderrufen: async ({ locals, params, request }) => {

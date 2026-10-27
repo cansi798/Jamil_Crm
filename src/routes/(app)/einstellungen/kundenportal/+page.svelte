@@ -19,7 +19,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Kundenportal & Auftragsbestätigung</h1>
-			<p class="seiten-meta">Links für die Online-Annahme und was nach der Annahme eines Angebots automatisch passiert.<InfoFenster id="portal.seite" /></p>
+			<p class="seiten-meta"><span class="meta-text">Links für die Online-Annahme und was nach der Annahme eines Angebots automatisch passiert.</span><InfoFenster id="portal.seite" /></p>
 		</div>
 	</header>
 	<p class="kd-info">Was Kunden nach Abschluss eines Auftrags zusätzlich sehen: <a href="/einstellungen/bestandskunden">Leistungen für Bestandskunden</a>.</p>
@@ -80,7 +80,7 @@
 					<option value="aus" selected={data.e.teamNamen === 'aus'}>keine Namen zeigen</option>
 				</Auswahl>
 			</label></InfoFeld>
-			<p class="kd-info">Der Kunde sieht, wer sein Ansprechpartner ist und wer am Auftrag arbeitet. Beim Kunden abschaltbar („Namen der Mitarbeiter zeigen“).</p>
+			<p class="kd-info">Der Kunde sieht, wer sein Ansprechpartner ist und wer am Auftrag arbeitet. „Keine Namen zeigen“ blendet auch den Ansprechpartner aus; beim einzelnen Kunden lässt sich das Team ausblenden („Namen der Mitarbeiter zeigen“).</p>
 			<fieldset class="kd-gruppe">
 				<legend>Der Kunde sieht im Portal (Standard für alle Kunden) <InfoFenster id="portal.frei" /></legend>
 				<input type="hidden" name="freiGesendet" value="1" />

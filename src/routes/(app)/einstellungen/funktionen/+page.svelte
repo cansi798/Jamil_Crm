@@ -38,7 +38,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Funktionen & Automatisierungen</h1>
-			<p class="seiten-meta">Was das CRM von selbst für Sie tut – geordnet nach dem Weg Ihres Kunden.<InfoFenster id="funktionen.seite" /></p>
+			<p class="seiten-meta"><span class="meta-text">Was das CRM von selbst für Sie tut – geordnet nach dem Weg Ihres Kunden.</span><InfoFenster id="funktionen.seite" /></p>
 		</div>
 	</header>
 	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}

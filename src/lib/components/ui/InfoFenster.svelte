@@ -24,6 +24,11 @@
 		const z = ev.target;
 		if (z instanceof Node && !knopf?.contains(z) && !fenster?.contains(z)) zu();
 	}
+	/** Tastatur: verlässt der Fokus Knopf und Fenster (Tab weiter), schließt das Fenster – es verdeckt sonst die nächsten Felder. */
+	function fokusWeg(ev: FocusEvent) {
+		const z = ev.relatedTarget;
+		if (offen && z instanceof Node && !knopf?.contains(z) && !fenster?.contains(z)) zu();
+	}
 	function taste(ev: KeyboardEvent) {
 		if (ev.key === 'Escape' && offen) {
 			ev.stopPropagation();
@@ -35,7 +40,7 @@
 <svelte:window onpointerdown={aussen} onkeydown={taste} />
 
 {#if info}
-	<span class="inf">
+	<span class="inf" onfocusout={fokusWeg}>
 		<button
 			type="button"
 			class="inf-knopf"

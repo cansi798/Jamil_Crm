@@ -205,7 +205,8 @@ export async function erzeugeLink(z: PortalZugriff, kundeId: unknown, laeuftAb?:
 
 /**
  * Versendete/angenommene Angebote der Aufträge eines Kunden fürs Portal freigeben – nur Aufträge, die im Portal stehen
- * (Regel/„Im Portal zeigen“), und nur für Aufrufer mit voller Sicht und Preisrechten (geprüft in erzeugeLink).
+ * (Einstellung des Kunden, sonst Regel der Firma), und nur für Aufrufer mit voller Sicht und Preisrechten (geprüft in
+ * erzeugeLink und speichereKundenPortal).
  */
 async function teileAngeboteDesKunden(tx: TransactionSql, k: Kontext, kundeId: string): Promise<void> {
 	await tx`
@@ -290,13 +291,17 @@ export async function speichereKundenPortal(z: PortalZugriff, kundeId: unknown, 
 	await mitBetrieb(k, async (tx) => {
 		if (Object.values(w).every((x) => x === null)) {
 			await tx`delete from app.kunden_portal where kunde_id = ${id} and betrieb_id = ${k.betriebId}`;
-			return;
+		} else {
+			await tx`
+				insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch)
+				values (${id}, ${k.betriebId}, ${w.sichtbar}, ${w.status}, ${w.termine}, ${w.mitarbeiter}, ${w.annahme}, ${w.abAutomatisch})
+				on conflict (kunde_id) do update set sichtbar = excluded.sichtbar, frei_status = excluded.frei_status, frei_termine = excluded.frei_termine,
+					frei_mitarbeiter = excluded.frei_mitarbeiter, frei_annahme = excluded.frei_annahme, ab_automatisch = excluded.ab_automatisch`;
 		}
-		await tx`
-			insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch)
-			values (${id}, ${k.betriebId}, ${w.sichtbar}, ${w.status}, ${w.termine}, ${w.mitarbeiter}, ${w.annahme}, ${w.abAutomatisch})
-			on conflict (kunde_id) do update set sichtbar = excluded.sichtbar, frei_status = excluded.frei_status, frei_termine = excluded.frei_termine,
-				frei_mitarbeiter = excluded.frei_mitarbeiter, frei_annahme = excluded.frei_annahme, ab_automatisch = excluded.ab_automatisch`;
+		// Stehen die Aufträge jetzt (wieder) im Portal, erscheinen ihre versendeten Angebote wie beim Erzeugen des Links (msg 2793) –
+		// nur mit gültigem Link und für Aufrufer mit Preisrechten (wie erzeugeLink)
+		const [l] = await tx`select 1 from app.portal_links where kunde_id = ${id} and betrieb_id = ${k.betriebId} and widerrufen_am is null and (laeuft_ab is null or laeuft_ab > now()) limit 1`;
+		if (l && z.preise && z.sicht.alle) await teileAngeboteDesKunden(tx, k, id);
 	});
 	return w;
 }

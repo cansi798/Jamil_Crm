@@ -5,6 +5,7 @@
 	 * Leistungen für Bestandskunden (Jamil, Talk msg 3408): Was Kunden nach Abschluss eines Auftrags im Kundenportal
 	 * sehen. Alles in EINEM Formular mit „Speichern“; rechts bzw. darunter die Vorschau – genau die Karte des Portals.
 	 */
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -19,12 +20,24 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	// Arbeitskopie – wird erst mit „Speichern“ übernommen
-	let aktiv = $state(data.e.aktiv);
-	let titel = $state(data.e.titel);
-	let text = $state(data.e.text);
-	let leistungen = $state<BestandLeistung[]>(data.e.leistungen.map((l) => ({ ...l })));
-	let knoepfe = $state<BestandKnopf[]>(data.e.knoepfe.map((k) => ({ ...k })));
+	// Arbeitskopie – wird erst mit „Speichern“ übernommen. Nach dem Speichern lädt SvelteKit `data` neu; dann übernimmt
+	// die Arbeitskopie die gespeicherten (vom Server bereinigten) Werte, z. B. „tel:+49 40 …“ → „tel:+4940…“.
+	let geladen = untrack(() => data.e);
+	let aktiv = $state(untrack(() => data.e.aktiv));
+	let titel = $state(untrack(() => data.e.titel));
+	let text = $state(untrack(() => data.e.text));
+	let leistungen = $state<BestandLeistung[]>(untrack(() => data.e.leistungen.map((l) => ({ ...l }))));
+	let knoepfe = $state<BestandKnopf[]>(untrack(() => data.e.knoepfe.map((k) => ({ ...k }))));
+	$effect(() => {
+		const e = data.e;
+		if (e === geladen) return;
+		geladen = e;
+		aktiv = e.aktiv;
+		titel = e.titel;
+		text = e.text;
+		leistungen = e.leistungen.map((l) => ({ ...l }));
+		knoepfe = e.knoepfe.map((k) => ({ ...k }));
+	});
 
 	const daten = $derived(JSON.stringify({ aktiv, titel, text, leistungen, knoepfe }));
 	const vorschauStil = $derived(portalMarkeStil(data.marke).join('; '));

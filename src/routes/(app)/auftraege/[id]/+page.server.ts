@@ -100,6 +100,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			: [null, null, null, []];
 		// Kundenportal (Jamil msgs 2770–2774, 2778): Links, Freigaben; Auftragsbestätigungen (mit Preisen)
 		const darfPortal = hatRecht(nutzer, 'kundenportal.verwalten') && (await hatModul(k.betriebId, 'kundenportal'));
+		// Portal-Einstellungen des Kunden (msg 3439) stehen in der Kundenakte – dort nur mit voller Auftrags-Sicht
+		const kundeEinstellbar = darfPortal && hatRecht(nutzer, 'auftraege.alle_lesen') && !!auftrag.kundeId;
 		const portalRoh = darfPortal ? await portalStand({ k, sicht, preise: preise && hatRecht(nutzer, 'angebote.bearbeiten') }, auftrag.id) : null;
 		// Portal des Kunden direkt öffnen/kopieren (msg 3050): volle Adresse statt Token
 		const portalBasis = (process.env.ORIGIN ?? url?.origin ?? '').replace(/\/$/, '');
@@ -139,9 +141,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			auftragsbestaetigungen,
 			// Vorlagen-Auswahl für noch nicht gesendete Auftragsbestätigungen (Bibliothek, msg 2789)
 			abVorlagen: auftragsbestaetigungen.some((x) => x.versandStatus === 'bereit') ? alsWahl(await listeMailVorlagen(k)) : [],
-			abAutomatischBearbeiten: darfBearbeiten && angeboteSichtbar,
-			// wird beim KUNDEN eingestellt (msg 3439): hier nur der wirksame Wert als Hinweis
-			abHinweis: darfBearbeiten && angeboteSichtbar ? { an: await abWirksam(k, auftrag.id), kundeId: auftrag.kundeId } : null,
+			// wird beim KUNDEN eingestellt (msg 3439): hier nur der wirksame Wert als Hinweis. Den Link zur Kundenakte gibt es nur,
+			// wenn der Nutzer die Einstellung dort auch sieht (Modul Kundenportal, „Kundenportal verwalten“, „Alle Aufträge ansehen“).
+			abHinweis: darfBearbeiten && angeboteSichtbar ? { an: await abWirksam(k, auftrag.id), kundeId: auftrag.kundeId, einstellbar: kundeEinstellbar } : null,
+			kundeEinstellbar,
 			zeit: zg ? { laufend: zeitLaufend, summe: zeitSumme!, verwalten: zg.verwalten } : null,
 			material,
 			preiseSehen: preise,

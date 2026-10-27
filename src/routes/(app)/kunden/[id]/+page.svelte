@@ -10,6 +10,7 @@
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
+	import FormFuss from '$lib/components/ui/FormFuss.svelte';
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
@@ -220,9 +221,12 @@
 				<button type="submit" class="kd-knopf">{data.portal.links.some((l) => l.gueltig) ? 'Neuen Link erzeugen (alter wird ungültig)' : 'Link für den Kunden erzeugen'}</button>
 			</form>
 			<!-- Einstellungen gehören zum Kunden, nicht zum Auftrag (Jamil msgs 3423, 3439); leer = Standard der Firma -->
-			<div class="kp-einstellung" role="group" aria-label="Portal-Einstellungen dieses Kunden" data-testid="portal-einstellung">
+			<div class="kp-einstellung" id="portal-einstellung" role="group" aria-label="Portal-Einstellungen dieses Kunden" data-testid="portal-einstellung">
 				<p class="kp-titel">Einstellungen für diesen Kunden <InfoFenster id="kunde.portal_seite" /></p>
-				<p class="kd-info">Gilt für alle Aufträge dieses Kunden. „Firmen-Standard“ übernimmt die Einstellung unter <a href="/einstellungen/kundenportal">Auftrag → Kundenportal & Auftragsbestätigung</a>.</p>
+				<p class="kd-info">
+					Gilt für alle Aufträge dieses Kunden. „Firmen-Standard“ übernimmt die Einstellung unter
+					{#if data.darfFirmenEinstellungen}<a href="/einstellungen/kundenportal">Auftrag → Kundenportal & Auftragsbestätigung</a>{:else}Auftrag → Kundenportal & Auftragsbestätigung (Einstellungen der Firma){/if}.
+				</p>
 				<form method="POST" action="?/portalEinstellung" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form">
 					{#each PORTAL_FELDER as fd (fd.name)}
 						<InfoFeld id={fd.info}>
@@ -235,7 +239,10 @@
 							</label>
 						</InfoFeld>
 					{/each}
-					<button type="submit" class="kd-knopf">Einstellungen speichern</button>
+					<!-- Rückmeldung direkt am Knopf (am Handy liegt der Abschnittskopf weit oben) -->
+					{#if form?.einstellungFehler}<p role="alert" class="kd-fehler kp-voll">{form.einstellungFehler}</p>{/if}
+					{#if form?.einstellungMeldung}<p role="status" class="kd-info kp-voll">{form.einstellungMeldung}</p>{/if}
+					<FormFuss><button type="submit" class="kd-knopf">Einstellungen speichern</button></FormFuss>
 				</form>
 			</div>
 			<p class="kp-titel">Im Portal: {data.portal.auftraege.filter((a) => a.imPortal).length} von {data.portal.auftraege.length} Aufträgen</p>
@@ -581,8 +588,10 @@
 	.kp-alt { flex-basis: 100%; margin: 0; }
 	.kp-einstellung { display: grid; gap: var(--ui-a2); margin: var(--ui-a3) 0; }
 	.kp-einstellung p { margin: 0; }
-	.kp-einst-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); align-items: end; }
-	.kp-einst-form button { justify-self: start; }
+	/* doppelte Klasse: sonst gewinnt das spätere `.kp-form { display: flex }` und die Felder stehen ungleich breit */
+	.kp-form.kp-einst-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr)); align-items: end; gap: var(--ui-a2) var(--ui-a3); }
+	.kp-einst-form :global(.form-fuss), .kp-voll { grid-column: 1 / -1; margin: 0; }
+	.kp-einstellung { scroll-margin-top: 5rem; }
 	.kp-passwort { display: grid; gap: var(--ui-a2); margin: var(--ui-a3) 0; }
 	.kp-passwort p { margin: 0; }
 	.kp-link { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ui-a2); align-items: center; margin-bottom: var(--ui-a2); font-size: var(--ui-schrift-s); }

@@ -19,7 +19,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Rollen</h1>
-			<p class="seiten-meta">Eine Rolle legt fest, was ein Benutzer im System sehen und tun darf.<InfoFenster id="rollen.seite" /></p>
+			<p class="seiten-meta"><span class="meta-text">Eine Rolle legt fest, was ein Benutzer im System sehen und tun darf.</span><InfoFenster id="rollen.seite" /></p>
 		</div>
 		<div class="seiten-aktionen">
 			<button type="button" class="kd-knopf" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>

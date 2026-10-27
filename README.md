@@ -276,6 +276,12 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Links (AddPanel), Speicher wie die Dokumentation (`app.dateien` in der Datenbank, 10 MB, Dateianfang geprüft), wer
     hochgeladen hat (`von_benutzer_id`); „Im Kundenportal“ je Eintrag über `portal_dokumente` (Art `datei`/`notiz`,
     Standard aus, Baustein `ui/PortalSchalter.svelte` auch für Links). Das Portal zeigt nur ausdrücklich Freigegebenes.
+27. Portal-Einstellungen je Kunde (Migration 108, Jamil msgs 3423/3439 „Option A“): `app.kunden_portal` (RLS je Betrieb,
+    Fremdschlüssel `(kunde_id, betrieb_id)`, Protokoll-Trigger) mit Aufträge zeigen, Freigaben und Auftragsbestätigung
+    automatisch; leer = Firmen-Standard aus `portal_einstellungen`. Ausgewertet nur an zwei Stellen: `IM_PORTAL_SQL`/
+    `freigabeSql()` (`kundenportal.ts`) und `abAutomatisch()` (`auftragsbestaetigung.ts`). Ändern nur mit Modul
+    `kundenportal`, „Kundenportal verwalten“ und „Alle Aufträge ansehen“. Leistungen für Bestandskunden (Migration 107):
+    Links nur `https://`, `mailto:`, `tel:` (geprüft beim Speichern und nochmals beim Anzeigen), Texte nur als Text.
 
 ## Installation auf einem eigenen Server
 

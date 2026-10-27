@@ -1,7 +1,8 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
-import { betriebKontext, hatRecht, pruefeRecht } from '$lib/server/rechte';
+import { betriebKontext, hatRecht } from '$lib/server/rechte';
+import { portalEinstellungsZugriff } from '$lib/server/kundenportal';
 import { moduleDesBetriebs } from '$lib/server/tarif';
 import { ladeFunktionenStand, setzeSchalter } from '$lib/server/funktionen';
 import { nachSchritt, sichtbareFunktionen } from '$lib/funktionen';
@@ -23,8 +24,8 @@ export const actions: Actions = {
 	schalten: async ({ locals, request }) => {
 		const f = await request.formData();
 		try {
-			pruefeRecht(locals, 'einstellungen');
-			await setzeSchalter(betriebKontext(locals), f.get('name'), f.get('wert'));
+			// gleiche Prüfung wie auf den Einstellungsseiten der beiden Schalter („Einstellungen“ + Modul Angebote)
+			await setzeSchalter(await portalEinstellungsZugriff(locals), f.get('name'), f.get('wert'));
 			return { gespeichert: true, name: String(f.get('name')) };
 		} catch (e) {
 			return alsFormFehler(e);

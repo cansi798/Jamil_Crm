@@ -44,7 +44,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Benutzer</h1>
-			<p class="seiten-meta">{data.benutzer.length} Benutzer · {data.einladungen.length} offene Einladungen<InfoFenster id="benutzer.seite" /></p>
+			<p class="seiten-meta"><span class="meta-text">{data.benutzer.length} Benutzer · {data.einladungen.length} offene Einladungen</span><InfoFenster id="benutzer.seite" /></p>
 		</div>
 		<div class="seiten-aktionen">
 			<button type="button" class="kd-knopf" aria-expanded={neuOffen} onclick={() => (neuOffen = !neuOffen)}>

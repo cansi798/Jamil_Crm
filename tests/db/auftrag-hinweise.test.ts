@@ -19,13 +19,16 @@ describe('Auftrag: Angebot, Nachfassen, Auftragsquelle', () => {
 	let root: postgres.Sql;
 	const kA = () => ({ betriebId: u.betriebA, benutzerId: u.ids.chefA });
 	const alle = { alle: true, benutzerId: '' };
-	const heute = berlinTag(new Date());
+	// „heute“ je Test neu bestimmen (nicht beim Laden der Datei – sonst falsch, wenn der Lauf über Mitternacht geht)
+	let heute = berlinTag(new Date());
+	/** Zeitpunkt vor N Kalendertagen in Berlin (gleiche Uhrzeit) – unabhängig von Sommer-/Winterzeit und Zeitzone der Sitzung */
+	const vorBerlinTagen = (tage: number) => root`select ((now() at time zone 'Europe/Berlin') - make_interval(days => ${tage})) at time zone 'Europe/Berlin' as t`.then((z) => z[0].t as Date);
 
 	async function versendet(vorTagen: number) {
 		const a = await legeAngebotAn(kA(), u.auftragA);
 		await speicherePositionen(kA(), a.id, [{ bezeichnung: 'Fliesen', menge: '10', einheit: 'm²', einzelpreis: '100,00' }]);
 		await setzeAngebotStatus(kA(), a.id, 'versendet');
-		await root`update app.angebote set versendet_am = now() - make_interval(days => ${vorTagen}) where id = ${a.id}`;
+		await root`update app.angebote set versendet_am = ${await vorBerlinTagen(vorTagen)} where id = ${a.id}`;
 		return a.id;
 	}
 	const auftrag = () => holeAuftrag(kA(), { ...alle, benutzerId: u.ids.chefA }, u.auftragA);
@@ -40,6 +43,7 @@ describe('Auftrag: Angebot, Nachfassen, Auftragsquelle', () => {
 		await root?.end();
 	});
 	beforeEach(async () => {
+		heute = berlinTag(new Date());
 		await root`delete from app.todos`;
 		await root`delete from app.nachfass_stufen`;
 		await root`delete from app.mail_vorlagen`;
@@ -63,7 +67,7 @@ describe('Auftrag: Angebot, Nachfassen, Auftragsquelle', () => {
 		expect(await faellige()).toEqual([]);
 
 		// offenes Nachfass-Aufgabe zählt: Tag 7 läuft mit Aufgabe (fällig heute) → heute
-		await root`update app.angebote set versendet_am = now() - interval '7 days' where id = ${id}`;
+		await root`update app.angebote set versendet_am = ${await vorBerlinTagen(7)} where id = ${id}`;
 		await pruefeNachfassen(kA());
 		expect((await auftrag()).nachfassenInfo?.tag).toBe(heute);
 		expect(await faellige()).toEqual([u.auftragA]);

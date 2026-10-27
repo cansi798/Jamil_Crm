@@ -235,7 +235,14 @@
 						{#if data.abHinweis}
 							<!-- Einstellungen des Kunden gehören zum Kunden (Jamil msg 3439): hier nur der Hinweis -->
 							<p class="kd-info" data-testid="ab-hinweis">
-								Automatisch erstellen: <strong>{data.abHinweis.an ? 'an' : 'aus'}</strong> – wird beim Kunden eingestellt{#if data.abHinweis.kundeId}: <a href={`/kunden/${data.abHinweis.kundeId}#kundenportal`}>zu den Einstellungen des Kunden</a>{/if}.
+								Automatisch erstellen: <strong>{data.abHinweis.an ? 'an' : 'aus'}</strong> –
+								{#if !data.abHinweis.kundeId}
+									Auftrag ohne Kunden: es gilt die Einstellung der Firma.
+								{:else if data.abHinweis.einstellbar}
+									wird beim Kunden eingestellt: <a href={`/kunden/${data.abHinweis.kundeId}#portal-einstellung`}>zu den Einstellungen des Kunden</a>.
+								{:else}
+									wird beim Kunden eingestellt (Kundenakte → Kundenportal; dafür braucht es das Recht „Kundenportal verwalten“).
+								{/if}
 							</p>
 						{/if}
 					</Karte>
@@ -258,7 +265,7 @@
 						{#if data.portal.kundeId}
 							<!-- Einstellungen des Kunden (Aufträge zeigen, Status, Termine, Namen, Online-Annahme) – Jamil msg 3439 -->
 							<p class="kd-info" data-testid="portal-hinweis-kunde">
-								Was der Kunde im Portal sieht, wird beim Kunden eingestellt: <a href={`/kunden/${data.portal.kundeId}#kundenportal`}>zu den Einstellungen des Kunden</a>. Hier geben Sie nur einzelne Dokumente frei.
+								Was der Kunde im Portal sieht, wird beim Kunden eingestellt{#if data.kundeEinstellbar}: <a href={`/kunden/${data.portal.kundeId}#portal-einstellung`}>zu den Einstellungen des Kunden</a>{:else} (Kundenakte → Kundenportal; braucht „Alle Aufträge ansehen“){/if}. Hier geben Sie nur einzelne Dokumente frei.
 							</p>
 						{/if}
 						{#if data.portal.angebote.length + data.portal.dateien.length > 0}

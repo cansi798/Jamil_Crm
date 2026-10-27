@@ -1102,6 +1102,18 @@ html body .seiten-kopf .seiten-meta {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
+/* ⓘ am Ende der Meta-Zeile (Jamil msg 3423): nur der Text kürzt sich mit „…“, das ⓘ bleibt immer sichtbar und antippbar */
+html body .seiten-kopf .seiten-meta:has(> .inf) {
+	display: flex;
+	align-items: center;
+	overflow: visible;
+}
+html body .seiten-kopf .seiten-meta > .meta-text {
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
 html body .seiten-aktionen {
 	grid-column: 2;
 	grid-row: 1;

@@ -79,7 +79,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Kalkulation / Stundensatz</h1>
-			<p class="seiten-meta">Kosten ÷ produktive Stunden = Kosten-Stundensatz; mit Wagnis und Gewinn der Verrechnungssatz.<InfoFenster id="kalkulation.seite" /></p>
+			<p class="seiten-meta"><span class="meta-text">Kosten ÷ produktive Stunden = Kosten-Stundensatz; mit Wagnis und Gewinn der Verrechnungssatz.</span><InfoFenster id="kalkulation.seite" /></p>
 		</div>
 	</header>
 

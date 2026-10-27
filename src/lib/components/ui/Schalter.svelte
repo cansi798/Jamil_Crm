@@ -25,10 +25,14 @@
 {/if}
 
 <style>
+	/* ⓘ gehört zur Beschriftung: oben auf Höhe der ersten Zeile, nicht mittig neben einem langen Hinweistext */
 	.sch-zeile {
 		display: inline-flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: 0.6rem;
+	}
+	.sch-zeile > :global(.inf) {
+		margin-top: 0.15rem;
 	}
 	.sch {
 		position: relative;

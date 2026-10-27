@@ -29,8 +29,8 @@
 		<div>
 			<h1>Kennzahlen einstellen</h1>
 			<p class="seiten-meta">
-				Je Kennzahl: <strong>an/aus</strong> (aus = nirgends gezeigt und nicht gerechnet) und <strong>„Erfassen ab“</strong> – Daten
-				davor zählen für diese Kennzahl nicht, z. B. weil sie erst seit dem Start des CRM vollständig sind.
+				<span class="meta-text">Je Kennzahl: <strong>an/aus</strong> (aus = nirgends gezeigt und nicht gerechnet) und <strong>„Erfassen ab“</strong> – Daten
+				davor zählen für diese Kennzahl nicht, z. B. weil sie erst seit dem Start des CRM vollständig sind.</span>
 			<InfoFenster id="kennzahlen.seite" /></p>
 		</div>
 	</header>

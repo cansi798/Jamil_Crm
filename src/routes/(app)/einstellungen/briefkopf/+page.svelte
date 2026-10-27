@@ -232,7 +232,7 @@
 		object-fit: contain;
 	}
 	.bk-logo-dunkel {
-		background: var(--ui-anthrazit-900, #2d2c2e);
+		background: var(--ui-nav, #2d2c2e); /* wie die Kopfleiste (msg 3319) */
 	}
 	.bk-logo-dunkel .kd-leer {
 		color: #fff;

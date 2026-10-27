@@ -194,7 +194,7 @@
 	.marke-logo.auf-dunkel {
 		padding: 3px 8px;
 		border-radius: 8px;
-		background: var(--ui-anthrazit-900);
+		background: var(--ui-nav); /* gleiches Anthrazit wie Kopfleiste und Seitenleiste (msg 3319) */
 	}
 	.marke-logo.auf-dunkel img {
 		height: 26px;

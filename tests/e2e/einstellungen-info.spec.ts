@@ -20,6 +20,11 @@ test('ⓘ erklärt die Einstellung, Funktionen-Übersicht, Was ist neu', async (
 	// Info-Fenster: Tipp öffnet, Esc schließt und gibt den Fokus zurück
 	await page.goto('/einstellungen/kundenportal');
 	const seite = page.getByRole('button', { name: /Was bewirkt diese Einstellung\? Kundenportal & Auftragsbestätigung/ });
+	// ⓘ am Ende der (am Handy gekürzten) Meta-Zeile bleibt sichtbar und liegt ganz im Bildschirm
+	await expect(seite).toBeInViewport({ ratio: 1 });
+	const seitenBox = await seite.boundingBox();
+	expect(seitenBox!.x + seitenBox!.width).toBeLessThanOrEqual(breite);
+	await seite.click({ trial: true }); // nichts liegt darüber (Playwright prüft das Klickziel)
 	await seite.click();
 	const fenster = page.getByTestId('info-fenster');
 	await expect(fenster).toBeVisible();

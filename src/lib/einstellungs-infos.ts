@@ -51,13 +51,13 @@ export const INFOS: Record<string, Info> = {
 	'portal.team_namen': {
 		titel: 'Namen von Ansprechpartner und Team',
 		was: 'Bestimmt, ob der Kunde im Portal nur Vornamen, volle Namen oder gar keine Namen Ihrer Mitarbeiter sieht.',
-		wirkt: 'Alle Kunden im Portal (Ansprechpartner, Team, Termine). Beim Kunden lassen sich Namen ganz abschalten.',
+		wirkt: 'Alle Kunden im Portal (Ansprechpartner, Team, Termine). „Keine Namen“ blendet auch den Ansprechpartner aus; beim einzelnen Kunden lässt sich nur das Team ausblenden („Namen der Mitarbeiter zeigen“).',
 		standard: 'Nur Vorname.',
 		beispiel: '„Sabine“ statt „Sabine Schäfer“ – weniger Daten nach außen.'
 	},
 	'portal.frei': {
 		titel: 'Der Kunde sieht im Portal (Standard)',
-		was: 'Legt fest, ob Kunden im Portal Auftragsstatus, nächste Termine und Namen der Mitarbeiter sehen und ob sie Angebote online annehmen dürfen.',
+		was: 'Legt fest, ob Kunden im Portal Auftragsstatus und Arbeitsschritte, nächste Termine und die Namen des Teams sehen und ob sie Angebote online annehmen dürfen.',
 		wirkt: 'Alle Kunden, die beim Kunden nichts Eigenes eingestellt haben.',
 		standard: 'Alles an.',
 		beispiel: 'Termine ausschalten: Kunden sehen keine Einsatzzeiten, außer bei Kunden, bei denen Sie es einschalten.'
@@ -78,7 +78,7 @@ export const INFOS: Record<string, Info> = {
 	},
 	'kunde.status': {
 		titel: 'Auftragsstatus zeigen',
-		was: 'Zeigt dem Kunden den Fortschrittsweg und den Status seines Auftrags (z. B. „Arbeiten laufen“).',
+		was: 'Zeigt dem Kunden den Fortschrittsweg, den Status seines Auftrags (z. B. „Arbeiten laufen“) und die Arbeitsschritte zum Abhaken.',
 		wirkt: 'Das Portal dieses Kunden.',
 		standard: 'Firmen-Standard.',
 		beispiel: 'Nein bei einem Kunden, der nur Dokumente abholen soll.'
@@ -92,10 +92,10 @@ export const INFOS: Record<string, Info> = {
 	},
 	'kunde.mitarbeiter': {
 		titel: 'Namen der Mitarbeiter zeigen',
-		was: 'Zeigt dem Kunden seinen Ansprechpartner und das Team. Wie die Namen aussehen (Vorname/voll), steht in den Einstellungen der Firma.',
+		was: 'Zeigt dem Kunden, wer im Team an seinem Auftrag arbeitet, und die Namen bei den Terminen. Der Ansprechpartner bleibt sichtbar; ihn blendet nur die Firmen-Einstellung „keine Namen“ aus. Wie die Namen aussehen (Vorname/voll), steht ebenfalls in den Einstellungen der Firma.',
 		wirkt: 'Das Portal dieses Kunden.',
 		standard: 'Firmen-Standard.',
-		beispiel: 'Nein: das Portal nennt keine Namen Ihrer Mitarbeiter.'
+		beispiel: 'Nein: das Portal zeigt kein Team und bei Terminen keine Namen – nur den Ansprechpartner.'
 	},
 	'kunde.annahme': {
 		titel: 'Angebot online annehmen lassen',

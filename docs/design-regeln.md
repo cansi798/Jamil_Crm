@@ -203,7 +203,7 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
 - **Leistungen für Bestandskunden (Jamil msgs 3142, 3408):** kleine, dezente Karte am Ende des Portals
   (`components/portal/BestandskundenKarte.svelte`, EIN Baustein für Portal und Vorschau), sobald ein Auftrag des Kunden
   abgeschlossen ist (`bestandskarte` in `kundenportal-oeffentlich.ts`, Regeln in `lib/bestandskunden.ts`). Der Betrieb
-  stellt unter Einstellungen → Automatisierung → „Leistungen für Bestandskunden“ ein: an/aus, Überschrift, kleiner Text,
+  stellt im Menü unter „Abschluss & danach“ → „Leistungen für Bestandskunden“ ein: an/aus, Überschrift, kleiner Text,
   eigene Leistungen (Titel, Kurztext, Symbol, Reihenfolge) und Knöpfe mit Link (nur `https://`, `mailto:`, `tel:`;
   neuer Tab mit `noopener noreferrer`). Gespeichert in `portal_einstellungen` (Migration 107), mit Live-Vorschau.
 - Animationen nur dort, wo sie etwas erklären (Fortschrittsweg, Haken der Arbeitsschritte, Pegel), alle mit

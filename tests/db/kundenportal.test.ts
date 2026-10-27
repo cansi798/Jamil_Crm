@@ -506,10 +506,10 @@ describe('Kundenportal', () => {
 		await expect(speichereKundenPortal(nurEigene, u.kundeA, { status: 'aus' })).rejects.toMatchObject({ status: 403 });
 		// Seitenaktion beim Kunden: Monteur 403, Büro/Chef speichern
 		const sende = (nutzer: unknown, felder: Record<string, string>) =>
-			kundenAktionen.portalEinstellung({ locals: { nutzer }, params: { id: u.kundeA }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams(felder) }) } as never) as unknown as Promise<{ status?: number; portalMeldung?: string }>;
+			kundenAktionen.portalEinstellung({ locals: { nutzer }, params: { id: u.kundeA }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams(felder) }) } as never) as unknown as Promise<{ status?: number; einstellungMeldung?: string }>;
 		expect((await sende(u.monteurA, { status: 'aus' })).status).toBe(403);
 		expect((await sende(u.chefA, { sichtbar: 'bla' })).status).toBe(400);
-		expect(await sende(u.bueroA, { status: 'aus', abAutomatisch: 'aus' })).toMatchObject({ portalMeldung: expect.stringContaining('gespeichert') });
+		expect(await sende(u.bueroA, { status: 'aus', abAutomatisch: 'aus' })).toMatchObject({ einstellungMeldung: expect.stringContaining('gespeichert') });
 		expect((await seite(token)).status).toBeNull();
 		// Mandanten: Betrieb B sieht die Zeile von A nie, und eine Zeile für einen fremden Kunden ist nicht möglich
 		expect((await u.alsApp(u.betriebB, u.ids.chefB, (tx) => tx`select count(*)::int as n from app.kunden_portal`))[0].n).toBe(0);
@@ -535,7 +535,12 @@ describe('Kundenportal', () => {
 		expect(seite.portal.freigabe).toBeUndefined();
 		expect(seite.portal.standard).toBeUndefined();
 		expect(seite.portal.kundeId).toBe(u.kundeA);
-		expect(seite.abHinweis).toMatchObject({ an: true, kundeId: u.kundeA });
+		expect(seite.abHinweis).toMatchObject({ an: true, kundeId: u.kundeA, einstellbar: true });
+		expect(seite.kundeEinstellbar).toBe(true);
+		// Monteur (ohne „Kundenportal verwalten“): kein Link zur Kundenakte, keine AB-Anzeige
+		const monteurSeite = (await auftragLoad({ locals: { nutzer: u.monteurA }, params: { id: u.auftragA }, url: new URL('https://crm.test/x') } as never)) as any;
+		expect(monteurSeite.kundeEinstellbar).toBe(false);
+		expect(monteurSeite.abHinweis).toBeNull();
 		await speichereKundenPortal(zA(), u.kundeA, { abAutomatisch: 'aus' });
 		seite = await laden();
 		expect(seite.abHinweis.an).toBe(false);
@@ -543,6 +548,34 @@ describe('Kundenportal', () => {
 		expect((auftragAktionen as Record<string, unknown>).abAutomatisch).toBeUndefined();
 		expect((auftragAktionen as Record<string, unknown>).portalDokument).toBeTypeOf('function');
 		expect(Array.isArray(seite.portal.dateien)).toBe(true);
+	});
+
+	it('Kunde „Aufträge im Portal zeigen: ja“ nachträglich: schon versendete Angebote erscheinen wie beim Erzeugen des Links (msg 2793)', async () => {
+		await root`delete from app.kunden_portal`; // Regel „nur ausdrücklich eingeschaltete Kunden“ → Kunde A steht nicht im Portal
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		const an = await versendetesAngebot(u.auftragA);
+		expect((await ladePortal(token, IP))!.auftraege).toHaveLength(0);
+		expect(await root`select 1 from app.portal_dokumente where ref_id = ${an.id}`).toHaveLength(0);
+		// ohne Preisrechte wird nichts freigegeben (wie beim Link)
+		await speichereKundenPortal({ ...zA(), preise: false }, u.kundeA, { sichtbar: 'an' });
+		expect(await root`select 1 from app.portal_dokumente where ref_id = ${an.id}`).toHaveLength(0);
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an' });
+		const seite = (await ladePortal(token, IP))!;
+		expect(seite.auftraege).toHaveLength(1);
+		expect(seite.auftraege[0].angebote.map((x: { id: string }) => x.id)).toContain(an.id);
+		// wieder „nein“: Auftrag verschwindet, die Freigabe bleibt stehen (wird erst wieder sichtbar, wenn der Auftrag im Portal steht)
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'aus' });
+		expect((await ladePortal(token, IP))!.auftraege).toHaveLength(0);
+	});
+
+	it('Funktionen & Automatisierungen: Schalter nur mit „Einstellungen“ und Modul wie die Einstellungsseiten', async () => {
+		const { actions: funktionenAktionen } = await import('../../src/routes/(app)/einstellungen/funktionen/+page.server');
+		const schalten = (nutzer: unknown) =>
+			funktionenAktionen.schalten({ locals: { nutzer }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams({ name: 'bestand_aktiv', wert: 'aus' }) }) } as never) as unknown as Promise<{ status?: number }>;
+		expect((await schalten(u.monteurA)).status).toBe(403);
+		expect((await schalten(u.chefC)).status).toBe(402);
+		expect(await schalten(u.chefA)).toMatchObject({ gespeichert: true });
+		expect((await ladeBestandskunden(kA())).aktiv).toBe(false);
 	});
 
 	it('Migration 108: bisherige Werte am Auftrag werden je Kunde übernommen (vorsichtigste Auswahl), nichts geht verloren', async () => {

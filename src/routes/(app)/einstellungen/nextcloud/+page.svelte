@@ -24,7 +24,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>Nextcloud</h1>
-			<p class="seiten-meta">Verbunden mit {data.url}<InfoFenster id="nextcloud.seite" /></p>
+			<p class="seiten-meta"><span class="meta-text">Verbunden mit {data.url}</span><InfoFenster id="nextcloud.seite" /></p>
 		</div>
 	</header>
 

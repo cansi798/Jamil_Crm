@@ -35,7 +35,7 @@
 	<div class="sk-titel">
 		{#if ueberzeile}<span class="ui-eyebrow">{ueberzeile}</span>{/if}
 		<h1>{titel}</h1>
-		{#if meta || info}<p class="seiten-meta">{meta ?? ''}{#if info}<InfoFenster id={info} />{/if}</p>{/if}
+		{#if info}<p class="seiten-meta">{#if meta}<span class="meta-text">{meta}</span>{/if}<InfoFenster id={info} /></p>{:else if meta}<p class="seiten-meta">{meta}</p>{/if}
 		{#if zusatz}{@render zusatz()}{/if}
 	</div>
 	{#if aktionen}

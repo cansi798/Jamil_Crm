@@ -2,7 +2,7 @@
  * Funktionen & Automatisierungen (Jamil, Talk msg 3423): alle automatischen Funktionen des CRM an EINEM Ort, geordnet
  * nach dem Weg des Kunden – Anfrage → Angebot → Auftrag → Abschluss → danach. Reines Wissen ohne Serverbezug; den
  * Zustand (an/aus, Zahlen) liefert `server/funktionen.ts`. Neue automatische Funktion → hier eintragen
- * (`tests/unit/funktionen.test.ts` prüft Pflichtfelder, eindeutige Schlüssel und dass Link-Ziele im Menü existieren).
+ * (`tests/unit/einstellungs-infos.test.ts` prüft Pflichtfelder, eindeutige Schlüssel, Info-Texte und Link-Ziele).
  */
 import type { Modul } from './tarife';
 
