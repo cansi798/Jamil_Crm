@@ -30,7 +30,8 @@ test('Aufmaß Boden/Fliesen: zwei Räume, Flächen und Summen werden berechnet',
 
 	// Vorlage bereitstellen (Beispiel übernehmen, falls noch nicht da)
 	await page.goto('/einstellungen/aufmass-vorlagen');
-	await expect(page.getByRole('heading', { level: 1, name: 'Aufmaß-Vorlagen' })).toBeVisible();
+	await expect(page.getByRole('heading', { level: 1, name: 'Protokoll- & Aufmaß-Vorlagen' })).toBeAttached();
+	await expect(page.getByRole('link', { name: 'Aufmaße', exact: true })).toHaveAttribute('aria-current', 'page');
 	const uebernehmen = page.getByTestId('beispiele-uebernehmen');
 	if (await uebernehmen.count()) await uebernehmen.click();
 	await expect(page.getByRole('link', { name: /Aufmaß Boden\/Fliesen/ })).toBeVisible();

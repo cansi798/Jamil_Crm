@@ -4,7 +4,7 @@ import { todoSicht, todoSichtVon } from './todos';
 import { betriebKontext, hatRecht } from './rechte';
 import { formWerte } from './seite';
 import { darf } from './tarif';
-import { aendereTodo, aendereTodoAls, beendeSerie, erledigtWert, legeTodoAn, loescheTodo, TODO_FELDER } from './todos';
+import { aendereTodo, aendereTodoAls, beendeSerie, erledigtWert, legeTodoAn, legeUnteraufgabeAn, loescheTodo, loescheUnteraufgabe, setzeUnteraufgabeErledigt, TODO_FELDER } from './todos';
 
 /**
  * Formular-Aktionen für Aufgaben – gemeinsam für die Seite „Aufgaben“ und den Aufgaben-Bereich eines Auftrags.
@@ -85,6 +85,35 @@ export function todoAktionen(auftragAusPfad: boolean) {
 			try {
 				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
 				await beendeSerie(betriebKontext(locals), text(form, 'id'), todoSichtVon(locals.nutzer!));
+			} catch (e) {
+				return alsFormFehler(e, { todoFehler: true });
+			}
+		},
+		/** Unteraufgabe anlegen (Jamil msg 3530): wer Aufgaben bearbeiten darf. */
+		unterNeu: async ({ locals, request }: Ereignis) => {
+			const form = await request.formData();
+			try {
+				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+				await legeUnteraufgabeAn(betriebKontext(locals), todoSichtVon(locals.nutzer!), text(form, 'todoId'), form.get('titel'), form.get('benutzerId') || null);
+			} catch (e) {
+				return alsFormFehler(e, { todoFehler: true, unterFehler: text(form, 'todoId') });
+			}
+		},
+		/** Unteraufgabe abhaken/öffnen: Bearbeiter – oder die Mitarbeiter der Aufgabe selbst. */
+		unterUmschalten: async ({ locals, request }: Ereignis) => {
+			const form = await request.formData();
+			try {
+				const sicht = await todoSicht(locals);
+				await setzeUnteraufgabeErledigt(betriebKontext(locals), sicht, text(form, 'id'), text(form, 'erledigt') === 'ja', hatRecht(locals.nutzer!, 'auftraege.bearbeiten'));
+			} catch (e) {
+				return alsFormFehler(e, { todoFehler: true });
+			}
+		},
+		unterLoeschen: async ({ locals, request }: Ereignis) => {
+			const form = await request.formData();
+			try {
+				await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+				await loescheUnteraufgabe(betriebKontext(locals), todoSichtVon(locals.nutzer!), text(form, 'id'));
 			} catch (e) {
 				return alsFormFehler(e, { todoFehler: true });
 			}

@@ -141,9 +141,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			auftragsbestaetigungen,
 			// Vorlagen-Auswahl für noch nicht gesendete Auftragsbestätigungen (Bibliothek, msg 2789)
 			abVorlagen: auftragsbestaetigungen.some((x) => x.versandStatus === 'bereit') ? alsWahl(await listeMailVorlagen(k)) : [],
-			// wird beim KUNDEN eingestellt (msg 3439): hier nur der wirksame Wert als Hinweis. Den Link zur Kundenakte gibt es nur,
-			// wenn der Nutzer die Einstellung dort auch sieht (Modul Kundenportal, „Kundenportal verwalten“, „Alle Aufträge ansehen“).
-			abHinweis: darfBearbeiten && angeboteSichtbar ? { an: await abWirksam(k, auftrag.id), kundeId: auftrag.kundeId, einstellbar: kundeEinstellbar } : null,
+			// wird beim KUNDEN eingestellt (msgs 3439, 3521 E: Kundenakte → „Automatik“, wer Aufträge bearbeiten darf): hier nur der wirksame Wert
+			abHinweis: darfBearbeiten && angeboteSichtbar ? { an: await abWirksam(k, auftrag.id), kundeId: auftrag.kundeId } : null,
 			kundeEinstellbar,
 			zeit: zg ? { laufend: zeitLaufend, summe: zeitSumme!, verwalten: zg.verwalten } : null,
 			material,
@@ -569,6 +568,9 @@ export const actions: Actions = {
 	todoAendern: todo.aendern,
 	todoLoeschen: todo.loeschen,
 	todoSerieBeenden: todo.serieBeenden,
+	todoUnterNeu: todo.unterNeu,
+	todoUnterUmschalten: todo.unterUmschalten,
+	todoUnterLoeschen: todo.unterLoeschen,
 	/** Ein Schritt vor oder zurück in der Statuskette (Formularfeld `status` = Zielstatus). */
 	status: async ({ locals, params, request }) => {
 		const form = await request.formData();

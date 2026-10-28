@@ -206,7 +206,26 @@ function zuObjekt(z: Record<string, any>): Objekt {
  * Telefonnummern zählen auch nur die Ziffern (ab 3 Ziffern), damit „123456“ „0171 123-456“ findet.
  * Höchstens 50 Treffer, nach Name sortiert (Firma nach Firmenname, sonst Nachname, dann Vorname).
  */
-export function listeKunden(k: Kontext, suche?: string | null): Promise<Kunde[]> {
+/** Sortierung der Liste (Jamil msg 3522): nach Name (Standard) oder nach nächstem Termin, letztem Angebot, letzter Portal-Öffnung. */
+const SORTIERUNG_SQL: Record<string, string> = {
+	termin: `(select min(e.beginn) from app.einsaetze e join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
+		where a.kunde_id = kunden.id and a.betrieb_id = kunden.betrieb_id and e.ende >= now()) asc nulls last,`,
+	angebot: `(select max(coalesce(an.versendet_am, an.geaendert)) from app.angebote an
+		left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
+		where an.betrieb_id = kunden.betrieb_id and coalesce(an.kunde_id, a.kunde_id) = kunden.id
+			and an.status in ('versendet', 'angenommen', 'abgelehnt')) desc nulls last,`,
+	portal: `(select max(l.letzter_zugriff) from app.portal_links l where l.kunde_id = kunden.id and l.betrieb_id = kunden.betrieb_id) desc nulls last,`
+};
+
+export type KundenListeOptionen = {
+	/** feste Schlüssel aus SORTIERUNG_SQL (Rechte prüft der Aufrufer); sonst Name */
+	sortierung?: string;
+	/** nur diese Kunden (Filter der Kennzahl-Kacheln) – vor der Begrenzung auf 50, damit keine Treffer verloren gehen */
+	nurIds?: string[] | null;
+};
+
+export function listeKunden(k: Kontext, suche?: string | null, o: KundenListeOptionen = {}): Promise<Kunde[]> {
+	const sortierung = (o.sortierung && SORTIERUNG_SQL[o.sortierung]) || '';
 	const woerter = sucheWoerter(suche);
 	const muster = woerter.map(likeMuster);
 	const ziffern = woerter.map((w) => {
@@ -230,7 +249,8 @@ export function listeKunden(k: Kontext, suche?: string | null): Promise<Kunde[]>
 						or (s.z <> '' and regexp_replace(coalesce(telefon, ''), '[^0-9]', '', 'g') like s.z)
 					)
 				)
-			order by public.unaccent(lower(case when art = 'firma' then firma else nachname end)),
+				${o.nurIds ? tx`and id = any(${o.nurIds}::uuid[])` : tx``}
+			order by ${tx.unsafe(sortierung)} public.unaccent(lower(case when art = 'firma' then firma else nachname end)),
 				public.unaccent(lower(coalesce(vorname, ''))), id
 			limit ${MAX_TREFFER}`;
 		return z.map(zuKunde);

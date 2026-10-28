@@ -3,11 +3,14 @@
 	import VorlagenKopf from './VorlagenKopf.svelte';
 	import VorlagenListe from './VorlagenListe.svelte';
 	import ZeilenAktion from './ZeilenAktion.svelte';
+	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import { FORMULAR_VORLAGEN, formularVorlagenPfad, type FormularVorlagenArt } from '$lib/formular-vorlagen';
 
 	/**
-	 * Inhalt der Seiten „Protokoll-Vorlagen“ und „Aufmaß-Vorlagen“ – Aufbau wie jede Vorlagen-Seite (Jamil msg 3084):
-	 * Kopf mit „+ Neue Vorlage“, Liste mit klaren Zeilen-Aktionen, darunter Beispiele und Archiv in derselben Liste.
+	 * EIN Menüpunkt „Protokoll- & Aufmaß-Vorlagen“ (Jamil msgs 3533/3535) mit zwei Reitern Protokolle | Aufmaße – jede Art behält
+	 * ihre Adresse (/einstellungen/protokoll-vorlagen, /einstellungen/aufmass-vorlagen). Aufbau wie jede Vorlagen-Seite (msg 3084):
+	 * Kopf mit „+ Neue Vorlage“ (legt eine Vorlage der Art des gewählten Reiters an), Liste mit klaren Zeilen-Aktionen, darunter
+	 * Beispiele und Archiv in derselben Liste.
 	 */
 	type Kurz = { id: string; name: string; beschreibung: string | null; version: number; seiten: number; felder: number; protokolle: number; geaendert: string; archiviert: boolean };
 	let {
@@ -42,16 +45,28 @@
 </script>
 
 <svelte:head>
-	<title>{art.titel} – CRM</title>
+	<title>{art.titel} – Protokoll- & Aufmaß-Vorlagen</title>
 </svelte:head>
 
 <main class="kd-seite breit">
 	<VorlagenKopf
-		titel={art.titel}
+		titel="Protokoll- & Aufmaß-Vorlagen"
 		meta={data.art === 'aufmass' ? 'Aufmaß vor Ort: Räume, Maße, Flächen – mit dem Katalog direkt zum Angebot.' : 'Formulare für Monteure: Schritte, Pflichtfelder, Fotos und Unterschrift.'}
 		neu={{ aktion: '?/neu' }}
 		info={data.art === 'aufmass' ? 'aufmass-vorlagen.seite' : 'protokoll-vorlagen.seite'}
 	/>
+
+	<div class="fv-reiter">
+		<Umschalter
+			label="Art der Vorlagen"
+			aktiv={data.art}
+			eintraege={[
+				{ wert: 'protokoll', text: 'Protokolle', href: FORMULAR_VORLAGEN.protokoll.pfad },
+				{ wert: 'aufmass', text: 'Aufmaße', href: FORMULAR_VORLAGEN.aufmass.pfad }
+			]}
+		/>
+		<span class="kd-info">„+ Neue Vorlage“ legt {data.art === 'aufmass' ? 'ein Aufmaß' : 'ein Protokoll'} an – die Art wählen Sie mit dem Reiter.</span>
+	</div>
 
 	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 	{#if form?.uebernommen != null}<p role="status" class="kd-info">{form.uebernommen} Beispielvorlage(n) übernommen.</p>{/if}
@@ -88,6 +103,13 @@
 </main>
 
 <style>
+	.fv-reiter {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 1rem;
+		margin-bottom: 1rem;
+	}
 	.fv-bloecke {
 		display: grid;
 		gap: var(--ui-abstand-block, var(--ui-a4));

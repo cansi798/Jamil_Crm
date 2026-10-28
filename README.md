@@ -282,6 +282,14 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     `freigabeSql()` (`kundenportal.ts`) und `abAutomatisch()` (`auftragsbestaetigung.ts`). Ändern nur mit Modul
     `kundenportal`, „Kundenportal verwalten“ und „Alle Aufträge ansehen“. Leistungen für Bestandskunden (Migration 107):
     Links nur `https://`, `mailto:`, `tel:` (geprüft beim Speichern und nochmals beim Anzeigen), Texte nur als Text.
+    Migration 109 (Jamil msg 3521): Karte ab Auftragsstatus oder immer (`bestand_ab`), je Kunde an/aus (`kunden_portal.bestand`),
+    Projektbegleiter mit ausblenden (`ap_ausblenden`, Firma und Kunde). „Auftragsbestätigung automatisch“ je Kunde steht in der
+    Kundenakte unter „Automatik“ (Modul Angebote + „Aufträge bearbeiten“, auch ohne Kundenportal).
+28. Kundenliste mit Zeilen-Infos (Jamil msg 3522, `src/lib/server/kunden-zeilen.ts`): EINE Abfrage je Seite (kein N+1), RLS +
+    Betriebsfilter; Auftrags-/Angebotsinfos nur mit „Alle Aufträge ansehen“, Portal nur mit „Kundenportal verwalten“, keine Beträge.
+    Portal-Öffnungen: vorhandene Zähler je Link (`portal_links.zugriffe`, `letzter_zugriff`) – keine neue Erfassung, keine IPs.
+29. Unteraufgaben (Migration 110, `app.todo_unteraufgaben`, RLS, Protokoll): anlegen/löschen mit „Aufträge bearbeiten“, abhaken
+    auch durch die Mitarbeiter der Aufgabe; mit der Aufgabe gelöscht, nie im Kundenportal.
 
 ## Installation auf einem eigenen Server
 

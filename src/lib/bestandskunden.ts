@@ -3,6 +3,7 @@
  * Karte erscheint, wie sie heißt, was darin steht und welche Knöpfe mit welchen Links es gibt. Reines Wissen ohne
  * Serverbezug – Prüfung und Standardwerte stehen hier, damit Einstellungen, Portal und Tests dieselben Regeln nutzen.
  */
+import { STATUS, STATUS_NAMEN, istStatus, type AuftragStatus } from './auftrag-status';
 
 export type BestandSymbol = 'haus' | 'garten' | 'winter' | 'reparatur' | 'barrierefrei' | 'herz' | 'stern' | 'kalender' | 'telefon' | 'schluessel';
 
@@ -23,7 +24,21 @@ export const BESTAND_SYMBOL_SCHLUESSEL = Object.keys(BESTAND_SYMBOLE) as Bestand
 
 export type BestandLeistung = { titel: string; text: string; symbol: BestandSymbol };
 export type BestandKnopf = { text: string; url: string };
-export type BestandEinstellung = { aktiv: boolean; titel: string; text: string; leistungen: BestandLeistung[]; knoepfe: BestandKnopf[] };
+/**
+ * Ab wann erscheint die Karte (Jamil msg 3521)? `immer` = bei jedem Kunden mit Portal, sonst sobald ein Auftrag des Kunden
+ * diesen Status erreicht hat (oder einen späteren). Standard `abgerechnet` = „Projekt erfolgreich beendet“ (bisheriges Verhalten).
+ */
+export type BestandAb = 'immer' | AuftragStatus;
+export const BESTAND_AB_STANDARD: BestandAb = 'abgerechnet';
+export const BESTAND_AB_WAHL: { wert: BestandAb; text: string }[] = [
+	{ wert: 'immer', text: 'immer (bei jedem Kunden mit Portal)' },
+	...STATUS.map((s) => ({ wert: s as BestandAb, text: `ab Auftragsstatus „${STATUS_NAMEN[s]}“` }))
+];
+export const istBestandAb = (w: unknown): w is BestandAb => w === 'immer' || istStatus(w);
+/** Status, die bei `ab` zählen (der gewählte und alle späteren); bei `immer` leer = kein Auftrag nötig. */
+export const bestandStatusAb = (ab: BestandAb): AuftragStatus[] => (ab === 'immer' ? [] : STATUS.slice(STATUS.indexOf(ab)));
+
+export type BestandEinstellung = { aktiv: boolean; ab: BestandAb; titel: string; text: string; leistungen: BestandLeistung[]; knoepfe: BestandKnopf[] };
 
 /** Grenzen (gleich in Formular, Prüfung und Datenbank – Migration 107). */
 export const BESTAND_GRENZEN = { titel: 60, text: 240, leistungen: 10, leistungTitel: 60, leistungText: 160, knoepfe: 4, knopfText: 30, url: 500 } as const;
@@ -41,6 +56,7 @@ export const BESTAND_STANDARD_LEISTUNGEN: BestandLeistung[] = [
 
 export const bestandStandard = (): BestandEinstellung => ({
 	aktiv: true,
+	ab: BESTAND_AB_STANDARD,
 	titel: BESTAND_STANDARD_TITEL,
 	text: BESTAND_STANDARD_TEXT,
 	leistungen: BESTAND_STANDARD_LEISTUNGEN.map((l) => ({ ...l })),
@@ -118,15 +134,17 @@ export function pruefeBestand(roh: unknown): BestandErgebnis {
 		if (!link.ok) return { ok: false, fehler: `Knopf ${i + 1} („${t}“): ${link.fehler}` };
 		knoepfe.push({ text: t, url: link.url });
 	}
-	return { ok: true, wert: { aktiv: e.aktiv === true || e.aktiv === 'ja' || e.aktiv === 'on', titel: titel || BESTAND_STANDARD_TITEL, text, leistungen, knoepfe } };
+	if (e.ab !== undefined && e.ab !== null && e.ab !== '' && !istBestandAb(e.ab)) return { ok: false, fehler: 'Bitte wählen, ab wann die Karte erscheint.' };
+	const ab = istBestandAb(e.ab) ? e.ab : BESTAND_AB_STANDARD;
+	return { ok: true, wert: { aktiv: e.aktiv === true || e.aktiv === 'ja' || e.aktiv === 'on', ab, titel: titel || BESTAND_STANDARD_TITEL, text, leistungen, knoepfe } };
 }
 
 /** Karte, wie der Kunde sie sieht (ohne den Schalter). */
 export type BestandKarte = Pick<BestandEinstellung, 'titel' | 'text' | 'leistungen' | 'knoepfe'>;
 
 /**
- * Soll die Karte im Portal stehen? Nur wenn der Betrieb sie eingeschaltet hat, der Kunde Bestandskunde ist (ein Auftrag
- * abgeschlossen: „Projekt erfolgreich beendet“) und überhaupt etwas darin steht. Sonst `null`.
+ * Soll die Karte im Portal stehen? Nur wenn sie eingeschaltet ist (Firma, beim Kunden überschreibbar), der Kunde die
+ * Bedingung „ab wann“ erfüllt (`bestandskunde`) und überhaupt etwas darin steht. Sonst `null`.
  */
 export function bestandKarteFuer(e: BestandEinstellung, bestandskunde: boolean): BestandKarte | null {
 	if (!e.aktiv || !bestandskunde) return null;
@@ -135,15 +153,16 @@ export function bestandKarteFuer(e: BestandEinstellung, bestandskunde: boolean):
 }
 
 /** Aus der Datenbank (jsonb) gelesene Werte → gültige Einstellung; kaputte oder fehlende Werte fallen auf den Standard zurück. */
-export function bestandAusDatenbank(z: { bestand_aktiv?: unknown; bestand_titel?: unknown; bestand_text?: unknown; bestand_leistungen?: unknown; bestand_knoepfe?: unknown } | undefined): BestandEinstellung {
+export function bestandAusDatenbank(z: { bestand_aktiv?: unknown; bestand_ab?: unknown; bestand_titel?: unknown; bestand_text?: unknown; bestand_leistungen?: unknown; bestand_knoepfe?: unknown } | undefined): BestandEinstellung {
 	const std = bestandStandard();
 	if (!z) return std;
 	const r = pruefeBestand({
 		aktiv: z.bestand_aktiv !== false,
+		ab: istBestandAb(z.bestand_ab) ? z.bestand_ab : std.ab,
 		titel: z.bestand_titel ?? std.titel,
 		text: z.bestand_text ?? std.text,
 		leistungen: z.bestand_leistungen ?? std.leistungen,
 		knoepfe: z.bestand_knoepfe ?? std.knoepfe
 	});
-	return r.ok ? r.wert : { ...std, aktiv: z.bestand_aktiv !== false };
+	return r.ok ? r.wert : { ...std, aktiv: z.bestand_aktiv !== false, ab: istBestandAb(z.bestand_ab) ? z.bestand_ab : std.ab };
 }

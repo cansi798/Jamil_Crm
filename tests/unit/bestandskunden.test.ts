@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BESTAND_GRENZEN, BESTAND_STANDARD_TITEL, bestandAusDatenbank, bestandKarteFuer, bestandStandard, pruefeBestand, pruefeLink } from '../../src/lib/bestandskunden';
+import { BESTAND_AB_WAHL, BESTAND_GRENZEN, BESTAND_STANDARD_TITEL, bestandAusDatenbank, bestandKarteFuer, bestandStandard, bestandStatusAb, pruefeBestand, pruefeLink } from '../../src/lib/bestandskunden';
 
 /** Leistungen für Bestandskunden im Kundenportal (Jamil, Talk msg 3408): Link-Prüfung, Eingaben, Anzeige-Logik. */
 describe('pruefeLink', () => {
@@ -51,7 +51,7 @@ describe('pruefeBestand', () => {
 
 	it('übernimmt gültige Eingaben und bereinigt Leerraum', () => {
 		const r = pruefeBestand(gut);
-		expect(r).toEqual({ ok: true, wert: { ...gut, titel: 'Wir sind für Sie da' } });
+		expect(r).toEqual({ ok: true, wert: { ...gut, ab: 'abgerechnet', titel: 'Wir sind für Sie da' } });
 	});
 
 	it('nimmt den Standardtitel, wenn die Überschrift leer ist, und ein bekanntes Symbol', () => {
@@ -121,7 +121,25 @@ describe('Anzeige-Logik', () => {
 	it('aus der Datenbank: ohne Zeile Standard, NULL = Standard, [] = bewusst leer, Kaputtes fällt zurück', () => {
 		expect(bestandAusDatenbank(undefined)).toEqual(e);
 		expect(bestandAusDatenbank({ bestand_aktiv: true, bestand_titel: null, bestand_text: null, bestand_leistungen: null, bestand_knoepfe: null })).toEqual(e);
-		expect(bestandAusDatenbank({ bestand_aktiv: false, bestand_titel: 'T', bestand_text: '', bestand_leistungen: [], bestand_knoepfe: [] })).toEqual({ aktiv: false, titel: 'T', text: '', leistungen: [], knoepfe: [] });
+		expect(bestandAusDatenbank({ bestand_aktiv: false, bestand_titel: 'T', bestand_text: '', bestand_leistungen: [], bestand_knoepfe: [] })).toEqual({ aktiv: false, ab: 'abgerechnet', titel: 'T', text: '', leistungen: [], knoepfe: [] });
 		expect(bestandAusDatenbank({ bestand_aktiv: false, bestand_titel: 'T', bestand_leistungen: [{ titel: '' }] })).toEqual({ ...e, aktiv: false });
+	});
+});
+
+describe('Ab wann erscheint die Karte (Jamil msg 3521 B)', () => {
+	it('Standard abgerechnet, „immer“ und jeder Auftragsstatus wählbar; Unsinn → Fehler', () => {
+		expect(bestandStandard().ab).toBe('abgerechnet');
+		expect(pruefeBestand({ titel: 'x', ab: 'immer' })).toMatchObject({ ok: true, wert: { ab: 'immer' } });
+		expect(pruefeBestand({ titel: 'x', ab: 'abgenommen' })).toMatchObject({ ok: true, wert: { ab: 'abgenommen' } });
+		expect(pruefeBestand({ titel: 'x', ab: 'bald' })).toMatchObject({ ok: false });
+		expect(pruefeBestand({ titel: 'x' })).toMatchObject({ ok: true, wert: { ab: 'abgerechnet' } });
+		expect(BESTAND_AB_WAHL.map((w) => w.wert)).toEqual(['immer', 'anfrage', 'angebot', 'beauftragt', 'in_arbeit', 'abgenommen', 'abgerechnet']);
+	});
+	it('zählende Status: der gewählte und alle späteren; „immer“ braucht keinen Auftrag', () => {
+		expect(bestandStatusAb('abgenommen')).toEqual(['abgenommen', 'abgerechnet']);
+		expect(bestandStatusAb('abgerechnet')).toEqual(['abgerechnet']);
+		expect(bestandStatusAb('immer')).toEqual([]);
+		expect(bestandAusDatenbank({ bestand_ab: 'immer' }).ab).toBe('immer');
+		expect(bestandAusDatenbank({ bestand_ab: 'quatsch' }).ab).toBe('abgerechnet');
 	});
 });

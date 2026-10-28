@@ -5,6 +5,9 @@
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import Karte from '$lib/components/Karte.svelte';
+	import ScrollBereich from '$lib/components/ui/ScrollBereich.svelte';
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
+	import BelegListe, { type BelegZeile } from '$lib/components/ausgangsbelege/BelegListe.svelte';
 	import StatusKette from '$lib/components/StatusKette.svelte';
 	import AuftragHinweise from '$lib/components/AuftragHinweise.svelte';
 	import TodoListe from '$lib/components/TodoListe.svelte';
@@ -54,6 +57,36 @@
 
 	// „Angebot hinzufügen“: ein Feld mit vier Wegen statt verstreuter Auswahlen und Knöpfe
 	type Weg = 'neu' | 'vorlage' | 'ki' | 'zuordnen';
+	// Ausgangsbelege des Auftrags (Jamil msg 3525): Angebote und Auftragsbestätigungen in EINER Liste, neueste zuerst
+	const belege = $derived.by((): BelegZeile[] => {
+		const l: (BelegZeile & { sort: string })[] = [];
+		for (const an of data.angebote ?? []) {
+			l.push({
+				id: `an-${an.id}`,
+				typ: 'angebot',
+				href: data.darfAngebote ? `/angebote/${an.id}` : null,
+				nummer: an.nummer,
+				datum: tagDeutsch(an.datum),
+				status: { text: ANGEBOT_STATUS_NAMEN[an.status], klasse: `s-${an.status}` },
+				betrag: an.bruttoCent !== undefined ? euro(an.bruttoCent) : null,
+				sort: an.datum
+			});
+		}
+		for (const ab of data.auftragsbestaetigungen) {
+			l.push({
+				id: `ab-${ab.id}`,
+				typ: 'ab',
+				href: `/api/auftragsbestaetigungen/${ab.id}/pdf`,
+				neuerTab: true,
+				nummer: ab.nummer,
+				datum: tagDeutsch(berlinTag(new Date(ab.angelegt))),
+				zusatz: ab.versendetAm ? `versendet ${tagDeutsch(berlinTag(new Date(ab.versendetAm)))}` : null,
+				status: { text: ab.versandStatus === 'gesendet' ? 'Versendet' : 'Bereit zum Versand', klasse: `s-${ab.versandStatus === 'gesendet' ? 'angenommen' : 'versendet'}` },
+				sort: berlinTag(new Date(ab.angelegt))
+			});
+		}
+		return l.sort((x, y) => (x.sort < y.sort ? 1 : x.sort > y.sort ? -1 : 0)).map(({ sort: _s, ...z }) => z);
+	});
 	const wegeAngebot = $derived.by(() => {
 		const wege: [Weg, string][] = [];
 		if (data.darfAngebote) wege.push(['neu', 'Neu']);
@@ -202,70 +235,26 @@
 					</Karte>
 				</div>
 			{/if}
-			{#if data.auftragsbestaetigungen.length > 0 || data.abHinweis}
-				<div class="af-k k-ab" id="auftragsbestaetigung">
-					<Karte>
-						{#snippet titel()}Auftragsbestätigung{/snippet}
-						{#each data.auftragsbestaetigungen as ab (ab.id)}
-							<div class="af-ab">
-								<p><strong>{ab.nummer}</strong> · {ab.versandStatus === 'gesendet' ? `gesendet${ab.versendetAm ? ` am ${tagDeutsch(berlinTag(new Date(ab.versendetAm)))}` : ''}` : 'bereit zum Versand'}</p>
-								<div class="af-ab-knoepfe">
-									<a class="kd-knopf hell" href={`/api/auftragsbestaetigungen/${ab.id}/pdf?download=1`} download>PDF herunterladen</a>
-									{#if ab.versandStatus === 'bereit'}
-										<a class="kd-knopf hell" href={`mailto:${ab.mailAn ?? ''}?subject=${encodeURIComponent(ab.mailBetreff ?? '')}&body=${encodeURIComponent(ab.mailText ?? '')}`}>In Mailprogramm öffnen</a>
-										<form method="POST" action="?/abGesendet" use:enhance><input type="hidden" name="id" value={ab.id} /><button type="submit" class="kd-knopf">Als gesendet markieren</button></form>
-									{/if}
-								</div>
-								{#if ab.versandStatus === 'bereit' && data.abVorlagen.length > 1}
-									<form method="POST" action="?/abVorlage" use:enhance={sofort} class="af-inline">
-										<input type="hidden" name="id" value={ab.id} />
-										<label>Mail-Vorlage
-											<Auswahl name="vorlageId" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
-												<option value="">Standard „Auftragsbestätigung“</option>
-												{#each data.abVorlagen as v (v.id)}<option value={v.id}>{v.name}</option>{/each}
-											</Auswahl>
-										</label>
-									</form>
-								{/if}
-								{#if ab.versandStatus === 'bereit'}<p class="kd-info">Der Mailversand ist noch nicht angebunden: PDF herunterladen, im Mailprogramm anhängen und senden.{#if !ab.mailAn} Beim Kunden ist keine E-Mail hinterlegt.{/if}</p>{/if}
-							</div>
-						{:else}
-							<p class="kd-info">Sobald ein Angebot angenommen ist (Kundenportal, Büro oder Sprache), entsteht hier automatisch die Auftragsbestätigung.</p>
-						{/each}
-						{#if data.abHinweis}
-							<!-- Einstellungen des Kunden gehören zum Kunden (Jamil msg 3439): hier nur der Hinweis -->
-							<p class="kd-info" data-testid="ab-hinweis">
-								Automatisch erstellen: <strong>{data.abHinweis.an ? 'an' : 'aus'}</strong> –
-								{#if !data.abHinweis.kundeId}
-									Auftrag ohne Kunden: es gilt die Einstellung der Firma.
-								{:else if data.abHinweis.einstellbar}
-									wird beim Kunden eingestellt: <a href={`/kunden/${data.abHinweis.kundeId}#portal-einstellung`}>zu den Einstellungen des Kunden</a>.
-								{:else}
-									wird beim Kunden eingestellt (Kundenakte → Kundenportal; dafür braucht es das Recht „Kundenportal verwalten“).
-								{/if}
-							</p>
-						{/if}
-					</Karte>
-				</div>
-			{/if}
 			{#if data.portal}
 				<div class="af-k k-portal" id="kundenportal">
 					<Karte>
 						{#snippet titel()}Kundenportal{/snippet}
 						{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
-						<p class="af-portal-status" data-testid="portal-status-auftrag">
-							{data.portal.imPortal ? 'Dieser Auftrag steht im Kundenportal.' : 'Dieser Auftrag steht nicht im Kundenportal.'}
-							{#if data.portal.kundeId}
-								{data.portal.kundeHatLink ? 'Der Kunde hat einen gültigen Link.' : 'Der Kunde hat noch keinen Link.'}
-								<a href={`/kunden/${data.portal.kundeId}#kundenportal`}>Link beim Kunden verwalten</a>
+						<!-- Dezent statt langer Text (Jamil msg 3526): Haken + kurzer Zustand, Erklärung im ⓘ, Links nur mit Recht -->
+						<div class="af-portal-zeile" data-testid="portal-status-auftrag">
+							{#if !data.portal.kundeId}
+								<span class="af-portal-zustand aus"><span aria-hidden="true">–</span> Ohne Kunden kein Kundenportal</span>
+							{:else if data.portal.imPortal}
+								<span class="af-portal-zustand an"><span class="af-haken" aria-hidden="true">✓</span> Im Kundenportal sichtbar</span>
 							{:else}
-								Ohne Kunden in der Kundendatenbank gibt es kein Portal.
+								<span class="af-portal-zustand aus"><span aria-hidden="true">–</span> Nicht im Kundenportal</span>
 							{/if}
-						</p>
+							<InfoFenster id="auftrag.portal" />
+						</div>
 						{#if data.portal.kundeId}
-							<!-- Einstellungen des Kunden (Aufträge zeigen, Status, Termine, Namen, Online-Annahme) – Jamil msg 3439 -->
-							<p class="kd-info" data-testid="portal-hinweis-kunde">
-								Was der Kunde im Portal sieht, wird beim Kunden eingestellt{#if data.kundeEinstellbar}: <a href={`/kunden/${data.portal.kundeId}#portal-einstellung`}>zu den Einstellungen des Kunden</a>{:else} (Kundenakte → Kundenportal; braucht „Alle Aufträge ansehen“){/if}. Hier geben Sie nur einzelne Dokumente frei.
+							<p class="kd-info af-portal-mehr" data-testid="portal-hinweis-kunde">
+								{data.portal.kundeHatLink ? 'Kunde hat einen gültigen Link' : 'Kunde hat noch keinen Link'}
+								{#if data.kundeEinstellbar} · <a href={`/kunden/${data.portal.kundeId}#kundenportal`}>Link verwalten</a> · <a href={`/kunden/${data.portal.kundeId}#portal-einstellung`}>Einstellungen des Kunden</a>{/if}
 							</p>
 						{/if}
 						{#if data.portal.angebote.length + data.portal.dateien.length > 0}
@@ -281,7 +270,6 @@
 								{/each}
 							</ul>
 						{/if}
-						<p class="kd-info">Versendete Angebote und Auftragsbestätigungen erscheinen automatisch. Ab „Beauftragt“ sieht der Kunde die Aufgaben, bei denen Lautstärke oder Schmutz angegeben ist, als Arbeitsschritte. Kein anderer Kunde, keine internen Notizen.</p>
 					</Karte>
 				</div>
 			{/if}
@@ -467,7 +455,7 @@
 						darfBearbeiten={data.darfBearbeiten}
 						mitarbeiter={data.mitarbeiter}
 						amAuftrag={a.zustaendige}
-						aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen', serieBeenden: '?/todoSerieBeenden' }}
+						aktionen={{ umschalten: '?/todoUmschalten', aendern: '?/todoAendern', loeschen: '?/todoLoeschen', serieBeenden: '?/todoSerieBeenden', unterNeu: '?/todoUnterNeu', unterUmschalten: '?/todoUnterUmschalten', unterLoeschen: '?/todoUnterLoeschen' }}
 						leer="Noch keine Aufgaben zu diesem Auftrag."
 					/>
 				</Karte>
@@ -569,6 +557,7 @@
 			<div class="af-k k-verlauf">
 				<Karte>
 					{#snippet titel()}Verlauf{/snippet}
+					<ScrollBereich label="Verlauf des Auftrags">
 					<ol class="kd-verlauf">
 						{#each data.verlauf as eintrag (eintrag.id)}
 							<li>
@@ -585,6 +574,7 @@
 							<li class="kd-leer">Noch keine Einträge.</li>
 						{/each}
 					</ol>
+					</ScrollBereich>
 					{#if data.verlaufGekuerzt}
 						<p class="kd-info">Ältere Einträge werden hier nicht angezeigt.</p>
 					{/if}
@@ -756,32 +746,48 @@
 				</Karte>
 			</div>
 
-			{#if data.angebote}
-				<div class="af-k k-angebote">
+			{#if data.angebote || data.auftragsbestaetigungen.length > 0 || data.abHinweis}
+				<!-- Ausgangsbelege des Auftrags (Jamil msg 3525): Angebote, Auftragsbestätigungen und (mit Lexware) Rechnungen in EINER
+				     Liste, neueste zuerst, Belegart als Abzeichen – gleiche Zeile wie unter „Ausgangsbelege“ (BelegListe) -->
+				<div class="af-k k-angebote" id="ausgangsbelege">
 					<Karte>
-						{#snippet titel()}Angebote{/snippet}
-						<ul class="kd-liste af-angebote">
-							{#each data.angebote as an (an.id)}
-								<li>
-									{#if data.darfAngebote}
-										<a href={`/angebote/${an.id}`}>
-											<span class="af-kopfzeile">
-												<strong>{an.nummer}</strong>
-												<span class={`an-status s-${an.status}`}>{ANGEBOT_STATUS_NAMEN[an.status]}</span>
-											</span>
-											<span class="kd-info">{tagDeutsch(an.datum)}{an.bruttoCent !== undefined ? ` · ${euro(an.bruttoCent)}` : ''}</span>
-										</a>
-									{:else}
-										<span class="af-kopfzeile kd-kein-link">
-											<strong>{an.nummer}</strong>
-											<span class={`an-status s-${an.status}`}>{ANGEBOT_STATUS_NAMEN[an.status]}</span>
-										</span>
+						{#snippet titel()}Ausgangsbelege{/snippet}
+						<BelegListe zeilen={belege} leerText="Noch kein Angebot und keine Auftragsbestätigung." kompakt label="Ausgangsbelege des Auftrags" />
+						<div id="auftragsbestaetigung">
+							{#each data.auftragsbestaetigungen.filter((x) => x.versandStatus === 'bereit') as ab (ab.id)}
+								<div class="af-ab" data-testid="ab-bereit">
+									<p><strong>{ab.nummer}</strong> · bereit zum Versand</p>
+									<div class="af-ab-knoepfe">
+										<a class="kd-knopf hell klein" href={`/api/auftragsbestaetigungen/${ab.id}/pdf?download=1`} download>PDF herunterladen</a>
+										<a class="kd-knopf hell klein" href={`mailto:${ab.mailAn ?? ''}?subject=${encodeURIComponent(ab.mailBetreff ?? '')}&body=${encodeURIComponent(ab.mailText ?? '')}`}>In Mailprogramm öffnen</a>
+										<form method="POST" action="?/abGesendet" use:enhance><input type="hidden" name="id" value={ab.id} /><button type="submit" class="kd-knopf klein">Als gesendet markieren</button></form>
+									</div>
+									{#if data.abVorlagen.length > 1}
+										<form method="POST" action="?/abVorlage" use:enhance={sofort} class="af-inline">
+											<input type="hidden" name="id" value={ab.id} />
+											<label>Mail-Vorlage
+												<Auswahl name="vorlageId" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+													<option value="">Standard „Auftragsbestätigung“</option>
+													{#each data.abVorlagen as v (v.id)}<option value={v.id}>{v.name}</option>{/each}
+												</Auswahl>
+											</label>
+										</form>
 									{/if}
-								</li>
-							{:else}
-								<li class="kd-leer">Noch kein Angebot.</li>
+									<p class="kd-info">Der Mailversand ist noch nicht angebunden: PDF herunterladen, im Mailprogramm anhängen und senden.{#if !ab.mailAn} Beim Kunden ist keine E-Mail hinterlegt.{/if}</p>
+								</div>
 							{/each}
-						</ul>
+							{#if data.abHinweis}
+								<!-- Einstellung gehört zum Kunden (Jamil msgs 3439, 3521 E): hier nur der wirksame Wert -->
+								<p class="kd-info" data-testid="ab-hinweis">
+									Auftragsbestätigung automatisch: <strong>{data.abHinweis.an ? 'an' : 'aus'}</strong>
+									{#if !data.abHinweis.kundeId}
+										– Auftrag ohne Kunden: Einstellung der Firma.
+									{:else}
+										– <a href={`/kunden/${data.abHinweis.kundeId}#automatik`}>beim Kunden einstellen</a>
+									{/if}
+								</p>
+							{/if}
+						</div>
 						{#if wegeAngebot.length > 0}
 							<AddPanel label="Angebot hinzufügen" offen={!!form?.kiStichworte}>
 								{#snippet children()}
@@ -1347,5 +1353,13 @@
 	.af-portal-docs { list-style: none; margin: var(--ui-a2) 0; padding: 0; display: grid; gap: var(--ui-a1); font-size: var(--ui-schrift-s); }
 	.af-portal-docs label { display: flex; gap: var(--ui-a2); align-items: center; min-height: 2.25rem; }
 	.af-portal-titel { margin: var(--ui-a2) 0 0; font-weight: 600; font-size: var(--ui-schrift-s); }
-	.af-portal-status { margin: 0 0 var(--ui-a2); font-size: var(--ui-schrift-s); }
+	/* Kundenportal dezent (msg 3526): Haken + kurzer Zustand, ⓘ für die Erklärung */
+	.af-portal-zeile { display: flex; align-items: center; gap: 0.25rem; min-height: 2rem; }
+	.af-portal-zustand { display: inline-flex; align-items: center; gap: 0.4rem; font-size: var(--ui-schrift-s); font-weight: 600; }
+	.af-portal-zustand.an { color: var(--ui-gruen); }
+	.af-portal-zustand.aus { color: var(--ui-text-leise); }
+	.af-haken { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--ui-gruen-hell); font-size: 0.75rem; }
+	.af-portal-mehr { margin: 0 0 var(--ui-a2); }
+	#auftragsbestaetigung { display: grid; gap: var(--ui-a2); margin-top: var(--ui-a2); }
+	#auftragsbestaetigung > p { margin: 0; }
 </style>

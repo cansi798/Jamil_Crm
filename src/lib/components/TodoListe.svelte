@@ -6,6 +6,7 @@
 	import ZeitraumWahl from './ZeitraumWahl.svelte';
 	import { personenMitVorschlag, zeitraumText } from '$lib/aufgaben';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
+	import Unteraufgaben from './Unteraufgaben.svelte';
 
 	type Todo = {
 		id: string;
@@ -24,6 +25,9 @@
 		vonZeit?: string | null;
 		mitarbeiter?: { id: string; name: string }[];
 		erledigt: boolean;
+		/** Auftrag der Aufgabe – nur Aufgaben im Auftrag haben Lautstärke/Schmutz (Jamil msg 3529) */
+		auftragId?: string | null;
+		unteraufgaben?: { id: string; titel: string; erledigt: boolean; benutzerId: string | null; benutzerName: string | null }[];
 	};
 
 	/**
@@ -48,7 +52,7 @@
 		mitarbeiter?: { id: string; name: string }[];
 		/** Mitarbeiter des Auftrags – Vorschlag oben in der Auswahl (wählbar ist jeder) */
 		amAuftrag?: { id: string; name: string }[];
-		aktionen: { umschalten: string; aendern: string; loeschen: string; serieBeenden?: string };
+		aktionen: { umschalten: string; aendern: string; loeschen: string; serieBeenden?: string; unterNeu?: string; unterUmschalten?: string; unterLoeschen?: string };
 		leer?: string;
 	} = $props();
 
@@ -89,6 +93,7 @@
 			<button type="button" class="tl-titel" aria-expanded={aufgeklappt === t.id} onclick={() => umschalten(t.id)}>
 				<span class="tl-text">{t.titel}</span>
 				{#if t.serie?.aktiv}<span class="tl-serie" title={`Wiederholt sich: ${t.serie.text}`}>↻ {t.serie.text}</span>{/if}
+				{#if t.unteraufgaben?.length}<span class="tl-serie" title="Unteraufgaben erledigt">☑ {t.unteraufgaben.filter((u) => u.erledigt).length}/{t.unteraufgaben.length}</span>{/if}
 			</button>
 			<span class="tl-meta">
 				{#if darfBearbeiten && !t.erledigt}
@@ -116,6 +121,7 @@
 					</p>
 				{/if}
 				{#if t.serie}<p class="kd-info">{t.serie.aktiv ? `Wiederholt sich: ${t.serie.text}` : 'Wiederholung beendet'}</p>{/if}
+				<Unteraufgaben todoId={t.id} todoTitel={t.titel} liste={t.unteraufgaben ?? []} {aktionen} {darfBearbeiten} darfHaken={darfHaken} {personen} />
 				{#if t.nachfassAngebotId}<p><a href={`/angebote/${t.nachfassAngebotId}#nachfassen`}>Angebot und fertigen Mailtext öffnen</a></p>{/if}
 				{#if darfBearbeiten}
 					<form method="POST" action={aktionen.aendern} use:enhance={zuklappen} class="kd-formular tl-formular">
@@ -134,20 +140,23 @@
 								{t.serie ? 'Fällig' : 'Tag oder Zeitraum'}
 								<ZeitraumWahl faellig={t.faellig ?? ''} faelligZeit={t.faelligZeit ?? ''} vonTag={t.vonTag ?? ''} vonZeit={t.vonZeit ?? ''} nurTag={!!t.serie} />
 							</div>
-							<label>
-								Lautstärke
-								<Auswahl name="lautstaerke">
-									<option value="" selected={!t.lautstaerke}>–</option>
-									{#each STUFEN as n (n)}<option value={String(n)} selected={t.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
-								</Auswahl>
-							</label>
-							<label>
-								Schmutz
-								<Auswahl name="schmutz">
-									<option value="" selected={!t.schmutz}>–</option>
-									{#each STUFEN as n (n)}<option value={String(n)} selected={t.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
-								</Auswahl>
-							</label>
+							<!-- Lautstärke/Schmutz nur bei Aufgaben im Auftrag (Jamil msg 3529); bei direkten Aufgaben bleiben alte Werte unberührt -->
+							{#if t.auftragId}
+								<label>
+									Lautstärke
+									<Auswahl name="lautstaerke">
+										<option value="" selected={!t.lautstaerke}>–</option>
+										{#each STUFEN as n (n)}<option value={String(n)} selected={t.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
+									</Auswahl>
+								</label>
+								<label>
+									Schmutz
+									<Auswahl name="schmutz">
+										<option value="" selected={!t.schmutz}>–</option>
+										{#each STUFEN as n (n)}<option value={String(n)} selected={t.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
+									</Auswahl>
+								</label>
+							{/if}
 						</div>
 						<div class="tl-knoepfe">
 							<button type="button" class="kd-knopf hell" onclick={() => (aufgeklappt = null)}>Abbrechen</button>

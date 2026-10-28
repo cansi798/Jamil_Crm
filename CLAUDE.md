@@ -37,7 +37,8 @@ Skripte, Kommentare und `ANLEITUNG.md` bleiben auf Deutsch und in einfacher Spra
 Jede neue Seite bzw. jeder neue Bereich kommt in die passende Gruppe der Navigation (`src/lib/navigation.ts`):
 **Hauptbereich** (Start, Kunden, Aufträge, Ausgangsbelege, Plantafel, Karte, Aufgaben), dann der **Weg des Kunden**
 (Jamil msg 3423): **Anfrage**, **Angebot**, **Auftrag**, **Abschluss & danach** – dort stehen die Einstellungen, wo der Kunde sie
-erlebt –, dann **Vorlagen**, **Team & Partner** (Zeiten, Abwesenheiten, Kolonnen, Partner – Jamil msg 3089),
+erlebt; leere Gruppen erscheinen nicht (alles zum Kundenportal steht seit msg 3534 unter „Kundenportal & Auftragsbestätigung“) –,
+dann **Vorlagen** (Protokoll- und Aufmaß-Vorlagen sind ein Punkt mit zwei Reitern, msg 3535), **Team & Partner** (Zeiten, Abwesenheiten, Kolonnen, Partner – Jamil msg 3089),
 **Auswertungen**, **Allgemein** (Funktionen & Automatisierungen, Briefkopf, Erinnerungen, Handy, Was ist neu),
 **Benutzeradministration**. Neue Einstellung → in die Gruppe des Kundenwegs, zu der sie gehört. Einträge
 erscheinen nur mit Modul und Recht. Passt keine Gruppe, eine sinnvolle neue Gruppe anlegen bzw. die Reihenfolge

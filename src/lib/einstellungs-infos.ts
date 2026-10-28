@@ -37,13 +37,13 @@ export const INFOS: Record<string, Info> = {
 	'portal.ab_automatisch': {
 		titel: 'Auftragsbestätigung automatisch erstellen',
 		was: 'Sobald ein Angebot angenommen ist, entsteht ohne Handarbeit die Auftragsbestätigung als PDF am Auftrag.',
-		wirkt: 'Alle neuen Annahmen (Portal, Büro oder Sprache). Beim einzelnen Kunden lässt es sich abschalten oder wieder einschalten.',
+		wirkt: 'Alle neuen Annahmen (Portal, Büro oder Sprache). Beim einzelnen Kunden lässt es sich abschalten oder wieder einschalten (Kundenakte → Automatik).',
 		standard: 'An.',
 		beispiel: 'Der Kunde nimmt das Angebot online an – die Auftragsbestätigung liegt kurz danach im Auftrag und im Portal bereit.'
 	},
 	'portal.standard': {
 		titel: 'Welche Aufträge stehen im Portal?',
-		was: '„Bei allen Kunden alle aktiven Aufträge“ zeigt jedem Kunden alle seine Aufträge, die noch nicht abgerechnet sind. „Nur bei Kunden mit ausdrücklicher Einschaltung“ zeigt Aufträge erst, wenn Sie es beim Kunden einschalten.',
+		was: '„Bei allen Kunden alle aktiven Aufträge“ zeigt jedem Kunden alle seine Aufträge, die noch nicht abgerechnet sind. „Nur bei Kunden mit ausdrücklicher Einschaltung“ zeigt Aufträge erst, wenn Sie es beim Kunden einschalten. Abgerechnete Aufträge verschwinden in beiden Fällen aus dem Portal – das lässt sich nicht ändern.',
 		wirkt: 'Alle Kunden; beim einzelnen Kunden überschreibbar.',
 		standard: 'Bei allen Kunden alle aktiven Aufträge.',
 		beispiel: 'Mit der zweiten Wahl sieht ein Kunde sein Portal erst, wenn Sie bei ihm „Aufträge im Portal zeigen: ja“ einstellen.'
@@ -51,7 +51,7 @@ export const INFOS: Record<string, Info> = {
 	'portal.team_namen': {
 		titel: 'Namen von Ansprechpartner und Team',
 		was: 'Bestimmt, ob der Kunde im Portal nur Vornamen, volle Namen oder gar keine Namen Ihrer Mitarbeiter sieht.',
-		wirkt: 'Alle Kunden im Portal (Ansprechpartner, Team, Termine). „Keine Namen“ blendet auch den Ansprechpartner aus; beim einzelnen Kunden lässt sich nur das Team ausblenden („Namen der Mitarbeiter zeigen“).',
+		wirkt: 'Alle Kunden im Portal (Projektbegleiter, Team, Termine). „Keine Namen“ blendet alles aus, auch den Projektbegleiter. Das Team allein blenden Sie über „Namen der Mitarbeiter“ aus (Standard und beim Kunden).',
 		standard: 'Nur Vorname.',
 		beispiel: '„Sabine“ statt „Sabine Schäfer“ – weniger Daten nach außen.'
 	},
@@ -62,9 +62,44 @@ export const INFOS: Record<string, Info> = {
 		standard: 'Alles an.',
 		beispiel: 'Termine ausschalten: Kunden sehen keine Einsatzzeiten, außer bei Kunden, bei denen Sie es einschalten.'
 	},
+	'portal.ap_ausblenden': {
+		titel: 'Projektbegleiter mit ausblenden',
+		was: 'Ist „Namen der Mitarbeiter“ aus, verschwindet mit dieser Einstellung auch der Projektbegleiter (Ansprechpartner mit Figur) aus dem Portal.',
+		wirkt: 'Alle Kunden, bei denen die Namen der Mitarbeiter aus sind; beim einzelnen Kunden überschreibbar.',
+		standard: 'Aus – der Projektbegleiter bleibt sichtbar.',
+		beispiel: 'An: ein Kunde ohne Mitarbeiternamen sieht gar keine Namen mehr, nur noch Ihre Firma.'
+	},
+	'kunde.ap_ausblenden': {
+		titel: 'Projektbegleiter mit ausblenden',
+		was: 'Gilt nur, wenn bei diesem Kunden keine Mitarbeiternamen gezeigt werden: dann verschwindet auch der Projektbegleiter.',
+		wirkt: 'Das Portal dieses Kunden.',
+		standard: 'Firmen-Standard.',
+		beispiel: 'Ja bei einem Kunden, der überhaupt keine Namen sehen soll.'
+	},
+	'kunde.bestand': {
+		titel: 'Karte „Leistungen für Bestandskunden“',
+		was: 'Ob dieser Kunde die Karte mit Ihren Leistungen im Portal bekommt. Wann sie erscheint (ab welchem Auftragsstatus oder immer), stellen Sie unter Abschluss & danach → Leistungen für Bestandskunden ein.',
+		wirkt: 'Das Portal dieses Kunden.',
+		standard: 'Firmen-Standard.',
+		beispiel: 'Nein bei einem Großkunden, dem Sie keine Zusatzleistungen anbieten wollen.'
+	},
+	'kunde.automatik': {
+		titel: 'Automatik für diesen Kunden',
+		was: 'Was das CRM bei diesem Kunden von selbst macht: Auftragsbestätigung nach der Annahme eines Angebots und automatisches Nachfassen.',
+		wirkt: 'Alle Aufträge und Angebote dieses Kunden.',
+		standard: 'Wie in den Einstellungen der Firma.',
+		beispiel: 'Bei einem Stammkunden die Auftragsbestätigung abschalten, weil Sie ihm persönlich schreiben.'
+	},
+	'auftrag.portal': {
+		titel: 'Auftrag im Kundenportal',
+		was: 'Zeigt, ob dieser Auftrag im Portal des Kunden steht. Was der Kunde dort sieht (Status, Termine, Namen, Online-Annahme), stellen Sie beim Kunden ein; hier geben Sie nur einzelne Dokumente frei.',
+		wirkt: 'Nur das Portal dieses Kunden. Versendete Angebote und Auftragsbestätigungen erscheinen automatisch; ab „Beauftragt“ sieht der Kunde Aufgaben mit Lautstärke oder Schmutz als Arbeitsschritte. Kein anderer Kunde, keine internen Notizen. Abgerechnete Aufträge verschwinden aus dem Portal.',
+		standard: 'Wie beim Kunden bzw. in der Firma eingestellt.',
+		beispiel: '✓ Im Kundenportal sichtbar: der Kunde sieht diesen Auftrag, sobald er seinen Link öffnet.'
+	},
 	'kunde.portal_seite': {
 		titel: 'Portal-Einstellungen dieses Kunden',
-		was: 'Hier legen Sie fest, was dieser eine Kunde im Portal sieht und ob für ihn die Auftragsbestätigung automatisch entsteht. „Firmen-Standard“ übernimmt die Einstellung der Firma.',
+		was: 'Hier legen Sie fest, was dieser eine Kunde im Portal sieht – auch ob er die Karte „Leistungen für Bestandskunden“ bekommt. „Firmen-Standard“ übernimmt die Einstellung der Firma.',
 		wirkt: 'Alle Aufträge dieses Kunden – nicht andere Kunden.',
 		standard: 'Alles Firmen-Standard.',
 		beispiel: 'Ein Kunde soll keine Namen der Mitarbeiter sehen: dort „Namen der Mitarbeiter zeigen: nein“.'
@@ -92,10 +127,10 @@ export const INFOS: Record<string, Info> = {
 	},
 	'kunde.mitarbeiter': {
 		titel: 'Namen der Mitarbeiter zeigen',
-		was: 'Zeigt dem Kunden, wer im Team an seinem Auftrag arbeitet, und die Namen bei den Terminen. Der Ansprechpartner bleibt sichtbar; ihn blendet nur die Firmen-Einstellung „keine Namen“ aus. Wie die Namen aussehen (Vorname/voll), steht ebenfalls in den Einstellungen der Firma.',
+		was: 'Zeigt dem Kunden, wer im Team an seinem Auftrag arbeitet, und die Namen bei den Terminen. Der Projektbegleiter bleibt bei „nein“ sichtbar – außer „Ohne Mitarbeiternamen auch Projektbegleiter ausblenden“ ist an. Wie die Namen aussehen (Vorname/voll), steht in den Einstellungen der Firma.',
 		wirkt: 'Das Portal dieses Kunden.',
 		standard: 'Firmen-Standard.',
-		beispiel: 'Nein: das Portal zeigt kein Team und bei Terminen keine Namen – nur den Ansprechpartner.'
+		beispiel: 'Nein: das Portal zeigt kein Team und bei Terminen keine Namen – nur noch den Projektbegleiter.'
 	},
 	'kunde.annahme': {
 		titel: 'Angebot online annehmen lassen',
@@ -106,8 +141,8 @@ export const INFOS: Record<string, Info> = {
 	},
 	'kunde.ab_automatisch': {
 		titel: 'Auftragsbestätigung automatisch erstellen',
-		was: 'Ob nach der Annahme eines Angebots dieses Kunden die Auftragsbestätigung (PDF) von selbst entsteht.',
-		wirkt: 'Alle künftigen Annahmen dieses Kunden.',
+		was: 'Ob nach der Annahme eines Angebots dieses Kunden die Auftragsbestätigung (PDF) von selbst entsteht. Gilt auch ohne Kundenportal.',
+		wirkt: 'Alle künftigen Annahmen dieses Kunden (Portal, Büro, Sprache). Einstellen darf, wer Aufträge bearbeiten darf.',
 		standard: 'Firmen-Standard.',
 		beispiel: 'Nein bei einem Kunden, dem Sie die Bestätigung selbst schreiben.'
 	},
@@ -133,20 +168,36 @@ export const INFOS: Record<string, Info> = {
 		beispiel: 'Dunkelblauer Kopf und Ihre Hausfarbe als Akzent.'
 	},
 
+	// ——— Listen ———
+	'kunden.zeile': {
+		titel: 'Infos in der Kundenzeile',
+		was: 'Kleine Abzeichen je Kunde: letztes Angebot (offen, angenommen, abgelehnt, abgelaufen – mit Datum), Kundenportal (aktiv, wie oft und wann zuletzt geöffnet, fehlt ein Passwort), offene Aufträge, nächster Termin und „Bestandskunde“. Mit der Maus darüber stehen die Einzelheiten.',
+		wirkt: 'Nur die Anzeige der Kundenliste. Sie sehen nur, was Sie sehen dürfen: Auftrags- und Angebotsinfos mit „Alle Aufträge ansehen“, das Portal mit „Kundenportal verwalten“. Beträge werden hier nicht gezeigt.',
+		standard: 'Immer an; sortiert nach Name. „Sortieren“ ordnet nach nächstem Termin, letztem Angebot oder letzter Portal-Öffnung.',
+		beispiel: '„✓ Angebot angenommen 21.10. · ● Portal aktiv · 5× · 1 offener Auftrag“.'
+	},
+
 	// ——— Leistungen für Bestandskunden ———
 	'bestand.seite': {
 		titel: 'Leistungen für Bestandskunden',
 		was: 'Eine kleine Karte am Ende des Kundenportals mit Ihren Leistungen für die Zeit nach dem Auftrag.',
-		wirkt: 'Kunden mit mindestens einem abgeschlossenen Auftrag („Projekt erfolgreich beendet“).',
-		standard: 'An, mit sechs Beispiel-Leistungen und ohne Knöpfe.',
+		wirkt: 'Kunden mit Portal – ab dem eingestellten Auftragsstatus oder immer; beim einzelnen Kunden abschaltbar.',
+		standard: 'An, ab „Abgerechnet“ (Projekt erfolgreich beendet), mit sechs Beispiel-Leistungen und ohne Knöpfe.',
 		beispiel: 'Nach der Badsanierung sieht der Kunde „Hausmeisterservice“ und den Knopf „Termin anfragen“.'
 	},
 	'bestand.aktiv': {
 		titel: 'Karte im Kundenportal anzeigen',
 		was: 'Schaltet die Karte im Portal ein oder aus.',
-		wirkt: 'Alle Kunden mit abgeschlossenem Auftrag.',
+		wirkt: 'Alle Kunden, die die Bedingung „Wann erscheint die Karte?“ erfüllen – außer bei Kunden, bei denen Sie es in der Kundenakte anders eingestellt haben.',
 		standard: 'An.',
 		beispiel: 'Aus: Kunden sehen nach Abschluss nichts Zusätzliches.'
+	},
+	'bestand.ab': {
+		titel: 'Wann erscheint die Karte?',
+		was: '„Immer“ zeigt die Karte jedem Kunden mit Portal. Sonst erscheint sie, sobald ein Auftrag des Kunden den gewählten Status (oder einen späteren) erreicht hat.',
+		wirkt: 'Alle Kunden mit Portal (beim Kunden abschaltbar).',
+		standard: 'Ab „Abgerechnet“ – also wenn ein Projekt erfolgreich beendet ist.',
+		beispiel: 'Ab „Abgenommen“: die Karte kommt schon, wenn die Arbeiten fertig sind, noch vor der Rechnung.'
 	},
 	'bestand.titel': {
 		titel: 'Überschrift der Karte',

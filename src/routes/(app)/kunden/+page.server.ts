@@ -7,6 +7,8 @@ import { sichtVon } from '$lib/server/auftraege';
 import { istKundenGruppe, kundenIdsFuer, kundenKennzahlen, siehtKennzahlen, type KundenKennzahlen } from '$lib/server/kennzahlen';
 import { istZeitraumArt, zeitraum } from '$lib/kennzahlen';
 import { berlinTag } from '$lib/zeit';
+import { kundenZeilenInfo } from '$lib/server/kunden-zeilen';
+import { erlaubteSortierungen, sortierungAus, type KundenZeilenRechte } from '$lib/kunden-zeilen';
 
 /**
  * Kundenliste mit Suche (`?suche=`): höchstens 50 Treffer, nach Name sortiert. Zu lange Suche wird gekürzt (R19).
@@ -25,16 +27,28 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const angebote = mitKennzahlen && module.includes('angebote') && hatRecht(nutzer, 'angebote.bearbeiten') && hatRecht(nutzer, 'preise.sehen');
 	const gruppe = mitKennzahlen && istKundenGruppe(gRoh) && (gRoh === 'aktiv' || angebote) ? gRoh : null;
 	const sicht = sichtVon(nutzer);
-	const [alle, kennzahlen, ids] = await alsSeitenFehler(() =>
+	// Mehr Infos in der Zeile (Jamil msg 3522) – je nach Modul und Recht; ohne „Alle Aufträge ansehen“ keine Auftrags-/Angebotsinfos
+	const alleAuftraege = hatRecht(nutzer, 'auftraege.alle_lesen');
+	const rechte: KundenZeilenRechte = {
+		auftraege: alleAuftraege && module.includes('auftraege'),
+		angebote: alleAuftraege && module.includes('angebote'),
+		portal: alleAuftraege && module.includes('kundenportal') && hatRecht(nutzer, 'kundenportal.verwalten')
+	};
+	const sortierung = sortierungAus(url.searchParams.get('sortierung'), rechte);
+	const [kennzahlen, ids] = await alsSeitenFehler(() =>
 		Promise.all([
-			listeKunden(k, suche),
 			mitKennzahlen ? kundenKennzahlen(k, sicht, z, { angebote }) : Promise.resolve(null as KundenKennzahlen | null),
 			gruppe ? kundenIdsFuer(k, sicht, z, gruppe) : Promise.resolve(null)
 		])
 	);
+	const kunden = await alsSeitenFehler(() => listeKunden(k, suche, { sortierung, nurIds: ids ? [...ids] : null }));
+	const info = await alsSeitenFehler(() => kundenZeilenInfo(k, kunden.map((x) => x.id), rechte));
 	return {
 		suche,
-		kunden: ids ? alle.filter((x) => ids.has(x.id)) : alle,
+		kunden: kunden.map((x) => ({ ...x, info: info.get(x.id) ?? null })),
+		rechte,
+		sortierung,
+		sortierungen: erlaubteSortierungen(rechte).map(({ wert, text }) => ({ wert, text })),
 		maxTreffer: MAX_TREFFER,
 		darfBearbeiten: hatRecht(nutzer, 'kunden.bearbeiten'),
 		kennzahlen,

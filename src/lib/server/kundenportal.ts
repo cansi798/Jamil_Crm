@@ -107,6 +107,10 @@ export const freigabeSql = (feld: FreigabeFeld) => {
 	(select e.frei_${feld} from app.portal_einstellungen e where e.betrieb_id = a.betrieb_id), true)`;
 };
 
+/** SQL: Projektbegleiter mit ausblenden, wenn das Team ausgeblendet ist (Jamil msg 3521 D) – Kunde → Firma → nein. */
+export const AP_AUSBLENDEN_SQL = `coalesce((select kp.ap_ausblenden from app.kunden_portal kp where kp.kunde_id = a.kunde_id and kp.betrieb_id = a.betrieb_id),
+	(select e.ap_ausblenden from app.portal_einstellungen e where e.betrieb_id = a.betrieb_id), false)`;
+
 export async function portalStand(z: PortalZugriff, auftragId: string): Promise<PortalStand> {
 	const { k } = z;
 	const a = await auftragPruefen(z, auftragId);
@@ -235,26 +239,48 @@ export async function widerrufeLink(z: PortalZugriff, kundeId: unknown, linkId: 
 }
 
 /**
- * Portal-Einstellungen eines KUNDEN (Jamil msgs 3423, 3439, „Option A“): Aufträge im Portal zeigen, Freigaben, Auftrags-
- * bestätigung automatisch. `null` = erbt von der Firma (`firma` zeigt deren Wert, damit die Oberfläche „wie in den Firmen-
- * Einstellungen (ja)“ sagen kann). Auf der Auftragsseite gibt es dafür nur noch den Hinweis „wird beim Kunden eingestellt“.
+ * Portal-Einstellungen eines KUNDEN (Jamil msgs 3423, 3439, „Option A“; 3521): Aufträge im Portal zeigen, Freigaben, Karte für
+ * Bestandskunden, Projektbegleiter mit ausblenden – und (eigener Platz in der Kundenakte, msg 3521 E) Auftragsbestätigung automatisch.
+ * `null` = erbt von der Firma (`firma` zeigt deren Wert, damit die Oberfläche „Firmen-Standard (ja)“ sagen kann).
  */
-export type KundenPortalWerte = { sichtbar: boolean | null; status: boolean | null; termine: boolean | null; mitarbeiter: boolean | null; annahme: boolean | null; abAutomatisch: boolean | null };
-export type FirmaPortalWerte = { sichtbar: boolean; status: boolean; termine: boolean; mitarbeiter: boolean; annahme: boolean; abAutomatisch: boolean };
+export type KundenPortalWerte = {
+	sichtbar: boolean | null;
+	status: boolean | null;
+	termine: boolean | null;
+	mitarbeiter: boolean | null;
+	apAusblenden: boolean | null;
+	annahme: boolean | null;
+	bestand: boolean | null;
+	abAutomatisch: boolean | null;
+};
+export type FirmaPortalWerte = { [K in keyof KundenPortalWerte]: boolean };
 export type KundenPortalEinstellung = { kunde: KundenPortalWerte; firma: FirmaPortalWerte };
 
-export const KUNDEN_PORTAL_FELDER = ['sichtbar', 'status', 'termine', 'mitarbeiter', 'annahme', 'abAutomatisch'] as const;
+/** Felder des Portal-Formulars in der Kundenakte (Auftragsbestätigung steht eigenständig im Abschnitt „Automatik“). */
+export const KUNDEN_PORTAL_FELDER = ['sichtbar', 'status', 'termine', 'mitarbeiter', 'apAusblenden', 'annahme', 'bestand'] as const;
+type PortalFeld = (typeof KUNDEN_PORTAL_FELDER)[number];
+const NAME: Record<PortalFeld, string> = {
+	sichtbar: 'Aufträge im Portal',
+	status: 'Auftragsstatus',
+	termine: 'Nächste Termine',
+	mitarbeiter: 'Namen der Mitarbeiter',
+	apAusblenden: 'Projektbegleiter mit ausblenden',
+	annahme: 'Angebot online annehmen',
+	bestand: 'Leistungen für Bestandskunden'
+};
 
 async function ladeKundenWerte(tx: TransactionSql, k: Kontext, kundeId: string): Promise<KundenPortalEinstellung> {
-	const [kp] = await tx`select sichtbar, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch from app.kunden_portal where kunde_id = ${kundeId} and betrieb_id = ${k.betriebId}`;
-	const [e] = await tx`select standard, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch from app.portal_einstellungen where betrieb_id = ${k.betriebId}`;
+	const [kp] = await tx`select sichtbar, frei_status, frei_termine, frei_mitarbeiter, ap_ausblenden, frei_annahme, bestand, ab_automatisch from app.kunden_portal where kunde_id = ${kundeId} and betrieb_id = ${k.betriebId}`;
+	const [e] = await tx`select standard, frei_status, frei_termine, frei_mitarbeiter, ap_ausblenden, frei_annahme, bestand_aktiv, ab_automatisch from app.portal_einstellungen where betrieb_id = ${k.betriebId}`;
 	return {
 		kunde: {
 			sichtbar: kp?.sichtbar ?? null,
 			status: kp?.frei_status ?? null,
 			termine: kp?.frei_termine ?? null,
 			mitarbeiter: kp?.frei_mitarbeiter ?? null,
+			apAusblenden: kp?.ap_ausblenden ?? null,
 			annahme: kp?.frei_annahme ?? null,
+			bestand: kp?.bestand ?? null,
 			abAutomatisch: kp?.ab_automatisch ?? null
 		},
 		firma: {
@@ -262,7 +288,9 @@ async function ladeKundenWerte(tx: TransactionSql, k: Kontext, kundeId: string):
 			status: e?.frei_status ?? true,
 			termine: e?.frei_termine ?? true,
 			mitarbeiter: e?.frei_mitarbeiter ?? true,
+			apAusblenden: e?.ap_ausblenden ?? false,
 			annahme: e?.frei_annahme ?? true,
+			bestand: e?.bestand_aktiv ?? true,
 			abAutomatisch: e?.ab_automatisch ?? true
 		}
 	};
@@ -276,32 +304,55 @@ function dreiWerte(w: unknown, name: string): boolean | null {
 	throw new ApiFehler(400, `Ungültiger Wert für „${name}“.`);
 }
 
-/** Speichert die Portal-Einstellungen des Kunden; sind alle leer, wird die Zeile entfernt (alles erbt). */
-export async function speichereKundenPortal(z: PortalZugriff, kundeId: unknown, f: Partial<Record<(typeof KUNDEN_PORTAL_FELDER)[number], unknown>>): Promise<KundenPortalWerte> {
+/** Zeile eines Kunden entfernen, wenn nichts Eigenes mehr drinsteht (alles erbt wieder von der Firma). */
+async function leereZeileWeg(tx: TransactionSql, k: Kontext, kundeId: string) {
+	await tx`delete from app.kunden_portal where kunde_id = ${kundeId} and betrieb_id = ${k.betriebId}
+		and num_nonnulls(sichtbar, frei_status, frei_termine, frei_mitarbeiter, ap_ausblenden, frei_annahme, bestand, ab_automatisch) = 0`;
+}
+
+/** Speichert die Portal-Einstellungen des Kunden (ohne Auftragsbestätigung – die bleibt unberührt). */
+export async function speichereKundenPortal(z: PortalZugriff, kundeId: unknown, f: Partial<Record<PortalFeld, unknown>>): Promise<Omit<KundenPortalWerte, 'abAutomatisch'>> {
 	const { k } = z;
 	const id = await kundePruefen(z, kundeId);
-	const w: KundenPortalWerte = {
-		sichtbar: dreiWerte(f.sichtbar, 'Aufträge im Portal'),
-		status: dreiWerte(f.status, 'Auftragsstatus'),
-		termine: dreiWerte(f.termine, 'Nächste Termine'),
-		mitarbeiter: dreiWerte(f.mitarbeiter, 'Namen der Mitarbeiter'),
-		annahme: dreiWerte(f.annahme, 'Angebot online annehmen'),
-		abAutomatisch: dreiWerte(f.abAutomatisch, 'Auftragsbestätigung automatisch')
-	};
+	const w = Object.fromEntries(KUNDEN_PORTAL_FELDER.map((n) => [n, dreiWerte(f[n], NAME[n])])) as Record<PortalFeld, boolean | null>;
 	await mitBetrieb(k, async (tx) => {
-		if (Object.values(w).every((x) => x === null)) {
-			await tx`delete from app.kunden_portal where kunde_id = ${id} and betrieb_id = ${k.betriebId}`;
-		} else {
-			await tx`
-				insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ab_automatisch)
-				values (${id}, ${k.betriebId}, ${w.sichtbar}, ${w.status}, ${w.termine}, ${w.mitarbeiter}, ${w.annahme}, ${w.abAutomatisch})
-				on conflict (kunde_id) do update set sichtbar = excluded.sichtbar, frei_status = excluded.frei_status, frei_termine = excluded.frei_termine,
-					frei_mitarbeiter = excluded.frei_mitarbeiter, frei_annahme = excluded.frei_annahme, ab_automatisch = excluded.ab_automatisch`;
-		}
+		await tx`
+			insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar, frei_status, frei_termine, frei_mitarbeiter, ap_ausblenden, frei_annahme, bestand)
+			values (${id}, ${k.betriebId}, ${w.sichtbar}, ${w.status}, ${w.termine}, ${w.mitarbeiter}, ${w.apAusblenden}, ${w.annahme}, ${w.bestand})
+			on conflict (kunde_id) do update set sichtbar = excluded.sichtbar, frei_status = excluded.frei_status, frei_termine = excluded.frei_termine,
+				frei_mitarbeiter = excluded.frei_mitarbeiter, ap_ausblenden = excluded.ap_ausblenden, frei_annahme = excluded.frei_annahme,
+				bestand = excluded.bestand`;
+		await leereZeileWeg(tx, k, id);
 		// Stehen die Aufträge jetzt (wieder) im Portal, erscheinen ihre versendeten Angebote wie beim Erzeugen des Links (msg 2793) –
 		// nur mit gültigem Link und für Aufrufer mit Preisrechten (wie erzeugeLink)
 		const [l] = await tx`select 1 from app.portal_links where kunde_id = ${id} and betrieb_id = ${k.betriebId} and widerrufen_am is null and (laeuft_ab is null or laeuft_ab > now()) limit 1`;
 		if (l && z.preise && z.sicht.alle) await teileAngeboteDesKunden(tx, k, id);
+	});
+	return w;
+}
+
+/**
+ * „Auftragsbestätigung automatisch“ für einen Kunden (Jamil msg 3521 E): eigener Platz in der Kundenakte, auch ohne
+ * Kundenportal-Modul. Recht wie früher am Auftrag: Modul Angebote + „Aufträge bearbeiten“ (geprüft vom Aufrufer).
+ * `null` = wie die Firma. Andere Werte des Kunden bleiben unberührt.
+ */
+export async function ladeKundeAb(k: Kontext, kundeId: string): Promise<{ kunde: boolean | null; firma: boolean }> {
+	return mitBetrieb(k, async (tx) => {
+		const [kp] = await tx`select ab_automatisch from app.kunden_portal where kunde_id = ${kundeId} and betrieb_id = ${k.betriebId}`;
+		const [e] = await tx`select ab_automatisch from app.portal_einstellungen where betrieb_id = ${k.betriebId}`;
+		return { kunde: kp?.ab_automatisch ?? null, firma: e?.ab_automatisch ?? true };
+	});
+}
+
+export async function speichereKundeAb(k: Kontext, kundeId: unknown, wert: unknown): Promise<boolean | null> {
+	if (typeof kundeId !== 'string' || !UUID.test(kundeId)) throw new ApiFehler(404, 'Kunde nicht gefunden.');
+	const w = dreiWerte(wert, 'Auftragsbestätigung automatisch');
+	await mitBetrieb(k, async (tx) => {
+		const [kd] = await tx`select id from app.kunden where id = ${kundeId} and betrieb_id = ${k.betriebId}`;
+		if (!kd) throw new ApiFehler(404, 'Kunde nicht gefunden.');
+		await tx`insert into app.kunden_portal (kunde_id, betrieb_id, ab_automatisch) values (${kundeId}, ${k.betriebId}, ${w})
+			on conflict (kunde_id) do update set ab_automatisch = excluded.ab_automatisch`;
+		await leereZeileWeg(tx, k, kundeId);
 	});
 	return w;
 }
@@ -330,14 +381,14 @@ export async function setzeDokument(z: PortalZugriff, auftragId: unknown, art: u
 
 export type TeamNamen = 'vorname' | 'voll' | 'aus';
 export const TEAM_NAMEN: Record<TeamNamen, string> = { vorname: 'nur Vorname', voll: 'Vor- und Nachname', aus: 'keine Namen' };
-export type PortalEinstellungen = { agbUrl: string | null; widerrufUrl: string | null; abAutomatisch: boolean; standard: 'alle_aktiven' | 'nur_markierte'; teamNamen: TeamNamen; freiStatus: boolean; freiTermine: boolean; freiMitarbeiter: boolean; freiAnnahme: boolean };
+export type PortalEinstellungen = { agbUrl: string | null; widerrufUrl: string | null; abAutomatisch: boolean; standard: 'alle_aktiven' | 'nur_markierte'; teamNamen: TeamNamen; freiStatus: boolean; freiTermine: boolean; freiMitarbeiter: boolean; freiAnnahme: boolean; apAusblenden: boolean };
 /** Hinterlegtes AGB-PDF (msg 3030): Fassung = SHA-256 + Zeitpunkt des Hochladens. */
 export type AgbPdf = { hash: string; hochgeladen: string; groesse: number };
 const istTeamNamen = (w: unknown): w is TeamNamen => w === 'vorname' || w === 'voll' || w === 'aus';
 
 export async function ladePortalEinstellungen(k: Kontext): Promise<PortalEinstellungen> {
-	const [e] = await mitBetrieb(k, (tx) => tx`select agb_url, widerruf_url, ab_automatisch, standard, team_namen, frei_status, frei_termine, frei_mitarbeiter, frei_annahme from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
-	return { agbUrl: e?.agb_url ?? null, widerrufUrl: e?.widerruf_url ?? null, abAutomatisch: e?.ab_automatisch ?? true, standard: e?.standard ?? 'alle_aktiven', teamNamen: istTeamNamen(e?.team_namen) ? e.team_namen : 'vorname', freiStatus: e?.frei_status ?? true, freiTermine: e?.frei_termine ?? true, freiMitarbeiter: e?.frei_mitarbeiter ?? true, freiAnnahme: e?.frei_annahme ?? true };
+	const [e] = await mitBetrieb(k, (tx) => tx`select agb_url, widerruf_url, ab_automatisch, standard, team_namen, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ap_ausblenden from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
+	return { agbUrl: e?.agb_url ?? null, widerrufUrl: e?.widerruf_url ?? null, abAutomatisch: e?.ab_automatisch ?? true, standard: e?.standard ?? 'alle_aktiven', teamNamen: istTeamNamen(e?.team_namen) ? e.team_namen : 'vorname', freiStatus: e?.frei_status ?? true, freiTermine: e?.frei_termine ?? true, freiMitarbeiter: e?.frei_mitarbeiter ?? true, freiAnnahme: e?.frei_annahme ?? true, apAusblenden: e?.ap_ausblenden ?? false };
 }
 
 // ——— Leistungen für Bestandskunden (Wunsch Jamil, msg 3408) ———
@@ -345,7 +396,7 @@ export async function ladePortalEinstellungen(k: Kontext): Promise<PortalEinstel
 /** Einstellung „Leistungen für Bestandskunden“; ohne gespeicherte Werte gelten die Standardtexte. */
 export async function ladeBestandskunden(k: Kontext): Promise<BestandEinstellung> {
 	const [z] = await mitBetrieb(k, (tx) => tx`
-		select bestand_aktiv, bestand_titel, bestand_text, bestand_leistungen, bestand_knoepfe from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
+		select bestand_aktiv, bestand_ab, bestand_titel, bestand_text, bestand_leistungen, bestand_knoepfe from app.portal_einstellungen where betrieb_id = ${k.betriebId}`);
 	return bestandAusDatenbank(z);
 }
 
@@ -355,9 +406,9 @@ export async function speichereBestandskunden(k: Kontext, roh: unknown): Promise
 	if (!r.ok) throw new ApiFehler(400, r.fehler);
 	const w = r.wert;
 	await mitBetrieb(k, (tx) => tx`
-		insert into app.portal_einstellungen (betrieb_id, bestand_aktiv, bestand_titel, bestand_text, bestand_leistungen, bestand_knoepfe)
-		values (${k.betriebId}, ${w.aktiv}, ${w.titel}, ${w.text}, ${tx.json(w.leistungen)}, ${tx.json(w.knoepfe)})
-		on conflict (betrieb_id) do update set bestand_aktiv = excluded.bestand_aktiv, bestand_titel = excluded.bestand_titel,
+		insert into app.portal_einstellungen (betrieb_id, bestand_aktiv, bestand_ab, bestand_titel, bestand_text, bestand_leistungen, bestand_knoepfe)
+		values (${k.betriebId}, ${w.aktiv}, ${w.ab}, ${w.titel}, ${w.text}, ${tx.json(w.leistungen)}, ${tx.json(w.knoepfe)})
+		on conflict (betrieb_id) do update set bestand_aktiv = excluded.bestand_aktiv, bestand_ab = excluded.bestand_ab, bestand_titel = excluded.bestand_titel,
 			bestand_text = excluded.bestand_text, bestand_leistungen = excluded.bestand_leistungen, bestand_knoepfe = excluded.bestand_knoepfe`);
 	return w;
 }
@@ -468,14 +519,17 @@ export async function speicherePortalEinstellungen(k: Kontext, e: Record<string,
 		// (ältere Formulare, Tests) bleibt der Standard „an“
 		...Object.fromEntries(
 			(['freiStatus', 'freiTermine', 'freiMitarbeiter', 'freiAnnahme'] as const).map((n) => [n, e.freiGesendet ? an(e[n]) : e[n] === undefined ? true : an(e[n])])
-		)
+		),
+		// Projektbegleiter mit ausblenden (msg 3521 D): Standard aus (bisheriges Verhalten)
+		apAusblenden: an(e.apAusblenden)
 	} as PortalEinstellungen;
 	await mitBetrieb(k, (tx) => tx`
-		insert into app.portal_einstellungen (betrieb_id, agb_url, widerruf_url, ab_automatisch, standard, team_namen, frei_status, frei_termine, frei_mitarbeiter, frei_annahme)
-		values (${k.betriebId}, ${w.agbUrl}, ${w.widerrufUrl}, ${w.abAutomatisch}, ${w.standard}, ${w.teamNamen}, ${w.freiStatus}, ${w.freiTermine}, ${w.freiMitarbeiter}, ${w.freiAnnahme})
+		insert into app.portal_einstellungen (betrieb_id, agb_url, widerruf_url, ab_automatisch, standard, team_namen, frei_status, frei_termine, frei_mitarbeiter, frei_annahme, ap_ausblenden)
+		values (${k.betriebId}, ${w.agbUrl}, ${w.widerrufUrl}, ${w.abAutomatisch}, ${w.standard}, ${w.teamNamen}, ${w.freiStatus}, ${w.freiTermine}, ${w.freiMitarbeiter}, ${w.freiAnnahme}, ${w.apAusblenden})
 		on conflict (betrieb_id) do update set agb_url = excluded.agb_url, widerruf_url = excluded.widerruf_url,
 			ab_automatisch = excluded.ab_automatisch, standard = excluded.standard, team_namen = excluded.team_namen,
-			frei_status = excluded.frei_status, frei_termine = excluded.frei_termine, frei_mitarbeiter = excluded.frei_mitarbeiter, frei_annahme = excluded.frei_annahme`);
+			frei_status = excluded.frei_status, frei_termine = excluded.frei_termine, frei_mitarbeiter = excluded.frei_mitarbeiter, frei_annahme = excluded.frei_annahme,
+			ap_ausblenden = excluded.ap_ausblenden`);
 	return w;
 }
 

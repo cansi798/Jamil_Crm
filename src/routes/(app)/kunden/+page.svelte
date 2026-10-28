@@ -5,6 +5,9 @@
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
 	import type { PageData } from './$types';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
+	import KundenHinweise from '$lib/components/KundenHinweise.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -16,6 +19,7 @@
 		if (z !== 'monat') p.set('zeitraum', z);
 		const g = o.gruppe === undefined ? data.gruppe : o.gruppe;
 		if (g) p.set('gruppe', g);
+		if (data.sortierung !== 'name') p.set('sortierung', data.sortierung);
 		const q = p.toString();
 		return q ? `/kunden?${q}` : '/kunden';
 	};
@@ -54,8 +58,22 @@
 		{#snippet suche()}
 			<SuchFeld wert={data.suche} label="Kunden suchen" placeholder="Name, Firma, Ort, Telefon oder E-Mail" />
 		{/snippet}
+		{#snippet filter()}
+			{#if data.sortierungen.length > 1}
+				<!-- Sortieren nach den neuen Zeilen-Infos (Jamil msg 3522); Zeitraum und Kachel-Filter bleiben erhalten -->
+				<label class="kl-sort">
+					<span class="kl-sort-text">Sortieren</span>
+					<Auswahl name="sortierung" value={data.sortierung} onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+						{#each data.sortierungen as s (s.wert)}<option value={s.wert} selected={data.sortierung === s.wert}>{s.text}</option>{/each}
+					</Auswahl>
+				</label>
+				{#if data.zeitraum !== 'monat'}<input type="hidden" name="zeitraum" value={data.zeitraum} />{/if}
+				{#if data.gruppe}<input type="hidden" name="gruppe" value={data.gruppe} />{/if}
+			{/if}
+		{/snippet}
 		{#snippet rechts()}
 			<span class="kd-info">{data.kunden.length} {data.kunden.length === 1 ? 'Kunde' : 'Kunden'}</span>
+			{#if data.rechte.angebote || data.rechte.portal || data.rechte.auftraege}<InfoFenster id="kunden.zeile" />{/if}
 		{/snippet}
 	</FilterLeiste>
 
@@ -71,6 +89,7 @@
 					<Avatar name={kunde.name} groesse={34} />
 					<strong>{kunde.name}</strong>
 					{#if zeile(kunde)}<span class="kd-info">{zeile(kunde)}</span>{/if}
+					<KundenHinweise info={kunde.info} />
 				</a>
 			</li>
 		{:else}
@@ -85,3 +104,16 @@
 		<p class="kd-info">Es werden höchstens {data.maxTreffer} Kunden angezeigt. Bitte die Suche eingrenzen.</p>
 	{/if}
 </main>
+
+<style>
+	.kl-sort {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: var(--ui-schrift-s);
+	}
+	.kl-sort-text {
+		color: var(--ui-text-leise);
+		white-space: nowrap;
+	}
+</style>

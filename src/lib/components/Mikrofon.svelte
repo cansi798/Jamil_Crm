@@ -495,8 +495,9 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 3.75rem;
-		height: 3.75rem;
+		/* gleiche Größe wie der Schnellzugriff (Jamil msg 3521 G) */
+		width: 3.25rem;
+		height: 3.25rem;
 		border: 1.5px solid var(--ui-flaeche);
 		border-radius: 50%;
 		background: var(--ui-anthrazit-800);

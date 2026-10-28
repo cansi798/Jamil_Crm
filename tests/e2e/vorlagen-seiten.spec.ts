@@ -18,8 +18,8 @@ async function chef(page: Page) {
 const SEITEN = [
 	{ pfad: '/auftrag-vorlagen', titel: 'Auftrags-Vorlagen' },
 	{ pfad: '/angebot-vorlagen', titel: 'Angebots-Vorlagen' },
-	{ pfad: '/einstellungen/protokoll-vorlagen', titel: 'Protokoll-Vorlagen' },
-	{ pfad: '/einstellungen/aufmass-vorlagen', titel: 'Aufmaß-Vorlagen' },
+	{ pfad: '/einstellungen/protokoll-vorlagen', titel: 'Protokoll- & Aufmaß-Vorlagen' },
+	{ pfad: '/einstellungen/aufmass-vorlagen', titel: 'Protokoll- & Aufmaß-Vorlagen' },
 	{ pfad: '/einstellungen/mail-vorlagen', titel: 'E-Mail-Vorlagen' }
 ];
 
@@ -45,17 +45,17 @@ test('Vorlagen-Seiten: gleicher Kopf, gleiche Liste, Aktionen als klare Knöpfe'
 	await expect(page).toHaveURL(/\/einstellungen\/aufmass-vorlagen$/);
 });
 
-test('Menü: auf den Aufmaß-Vorlagen ist nur „Aufmaß-Vorlagen“ markiert (msg 3085)', async ({ page }, info) => {
+test('Menü: Protokoll- & Aufmaß-Vorlagen sind EIN Punkt, auf beiden Reitern genau dieser markiert (msgs 3085, 3535)', async ({ page }, info) => {
 	test.skip(info.project.name !== 'desktop', 'Seitenleiste nur am Desktop');
 	await chef(page);
 	await page.goto('/einstellungen/aufmass-vorlagen');
 	// nur sichtbare Einträge (der Handy-Link „Mehr“ ist am Desktop ausgeblendet)
 	const markiert = page.locator('.hauptnav a[aria-current="page"]:visible');
 	await expect(markiert).toHaveCount(1);
-	await expect(markiert).toHaveText('Aufmaß-Vorlagen');
+	await expect(markiert).toHaveText(/Protokoll- & Aufmaß-Vorlagen/);
 	await page.goto('/einstellungen/protokoll-vorlagen');
 	await expect(markiert).toHaveCount(1);
-	await expect(markiert).toHaveText('Protokoll-Vorlagen');
+	await expect(markiert).toHaveText(/Protokoll- & Aufmaß-Vorlagen/);
 	// Partner jetzt in „Team & Partner“ (msg 3089)
 	await expect(page.locator('.nav-gruppe', { hasText: 'Team & Partner' }).getByRole('link', { name: 'Partner' })).toBeAttached();
 });

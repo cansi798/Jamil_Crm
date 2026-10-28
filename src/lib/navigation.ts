@@ -74,10 +74,9 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (auftraegeLesen) g.vorlagen.push({ name: 'Auftrags-Vorlagen', href: '/auftrag-vorlagen', symbol: 'todos' });
 		if (angeboteMitPreisen) g.vorlagen.push({ name: 'Angebots-Vorlagen', href: '/angebot-vorlagen', symbol: 'angebote' });
 		if (module.includes('protokolle') && hat('protokolle.vorlagen_bearbeiten')) {
-			g.vorlagen.push({ name: 'Protokoll-Vorlagen', href: '/einstellungen/protokoll-vorlagen', symbol: 'angebote' });
-			// Aufmaß-Vorlagen (Jamil msg 2842): gleicher Baukasten, eigene Liste – mit eigenem Pfad, damit im Menü nur
-			// „Aufmaß-Vorlagen“ markiert ist und nicht auch „Protokoll-Vorlagen“ (Jamil msg 3085)
-			g.vorlagen.push({ name: 'Aufmaß-Vorlagen', href: '/einstellungen/aufmass-vorlagen', symbol: 'katalog' });
+			// EIN Menüpunkt für Protokoll- und Aufmaß-Vorlagen (Jamil msgs 3533/3535) mit zwei Reitern; die Aufmaß-Seite
+			// (/einstellungen/aufmass-vorlagen) gehört über AUCH_AKTIV dazu – markiert ist immer genau dieser eine Eintrag (msg 3085)
+			g.vorlagen.push({ name: 'Protokoll- & Aufmaß-Vorlagen', href: '/einstellungen/protokoll-vorlagen', symbol: 'angebote' });
 		}
 		// E-Mail-Vorlagen an einem Ort (Jamil msg 2789)
 		if (hat('vorlagen.verwalten')) g.vorlagen.push({ name: 'E-Mail-Vorlagen', href: '/einstellungen/mail-vorlagen', symbol: 'angebote' });
@@ -102,8 +101,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (hat('einstellungen') && module.includes('angebote')) g.angebot.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
 		// 3. Auftrag: Kundenportal und Auftragsbestätigung
 		if (hat('einstellungen') && module.includes('angebote')) g.auftrag.push({ name: 'Kundenportal & Auftragsbestätigung', href: '/einstellungen/kundenportal', symbol: 'angebote' });
-		// 4. Abschluss & danach: Leistungen für Bestandskunden im Portal (Jamil msg 3408)
-		if (hat('einstellungen') && module.includes('angebote')) g.danach.push({ name: 'Leistungen für Bestandskunden', href: '/einstellungen/bestandskunden', symbol: 'angebote' });
+		// „Leistungen für Bestandskunden“ (msg 3408) steht seit Jamil msg 3534 in „Kundenportal & Auftragsbestätigung“ – die Gruppe
+		// „Abschluss & danach“ bleibt vorbereitet und erscheint erst wieder, wenn sie Einträge hat
 
 		// Team & Partner (Jamil msg 3089: Partner zu „Personal & Zeiten“, Gruppe umbenannt): Menschen, mit denen der Betrieb
 		// arbeitet – eigenes Personal (Zeiten, Abwesenheiten, Kolonnen) und Partner (Auftraggeber, Subunternehmer, Lieferanten, msg 2856)
@@ -170,7 +169,7 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 }
 
 /** Bereiche, zu denen weitere Pfade gehören: ein einzelnes Angebot (/angebote/<id>) liegt in „Ausgangsbelege“. */
-const AUCH_AKTIV: Record<string, readonly string[]> = { '/ausgangsbelege': ['/angebote'] };
+const AUCH_AKTIV: Record<string, readonly string[]> = { '/ausgangsbelege': ['/angebote'], '/einstellungen/protokoll-vorlagen': ['/einstellungen/aufmass-vorlagen'] };
 
 /** Liegt `pfad` in einem Bereich, der zu `href` gehört? „/“ nur exakt. Mehrere Einträge können zutreffen
  * (z. B. „Plantafel“ und „Abwesenheiten“ für /plantafel/abwesenheiten) – markiert wird nur `aktiverEintrag`. */

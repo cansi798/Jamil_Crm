@@ -21,7 +21,10 @@ test('Kundenakte: Portal-Einstellungen des Kunden; Auftrag zeigt nur den Hinweis
 	const href = await page.locator('a[href^="/auftraege/"]').evaluateAll((l) => l.map((a) => a.getAttribute('href')).find((h) => /^\/auftraege\/[0-9a-f-]{36}$/.test(h ?? '')));
 	test.skip(!href, 'Seed-Auftrag „Ladenumbau Trockenbau“ fehlt');
 	await page.goto(href!);
-	await expect(page.getByTestId('portal-hinweis-kunde')).toContainText('beim Kunden eingestellt');
+	// dezent (Jamil msg 3526): Haken + kurzer Zustand, Erklärung im ⓘ
+	await expect(page.getByTestId('portal-status-auftrag')).toContainText(/Im Kundenportal sichtbar|Nicht im Kundenportal/);
+	await expect(page.getByTestId('portal-status-auftrag').getByRole('button', { name: /Was bewirkt diese Einstellung\? Auftrag im Kundenportal/ })).toBeVisible();
+	await expect(page.getByText('Versendete Angebote und Auftragsbestätigungen erscheinen automatisch')).toHaveCount(0);
 	await expect(page.getByText('Im Portal zeigen', { exact: true })).toHaveCount(0);
 	await expect(page.getByText('Der Kunde sieht:')).toHaveCount(0);
 	await page.getByTestId('portal-hinweis-kunde').getByRole('link', { name: /Einstellungen des Kunden/ }).click();

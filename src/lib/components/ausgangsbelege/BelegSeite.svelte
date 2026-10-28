@@ -1,25 +1,5 @@
 <script lang="ts" module>
-	/** Eine Zeile der Belegliste – für jede Belegart gleich aufgebaut (Jamil msgs 3054–3056). */
-	export type BelegZeile = {
-		id: string;
-		/** Ziel beim Klick auf die Zeile */
-		href: string;
-		nummer: string;
-		kunde: string;
-		/** „AU-… · Titel“ oder null (→ „ohne Auftrag“) */
-		auftrag: string | null;
-		/** Datum (bereits deutsch formatiert) */
-		datum: string;
-		/** optionaler Zusatz am Ende der Unterzeile (z. B. „versendet 21.10.2026“) */
-		zusatz?: string | null;
-		status: { text: string; klasse: string };
-		/** Betrag rechts in der Unterzeile (nur mit „Preise sehen“ – die ganze Seite verlangt das Recht) */
-		betrag?: string | null;
-		/** kleiner Warnhinweis unter der Unterzeile (z. B. „Preis fehlt“) */
-		warnung?: string | null;
-		/** PDF-Link rechts neben der Zeile */
-		pdf?: string | null;
-	};
+	export type { BelegZeile } from './BelegListe.svelte';
 </script>
 
 <script lang="ts">
@@ -37,6 +17,7 @@
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import BelegReiter from './BelegReiter.svelte';
+	import BelegListe, { type BelegZeile } from './BelegListe.svelte';
 	import { BELEG_ARTEN, BELEG_SUCHE_PLATZHALTER, belegLink, type BelegArt, type BelegFilter } from '$lib/ausgangsbelege';
 
 	let {
@@ -110,28 +91,7 @@
 			<div class="kd-leer">{@render leer?.()}</div>
 		</div>
 	{:else}
-		<ul class="kd-liste beleg-liste">
-			{#each zeilen as z (z.id)}
-				<li data-beleg={z.nummer}>
-					<a href={z.href}>
-						<span class="af-kopfzeile">
-							<strong class="beleg-titel">{z.nummer} · {z.kunde}</strong>
-							<span class={`an-status ${z.status.klasse}`}>{z.status.text}</span>
-						</span>
-						<span class="af-kopfzeile">
-							<span class="kd-info">{z.auftrag ?? 'ohne Auftrag'} · {z.datum}{#if z.zusatz} · {z.zusatz}{/if}</span>
-							{#if z.betrag}<span class="kt-preis">{z.betrag}</span>{/if}
-						</span>
-						{#if z.warnung}<span class="kt-preis-fehlt">{z.warnung}</span>{/if}
-					</a>
-					{#if z.pdf}
-						<a class="kd-knopf hell klein beleg-pdf" href={z.pdf} target="_blank" rel="noopener" aria-label={`PDF ${z.nummer} öffnen`}>PDF</a>
-					{/if}
-				</li>
-			{:else}
-				<li class="kd-leer">{leerText}</li>
-			{/each}
-		</ul>
+		<BelegListe {zeilen} {leerText} />
 		{#if maxTreffer !== null && zeilen.length >= maxTreffer}
 			<p class="kd-info">Es werden höchstens {maxTreffer} {name} angezeigt.</p>
 		{/if}
@@ -147,30 +107,6 @@
 	.beleg-seite :global(.filter-leiste > .fl-filter) {
 		order: 2;
 		flex-basis: 100%;
-	}
-	.beleg-liste li:not(.kd-leer) {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-	.beleg-liste li > a:first-child {
-		flex: 1;
-		min-width: 0;
-	}
-	/* Trennlinie über die ganze Zeile (auch unter dem PDF-Knopf) */
-	.beleg-liste li:not(.kd-leer) + li {
-		border-top: 1px solid var(--ui-rand);
-	}
-	.beleg-liste li > a:first-child {
-		border-bottom: 0;
-	}
-	.beleg-titel {
-		min-width: 0;
-		overflow-wrap: anywhere;
-	}
-	.beleg-pdf {
-		flex: none;
-		margin-right: 8px;
 	}
 	/* Leerzustand (z. B. Rechnungen vor Lexware) als Karte wie die Liste, Inhalt mittig und umbrechend */
 	.beleg-leer {

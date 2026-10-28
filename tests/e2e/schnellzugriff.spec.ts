@@ -34,6 +34,8 @@ test.describe('Schnellzugriff', () => {
 		await knopf.click();
 		await expect(knopf).toHaveAttribute('aria-expanded', 'true');
 		await expect(menue.getByRole('menuitem')).toHaveText(EINTRAEGE);
+		// Aufklapp-Animation abwarten (Einträge wachsen von 90 % auf 100 %), dann messen
+		await menue.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((x) => x.finished)));
 		// Alle Einträge vollständig im Fenster, nichts scrollt quer, Tippziele ≥ 44 px
 		for (const e of await menue.getByRole('menuitem').all()) {
 			const b = (await e.boundingBox())!;

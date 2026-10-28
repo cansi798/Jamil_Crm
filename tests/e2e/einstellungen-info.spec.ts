@@ -61,14 +61,15 @@ test('ⓘ erklärt die Einstellung, Funktionen-Übersicht, Was ist neu', async (
 	await page.reload();
 	await expect(page.locator('[data-funktion="bestandskarte"]').getByRole('switch')).toHaveAttribute('aria-checked', 'false');
 	// die Einstellungsseite zeigt dasselbe
-	await page.goto('/einstellungen/bestandskunden');
+	await page.goto('/einstellungen/bestandskunden'); // alte Adresse → Abschnitt in den Kundenportal-Einstellungen (msg 3534)
+	await expect(page).toHaveURL(/\/einstellungen\/kundenportal#bestandskunden$/);
 	await expect(page.getByRole('checkbox', { name: /Karte im Kundenportal anzeigen/ })).not.toBeChecked();
 	// zurückschalten
 	await page.goto('/einstellungen/funktionen');
 	await page.locator('[data-funktion="bestandskarte"]').getByRole('switch').click();
 	await expect(page.locator('[data-funktion="bestandskarte"]').getByRole('switch')).toHaveAttribute('aria-checked', 'true');
 	await page.locator('[data-funktion="bestandskarte"]').getByRole('link', { name: 'Einstellen' }).click();
-	await expect(page).toHaveURL(/\/einstellungen\/bestandskunden$/);
+	await expect(page).toHaveURL(/\/einstellungen\/kundenportal$/);
 	await page.goto('/einstellungen/funktionen');
 	await erwarteKeinQuerScrollen(page, breite);
 
@@ -81,7 +82,10 @@ test('ⓘ erklärt die Einstellung, Funktionen-Übersicht, Was ist neu', async (
 	// Menü nach dem Weg des Kunden (Seitenleiste am Desktop)
 	if (!mobil) {
 		const nav = page.getByRole('navigation').first();
-		for (const t of ['Anfrage', 'Angebot', 'Auftrag', 'Abschluss & danach']) await expect(nav.getByText(t, { exact: true })).toBeVisible();
+		for (const t of ['Anfrage', 'Angebot', 'Auftrag']) await expect(nav.getByText(t, { exact: true })).toBeVisible();
+		await expect(nav.getByText('Abschluss & danach', { exact: true })).toHaveCount(0);
+		await expect(nav.getByRole('link', { name: 'Leistungen für Bestandskunden' })).toHaveCount(0);
+		await expect(nav.getByRole('link', { name: 'Protokoll- & Aufmaß-Vorlagen' })).toBeVisible();
 		await expect(nav.getByRole('link', { name: 'Terminarten' })).toBeVisible();
 	}
 });

@@ -94,7 +94,7 @@ test.describe('Bildschirmfotos', () => {
 		await page.screenshot({ path: `${ORDNER}/1c-angebot-editor-mobil-ganz.png`, fullPage: true });
 		await page.getByRole('link', { name: /← Auftrag/ }).click();
 		await expect(page).toHaveURL(/\/auftraege\/[0-9a-f-]{36}$/);
-		await page.getByRole('heading', { name: 'Angebote' }).scrollIntoViewIfNeeded();
+		await page.getByRole('heading', { name: 'Ausgangsbelege' }).scrollIntoViewIfNeeded();
 		await page.screenshot({ path: `${ORDNER}/1c-auftrag-angebote-mobil.png` });
 	});
 

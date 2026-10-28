@@ -130,7 +130,7 @@
 			onclick={umschalten}
 			onkeydown={hauptTaste}
 		>
-			<svg class="sz-plus" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+			<svg class="sz-plus" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
 				<path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
 			</svg>
 		</button>
@@ -169,8 +169,9 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 3.75rem;
-		height: 3.75rem;
+		/* Jamil msg 3521 G: etwas kleiner (vorher 3,75 rem) – Tippziel bleibt deutlich über 44 px */
+		width: 3.25rem;
+		height: 3.25rem;
 		padding: 0;
 		/* Jamil msg 3107: weißer Rand dünner */
 		border: 1.5px solid var(--ui-flaeche);
@@ -208,8 +209,8 @@
 		align-items: flex-end;
 		gap: 0.6rem;
 		margin: 0;
-		/* Mittelpunkt der kleinen Knöpfe über dem des Hauptknopfs */
-		padding: 0 0.4rem 0 0;
+		/* Mittelpunkt der kleinen Knöpfe (2,75 rem) über dem des Hauptknopfs (3,25 rem) */
+		padding: 0 0.25rem 0 0;
 		list-style: none;
 		visibility: hidden;
 		transition: visibility 0s linear 180ms;

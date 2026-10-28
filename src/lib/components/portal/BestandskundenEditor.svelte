@@ -2,28 +2,38 @@
 	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	/**
-	 * Leistungen für Bestandskunden (Jamil, Talk msg 3408): Was Kunden nach Abschluss eines Auftrags im Kundenportal
-	 * sehen. Alles in EINEM Formular mit „Speichern“; rechts bzw. darunter die Vorschau – genau die Karte des Portals.
+	 * Leistungen für Bestandskunden (Jamil, Talk msgs 3408, 3534): Karte im Kundenportal – steht seit msg 3534 als Abschnitt in
+	 * den Kundenportal-Einstellungen (kein eigener Menüpunkt mehr). Alles in EINEM Formular mit „Speichern“ (Aktion `aktion`);
+	 * rechts bzw. darunter die Vorschau – genau die Karte des Portals.
 	 */
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
-	import '$lib/stil/kunden.css';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import FormFuss from '$lib/components/ui/FormFuss.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
 	import BestandskundenKarte from '$lib/components/portal/BestandskundenKarte.svelte';
-	import { BESTAND_GRENZEN as G, BESTAND_SYMBOLE, BESTAND_SYMBOL_SCHLUESSEL, bestandStandard, type BestandKnopf, type BestandLeistung } from '$lib/bestandskunden';
+	import { BESTAND_AB_WAHL, BESTAND_GRENZEN as G, BESTAND_SYMBOLE, BESTAND_SYMBOL_SCHLUESSEL, bestandStandard, type BestandAb, type BestandKnopf, type BestandLeistung } from '$lib/bestandskunden';
 	import { portalMarkeStil } from '$lib/portal-marke';
 	import { rueckfrage } from '$lib/rueckfrage';
-	import type { ActionData, PageData } from './$types';
+	import type { BestandEinstellung } from '$lib/bestandskunden';
+	import type { PortalMarke } from '$lib/portal-marke';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let {
+		data,
+		form,
+		aktion
+	}: {
+		data: { e: BestandEinstellung; marke: PortalMarke; portalModul: boolean };
+		form: { fehler?: string; bestandGespeichert?: boolean; bestandFehler?: boolean } | null | undefined;
+		aktion: string;
+	} = $props();
 
 	// Arbeitskopie – wird erst mit „Speichern“ übernommen. Nach dem Speichern lädt SvelteKit `data` neu; dann übernimmt
 	// die Arbeitskopie die gespeicherten (vom Server bereinigten) Werte, z. B. „tel:+49 40 …“ → „tel:+4940…“.
 	let geladen = untrack(() => data.e);
 	let aktiv = $state(untrack(() => data.e.aktiv));
+	let ab = $state<BestandAb>(untrack(() => data.e.ab));
 	let titel = $state(untrack(() => data.e.titel));
 	let text = $state(untrack(() => data.e.text));
 	let leistungen = $state<BestandLeistung[]>(untrack(() => data.e.leistungen.map((l) => ({ ...l }))));
@@ -33,13 +43,14 @@
 		if (e === geladen) return;
 		geladen = e;
 		aktiv = e.aktiv;
+		ab = e.ab;
 		titel = e.titel;
 		text = e.text;
 		leistungen = e.leistungen.map((l) => ({ ...l }));
 		knoepfe = e.knoepfe.map((k) => ({ ...k }));
 	});
 
-	const daten = $derived(JSON.stringify({ aktiv, titel, text, leistungen, knoepfe }));
+	const daten = $derived(JSON.stringify({ aktiv, ab, titel, text, leistungen, knoepfe }));
 	const vorschauStil = $derived(portalMarkeStil(data.marke).join('; '));
 	const karte = $derived({ titel: titel.trim() || bestandStandard().titel, text: text.trim(), leistungen, knoepfe });
 
@@ -52,6 +63,7 @@
 	const neuerKnopf = () => knoepfe.push({ text: '', url: '' });
 	function zuruecksetzen() {
 		const s = bestandStandard();
+		ab = s.ab;
 		titel = s.titel;
 		text = s.text;
 		leistungen = s.leistungen;
@@ -60,25 +72,26 @@
 	const ohneReset = () => async ({ update }: { update: (o?: { reset?: boolean }) => Promise<void> }) => update({ reset: false });
 </script>
 
-<svelte:head><title>Leistungen für Bestandskunden – Einstellungen</title></svelte:head>
-
-<main class="kd-seite bk-seite">
-	<header class="seiten-kopf">
-		<div>
-			<h1>Leistungen für Bestandskunden</h1>
-			<p class="seiten-meta">Was Kunden im Kundenportal sehen, sobald einer ihrer Aufträge abgeschlossen ist.</p>
-		</div>
+<section class="bk-bereich" id="bestandskunden" aria-labelledby="bestandskunden-titel">
+	<header class="bk-kopf">
+		<h2 id="bestandskunden-titel">Leistungen für Bestandskunden</h2>
+		<p class="kd-info">Was Kunden im Kundenportal nach dem Auftrag sehen – ab einem Auftragsstatus oder immer.</p>
 	</header>
-	{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
-	{#if form?.gespeichert}<p role="status" class="kd-info">Gespeichert.</p>{/if}
+	{#if form?.bestandFehler && form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
+	{#if form?.bestandGespeichert}<p role="status" class="kd-info">Gespeichert.</p>{/if}
 	{#if !data.portalModul}<p class="kd-info">Das Kundenportal ist im aktuellen Tarif nicht enthalten – die Karte erscheint erst mit dem Modul.</p>{/if}
 
-	<form method="POST" use:enhance={ohneReset} class="kd-formular bk-formular">
+	<form method="POST" action={aktion} use:enhance={ohneReset} class="kd-formular bk-formular">
 		<input type="hidden" name="daten" value={daten} />
 		<div class="bk-spalten">
 			<div class="bk-eingabe">
 				<Abschnitt titel="Anzeige im Portal" info="bestand.seite">
-					<Schalter bind:an={aktiv} info="bestand.aktiv" label="Karte im Kundenportal anzeigen" hinweis="Sie erscheint klein und dezent am Ende des Portals – nur bei Kunden mit einem abgeschlossenen Auftrag („Projekt erfolgreich beendet“)." />
+					<Schalter bind:an={aktiv} info="bestand.aktiv" label="Karte im Kundenportal anzeigen" hinweis="Sie erscheint klein und dezent am Ende des Portals. Beim einzelnen Kunden abschaltbar (Kundenakte → Kundenportal)." />
+					<InfoFeld id="bestand.ab"><label>Wann erscheint die Karte?
+						<Auswahl bind:value={ab} name="ab">
+							{#each BESTAND_AB_WAHL as w (w.wert)}<option value={w.wert} selected={ab === w.wert}>{w.text}</option>{/each}
+						</Auswahl>
+					</label></InfoFeld>
 					<InfoFeld id="bestand.titel"><label>Überschrift
 						<input type="text" bind:value={titel} maxlength={G.titel} placeholder="Auch nach Abschluss für Sie da" />
 					</label></InfoFeld>
@@ -166,9 +179,23 @@
 			<button type="submit" class="kd-knopf">Speichern</button>
 		</FormFuss>
 	</form>
-</main>
+</section>
 
 <style>
+	.bk-bereich {
+		display: grid;
+		gap: 0.75rem;
+		margin-top: 1.5rem;
+		scroll-margin-top: 5rem;
+	}
+	.bk-kopf h2 {
+		margin: 0;
+		font-family: var(--ui-schrift-titel);
+		font-size: 1.25rem;
+	}
+	.bk-kopf p {
+		margin: 0.15rem 0 0;
+	}
 	.bk-spalten {
 		display: grid;
 		gap: 1rem;

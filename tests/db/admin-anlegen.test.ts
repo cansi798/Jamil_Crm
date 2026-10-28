@@ -158,7 +158,7 @@ describe('admin-anlegen (erster Plattform-Admin)', () => {
 
 		const skript = (argumente: string[], eingabe?: string) =>
 			spawnSync('npx', ['tsx', 'scripts/admin-anlegen.ts', ...argumente], {
-				env: { ...process.env, PGDATABASE: 'crm_test' },
+				env: { ...process.env, PGDATABASE: process.env.CRM_TEST_DB ?? 'crm_test' }, // gleiche Test-Datenbank wie setup.ts (CRM_TEST_DB)
 				input: eingabe,
 				encoding: 'utf8'
 			});

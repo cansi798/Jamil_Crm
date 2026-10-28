@@ -40,7 +40,7 @@ test.describe('Angebote', () => {
 		let angebotId: string | null = null;
 		try {
 			await page.goto(`/auftraege/${auftrag.id}`);
-			await expect(page.getByRole('heading', { name: 'Angebote' })).toBeVisible();
+			await expect(page.getByRole('heading', { name: 'Ausgangsbelege' })).toBeVisible(); // Karte „Ausgangsbelege“ (msg 3525)
 			await page.getByRole('button', { name: 'Angebot hinzufügen' }).click();
 			await page.getByRole('button', { name: 'Angebot erstellen' }).click();
 			await page.waitForURL(/\/angebote\/[0-9a-f-]{36}$/);
@@ -116,7 +116,7 @@ test.describe('Angebote', () => {
 		await erster.click();
 		await page.waitForURL(/\/auftraege\/[0-9a-f-]{36}$/);
 		await expect(page.getByRole('heading', { name: 'Termine' })).toBeVisible();
-		await expect(page.getByRole('heading', { name: 'Angebote' })).toHaveCount(0);
+		await expect(page.getByRole('heading', { name: 'Ausgangsbelege' })).toHaveCount(0);
 		expect(await page.content()).not.toContain('€');
 		const nav = page.getByRole('navigation', { name: 'Hauptnavigation' });
 		await expect(nav.getByRole('link', { name: 'Ausgangsbelege' })).toHaveCount(0);

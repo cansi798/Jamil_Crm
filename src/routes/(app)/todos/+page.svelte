@@ -54,7 +54,7 @@
 			replaceState(u, page.state);
 		});
 	});
-	const aktionen = { umschalten: '?/umschalten', aendern: '?/aendern', loeschen: '?/loeschen', serieBeenden: '?/serieBeenden' };
+	const aktionen = { umschalten: '?/umschalten', aendern: '?/aendern', loeschen: '?/loeschen', serieBeenden: '?/serieBeenden', unterNeu: '?/unterNeu', unterUmschalten: '?/unterUmschalten', unterLoeschen: '?/unterLoeschen' };
 </script>
 
 <svelte:head>

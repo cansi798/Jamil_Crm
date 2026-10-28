@@ -7,6 +7,7 @@
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
 	import DateiFeld from '$lib/components/ui/DateiFeld.svelte';
+	import BestandskundenEditor from '$lib/components/portal/BestandskundenEditor.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -22,8 +23,8 @@
 			<p class="seiten-meta"><span class="meta-text">Links für die Online-Annahme und was nach der Annahme eines Angebots automatisch passiert.</span><InfoFenster id="portal.seite" /></p>
 		</div>
 	</header>
-	<p class="kd-info">Was Kunden nach Abschluss eines Auftrags zusätzlich sehen: <a href="/einstellungen/bestandskunden">Leistungen für Bestandskunden</a>.</p>
-	{#if form?.fehler && !form?.agbFehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
+	<p class="kd-info">Weiter unten: <a href="#bestandskunden">Leistungen für Bestandskunden</a> – was Kunden nach dem Auftrag zusätzlich sehen.</p>
+	{#if form?.fehler && !form?.agbFehler && !form?.bestandFehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 	{#if form?.gespeichert}<p role="status" class="kd-info">Gespeichert.</p>{/if}
 
 	<!-- Jamil msgs 3097/3098: „Allgemeine Geschäftsbedingungen“, Ersetzen und Entfernen nebeneinander wie beim Logo, Entfernen mit Rückfrage -->
@@ -60,7 +61,7 @@
 			{/snippet}
 		</DateiFeld>
 	</Abschnitt>
-	<form method="POST" use:enhance={() => async ({ update }) => update({ reset: false })} class="kd-formular">
+	<form method="POST" action="?/speichern" use:enhance={() => async ({ update }) => update({ reset: false })} class="kd-formular">
 		<Abschnitt titel="Auftragsbestätigung">
 			<Schalter name="abAutomatisch" an={data.e.abAutomatisch} label="Auftragsbestätigung automatisch erstellen" info="portal.ab_automatisch" hinweis="Sobald ein Angebot angenommen ist (Kundenportal, Büro oder Sprache): PDF am Auftrag, im Portal sichtbar, Versand vorbereitet. Beim Kunden abschaltbar." />
 		</Abschnitt>
@@ -87,6 +88,7 @@
 				<Schalter name="freiStatus" an={data.e.freiStatus} label="Auftragsstatus" />
 				<Schalter name="freiTermine" an={data.e.freiTermine} label="Nächste Termine (Zeitfenster)" />
 				<Schalter name="freiMitarbeiter" an={data.e.freiMitarbeiter} label="Namen der Mitarbeiter (Team)" />
+				<Schalter name="apAusblenden" an={data.e.apAusblenden} label="Ohne Namen der Mitarbeiter auch den Projektbegleiter ausblenden" info="portal.ap_ausblenden" />
 				<Schalter name="freiAnnahme" an={data.e.freiAnnahme} label="Angebot online annehmen" />
 			</fieldset>
 			<p class="kd-info">Beim einzelnen Kunden überschreibbar. Die Namen-Darstellung (nur Vorname / voller Name) bleibt eine Einstellung der Firma.</p>
@@ -99,4 +101,7 @@
 		</Abschnitt>
 		<button type="submit" class="kd-knopf">Speichern</button>
 	</form>
+
+	<!-- Leistungen für Bestandskunden gehören zum Kundenportal (Jamil msg 3534) – eigener Menüpunkt aufgelöst -->
+	<BestandskundenEditor data={{ e: data.bestand, marke: data.marke, portalModul: data.portalModul }} {form} aktion="?/bestand" />
 </main>

@@ -3,7 +3,7 @@ import { bestaetigen, erwarteKeinQuerScrollen } from './hilfe';
 import { nurAufTestserver } from './ziel';
 
 /**
- * Leistungen für Bestandskunden (Jamil, Talk msg 3408): Einstellungen mit Vorschau – Überschrift ändern, Leistung und
+ * Leistungen für Bestandskunden (Jamil, Talk msgs 3408, 3534 – jetzt Abschnitt der Kundenportal-Einstellungen): Einstellungen mit Vorschau – Überschrift ändern, Leistung und
  * Knopf anlegen/verschieben/entfernen (mit Rückfrage), unsichere Links abweisen, speichern, ausschalten. Am Ende wieder
  * Standard. Schreibt Einstellungen → nie gegen die Vorschau.
  */
@@ -17,8 +17,9 @@ test('Einstellungen: bearbeiten, Vorschau, Link-Prüfung, speichern, zurücksetz
 	await page.getByRole('button', { name: 'Anmelden' }).click();
 	await expect(page).not.toHaveURL(/\/anmelden/);
 
-	await page.goto('/einstellungen/bestandskunden');
-	await expect(page.getByRole('heading', { name: 'Leistungen für Bestandskunden', level: 1 })).toBeVisible();
+	await page.goto('/einstellungen/kundenportal#bestandskunden');
+	const bereich = page.locator('#bestandskunden');
+	await expect(bereich.getByRole('heading', { name: 'Leistungen für Bestandskunden', level: 2 })).toBeVisible();
 	const vorschau = page.getByTestId('bestand-vorschau');
 	await expect(vorschau.getByRole('heading', { name: 'Auch nach Abschluss für Sie da' })).toBeVisible();
 	await expect(vorschau.getByTestId('bestand-leistungen').locator('li')).toHaveCount(6);
@@ -46,8 +47,8 @@ test('Einstellungen: bearbeiten, Vorschau, Link-Prüfung, speichern, zurücksetz
 	const knopf = page.getByTestId('bestand-knopf').first();
 	await knopf.getByLabel('Beschriftung *').fill('E2E Anfrage');
 	await knopf.getByLabel('Link *').fill('javascript:alert(1)');
-	await page.getByRole('button', { name: 'Speichern' }).click();
-	await expect(page.getByRole('alert')).toContainText('https://');
+	await bereich.getByRole('button', { name: 'Speichern' }).click();
+	await expect(bereich.getByRole('alert')).toContainText('https://');
 	await expect(vorschau.getByTestId('bestand-knoepfe')).toHaveCount(0); // ungültiger Link erscheint auch in der Vorschau nicht
 
 	// gültiger Link: Vorschau zeigt den Knopf, öffnet in neuem Tab mit rel=noopener noreferrer
@@ -55,8 +56,8 @@ test('Einstellungen: bearbeiten, Vorschau, Link-Prüfung, speichern, zurücksetz
 	const link = vorschau.getByRole('link', { name: 'E2E Anfrage' });
 	await expect(link).toHaveAttribute('target', '_blank');
 	await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-	await page.getByRole('button', { name: 'Speichern' }).click();
-	await expect(page.getByRole('status')).toContainText('Gespeichert');
+	await bereich.getByRole('button', { name: 'Speichern' }).click();
+	await expect(bereich.getByRole('status')).toContainText('Gespeichert');
 	await page.reload();
 	await expect(page.getByLabel('Überschrift', { exact: true })).toHaveValue('E2E Wir bleiben für Sie da');
 	await expect(page.getByTestId('bestand-knopf').first().getByLabel('Link *')).toHaveValue('https://www.beispiel.de/anfrage');
@@ -70,8 +71,8 @@ test('Einstellungen: bearbeiten, Vorschau, Link-Prüfung, speichern, zurücksetz
 	await page.getByRole('checkbox', { name: /Karte im Kundenportal anzeigen/ }).check();
 	await page.getByRole('button', { name: 'Standard wiederherstellen' }).click();
 	await bestaetigen(page, 'Zurücksetzen');
-	await page.getByRole('button', { name: 'Speichern' }).click();
-	await expect(page.getByRole('status')).toContainText('Gespeichert');
+	await bereich.getByRole('button', { name: 'Speichern' }).click();
+	await expect(bereich.getByRole('status')).toContainText('Gespeichert');
 	await page.reload();
 	await expect(page.getByLabel('Überschrift', { exact: true })).toHaveValue('Auch nach Abschluss für Sie da');
 	await expect(page.getByTestId('bestand-knopf')).toHaveCount(0);

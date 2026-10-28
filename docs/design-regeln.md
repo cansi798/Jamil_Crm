@@ -82,8 +82,9 @@ Auftrags-, Angebots-, Protokoll-, Aufmaß- und E-Mail-Vorlagen sehen gleich aus:
   mit demselben Baustein.
 - **Detail:** `SeitenKopf` mit Zurück zur Liste, Überzeile = Art („Protokoll-Vorlage“), Titel = Name, Kennzahl;
   Aktionen und „Vorlage löschen“ oben rechts; Inhalt in Abschnitten, Fuß mit Aktionen unten rechts.
-- Jede Art hat einen eigenen Pfad (Aufmaß: `/einstellungen/aufmass-vorlagen`), damit das Menü genau einen Eintrag
-  markiert (msg 3085).
+- Protokoll- und Aufmaß-Vorlagen sind EIN Menüpunkt „Protokoll- & Aufmaß-Vorlagen“ mit zwei Reitern (Jamil msgs 3533/3535);
+  jede Art behält ihren Pfad (`/einstellungen/protokoll-vorlagen`, `/einstellungen/aufmass-vorlagen`), markiert ist immer genau
+  dieser eine Menüpunkt (`AUCH_AKTIV` in `navigation.ts`, msg 3085).
 
 ## 4. Abschnitte und Überschriften
 
@@ -202,8 +203,10 @@ Beim Durchklicken darf nichts springen. Jede Seite ist gleich aufgebaut:
   Telefonnummer (Kontakt-Karte), keine Linie unter dem Kopf.
 - **Leistungen für Bestandskunden (Jamil msgs 3142, 3408):** kleine, dezente Karte am Ende des Portals
   (`components/portal/BestandskundenKarte.svelte`, EIN Baustein für Portal und Vorschau), sobald ein Auftrag des Kunden
-  abgeschlossen ist (`bestandskarte` in `kundenportal-oeffentlich.ts`, Regeln in `lib/bestandskunden.ts`). Der Betrieb
-  stellt im Menü unter „Abschluss & danach“ → „Leistungen für Bestandskunden“ ein: an/aus, Überschrift, kleiner Text,
+  die eingestellte Bedingung erfüllt (ab Auftragsstatus, Standard „abgerechnet“, oder immer – msg 3521; je Kunde abschaltbar;
+  `bestandskarte` in `kundenportal-oeffentlich.ts`, Regeln in `lib/bestandskunden.ts`). Der Betrieb stellt sie unter
+  Auftrag → Kundenportal & Auftragsbestätigung, Abschnitt „Leistungen für Bestandskunden“ ein (msg 3534; Editor
+  `components/portal/BestandskundenEditor.svelte`): an/aus, ab wann, Überschrift, kleiner Text,
   eigene Leistungen (Titel, Kurztext, Symbol, Reihenfolge) und Knöpfe mit Link (nur `https://`, `mailto:`, `tel:`;
   neuer Tab mit `noopener noreferrer`). Gespeichert in `portal_einstellungen` (Migration 107), mit Live-Vorschau.
 - Animationen nur dort, wo sie etwas erklären (Fortschrittsweg, Haken der Arbeitsschritte, Pegel), alle mit
@@ -226,3 +229,14 @@ Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…"
 - Querscrollen bei 390 px: keins. Tippziele ≥ 44 px.
 - Vor dem Commit nach Ausreißern suchen: `grep -rn '<select\|type="radio"\|<fieldset\|style="' src --include=*.svelte`
   – neue Treffer nur mit Begründung.
+
+## 12. Listen-Abzeichen, Belege, Scrollbereiche (Jamil msgs 3522, 3525, 3528)
+
+- **Kleine Abzeichen** (`.ah` / `.ah-chip` in `stil/komponenten.css`): gleiche Optik auf Auftragskarten, Auftragsliste und in der
+  Kundenliste (`components/KundenHinweise.svelte`, Regeln in `lib/kunden-zeilen.ts`) – Zeichen + wenig Text, Einzelheiten im Tooltip.
+- **Ausgangsbelege** überall mit EINER Zeile: `components/ausgangsbelege/BelegListe.svelte` (Seite „Ausgangsbelege“ und Karte
+  „Ausgangsbelege“ am Auftrag). In gemischten Listen steht die Belegart als Abzeichen vor der Nummer (Angebot lila, AB blau,
+  Rechnung grün).
+- **Lange Listen wie der Verlauf** scrollen in sich: `components/ui/ScrollBereich.svelte` (Höchsthöhe, am Handy höher,
+  per Tastatur erreichbar, benannter Bereich). Nicht pro Seite nachbauen.
+

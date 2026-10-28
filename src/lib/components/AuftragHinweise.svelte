@@ -41,45 +41,7 @@
 {/if}
 
 <style>
-	.ah {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.25rem 0.35rem;
-		min-width: 0;
-	}
-	.ah-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.2rem;
-		max-width: 100%;
-		padding: 0.1rem 0.45rem;
-		border-radius: 0.7rem;
-		font-size: 0.75rem;
-		line-height: 1.2rem;
-		white-space: normal;
-		overflow-wrap: anywhere;
-		background: var(--m365-flaeche-hover, #f3f2f1);
-		color: var(--m365-text, #1c1f23);
-	}
-	.ah-chip.gut {
-		background: #dff6dd;
-		color: #0e700e;
-		font-weight: 600;
-	}
-	.ah-chip.leise {
-		color: var(--m365-text-leise, #616161);
-	}
-	.ah-chip.warnung {
-		background: #fff4ce;
-		color: #6b4f00;
-		font-weight: 600;
-	}
-	.ah-chip.ueberfaellig {
-		background: #fde7e9;
-		color: #a4262c;
-		font-weight: 600;
-	}
+	/* .ah und .ah-chip stehen in stil/komponenten.css – gleiche Abzeichen auch in der Kundenliste (KundenHinweise) */
 	.ah-unsichtbar {
 		position: absolute;
 		width: 1px;

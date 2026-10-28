@@ -3,7 +3,7 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { antwort, baueUmgebung, jsonAnfrage, leereAngebote, testPng, type Umgebung } from './hilfe-1c';
-import { kundenPortal, holeAgbPdfInfo, ladePortalEinstellungen, nachweiseZumAngebot, speichereAgbPdf, erzeugeLink, portalStand, portalVerlauf, portalZugriff, setzeDokument, speichereKundenPortal, speicherePortalEinstellungen, widerrufeLink, tokenHash } from '../../src/lib/server/kundenportal';
+import { kundenPortal, holeAgbPdfInfo, ladeKundeAb, ladePortalEinstellungen, nachweiseZumAngebot, speichereAgbPdf, erzeugeLink, portalStand, portalVerlauf, portalZugriff, setzeDokument, speichereKundeAb, speichereKundenPortal, speicherePortalEinstellungen, widerrufeLink, tokenHash } from '../../src/lib/server/kundenportal';
 import { portalAgb, entscheide, ladePortal, portalAbruf, portalAktion, portalDokument, portalFehlversuch } from '../../src/lib/server/kundenportal-oeffentlich';
 import { setzeAngebotStatus } from '../../src/lib/server/angebote';
 import { listeAuftragsbestaetigungen, markiereAbGesendet } from '../../src/lib/server/auftragsbestaetigung';
@@ -15,7 +15,8 @@ import { FakeKi } from '../../src/lib/server/ki/fake';
 import { GET as agbGet } from '../../src/routes/portal/[token]/agb/+server';
 import { actions as einstellungenAktionen, load as einstellungenLoad } from '../../src/routes/(app)/einstellungen/kundenportal/+page.server';
 import { actions as kundenAktionen } from '../../src/routes/(app)/kunden/[id]/+page.server';
-import { actions as bestandAktionen, load as bestandLoad } from '../../src/routes/(app)/einstellungen/bestandskunden/+page.server';
+import { actions as bestandAktionen, load as bestandLoad } from '../../src/routes/(app)/einstellungen/kundenportal/+page.server';
+import { load as bestandAlt } from '../../src/routes/(app)/einstellungen/bestandskunden/+page.server';
 import { ladeBestandskunden } from '../../src/lib/server/kundenportal';
 
 /** Kundenportal und Auftragsbestätigung (Jamil msgs 2770–2774 Punkt 4, 2778). */
@@ -273,7 +274,8 @@ describe('Kundenportal', () => {
 		await setzeAngebotStatus(kA(), an2.id, 'angenommen');
 		expect(await listeAuftragsbestaetigungen(kA(), zwei)).toEqual([]);
 		const drei = await u.neuerAuftrag('angebot', 'Dritter');
-		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', abAutomatisch: 'an' });
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an' });
+		await speichereKundeAb(kA(), u.kundeA, 'an');
 		const an3 = await versendetesAngebot(drei);
 		await setzeAngebotStatus(kA(), an3.id, 'angenommen');
 		expect(await listeAuftragsbestaetigungen(kA(), drei)).toHaveLength(1);
@@ -316,7 +318,7 @@ describe('Kundenportal', () => {
 		const [{ geteilt }] = await root`select count(*)::int as geteilt from app.portal_dokumente where ref_id = ${weiteres.id}`;
 		expect(geteilt).toBe(0);
 		await expect(erzeugeLink({ ...zA(), k: { betriebId: u.betriebB, benutzerId: u.ids.chefB } }, u.kundeA)).rejects.toMatchObject({ status: 404 });
-		await expect(speichereKundenPortal(nurEigene, u.kundeA, { abAutomatisch: 'aus' })).rejects.toMatchObject({ status: 403 });
+		await expect(speichereKundenPortal(nurEigene, u.kundeA, { status: 'aus' })).rejects.toMatchObject({ status: 403 });
 		await expect(portalStand(nurEigene, fremd)).rejects.toMatchObject({ status: 404 });
 		const [{ n }] = await root`select count(*)::int as n from app.portal_links where kunde_id = ${kd2.id}`;
 		expect(n).toBe(0);
@@ -393,13 +395,21 @@ describe('Kundenportal', () => {
 		const sende = (nutzer: unknown, daten: unknown) => {
 			const f = new FormData();
 			f.set('daten', typeof daten === 'string' ? daten : JSON.stringify(daten));
-			return bestandAktionen.default({ locals: { nutzer }, request: new Request('http://t/', { method: 'POST', body: f }) } as never) as Promise<{ gespeichert?: boolean; status?: number; data?: { fehler?: string } }>;
+			return bestandAktionen.bestand({ locals: { nutzer }, request: new Request('http://t/', { method: 'POST', body: f }) } as never) as Promise<{ bestandGespeichert?: boolean; status?: number; data?: { fehler?: string } }>;
 		};
 		const { token } = await erzeugeLink(zA(), u.kundeA);
 		// Standard ohne gespeicherte Werte: an, sechs Leistungen, neutraler Titel
 		expect(await ladeBestandskunden(kA())).toMatchObject({ aktiv: true, titel: 'Auch nach Abschluss für Sie da', knoepfe: [] });
 		expect((await ladeBestandskunden(kA())).leistungen).toHaveLength(6);
-		expect(((await bestandLoad({ locals: { nutzer: u.chefA } } as never)) as { e: { aktiv: boolean } }).e.aktiv).toBe(true);
+		expect(((await bestandLoad({ locals: { nutzer: u.chefA } } as never)) as { bestand: { aktiv: boolean } }).bestand.aktiv).toBe(true);
+		// alte Adresse leitet auf den Abschnitt in den Kundenportal-Einstellungen (Jamil msg 3534)
+		let umleitung: unknown = null;
+		try {
+			await bestandAlt({} as never);
+		} catch (e) {
+			umleitung = e;
+		}
+		expect(umleitung).toMatchObject({ status: 308, location: '/einstellungen/kundenportal#bestandskunden' });
 		// ohne abgeschlossenen Auftrag keine Karte (Aufträge anderer Tests stehen ggf. schon auf „abgerechnet“)
 		await root`update app.auftraege set status = 'anfrage' where kunde_id = ${u.kundeA} and status = 'abgerechnet'`;
 		await root`delete from app.portal_einstellungen`;
@@ -421,7 +431,7 @@ describe('Kundenportal', () => {
 			leistungen: [{ titel: 'Heizungswartung', text: 'Einmal im Jahr', symbol: 'reparatur' }, { titel: 'Notdienst', text: '', symbol: 'telefon' }],
 			knoepfe: [{ text: 'Termin anfragen', url: 'https://www.beispiel.test/anfrage' }, { text: 'Anrufen', url: 'tel:+4940123456' }]
 		};
-		expect(await sende(u.chefA, eigen)).toEqual({ gespeichert: true });
+		expect(await sende(u.chefA, eigen)).toEqual({ bestandGespeichert: true });
 		const s = (await ladePortal(token, IP))!;
 		expect(s.bestandskarte).toEqual({ titel: eigen.titel, text: eigen.text, leistungen: eigen.leistungen, knoepfe: eigen.knoepfe });
 		// Mandant B sieht nichts davon (Standard), Portal-Karte von A bleibt unverändert
@@ -448,11 +458,11 @@ describe('Kundenportal', () => {
 		await expect(root`update app.portal_einstellungen set bestand_knoepfe = '{"a":1}'::jsonb where betrieb_id = ${u.betriebA}`).rejects.toThrow();
 		await expect(root`update app.portal_einstellungen set bestand_titel = ${'x'.repeat(61)} where betrieb_id = ${u.betriebA}`).rejects.toThrow();
 		// Text mit HTML bleibt Text (Ausgabe geschieht im Portal escaped)
-		expect(await sende(u.chefA, { ...eigen, titel: '<b>Fett</b>', leistungen: [], knoepfe: [] })).toEqual({ gespeichert: true });
+		expect(await sende(u.chefA, { ...eigen, titel: '<b>Fett</b>', leistungen: [], knoepfe: [] })).toEqual({ bestandGespeichert: true });
 		expect((await ladePortal(token, IP))!.bestandskarte).toMatchObject({ titel: '<b>Fett</b>', leistungen: [] });
 
 		// Ausgeschaltet: keine Karte, obwohl der Kunde Bestandskunde ist
-		expect(await sende(u.chefA, { ...eigen, aktiv: false })).toEqual({ gespeichert: true });
+		expect(await sende(u.chefA, { ...eigen, aktiv: false })).toEqual({ bestandGespeichert: true });
 		const aus = (await ladePortal(token, IP))!;
 		expect(aus.bestandskunde).toBe(true);
 		expect(aus.bestandskarte).toBeNull();
@@ -482,7 +492,7 @@ describe('Kundenportal', () => {
 		expect(a.termine).not.toBeNull();
 		expect(a.status).not.toBeNull();
 		let e = (await kundenPortal(zA(), u.kundeA)).einstellung;
-		expect(e.kunde).toEqual({ sichtbar: null, status: null, termine: true, mitarbeiter: null, annahme: null, abAutomatisch: null });
+		expect(e.kunde).toEqual({ sichtbar: null, status: null, termine: true, mitarbeiter: null, apAusblenden: null, annahme: null, bestand: null, abAutomatisch: null });
 		expect(e.firma).toMatchObject({ sichtbar: true, termine: false, status: true, abAutomatisch: true });
 		// Kunde leer → Zeile entfällt, erbt wieder
 		await speichereKundenPortal(zA(), u.kundeA, { termine: '' });
@@ -509,18 +519,18 @@ describe('Kundenportal', () => {
 			kundenAktionen.portalEinstellung({ locals: { nutzer }, params: { id: u.kundeA }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams(felder) }) } as never) as unknown as Promise<{ status?: number; einstellungMeldung?: string }>;
 		expect((await sende(u.monteurA, { status: 'aus' })).status).toBe(403);
 		expect((await sende(u.chefA, { sichtbar: 'bla' })).status).toBe(400);
-		expect(await sende(u.bueroA, { status: 'aus', abAutomatisch: 'aus' })).toMatchObject({ einstellungMeldung: expect.stringContaining('gespeichert') });
+		expect(await sende(u.bueroA, { status: 'aus' })).toMatchObject({ einstellungMeldung: expect.stringContaining('gespeichert') });
 		expect((await seite(token)).status).toBeNull();
 		// Mandanten: Betrieb B sieht die Zeile von A nie, und eine Zeile für einen fremden Kunden ist nicht möglich
 		expect((await u.alsApp(u.betriebB, u.ids.chefB, (tx) => tx`select count(*)::int as n from app.kunden_portal`))[0].n).toBe(0);
 		expect((await u.alsApp(u.betriebA, u.ids.chefA, (tx) => tx`select count(*)::int as n from app.kunden_portal`))[0].n).toBe(1);
 		await expect(root`insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar) values (${u.kundeB}, ${u.betriebA}, true)`).rejects.toThrow();
 		// Auftragsbestätigung: Kunde „aus“ schlägt Firma „an“, Kunde leer erbt
-		await speichereKundenPortal(zA(), u.kundeA, { abAutomatisch: 'aus' });
+		await speichereKundeAb(kA(), u.kundeA, 'aus');
 		const an1 = await versendetesAngebot(u.auftragA);
 		await setzeAngebotStatus(kA(), an1.id, 'angenommen');
 		expect(await listeAuftragsbestaetigungen(kA(), u.auftragA)).toEqual([]);
-		await speichereKundenPortal(zA(), u.kundeA, { abAutomatisch: '' });
+		await speichereKundeAb(kA(), u.kundeA, '');
 		const zwei = await u.neuerAuftrag('angebot', 'Zweiter für AB');
 		const an2 = await versendetesAngebot(zwei);
 		await setzeAngebotStatus(kA(), an2.id, 'angenommen');
@@ -535,13 +545,13 @@ describe('Kundenportal', () => {
 		expect(seite.portal.freigabe).toBeUndefined();
 		expect(seite.portal.standard).toBeUndefined();
 		expect(seite.portal.kundeId).toBe(u.kundeA);
-		expect(seite.abHinweis).toMatchObject({ an: true, kundeId: u.kundeA, einstellbar: true });
+		expect(seite.abHinweis).toMatchObject({ an: true, kundeId: u.kundeA });
 		expect(seite.kundeEinstellbar).toBe(true);
 		// Monteur (ohne „Kundenportal verwalten“): kein Link zur Kundenakte, keine AB-Anzeige
 		const monteurSeite = (await auftragLoad({ locals: { nutzer: u.monteurA }, params: { id: u.auftragA }, url: new URL('https://crm.test/x') } as never)) as any;
 		expect(monteurSeite.kundeEinstellbar).toBe(false);
 		expect(monteurSeite.abHinweis).toBeNull();
-		await speichereKundenPortal(zA(), u.kundeA, { abAutomatisch: 'aus' });
+		await speichereKundeAb(kA(), u.kundeA, 'aus');
 		seite = await laden();
 		expect(seite.abHinweis.an).toBe(false);
 		expect((auftragAktionen as Record<string, unknown>).portalFreigabe).toBeUndefined();
@@ -576,6 +586,78 @@ describe('Kundenportal', () => {
 		expect((await schalten(u.chefC)).status).toBe(402);
 		expect(await schalten(u.chefA)).toMatchObject({ gespeichert: true });
 		expect((await ladeBestandskunden(kA())).aktiv).toBe(false);
+	});
+
+	it('Jamil msg 3521 B/C: Karte ab Status oder immer, je Kunde ein/aus (Vererbung Firma → Kunde)', async () => {
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		await root`update app.auftraege set status = 'beauftragt' where kunde_id = ${u.kundeA}`;
+		const karte = async () => (await ladePortal(token, IP))!.bestandskarte;
+		const sende = (daten: unknown) => {
+			const f = new FormData();
+			f.set('daten', JSON.stringify(daten));
+			return bestandAktionen.bestand({ locals: { nutzer: u.chefA }, request: new Request('http://t/', { method: 'POST', body: f }) } as never) as Promise<{ bestandGespeichert?: boolean; status?: number }>;
+		};
+		const basis = { aktiv: true, titel: 'Da', text: 'Hallo', leistungen: [], knoepfe: [] };
+		// Standard „abgerechnet“: Auftrag nur beauftragt → keine Karte
+		expect(await karte()).toBeNull();
+		expect(await sende({ ...basis, ab: 'beauftragt' })).toEqual({ bestandGespeichert: true });
+		expect(await karte()).toMatchObject({ titel: 'Da' });
+		expect(await sende({ ...basis, ab: 'abgenommen' })).toEqual({ bestandGespeichert: true });
+		expect(await karte()).toBeNull();
+		expect(await sende({ ...basis, ab: 'immer' })).toEqual({ bestandGespeichert: true });
+		expect(await karte()).not.toBeNull();
+		expect((await sende({ ...basis, ab: 'irgendwann' })).status).toBe(400);
+		await expect(root`update app.portal_einstellungen set bestand_ab = 'bald' where betrieb_id = ${u.betriebA}`).rejects.toThrow();
+		// je Kunde aus → keine Karte; Firma aus + Kunde an → Karte
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', bestand: 'aus' });
+		expect(await karte()).toBeNull();
+		await sende({ ...basis, ab: 'immer', aktiv: false });
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', bestand: 'an' });
+		expect(await karte()).not.toBeNull();
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', bestand: '' });
+		expect(await karte()).toBeNull();
+		expect((await kundenPortal(zA(), u.kundeA)).einstellung.firma.bestand).toBe(false);
+	});
+
+	it('Jamil msg 3521 D: ohne Mitarbeiternamen auf Wunsch auch den Projektbegleiter ausblenden (Firma, je Kunde)', async () => {
+		const { token } = await erzeugeLink(zA(), u.kundeA);
+		const a = async () => (await ladePortal(token, IP))!.auftraege[0];
+		expect((await a()).ansprechpartner).not.toBeNull();
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', mitarbeiter: 'aus' });
+		expect((await a()).team).toEqual([]);
+		expect((await a()).ansprechpartner).not.toBeNull(); // Standard: Projektbegleiter bleibt
+		await speicherePortalEinstellungen(kA(), { standard: 'nur_markierte', abAutomatisch: true, apAusblenden: 'on' });
+		expect((await ladePortalEinstellungen(kA())).apAusblenden).toBe(true);
+		expect((await a()).ansprechpartner).toBeNull();
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', mitarbeiter: 'aus', apAusblenden: 'aus' });
+		expect((await a()).ansprechpartner).not.toBeNull();
+		// Team gezeigt → die Einstellung wirkt nicht
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', apAusblenden: 'an' });
+		expect((await a()).ansprechpartner).not.toBeNull();
+	});
+
+	it('Jamil msg 3521 E: Auftragsbestätigung beim Kunden auch ohne Kundenportal – Recht „Aufträge bearbeiten“', async () => {
+		const sende = (nutzer: unknown, wert: string) =>
+			kundenAktionen.abAutomatisch({ locals: { nutzer }, params: { id: u.kundeA }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams({ abAutomatisch: wert }) }) } as never) as unknown as Promise<{ status?: number; abMeldung?: string }>;
+		expect((await sende(u.monteurA, 'aus')).status).toBe(403);
+		expect((await sende(u.chefA, 'vielleicht')).status).toBe(400);
+		// Portal-Einstellungen des Kunden bleiben unberührt
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', termine: 'aus' });
+		expect(await sende(u.bueroA, 'aus')).toMatchObject({ abMeldung: 'Gespeichert.' });
+		expect(await ladeKundeAb(kA(), u.kundeA)).toEqual({ kunde: false, firma: true });
+		expect((await kundenPortal(zA(), u.kundeA)).einstellung.kunde).toMatchObject({ termine: false, abAutomatisch: false });
+		// Portal-Formular speichern ändert die Auftragsbestätigung nicht
+		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an' });
+		expect((await ladeKundeAb(kA(), u.kundeA)).kunde).toBe(false);
+		// beides leer → Zeile entfällt
+		await speichereKundenPortal(zA(), u.kundeA, {});
+		await speichereKundeAb(kA(), u.kundeA, '');
+		expect(await root`select 1 from app.kunden_portal where kunde_id = ${u.kundeA}`).toHaveLength(0);
+		// Mandanten: fremder Kunde → 404
+		await expect(speichereKundeAb(kA(), u.kundeB, 'an')).rejects.toMatchObject({ status: 404 });
+		await expect(speichereKundeAb({ betriebId: u.betriebB, benutzerId: u.ids.chefB }, u.kundeA, 'an')).rejects.toMatchObject({ status: 404 });
+		// Betrieb ohne Modul Angebote → 402
+		expect(((await kundenAktionen.abAutomatisch({ locals: { nutzer: u.chefC }, params: { id: u.kundeA }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams({ abAutomatisch: 'an' }) }) } as never)) as unknown as { status?: number }).status).toBe(402);
 	});
 
 	it('Migration 108: bisherige Werte am Auftrag werden je Kunde übernommen (vorsichtigste Auswahl), nichts geht verloren', async () => {

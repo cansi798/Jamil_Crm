@@ -10,14 +10,14 @@ import { angebotPdf } from './pdf/angebot-pdf';
 import { sendePush } from './erinnerungen';
 import { zustaendig } from './auftragsbestaetigung';
 import { melde } from './ereignisse';
-import { agbFassung, freigabeSql, holeAgbPdf, IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
+import { agbFassung, AP_AUSBLENDEN_SQL, freigabeSql, holeAgbPdf, IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
 import { UUID } from './kunden';
 import { nurVorname } from '../buchung';
 import type { AuftragStatus } from '../auftrag-status';
 import { summen, istMwstSatz } from '../geld';
 import { berlinTag, berlinUhrzeit, tagKurz } from '../zeit';
 import { anzeigeDateiname } from '../dateiname';
-import { bestandAusDatenbank, bestandKarteFuer, type BestandKarte } from '../bestandskunden';
+import { bestandAusDatenbank, bestandKarteFuer, bestandStatusAb, type BestandAb, type BestandKarte } from '../bestandskunden';
 import type { PortalMarke } from '../portal-marke';
 import { figurFuer, istAnrede, teamRolle, type Figur } from '../portal-figur';
 
@@ -123,18 +123,34 @@ async function auftraegeImBereich(tx: TransactionSql, p: PortalKontext): Promise
 	return z.map((r) => r.id as string);
 }
 
+/** Kunde dieses Links (Kunden-Link direkt, alter Auftrags-Link über den Auftrag). */
+const KUNDE_DES_LINKS = (p: PortalKontext) => [p.kundeId, p.auftragId, p.betriebId] as const;
+
 /**
- * Hat der Kunde dieses Links schon einen abgeschlossenen Auftrag (Status `abgerechnet`)? Auch wenn das Portal nur
- * aktive Aufträge zeigt – nach außen geht nur ja/nein (Karte „Auch nach Projektabschluss für Sie da“, msg 3142).
+ * Erfüllt der Kunde dieses Links die Bedingung für die Karte „Leistungen für Bestandskunden“ (Jamil msgs 3142, 3521 B)?
+ * `immer` → ja; sonst hat ein Auftrag des Kunden den eingestellten Status oder einen späteren erreicht (Standard
+ * `abgerechnet`). Auch wenn das Portal nur aktive Aufträge zeigt – nach außen geht nur ja/nein.
  */
-async function istBestandskunde(tx: TransactionSql, p: PortalKontext): Promise<boolean> {
+async function istBestandskunde(tx: TransactionSql, p: PortalKontext, ab: BestandAb): Promise<boolean> {
+	if (ab === 'immer') return true;
+	const [kundeId, auftragId, betriebId] = KUNDE_DES_LINKS(p);
 	const [z] = await tx`
 		select exists (
 			select 1 from app.auftraege a
-			where a.betrieb_id = ${p.betriebId} and a.status = 'abgerechnet'
-				and a.kunde_id = coalesce(${p.kundeId}::uuid, (select x.kunde_id from app.auftraege x where x.id = ${p.auftragId}::uuid and x.betrieb_id = ${p.betriebId}))
+			where a.betrieb_id = ${betriebId} and a.status = any(${bestandStatusAb(ab)}::text[])
+				and a.kunde_id = coalesce(${kundeId}::uuid, (select x.kunde_id from app.auftraege x where x.id = ${auftragId}::uuid and x.betrieb_id = ${betriebId}))
 		) as ja`;
 	return z.ja === true;
+}
+
+/** Karte für Bestandskunden beim Kunden ein/aus (msg 3521 C): Wert des Kunden, sonst `null` (= wie die Firma). */
+async function bestandBeimKunden(tx: TransactionSql, p: PortalKontext): Promise<boolean | null> {
+	const [kundeId, auftragId, betriebId] = KUNDE_DES_LINKS(p);
+	const [z] = await tx`
+		select kp.bestand from app.kunden_portal kp
+		where kp.betrieb_id = ${betriebId}
+			and kp.kunde_id = coalesce(${kundeId}::uuid, (select x.kunde_id from app.auftraege x where x.id = ${auftragId}::uuid and x.betrieb_id = ${betriebId}))`;
+	return z?.bestand ?? null;
 }
 
 const ART: Record<string, string> = { montage: 'Arbeiten vor Ort', besichtigung: 'Besichtigung', wartung: 'Wartung' };
@@ -151,19 +167,23 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		select coalesce(pr.firmenname, be.name) as name, pr.telefon, pr.email, pr.web, pr.logo is not null as hat_logo, pr.logo_dunkel is not null as hat_logo_dunkel, pr.farbe,
 			pr.dunkel_farbe, pr.hintergrund_farbe, pr.titel_schrift, pr.text_schrift, coalesce(pr.titel_gross, false) as titel_gross,
 			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen, e.agb_pdf_hochgeladen,
-			e.bestand_aktiv, e.bestand_titel, e.bestand_text, e.bestand_leistungen, e.bestand_knoepfe
+			e.bestand_aktiv, e.bestand_ab, e.bestand_titel, e.bestand_text, e.bestand_leistungen, e.bestand_knoepfe
 		from app.betriebe be
 		left join app.betrieb_profil pr on pr.betrieb_id = be.id
 		left join app.portal_einstellungen e on e.betrieb_id = be.id
 		where be.id = ${p.betriebId}`;
-	const bestandskunde = await istBestandskunde(tx, p);
+	const bestand = bestandAusDatenbank(b);
+	const beimKunden = await bestandBeimKunden(tx, p);
+	if (beimKunden !== null) bestand.aktiv = beimKunden;
+	const bestandskunde = await istBestandskunde(tx, p, bestand.ab);
 	const heute = berlinTag(jetzt);
 	const namen: TeamNamen = b.team_namen === 'voll' || b.team_namen === 'aus' ? b.team_namen : 'vorname';
 	const auftraege: PortalAuftrag[] = [];
 	for (const id of await auftraegeImBereich(tx, p)) {
 		const [a] = await tx`
 			select a.id, a.nummer, a.titel, a.status, ${tx.unsafe(freigabeSql('status'))} as f_status, ${tx.unsafe(freigabeSql('termine'))} as f_termine,
-				${tx.unsafe(freigabeSql('mitarbeiter'))} as f_mitarbeiter, ${tx.unsafe(freigabeSql('annahme'))} as f_annahme
+				${tx.unsafe(freigabeSql('mitarbeiter'))} as f_mitarbeiter, ${tx.unsafe(freigabeSql('annahme'))} as f_annahme,
+				${tx.unsafe(AP_AUSBLENDEN_SQL)} as ap_ausblenden
 			from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${p.betriebId}`;
 		if (!a) continue;
@@ -230,8 +250,10 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		// Figuren (msg 3113): Projektbegleiter (msg 3120) immer als Büro-Figur, im Team nach Rolle (Monteur/Büro) – je nach Anrede.
 		let ansprechpartner: PortalPerson | null = null;
 		let team: PortalPerson[] = [];
+		// Projektbegleiter: nur ohne „keine Namen“ und – wenn eingestellt (msg 3521 D) – nur, solange das Team gezeigt wird
+		const ohneProjektbegleiter = !a.f_mitarbeiter && a.ap_ausblenden === true;
 		if (namen !== 'aus') {
-			const wer = await zustaendig(tx, { betriebId: p.betriebId, benutzerId: OEFFENTLICH }, null, id);
+			const wer = ohneProjektbegleiter ? null : await zustaendig(tx, { betriebId: p.betriebId, benutzerId: OEFFENTLICH }, null, id);
 			if (wer) {
 				const [ap] = await tx`select name, anrede from app.benutzer where id = ${wer} and betrieb_id = ${p.betriebId}`;
 				const n = ap ? nameFuer(namen, ap.name) : null;
@@ -315,7 +337,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		agbPdf: b.agb_pdf_hochgeladen ? { stand: new Date(b.agb_pdf_hochgeladen).toISOString() } : null,
 		widerrufUrl: b.widerruf_url,
 		bestandskunde,
-		bestandskarte: bestandKarteFuer(bestandAusDatenbank(b), bestandskunde),
+		bestandskarte: bestandKarteFuer(bestand, bestandskunde),
 		auftraege
 	};
 }

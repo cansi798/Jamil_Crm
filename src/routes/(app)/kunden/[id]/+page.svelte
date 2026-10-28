@@ -11,6 +11,7 @@
 	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import FormFuss from '$lib/components/ui/FormFuss.svelte';
+	import ScrollBereich from '$lib/components/ui/ScrollBereich.svelte';
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
@@ -36,8 +37,9 @@
 		{ name: 'status', label: 'Auftragsstatus zeigen', info: 'kunde.status' },
 		{ name: 'termine', label: 'Nächste Termine zeigen', info: 'kunde.termine' },
 		{ name: 'mitarbeiter', label: 'Namen der Mitarbeiter zeigen', info: 'kunde.mitarbeiter' },
+		{ name: 'apAusblenden', label: 'Ohne Mitarbeiternamen auch Projektbegleiter ausblenden', info: 'kunde.ap_ausblenden' },
 		{ name: 'annahme', label: 'Angebot online annehmen lassen', info: 'kunde.annahme' },
-		{ name: 'abAutomatisch', label: 'Auftragsbestätigung automatisch erstellen', info: 'kunde.ab_automatisch' }
+		{ name: 'bestand', label: 'Karte „Leistungen für Bestandskunden“ zeigen', info: 'kunde.bestand' }
 	] as const;
 	/** Jamil msg 3034: „Kunde löschen“ oben rechts; die Rückfrage klappt unter dem Kopf auf (bleibt bei Fehler offen). */
 	let loeschenOffen = $state(false);
@@ -254,6 +256,37 @@
 		</Abschnitt>
 	{/if}
 
+	<!-- Automatik für diesen Kunden (Jamil msg 3521 E): Auftragsbestätigung automatisch (auch ohne Kundenportal) und Nachfassen -->
+	{#if data.ab || (data.darfBearbeiten && data.nachfassen)}
+		<Abschnitt titel="Automatik" id="automatik" info="kunde.automatik">
+			{#if data.ab}
+				<form method="POST" action="?/abAutomatisch" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form" data-testid="ab-kunde">
+					<InfoFeld id="kunde.ab_automatisch">
+						<label>Auftragsbestätigung automatisch erstellen
+							<Auswahl name="abAutomatisch">
+								<option value="" selected={data.ab.kunde === null}>{firmaText(data.ab.firma)}</option>
+								<option value="an" selected={data.ab.kunde === true}>ja</option>
+								<option value="aus" selected={data.ab.kunde === false}>nein</option>
+							</Auswahl>
+						</label>
+					</InfoFeld>
+					{#if form?.abFehler}<p role="alert" class="kd-fehler kp-voll">{form.abFehler}</p>{/if}
+					{#if form?.abMeldung}<p role="status" class="kd-info kp-voll">Auftragsbestätigung: {form.abMeldung}</p>{/if}
+					<FormFuss><button type="submit" class="kd-knopf hell">Speichern</button></FormFuss>
+				</form>
+			{/if}
+			{#if data.darfBearbeiten && data.nachfassen}
+				<form method="POST" action="?/nachfassen" use:enhance class="kd-nachfassen">
+					<input type="hidden" name="aus" value={data.nachfassen.aus ? 'nein' : 'ja'} />
+					<label class="kd-haken">
+						<input type="checkbox" checked={data.nachfassen.aus} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
+						<span>Kein automatisches Nachfassen (Angebote, Rechnungen)</span>
+					</label>
+				</form>
+			{/if}
+		</Abschnitt>
+	{/if}
+
 	{#if data.auftraege}
 		<Abschnitt titel="Aufträge" anzahl={data.auftraege.length}>
 			<ul class="kd-liste">
@@ -396,6 +429,7 @@
 			{/each}
 		</div>
 	</div>
+	<ScrollBereich label="Verlauf des Kunden">
 	<ol class="ka-zeitleiste" aria-label="Verlauf des Kunden">
 		{#each gefiltert as e (e.id)}
 			<li class={`ka-eintrag typ-${e.typ}`}>
@@ -410,11 +444,13 @@
 			<li class="kd-leer">Noch keine Einträge.</li>
 		{/each}
 	</ol>
+	</ScrollBereich>
 	<p class="kd-info">Termine legen Sie im Auftrag an. Rechnungen und E-Mails erscheinen hier, sobald sie angebunden sind.</p>
 	</Abschnitt>
 
 	<details class="ka-protokoll">
 		<summary>Änderungsprotokoll der Kundendaten</summary>
+	<ScrollBereich label="Änderungsprotokoll der Kundendaten">
 	<ol class="kd-verlauf">
 		{#each data.verlauf as eintrag (eintrag.id)}
 			<li>
@@ -431,21 +467,12 @@
 			<li class="kd-leer">Noch keine Einträge.</li>
 		{/each}
 	</ol>
+	</ScrollBereich>
 	{#if data.verlaufGekuerzt}
 		<p class="kd-info">Ältere Einträge werden hier nicht angezeigt.</p>
 	{/if}
 
 	</details>
-
-	{#if data.darfBearbeiten && data.nachfassen}
-		<form method="POST" action="?/nachfassen" use:enhance class="kd-nachfassen">
-			<input type="hidden" name="aus" value={data.nachfassen.aus ? 'nein' : 'ja'} />
-			<label class="kd-haken">
-				<input type="checkbox" checked={data.nachfassen.aus} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
-				<span>Kein automatisches Nachfassen (Angebote, Rechnungen)</span>
-			</label>
-		</form>
-	{/if}
 
 </main>
 

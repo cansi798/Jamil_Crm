@@ -179,7 +179,7 @@ test('Baukasten: Vorlage öffnen, Feld mit Bedingung, Live-Vorschau sperrt „We
 	test.skip(info.project.name !== 'desktop', 'Baukasten am Desktop');
 	await anmelden(page, BUERO);
 	await page.goto('/einstellungen/protokoll-vorlagen');
-	await expect(page.getByRole('heading', { name: 'Protokoll-Vorlagen' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Protokoll- & Aufmaß-Vorlagen' })).toBeAttached();
 	await foto(page, 'vorlagen-liste-desktop');
 	await page.getByRole('link', { name: /Abnahmeprotokoll/ }).first().click();
 	await page.waitForURL(/\/einstellungen\/protokoll-vorlagen\/[0-9a-f-]{36}$/);

@@ -27,9 +27,12 @@ Auftrag bleiben als Altwerte stehen (Migration 108 hat sie je Kunde übernommen)
 | Erscheinungsbild des Portals (Farben, Schrift) | ● | | | `betrieb_profil` |
 | Aufträge im Portal zeigen („alle aktiven“ / „nur bei ausdrücklich eingeschalteten Kunden“) | ● (`standard`) | ● (`sichtbar`) | – | `portal_einstellungen.standard`, `kunden_portal.sichtbar` |
 | Der Kunde sieht: Status, Termine, Namen der Mitarbeiter, Online-Annahme | ● (`frei_*`) | ● (`frei_*`) | – | `portal_einstellungen.frei_*`, `kunden_portal.frei_*` |
+| Ohne Mitarbeiternamen auch den Projektbegleiter ausblenden (msg 3521 D) | ● (`ap_ausblenden`, Standard aus) | ● | – | `portal_einstellungen.ap_ausblenden`, `kunden_portal.ap_ausblenden` |
 | Namen-Darstellung (Vorname / voll / keine) | ● (`team_namen`) | – | – | `portal_einstellungen.team_namen` |
-| Auftragsbestätigung automatisch | ● | ● (`ab_automatisch`) | – | `portal_einstellungen`, `kunden_portal` |
-| Karte „Leistungen für Bestandskunden“ an/aus, Texte, Leistungen, Knöpfe | ● | – (bewusst nicht je Kunde) | – | `portal_einstellungen.bestand_*` |
+| Auftragsbestätigung automatisch (Kundenakte → „Automatik“, auch ohne Portal, Recht „Aufträge bearbeiten“ – msg 3521 E) | ● | ● (`ab_automatisch`) | – | `portal_einstellungen`, `kunden_portal` |
+| Karte „Leistungen für Bestandskunden“: Texte, Leistungen, Knöpfe, ab wann (Status oder immer) | ● | – | – | `portal_einstellungen.bestand_*` |
+| Karte „Leistungen für Bestandskunden“ an/aus (msg 3521 C) | ● (`bestand_aktiv`) | ● (`bestand`) | – | `portal_einstellungen`, `kunden_portal` |
+| Abgerechnete Aufträge im Portal | fest: nie (msg 3521 F, nicht einstellbar) | – | – | `IM_PORTAL_SQL` |
 | Portal-Link (Ablauf, Widerruf), Portal-Passwort | | ● | | `portal_links`, `portal_zugang` |
 | Kein automatisches Nachfassen | | ● (`kunden.kein_nachfassen`) | | `kunden` |
 | Nachfassen pausieren (ein Angebot) | | | ● | `angebote.nachfassen_pausiert` |
@@ -53,7 +56,8 @@ ausdrücklich ausgeblendet → Kunde nein; Auftragsbestätigung: Abweichung vom 
 ## Menü nach dem Weg des Kunden (Schritt 2)
 
 Anfrage (Auftragsquellen, Terminarten, Online-Buchung) → Angebot (Katalog, Kalkulation, Nachfassen) → Auftrag (Kundenportal &
-Auftragsbestätigung) → Abschluss & danach (Leistungen für Bestandskunden). Daneben Vorlagen, Team & Partner, Auswertungen,
+Auftragsbestätigung, darin seit msg 3534 auch „Leistungen für Bestandskunden“; die Gruppe „Abschluss & danach“ hat derzeit keine
+Einträge und erscheint deshalb nicht). Daneben Vorlagen (mit „Protokoll- & Aufmaß-Vorlagen“ als einem Punkt), Team & Partner, Auswertungen,
 Allgemein (Funktionen & Automatisierungen, Briefkopf, Erinnerungen, Handy, Was ist neu) und Benutzeradministration.
 
 ## Regeln für Neues

@@ -50,7 +50,11 @@ export type Todo = {
 	nachfassAngebotId: string | null;
 	/** Nacharbeit (Jamil msg 2858, Nacharbeitsquote). */
 	nacharbeit: boolean;
+	/** Unteraufgaben (Jamil msg 3530) in ihrer Reihenfolge. */
+	unteraufgaben: Unteraufgabe[];
 };
+
+export type Unteraufgabe = { id: string; titel: string; erledigt: boolean; benutzerId: string | null; benutzerName: string | null };
 
 /** Filter (Wunsch Jamil, msg 2500): `zustaendigId` (zugewiesen an), `status` offen/erledigt – kombinierbar mit `nur`. */
 export type TodoFilter = { auftragId?: string; nur?: TodoAuswahl; zustaendigId?: string; status?: 'offen' | 'erledigt' };
@@ -217,6 +221,10 @@ const AUSWAHL = `t.id, t.titel, t.beschreibung, t.nacharbeit, t.lautstaerke, t.s
 	(select coalesce(json_agg(json_build_object('id', tb.id, 'name', tb.name) order by (tm.benutzer_id = t.zustaendig_id) desc nulls last, tm.angelegt, tb.name), '[]'::json)
 		from app.todo_mitarbeiter tm join app.benutzer tb on tb.id = tm.benutzer_id and tb.betrieb_id = tm.betrieb_id
 		where tm.todo_id = t.id and tm.betrieb_id = t.betrieb_id) as mitarbeiter,
+	(select coalesce(json_agg(json_build_object('id', u.id, 'titel', u.titel, 'erledigt', u.erledigt_am is not null, 'benutzerId', u.benutzer_id, 'benutzerName', ub.name)
+			order by u.pos, u.angelegt, u.id), '[]'::json)
+		from app.todo_unteraufgaben u left join app.benutzer ub on ub.id = u.benutzer_id and ub.betrieb_id = u.betrieb_id
+		where u.todo_id = t.id and u.betrieb_id = t.betrieb_id) as unteraufgaben,
 	t.serie_id, s.regel as serie_regel, s.intervall as serie_intervall, to_char(s.ende, 'YYYY-MM-DD') as serie_ende,
 	s.aktiv as serie_aktiv, t.anlage_id, an.bezeichnung as anlage_bezeichnung, nl.angebot_id as nachfass_angebot_id`;
 
@@ -251,7 +259,8 @@ function zuTodo(z: Record<string, any>): Todo {
 			? { id: z.serie_id, text: regelText(z.serie_regel, Number(z.serie_intervall), z.serie_ende ?? null), aktiv: z.serie_aktiv }
 			: null,
 		anlage: z.anlage_id ? { id: z.anlage_id, bezeichnung: z.anlage_bezeichnung } : null,
-		nachfassAngebotId: z.nachfass_angebot_id ?? null
+		nachfassAngebotId: z.nachfass_angebot_id ?? null,
+		unteraufgaben: Array.isArray(z.unteraufgaben) ? z.unteraufgaben : []
 	};
 }
 
@@ -678,5 +687,55 @@ export async function aktiveMitarbeiter(k: Kontext): Promise<{ id: string; name:
 			select id, name from app.benutzer where betrieb_id = ${k.betriebId} and aktiv
 			order by public.unaccent(lower(name)), id`;
 		return z.map((b) => ({ id: b.id as string, name: b.name as string }));
+	});
+}
+
+// ——— Unteraufgaben (Jamil, Talk msg 3530) ———
+
+const UNTER_MAX = 50;
+
+/** Neue Unteraufgabe am Ende der Liste (Recht „Aufträge bearbeiten“, prüft der Aufrufer); die Aufgabe muss sichtbar sein. */
+export async function legeUnteraufgabeAn(k: Kontext, sicht: Sicht, todoId: string, titelRoh: unknown, benutzerRoh?: unknown): Promise<Todo> {
+	pruefeId(todoId);
+	const titel = typeof titelRoh === 'string' ? titelRoh.replace(/\s+/g, ' ').trim() : '';
+	if (!titel) throw new ApiFehler(400, 'Bitte einen Titel für die Unteraufgabe eintragen.');
+	if ([...titel].length > 200) throw new ApiFehler(400, 'Der Titel ist zu lang (höchstens 200 Zeichen).');
+	const benutzerId = benutzerRoh ? idFeld(benutzerRoh, 'Unbekannte Person.') : null;
+	return mitBetrieb(k, async (tx) => {
+		await ladeEines(tx, k, sicht, todoId);
+		if (benutzerId) await pruefeZustaendig(tx, k, benutzerId);
+		const [n] = await tx`select count(*)::int as n, coalesce(max(pos), 0) as pos from app.todo_unteraufgaben where todo_id = ${todoId} and betrieb_id = ${k.betriebId}`;
+		if (n.n >= UNTER_MAX) throw new ApiFehler(400, `Höchstens ${UNTER_MAX} Unteraufgaben je Aufgabe.`);
+		await tx`insert into app.todo_unteraufgaben (betrieb_id, todo_id, titel, pos, benutzer_id)
+			values (${k.betriebId}, ${todoId}, ${titel}, ${n.pos + 1}, ${benutzerId})`;
+		return ladeEines(tx, k, sicht, todoId);
+	});
+}
+
+/**
+ * Unteraufgabe abhaken/öffnen: wer Aufgaben bearbeiten darf (`darfAlle`) – sonst nur die Mitarbeiter der Aufgabe oder die Person
+ * der Unteraufgabe (wie beim Abhaken der Aufgabe selbst, sonst 403). Unsichtbar → 404.
+ */
+export async function setzeUnteraufgabeErledigt(k: Kontext, sicht: Sicht, id: string, erledigt: boolean, darfAlle: boolean): Promise<void> {
+	pruefeId(id);
+	await mitBetrieb(k, async (tx) => {
+		const [u] = await tx`select todo_id, benutzer_id from app.todo_unteraufgaben where id = ${id} and betrieb_id = ${k.betriebId}`;
+		if (!u) throw nichtGefunden();
+		const t = await ladeEines(tx, k, sicht, u.todo_id);
+		const meine = t.zustaendigId === k.benutzerId || t.mitarbeiter.some((m) => m.id === k.benutzerId) || u.benutzer_id === k.benutzerId;
+		if (!darfAlle && !meine) throw new ApiFehler(403, 'Nur die Mitarbeiter der Aufgabe können Unteraufgaben abhaken.');
+		await tx`update app.todo_unteraufgaben set erledigt_am = ${erledigt ? tx`coalesce(erledigt_am, now())` : null}
+			where id = ${id} and betrieb_id = ${k.betriebId}`;
+	});
+}
+
+/** Unteraufgabe löschen (Recht „Aufträge bearbeiten“, prüft der Aufrufer). */
+export async function loescheUnteraufgabe(k: Kontext, sicht: Sicht, id: string): Promise<void> {
+	pruefeId(id);
+	await mitBetrieb(k, async (tx) => {
+		const [u] = await tx`select todo_id from app.todo_unteraufgaben where id = ${id} and betrieb_id = ${k.betriebId}`;
+		if (!u) throw nichtGefunden();
+		await ladeEines(tx, k, sicht, u.todo_id);
+		await tx`delete from app.todo_unteraufgaben where id = ${id} and betrieb_id = ${k.betriebId}`;
 	});
 }

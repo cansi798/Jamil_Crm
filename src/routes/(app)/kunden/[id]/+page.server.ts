@@ -24,7 +24,7 @@ import {
  * Aufträge nur mit Modul `auftraege` und Leserecht (`null` = Bereich ausblenden); mit nur `auftraege.lesen` die eigenen.
  */
 import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachfassen';
-import { erzeugeLink, kundenPortal, portalPasswort, portalZugriff, speichereKundenPortal, widerrufeLink } from '$lib/server/kundenportal';
+import { erzeugeLink, KUNDEN_PORTAL_FELDER, kundenPortal, ladeKundeAb, portalPasswort, portalZugriff, speichereKundeAb, speichereKundenPortal, widerrufeLink } from '$lib/server/kundenportal';
 import { mailVorbereitung } from '$lib/server/mail-vorlagen';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
@@ -44,6 +44,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			kundenVerlauf(k, nutzer, kunde.id)
 		]);
 		// Kundenportal (msg 2793): ein Link je Kunde – Modul kundenportal + Recht kundenportal.verwalten
+		const angeboteModul = await hatModul(k.betriebId, 'angebote');
 		const portalErlaubt = hatRecht(nutzer, 'kundenportal.verwalten') && hatRecht(nutzer, 'auftraege.alle_lesen') && (await hatModul(k.betriebId, 'kundenportal'));
 		const portalRoh = portalErlaubt ? await kundenPortal(await portalZugriff(locals), kunde.id) : null;
 		// Aktiven Link wieder öffnen/kopieren (msg 3036): volle Adresse statt Token
@@ -82,7 +83,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
 			darfBearbeiten: hatRecht(locals.nutzer!, 'kunden.bearbeiten'),
 			// Automatisches Nachfassen abschaltbar je Kunde (Jamil msg 2585)
-			nachfassen: (await hatModul(k.betriebId, 'angebote')) ? { aus: await kundeKeinNachfassen(k, kunde.id) } : null
+			nachfassen: angeboteModul ? { aus: await kundeKeinNachfassen(k, kunde.id) } : null,
+			// Auftragsbestätigung automatisch je Kunde (Jamil msg 3521 E): eigener Platz „Automatik“, auch ohne Kundenportal –
+			// wer Aufträge bearbeiten darf (wie früher am Auftrag); leer = wie die Firma
+			ab: angeboteModul && hatRecht(nutzer, 'auftraege.bearbeiten') ? await ladeKundeAb(k, kunde.id) : null
 		};
 	});
 };
@@ -135,14 +139,7 @@ export const actions: Actions = {
 	portalEinstellung: async ({ locals, params, request }) => {
 		const f = await request.formData();
 		try {
-			await speichereKundenPortal(await portalZugriff(locals), params.id, {
-				sichtbar: f.get('sichtbar'),
-				status: f.get('status'),
-				termine: f.get('termine'),
-				mitarbeiter: f.get('mitarbeiter'),
-				annahme: f.get('annahme'),
-				abAutomatisch: f.get('abAutomatisch')
-			});
+			await speichereKundenPortal(await portalZugriff(locals), params.id, Object.fromEntries(KUNDEN_PORTAL_FELDER.map((n) => [n, f.get(n)])));
 			return { einstellungMeldung: 'Portal-Einstellungen des Kunden gespeichert.' };
 		} catch (e) {
 			return alsFormFehler(e, { einstellungFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
@@ -155,6 +152,17 @@ export const actions: Actions = {
 			return { portalMeldung: 'Link widerrufen – er funktioniert ab sofort nicht mehr.' };
 		} catch (e) {
 			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** „Auftragsbestätigung automatisch“ für diesen Kunden (msg 3521 E): Modul Angebote + „Aufträge bearbeiten“; leer = wie die Firma. */
+	abAutomatisch: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await darf(locals, 'angebote', 'auftraege.bearbeiten');
+			await speichereKundeAb(betriebKontext(locals), params.id, f.get('abAutomatisch'));
+			return { abMeldung: 'Gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { abFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
 	},
 	/** „Kein automatisches Nachfassen“ für diesen Kunden an/aus (`kunden.bearbeiten`). */

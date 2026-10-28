@@ -8,6 +8,8 @@
 	import { todoSpalte, todoVerschiebung, TODO_SPALTEN, type TodoSpalte } from '$lib/todo-board';
 	import { zeitraumText } from '$lib/aufgaben';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
+	import PersonWahl from './ui/PersonWahl.svelte';
+	import Unteraufgaben from './Unteraufgaben.svelte';
 
 	type Todo = {
 		id: string;
@@ -29,6 +31,7 @@
 		vonZeit?: string | null;
 		mitarbeiter?: { id: string; name: string }[];
 		erledigt: boolean;
+		unteraufgaben?: { id: string; titel: string; erledigt: boolean; benutzerId: string | null; benutzerName: string | null }[];
 	};
 
 	/**
@@ -55,7 +58,7 @@
 		zeigeAuftrag?: boolean;
 		/** „Meine Aufgaben“: kennzeichnen, was nur über einen Auftrag (Zuständig) hier steht. */
 		zeigeQuelle?: boolean;
-		aktionen: { umschalten: string; aendern: string; loeschen: string; serieBeenden?: string };
+		aktionen: { umschalten: string; aendern: string; loeschen: string; serieBeenden?: string; unterNeu?: string; unterUmschalten?: string; unterLoeschen?: string };
 		leer?: string;
 	} = $props();
 
@@ -158,24 +161,28 @@
 							Beschreibung
 							<textarea name="beschreibung" maxlength="500" rows="2">{todo.beschreibung ?? ''}</textarea>
 						</label>
-						<div class="karte-zwei">
-							<label>
-								Lautstärke
-								<Auswahl name="lautstaerke">
-									<option value="" selected={!todo.lautstaerke}>–</option>
-									{#each STUFEN as n (n)}<option value={String(n)} selected={todo.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
-								</Auswahl>
-							</label>
-							<label>
-								Schmutz
-								<Auswahl name="schmutz">
-									<option value="" selected={!todo.schmutz}>–</option>
-									{#each STUFEN as n (n)}<option value={String(n)} selected={todo.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
-								</Auswahl>
-							</label>
-						</div>
+						<!-- Lautstärke/Schmutz nur bei Aufgaben im Auftrag (Jamil msg 3529); direkte Aufgaben behalten alte Werte unverändert -->
+						{#if todo.auftragId}
+							<div class="karte-zwei">
+								<label>
+									Lautstärke
+									<Auswahl name="lautstaerke">
+										<option value="" selected={!todo.lautstaerke}>–</option>
+										{#each STUFEN as n (n)}<option value={String(n)} selected={todo.lautstaerke === n}>{STUFE_NAMEN[n]}</option>{/each}
+									</Auswahl>
+								</label>
+								<label>
+									Schmutz
+									<Auswahl name="schmutz">
+										<option value="" selected={!todo.schmutz}>–</option>
+										{#each STUFEN as n (n)}<option value={String(n)} selected={todo.schmutz === n}>{STUFE_NAMEN[n]}</option>{/each}
+									</Auswahl>
+								</label>
+							</div>
+						{/if}
 						<button type="submit" class="kd-knopf">Speichern</button>
 					</form>
+					<Unteraufgaben todoId={todo.id} todoTitel={todo.titel} liste={todo.unteraufgaben ?? []} {aktionen} {darfBearbeiten} {darfHaken} personen={mitarbeiter} />
 					{#if todo.serie?.aktiv && aktionen.serieBeenden}
 						<form method="POST" action={aktionen.serieBeenden} use:enhance>
 							<input type="hidden" name="id" value={todo.id} />
@@ -184,8 +191,18 @@
 					{/if}
 				</details>
 			{/if}
+			{#if todo.unteraufgaben?.length}
+				<p class="karte-serie" title="Unteraufgaben erledigt">☑ {todo.unteraufgaben.filter((u) => u.erledigt).length}/{todo.unteraufgaben.length} Unteraufgaben</p>
+			{/if}
 			<div class="karte-meta">
-				{#if todo.zustaendigName}
+				{#if darfBearbeiten && !todo.erledigt && mitarbeiter.length > 0}
+					<!-- Zugewiesene Personen direkt auf der Karte ändern (Jamil msg 3530) – speichert sofort; Ziehen startet hier nicht -->
+					<form method="POST" action={aktionen.aendern} use:enhance={() => async ({ update }) => update({ reset: false })} class="karte-wer" onpointerdown={(ev) => ev.stopPropagation()}>
+						<input type="hidden" name="id" value={todo.id} />
+						<input type="hidden" name="mitarbeiterFeld" value="1" />
+						<PersonWahl name="mitarbeiterIds" mehrfach klein absenden label={`Mitarbeiter für „${todo.titel}“`} leerText="Nicht zugewiesen" personen={mitarbeiter} werte={(todo.mitarbeiter?.length ? todo.mitarbeiter.map((m) => m.id) : todo.zustaendigId ? [todo.zustaendigId] : [])} />
+					</form>
+				{:else if todo.zustaendigName}
 					<span class="karte-zustaendig">
 						<span class="avatar">{todo.zustaendigName.charAt(0)}</span>
 						{todo.zustaendigName}{#if weitere > 0}<span title={todo.mitarbeiter?.slice(1).map((m) => m.name).join(', ')}>&nbsp;+{weitere}</span>{/if}

@@ -14,19 +14,20 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 	it('Chef: Hauptbereich in fester Reihenfolge, Gruppen mit Einträgen; „Weitere Bereiche“ gibt es nicht mehr', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE, { nextcloud: true });
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
-		// Einstellungen nach dem Weg des Kunden (Jamil msg 3423): Anfrage → Angebot → Auftrag → Abschluss & danach
+		// Einstellungen nach dem Weg des Kunden (Jamil msg 3423): Anfrage → Angebot → Auftrag; „Leistungen für Bestandskunden“ steht
+		// seit msg 3534 in „Kundenportal & Auftragsbestätigung“ (Gruppe „Abschluss & danach“ ohne Einträge → nicht im Menü)
 		expect(gruppen(nav)).toEqual({
 			Anfrage: ['Auftragsquellen', 'Terminarten', 'Online-Buchung'],
 			Angebot: ['Katalog', 'Kalkulation', 'Nachfassen'],
 			Auftrag: ['Kundenportal & Auftragsbestätigung'],
-			'Abschluss & danach': ['Leistungen für Bestandskunden'],
-			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll-Vorlagen', 'Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
+			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll- & Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
 			'Team & Partner': ['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner'],
 			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen'],
 			Allgemein: ['Funktionen & Automatisierungen', 'Briefkopf / Firmenprofil', 'Erinnerungen', 'Handy verbinden'],
 			Benutzeradministration: ['Benutzer', 'Nextcloud', 'Rollen']
 		});
-		expect(nav.gruppen.map((g) => g.titel).slice(0, 4)).toEqual(['Anfrage', 'Angebot', 'Auftrag', 'Abschluss & danach']);
+		expect(nav.gruppen.map((g) => g.titel).slice(0, 4)).toEqual(['Anfrage', 'Angebot', 'Auftrag', 'Vorlagen']);
+		expect(namen(nav.mehr)).not.toContain('Leistungen für Bestandskunden');
 		expect(nav.mehr).toEqual(nav.gruppen.flatMap((g) => g.eintraege));
 		expect(nav.haupt[1]).toMatchObject({ href: '/kunden' });
 		expect(nav.haupt.find((e) => e.name === 'Aufgaben')).toMatchObject({ href: '/todos' });
@@ -128,15 +129,16 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(baueNavigation(betriebsNutzer(['partner.verwalten']), ALLE_MODULE.filter((m) => m !== 'auftraege')).mehr)).not.toContain('Partner');
 	});
 
-	it('Aufmaß-Vorlagen (msg 3085): eigener Pfad – markiert ist nur „Aufmaß-Vorlagen“, nicht „Protokoll-Vorlagen“', () => {
+	it('Protokoll- & Aufmaß-Vorlagen (msgs 3085, 3535): EIN Menüpunkt, beide Reiter-Adressen markieren genau ihn', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE);
 		const alle = [...nav.haupt, ...nav.mehr];
 		const name = (pfad: string) => aktiverEintrag(alle, pfad)?.name ?? null;
-		expect(nav.mehr.find((e) => e.name === 'Aufmaß-Vorlagen')?.href).toBe('/einstellungen/aufmass-vorlagen');
-		expect(name('/einstellungen/aufmass-vorlagen')).toBe('Aufmaß-Vorlagen');
-		expect(name('/einstellungen/aufmass-vorlagen/2f1c0b3e-0000-4000-8000-000000000001')).toBe('Aufmaß-Vorlagen');
-		expect(name('/einstellungen/protokoll-vorlagen')).toBe('Protokoll-Vorlagen');
-		expect(name('/einstellungen/protokoll-vorlagen/2f1c0b3e-0000-4000-8000-000000000001')).toBe('Protokoll-Vorlagen');
+		expect(nav.mehr.find((e) => e.name === 'Protokoll- & Aufmaß-Vorlagen')?.href).toBe('/einstellungen/protokoll-vorlagen');
+		expect(namen(nav.mehr)).not.toContain('Aufmaß-Vorlagen');
+		for (const pfad of ['/einstellungen/aufmass-vorlagen', '/einstellungen/aufmass-vorlagen/2f1c0b3e-0000-4000-8000-000000000001', '/einstellungen/protokoll-vorlagen', '/einstellungen/protokoll-vorlagen/2f1c0b3e-0000-4000-8000-000000000001']) {
+			expect(name(pfad), pfad).toBe('Protokoll- & Aufmaß-Vorlagen');
+			expect(alle.filter((e) => istAktiv(e.href, pfad)).length, pfad).toBe(1);
+		}
 		expect(name('/einstellungen/mail-vorlagen/neu')).toBe('E-Mail-Vorlagen');
 	});
 
