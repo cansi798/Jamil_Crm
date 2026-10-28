@@ -176,6 +176,13 @@ export const INFOS: Record<string, Info> = {
 	},
 
 	// ——— Listen ———
+	'auftraege.untergruppen': {
+		titel: 'Anfrage und Angebot genauer',
+		was: 'Anfrage: „Neu“ (noch kein Termin) oder „Termin vereinbart“ (ein Termin ist eingeplant, er muss noch nicht stattgefunden haben). Angebot: „Noch kein Angebot“ oder „Angebot erhalten“ (ein Angebot ist verschickt; Entwürfe zählen nicht). Im Board als Gruppen, in der Liste neben dem Status.',
+		wirkt: 'Nur die Anzeige. Der Status des Auftrags bleibt gleich; die Gruppe ergibt sich von selbst aus Terminen und Angeboten.',
+		standard: 'Immer an.',
+		beispiel: 'Sie legen für eine neue Anfrage eine Besichtigung an – die Karte rutscht von „Neu“ zu „Termin vereinbart“.'
+	},
 	'kunden.zeile': {
 		titel: 'Infos in der Kundenzeile',
 		was: 'Kleine Abzeichen je Kunde: letztes Angebot (offen, angenommen, abgelehnt, abgelaufen – mit Datum), Kundenportal (aktiv, wie oft und wann zuletzt geöffnet, fehlt ein Passwort), offene Aufträge, nächster Termin und „Bestandskunde“. Mit der Maus darüber stehen die Einzelheiten.',

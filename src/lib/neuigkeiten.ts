@@ -19,6 +19,7 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+	{ datum: '2026-10-28', titel: 'Anfrage und Angebot genauer', satz: 'Im Board sind „Anfrage“ in „Neu“ und „Termin vereinbart“ und „Angebot“ in „Noch kein Angebot“ und „Angebot erhalten“ unterteilt; in der Liste steht das neben dem Status.', wo: 'Aufträge → Board bzw. Liste', href: '/auftraege', modul: 'auftraege' },
 	{ datum: '2026-10-28', titel: 'Mehr Infos in der Kundenliste', satz: 'Jede Kundenzeile zeigt jetzt kleine Abzeichen: letztes Angebot, Kundenportal (aktiv, wie oft geöffnet), offene Aufträge, nächster Termin und „Bestandskunde“; sortierbar nach Termin, Angebot oder Portal.', wo: 'Kunden', href: '/kunden' },
 	{ datum: '2026-10-28', titel: 'Ausgangsbelege am Auftrag', satz: 'Rechts im Auftrag stehen Angebote und Auftragsbestätigungen (später auch Rechnungen) in einer Liste, mit Abzeichen für die Belegart.', wo: 'Auftrag → rechts „Ausgangsbelege“', href: '/auftraege', modul: 'angebote' },
 	{ datum: '2026-10-28', titel: 'Unteraufgaben und Personen direkt auf der Karte', satz: 'Aufgaben haben jetzt Unteraufgaben zum Abhaken; die zugewiesenen Personen ändern Sie direkt auf der Karte. Lautstärke und Schmutz gibt es nur noch bei Aufgaben im Auftrag.', wo: 'Aufgaben → Karte → Bearbeiten', href: '/todos', modul: 'auftraege' },

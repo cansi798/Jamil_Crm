@@ -1,4 +1,6 @@
 <script lang="ts">
+	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
+	import { UNTERGRUPPE_TITEL, untergruppe } from '$lib/auftrag-board';
 	import { mitEinstellungen } from '$lib/kennzahlen';
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 		import Umschalter from '$lib/components/ui/Umschalter.svelte';
@@ -142,6 +144,7 @@
 					{ wert: 'liste', text: 'Liste', href: link({ ansicht: 'liste' }) }
 				]}
 			/>
+			<InfoFenster id="auftraege.untergruppen" />
 		{/snippet}
 	</FilterLeiste>
 
@@ -182,7 +185,11 @@
 					<a href={`/auftraege/${a.id}`}>
 						<span class="af-kopfzeile">
 							<strong>{a.titel}</strong>
-							<span class={`af-status s-${a.status}`}>{STATUS_NAMEN[a.status]}</span>
+							<span class="af-status-gruppe">
+								<!-- Untergruppe bei Anfrage/Angebot (Jamil msg 3601): dezent neben dem Status -->
+								{#if untergruppe(a)}<span class={`ah-chip ${untergruppe(a) === 'termin' || untergruppe(a) === 'mit_angebot' ? 'gut' : 'leise'}`} data-untergruppe={untergruppe(a)}>{UNTERGRUPPE_TITEL[untergruppe(a)!]}</span>{/if}
+								<span class={`af-status s-${a.status}`}>{STATUS_NAMEN[a.status]}</span>
+							</span>
 						</span>
 						<span class="kd-info">{a.nummer} · {a.kundeName}</span>
 						<AuftragHinweise quelleName={a.quelleName} quelleFarbe={a.quelleFarbe} angebotInfo={a.angebotInfo} nachfassenInfo={a.nachfassenInfo} />
@@ -220,6 +227,13 @@
 </main>
 
 <style>
+	.af-status-gruppe {
+		display: inline-flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.3rem;
+	}
 	.af-offen strong {
 		color: var(--ui-text);
 		font-variant-numeric: tabular-nums;

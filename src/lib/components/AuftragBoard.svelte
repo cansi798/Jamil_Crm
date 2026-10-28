@@ -7,6 +7,8 @@
 		initialen,
 		kurzAdresse,
 		STATUS_FARBEN,
+		UNTERGRUPPEN,
+		untergruppe,
 		verschiebeKarte,
 		zielErlaubt,
 		type BoardSpalte
@@ -34,6 +36,7 @@
 		quelleFarbe: string | null;
 		angebotInfo: AngebotInfo | null;
 		nachfassenInfo: NachfassenInfo | null;
+		hatTermin: boolean;
 	};
 
 	/**
@@ -170,6 +173,7 @@
 	zielErlaubt={(k, _von, nach) => zielErlaubt(k.status, nach as AuftragStatus)}
 	onablegen={(k, _von, nach) => void verschiebe(k, nach as AuftragStatus)}
 	onverboten={verboten}
+	gruppen={(sp) => UNTERGRUPPEN[sp as AuftragStatus]?.map((g) => ({ id: g.id, titel: g.titel, passt: (k: Karte) => untergruppe(k) === g.id })) ?? null}
 	karte={kachel}
 	{geist}
 	{fuss}

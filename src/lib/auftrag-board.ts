@@ -79,3 +79,29 @@ export const STATUS_FARBEN: Record<AuftragStatus, string> = {
 	abgenommen: '#8764b8',
 	abgerechnet: 'var(--m365-text-leise)'
 };
+
+/**
+ * Untergruppen in den Spalten „Anfrage“ und „Angebot“ (Jamil, Sprachnachricht msg 3601) – nur Anzeige, der Status bleibt:
+ * - Anfrage: „Neu“ (noch kein Termin) und „Termin vereinbart“ (mindestens ein Termin eingeplant – egal ob er schon war;
+ *   „vereinbart“ reicht, er muss nicht stattgefunden haben).
+ * - Angebot: „Noch kein Angebot“ und „Angebot erhalten“ (ein Angebot ist an den Kunden verschickt; Entwürfe zählen nicht,
+ *   angenommene/abgelehnte zählen als erhalten).
+ */
+export type Untergruppe = 'neu' | 'termin' | 'ohne_angebot' | 'mit_angebot';
+export const UNTERGRUPPEN: Partial<Record<AuftragStatus, { id: Untergruppe; titel: string }[]>> = {
+	anfrage: [
+		{ id: 'neu', titel: 'Neu' },
+		{ id: 'termin', titel: 'Termin vereinbart' }
+	],
+	angebot: [
+		{ id: 'ohne_angebot', titel: 'Noch kein Angebot' },
+		{ id: 'mit_angebot', titel: 'Angebot erhalten' }
+	]
+};
+export const UNTERGRUPPE_TITEL: Record<Untergruppe, string> = { neu: 'Neu', termin: 'Termin vereinbart', ohne_angebot: 'Noch kein Angebot', mit_angebot: 'Angebot erhalten' };
+
+export function untergruppe(a: { status: AuftragStatus; hatTermin?: boolean; angebotInfo?: { status: string } | null }): Untergruppe | null {
+	if (a.status === 'anfrage') return a.hatTermin ? 'termin' : 'neu';
+	if (a.status === 'angebot') return a.angebotInfo ? 'mit_angebot' : 'ohne_angebot';
+	return null;
+}

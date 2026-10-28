@@ -20,7 +20,8 @@
 		meldung = '',
 		fehler = false,
 		leer = 'Keine Einträge',
-		reiterLabel = 'Spalte wählen'
+		reiterLabel = 'Spalte wählen',
+		gruppen
 	}: {
 		spalten: KachelSpalte<K>[];
 		/** Darf diese Karte gezogen werden? */
@@ -37,6 +38,11 @@
 		fehler?: boolean;
 		leer?: string;
 		reiterLabel?: string;
+		/**
+		 * Optionale Untergruppen innerhalb einer Spalte (Jamil msg 3601: „Anfrage“ → Neu / Termin vereinbart, „Angebot“ →
+		 * Noch kein Angebot / Angebot erhalten): je Gruppe eine kleine Zwischenüberschrift mit Zahl, darunter ihre Karten.
+		 */
+		gruppen?: (spalte: string) => { id: string; titel: string; passt: (k: K) => boolean }[] | null;
 	} = $props();
 
 	// Handy: angezeigte Spalte (Reiter)
@@ -137,6 +143,19 @@
 	};
 </script>
 
+{#snippet eintrag(k: K, spalte: string)}
+	<li
+		class="ab-karte"
+		class:gezogen={zug?.aktiv && zug.karte.id === k.id}
+		class:ziehbar={ziehbar(k)}
+		data-karte={k.id}
+		onpointerdown={(ev) => runter(ev, k, spalte)}
+		onclickcapture={klick}
+	>
+		{@render karte(k, spalte)}
+	</li>
+{/snippet}
+
 <svelte:window onkeydown={taste} onpointermove={bewegen} onpointerup={hoch} onpointercancel={abbrechen} />
 
 <p class="ab-meldung" class:fehler role={fehler ? 'alert' : 'status'} aria-live="polite">{meldung}</p>
@@ -169,20 +188,23 @@
 				<span class="ab-zahl" aria-label={`${anzahl(s)} Einträge`}>{anzahl(s)}</span>
 			</header>
 			<ul class="ab-karten">
-				{#each s.karten as k (k.id)}
-					<li
-						class="ab-karte"
-						class:gezogen={zug?.aktiv && zug.karte.id === k.id}
-						class:ziehbar={ziehbar(k)}
-						data-karte={k.id}
-						onpointerdown={(ev) => runter(ev, k, s.id)}
-						onclickcapture={klick}
-					>
-						{@render karte(k, s.id)}
-					</li>
+				{#if gruppen?.(s.id) && s.karten.length > 0}
+					{#each gruppen(s.id) ?? [] as g (g.id)}
+						{@const drin = s.karten.filter(g.passt)}
+						<li class="ab-gruppe" data-gruppe={g.id} role="presentation">
+							<h3 class="ab-gruppe-titel">{g.titel} <span class="ab-gruppe-zahl"><span class="ab-unsichtbar">(</span>{drin.length}<span class="ab-unsichtbar">)</span></span></h3>
+						</li>
+						{#each drin as k (k.id)}
+							{@render eintrag(k, s.id)}
+						{/each}
+					{/each}
 				{:else}
-					<li class="ab-leer">{leer}</li>
-				{/each}
+					{#each s.karten as k (k.id)}
+						{@render eintrag(k, s.id)}
+					{:else}
+						<li class="ab-leer">{leer}</li>
+					{/each}
+				{/if}
 			</ul>
 			{#if fuss}{@render fuss(s)}{/if}
 		</section>
@@ -200,6 +222,51 @@
 {/if}
 
 <style>
+	/* Untergruppe in einer Spalte: dezente Zwischenüberschrift mit Zahl (Jamil msg 3601) */
+	.ab-gruppe {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		margin: 0.35rem 0.15rem 0.1rem;
+		padding-bottom: 0.2rem;
+		border-bottom: 1px dashed var(--m365-rand-stark, #d6d1c7);
+		color: var(--m365-text-leise);
+		font-family: var(--ui-schrift-titel);
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		list-style: none;
+	}
+	.ab-gruppe-titel {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		margin: 0;
+		font: inherit;
+	}
+	.ab-unsichtbar {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+	.ab-gruppe:first-child {
+		margin-top: 0;
+	}
+	.ab-gruppe-zahl {
+		min-width: 1.25rem;
+		padding: 0 0.35rem;
+		border-radius: 999px;
+		background: var(--m365-flaeche-hover, #f3f2f1);
+		text-align: center;
+		letter-spacing: 0;
+	}
 	.ab-meldung {
 		min-height: 1.25rem;
 		margin: 0 0 0.5rem;

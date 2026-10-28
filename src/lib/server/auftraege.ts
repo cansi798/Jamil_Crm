@@ -66,6 +66,8 @@ export type Auftrag = {
 	geplantAb: string | null;
 	/** Nächster anstehender Termin (Einsatz, der noch nicht vorbei ist) – ersetzt „Geplant ab“ (Wunsch Jamil). */
 	kommenderTermin: { beginn: string; art: string } | null;
+	/** Gibt es überhaupt einen Termin (auch einen vergangenen)? – Untergruppe „Termin vereinbart“ bei Anfragen (Jamil msg 3601) */
+	hatTermin: boolean;
 	/** Abzeichen „Angebot verschickt 18.10.“ / „angenommen“ / „abgelehnt“ (Wunsch Jamil msg 2674). */
 	angebotInfo: { status: 'versendet' | 'angenommen' | 'abgelehnt'; tag: string } | null;
 	/** Nächstes Nachfassen (Tag in Berlin) und ob pausiert. */
@@ -247,6 +249,7 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anla
 	(select json_build_object('beginn', e.beginn, 'art', e.art) from app.einsaetze e
 		where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id and e.ende >= now()
 		order by e.beginn, e.id limit 1) as kommender_termin,
+	exists (select 1 from app.einsaetze e where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id) as hat_termin,
 	${ANGEBOT_SQL} as angebot_info,
 	${NACHFASSEN_SQL} as nachfassen_info`;
 
@@ -312,6 +315,7 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 			const t = typeof z.kommender_termin === 'string' ? JSON.parse(z.kommender_termin) : z.kommender_termin;
 			return t ? { beginn: iso(t.beginn), art: t.art } : null;
 		})(),
+		hatTermin: z.hat_termin === true,
 		angebotInfo: json(z.angebot_info),
 		nachfassenInfo: json(z.nachfassen_info),
 		angelegt: iso(z.angelegt),

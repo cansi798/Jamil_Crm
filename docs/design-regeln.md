@@ -246,4 +246,7 @@ Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…"
 - **Auftrag:** „Im Portal sichtbar“ als dezentes Kennzeichen im Kopf (keine eigene Karte, msg 3561); Hauptspalte Aufgaben → Termine →
   Material → Nachkalkulation (msg 3563); keine zweite Terminanzeige (msg 3564); „Dokumentation“ über „Dokumente & Notizen“ (msg 3566).
 - **Kundenliste:** Abzeichen auch im Leerzustand (gestrichelt, grau: „Kein Angebot“, „Portal nicht aktiv“ …), Jamil msg 3557.
+- **Untergruppen im Auftrags-Board** (Jamil msg 3601): „Anfrage“ → Neu / Termin vereinbart, „Angebot“ → Noch kein Angebot /
+  Angebot erhalten – Zwischenüberschriften mit Zahl über `KachelBoard gruppen`, Regeln in `untergruppe()` (`lib/auftrag-board.ts`);
+  in der Liste als Kennzeichen neben dem Status. Nur Anzeige, der Status bleibt.
 
