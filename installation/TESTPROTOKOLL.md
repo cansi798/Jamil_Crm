@@ -85,6 +85,12 @@ Paket unbeaufsichtigt installiert (Projekt `crm-pruefprobe`, App-Port 18350, ohn
 angewendet, Admin angelegt, `/api/gesundheit` ok, Sicherung + Wiederherstellung ok (CRM antwortet danach),
 `9-deinstallieren.sh --ja` ohne Reste. Vorschau-Container unberührt.
 
+## Probelauf 28.10.2026 (Kundenliste, Unteraufgaben, Portal ab Status – Migrationen 109 und 110, Commit 02d9bc7)
+
+Paket unbeaufsichtigt installiert (Projekt `crm-pruefprobe`, App-Port 18350, ohne Profile): alle Migrationen bis 110
+angewendet, Admin angelegt, `/api/gesundheit` ok, Sicherung + Wiederherstellung ok, `9-deinstallieren.sh --ja` ohne
+Reste. Vorher beide Migrationen auf einer Kopie der Vorschau-Datenbank geprüft (zweiter Lauf: „Keine neuen Migrationen“).
+
 ## So wiederholen (für Entwickler)
 
 ```sh
