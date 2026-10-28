@@ -43,7 +43,16 @@ test('Kundenliste, Auftrag, Kundenakte, Vorlagen, Kundenportal-Einstellungen', a
 	await expect(belege.getByRole('heading', { name: 'Ausgangsbelege' })).toBeVisible();
 	await expect(belege.locator('[data-typ="angebot"]').first()).toContainText('Angebot');
 	await expect(page.getByRole('heading', { name: 'Angebote', exact: true })).toHaveCount(0);
-	await expect(page.getByTestId('portal-status-auftrag')).toContainText(/Kundenportal/);
+	await expect(page.getByTestId('portal-status-auftrag')).toContainText('Im Portal sichtbar');
+	// Reihenfolge Aufgaben → Termine → Material → Nachkalkulation (msg 3563), keine Karte „Nächster Termin“ (msg 3564),
+	// kein Knopf „Dokumentation“ oben (msg 3566)
+	const titel = await page.locator('.af-haupt .af-k h2, .af-haupt .af-k .karte-titel').allInnerTexts();
+	const pos = (t: string) => titel.findIndex((x) => x.toLowerCase().includes(t));
+	expect(pos('aufgaben')).toBeLessThan(pos('termine'));
+	if (pos('material') >= 0) expect(pos('termine')).toBeLessThan(pos('material'));
+	if (pos('nachkalkulation') >= 0) expect(pos('material')).toBeLessThan(pos('nachkalkulation'));
+	await expect(page.getByRole('heading', { name: 'Nächster Termin' })).toHaveCount(0);
+	await expect(page.locator('.seiten-kopf').getByRole('link', { name: 'Dokumentation', exact: true })).toHaveCount(0);
 	const verlauf = page.getByRole('region', { name: 'Verlauf des Auftrags' });
 	await expect(verlauf).toHaveAttribute('tabindex', '0');
 	expect(await verlauf.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
@@ -111,6 +120,13 @@ test('Aufgaben: direkte Aufgabe ohne Lautstärke/Schmutz, Unteraufgaben, Person 
 	await page.reload();
 	await page.locator('.kanban-karte', { hasText: titel }).getByRole('button', { name: new RegExp(`^Mitarbeiter für „${titel}“`) }).click();
 	await expect(page.getByRole('dialog', { name: `Mitarbeiter für „${titel}“` }).getByRole('checkbox', { checked: true })).toHaveCount(vorher + 1);
+	await page.keyboard.press('Escape');
+
+	// Status-Menü wie bei den Aufträgen (Jamil msg 3568): alle Spalten mit Farbpunkt, aktuelle mit Haken
+	await page.locator('.kanban-karte', { hasText: titel }).getByRole('button', { name: /^Status von/ }).click();
+	const menue = page.getByRole('menu', { name: `Status von „${titel}“` });
+	await expect(menue.getByRole('menuitemradio')).toHaveText([/Offen/, /In Arbeit/, /Erledigt/]);
+	await expect(menue.getByRole('menuitemradio', { name: /Offen/ })).toHaveAttribute('aria-checked', 'true');
 	await page.keyboard.press('Escape');
 
 	// Aufräumen: Aufgabe in der Liste löschen

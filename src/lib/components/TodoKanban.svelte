@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { schwebendesDetails } from '$lib/overlay';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -9,6 +8,7 @@
 	import { zeitraumText } from '$lib/aufgaben';
 	import { STUFEN, STUFE_NAMEN, stufeName } from '$lib/stufen';
 	import PersonWahl from './ui/PersonWahl.svelte';
+	import StatusMenue from './StatusMenue.svelte';
 	import Unteraufgaben from './Unteraufgaben.svelte';
 
 	type Todo = {
@@ -105,10 +105,6 @@
 		}
 	}
 
-	function waehle(ev: Event, t: Todo, nach: TodoSpalte) {
-		(ev.currentTarget as HTMLElement).closest('details')?.removeAttribute('open');
-		void verschiebe(t, nach);
-	}
 </script>
 
 {#snippet kachel(todo: Todo)}
@@ -119,14 +115,16 @@
 			<div class="td-kopf">
 				<p class="td-titel">{todo.titel}</p>
 				{#if darfBearbeiten}
-					<details class="ab-menue" use:schwebendesDetails={{ panel: '.ab-menue-liste' }} onpointerdown={(ev) => ev.stopPropagation()}>
-						<summary aria-label={`Status von „${todo.titel}“ ändern`}>Status ▾</summary>
-						<div class="ab-menue-liste">
-							{#each TODO_SPALTEN.filter((s) => s.id !== todoSpalte(todo)) as s (s.id)}
-								<button type="button" onclick={(ev) => waehle(ev, todo, s.id)} disabled={laeuft.has(todo.id)}>Nach „{s.titel}“</button>
-							{/each}
-						</div>
-					</details>
+					<!-- gleiches Status-Menü wie bei den Aufträgen (Jamil msg 3568): alle Spalten mit Farbpunkt, aktuelle mit Haken -->
+					<StatusMenue
+						status={todoSpalte(todo)}
+						titel={todo.titel}
+						stati={TODO_SPALTEN.map((x) => ({ wert: x.id, name: x.titel, farbe: x.farbe }))}
+						erlaubt={() => true}
+						grund={() => ''}
+						gesperrt={laeuft.has(todo.id)}
+						onwaehle={(nach) => void verschiebe(todo, nach)}
+					/>
 				{/if}
 			</div>
 			{#if todo.beschreibung}
@@ -267,53 +265,6 @@
 	}
 	.karte-auftrag a {
 		color: var(--ui-akzent-text);
-	}
-	.ab-menue {
-		position: relative;
-		flex: none;
-	}
-	.ab-menue summary {
-		display: inline-flex;
-		align-items: center;
-		min-height: 2rem;
-		padding: 0 0.5rem;
-		border-radius: var(--m365-radius);
-		font-size: 0.75rem;
-		color: var(--ui-akzent-text);
-		cursor: pointer;
-		list-style: none;
-	}
-	.ab-menue summary::-webkit-details-marker {
-		display: none;
-	}
-	.ab-menue summary:hover {
-		background: var(--m365-flaeche-hover);
-	}
-	/* schwebt obenauf am Knopf (use:schwebendesDetails, Regel msg 3116) – die Karte verzieht sich nicht */
-	.ab-menue-liste {
-		text-align: left;
-		display: grid;
-		min-width: 13rem;
-		padding: 0.25rem;
-		background: var(--m365-flaeche);
-		border-radius: var(--m365-radius-karte);
-		box-shadow: var(--m365-schatten-hoch);
-	}
-	.ab-menue-liste button {
-		min-height: var(--tippziel, 44px);
-		padding: 0 0.75rem;
-		border: 0;
-		border-radius: var(--m365-radius);
-		background: transparent;
-		color: var(--m365-text);
-		font: inherit;
-		font-size: 0.8125rem;
-		text-align: left;
-		cursor: pointer;
-	}
-	.ab-menue-liste button:hover,
-	.ab-menue-liste button:focus-visible {
-		background: var(--m365-primaer-hell);
 	}
 
 	.karte-inhalt {

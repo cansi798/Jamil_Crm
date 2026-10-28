@@ -154,6 +154,30 @@ export const actions: Actions = {
 			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
 	},
+	/**
+	 * Abschnitt „Automatik“ (Jamil msgs 3521 E, 3558): EIN Formular, „Speichern“ oben rechts. Jedes Feld nur, wenn es im
+	 * Formular war und der Nutzer es ändern darf: Auftragsbestätigung (Modul Angebote + „Aufträge bearbeiten“), Nachfassen
+	 * (Modul Angebote + „Kunden bearbeiten“).
+	 */
+	automatik: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			const k = betriebKontext(locals);
+			if (!f.has('abAutomatisch') && !f.has('nachfassen')) throw new ApiFehler(400, 'Nichts zu speichern.');
+			// erst alle Rechte und Werte prüfen, dann schreiben – nie halb gespeichert
+			const w = f.get('nachfassen');
+			if (f.has('abAutomatisch')) await darf(locals, 'angebote', 'auftraege.bearbeiten');
+			if (f.has('nachfassen')) {
+				await darf(locals, 'angebote', 'kunden.bearbeiten');
+				if (w !== 'ja' && w !== 'nein') throw new ApiFehler(400, 'Ungültiger Wert für „Automatisch nachfassen“.');
+			}
+			if (f.has('abAutomatisch')) await speichereKundeAb(k, params.id, f.get('abAutomatisch'));
+			if (f.has('nachfassen')) await setzeKundeKeinNachfassen(k, params.id, w === 'nein');
+			return { abMeldung: 'Automatik-Einstellungen gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { abFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
 	/** „Auftragsbestätigung automatisch“ für diesen Kunden (msg 3521 E): Modul Angebote + „Aufträge bearbeiten“; leer = wie die Firma. */
 	abAutomatisch: async ({ locals, params, request }) => {
 		const f = await request.formData();

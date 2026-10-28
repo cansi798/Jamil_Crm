@@ -17,6 +17,8 @@ export type KundenZeilenRechte = {
 export type KundenZeilenInfo = {
 	auftraege: { offen: number; bestandskunde: boolean; naechsterTermin: string | null } | null;
 	angebot: { status: 'versendet' | 'angenommen' | 'abgelehnt'; tag: string; abgelaufen: boolean } | null;
+	/** darf der Nutzer Angebotsinfos sehen? (dann erscheint auch „Kein Angebot“) */
+	angebotSichtbar?: boolean;
 	portal: { gueltig: boolean; jeEinLink: boolean; passwort: boolean; zugriffe: number; zuletzt: string | null } | null;
 };
 
@@ -41,13 +43,20 @@ const datumZeit = (iso: string) =>
 	new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 const berlinTagVon = (iso: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' }).format(new Date(iso));
 
-export type KundenAbzeichen = Abzeichen & { zeichen: string; art: 'angebot' | 'portal' | 'auftraege' | 'termin' | 'bestand' };
+/** `leer` = dezenter Leerzustand (grau, gestrichelt) – Jamil msg 3557 */
+export type KundenAbzeichen = Omit<Abzeichen, 'ton'> & { ton: Abzeichen['ton'] | 'leer'; zeichen: string; art: 'angebot' | 'portal' | 'auftraege' | 'termin' | 'bestand' };
 
-/** Abzeichen einer Kundenzeile in fester Reihenfolge: Angebot · Portal · offene Aufträge · Termin · Bestandskunde. */
+/**
+ * Abzeichen einer Kundenzeile in fester Reihenfolge: Angebot · Portal · offene Aufträge · Termin · Bestandskunde.
+ * Jamil msg 3557: auch der „leere“ Zustand steht da (grau: „Kein Angebot“, „Portal nicht aktiv“, „Keine offenen Aufträge“,
+ * „Kein Termin“), damit alle Zeilen gleich aufgebaut und vergleichbar sind – soweit der Nutzer die Info sehen darf.
+ * „Bestandskunde“ ist ein Merkmal, kein Zustand, und erscheint nur, wenn es zutrifft.
+ */
 export function kundenAbzeichen(i: KundenZeilenInfo | undefined | null): KundenAbzeichen[] {
 	if (!i) return [];
 	const l: KundenAbzeichen[] = [];
 	const a = i.angebot;
+	if (i.angebotSichtbar && !a) l.push({ art: 'angebot', zeichen: '–', ton: 'leer', text: 'Kein Angebot', titel: 'Noch kein Angebot verschickt' });
 	if (a) {
 		if (a.status === 'angenommen') l.push({ art: 'angebot', zeichen: '✓', ton: 'gut', text: `Angebot angenommen ${kurz(a.tag)}`, titel: `Letztes Angebot am ${kurz(a.tag)} angenommen` });
 		else if (a.status === 'abgelehnt') l.push({ art: 'angebot', zeichen: '✕', ton: 'leise', text: `Angebot abgelehnt ${kurz(a.tag)}`, titel: `Letztes Angebot am ${kurz(a.tag)} abgelehnt` });
@@ -55,6 +64,7 @@ export function kundenAbzeichen(i: KundenZeilenInfo | undefined | null): KundenA
 		else l.push({ art: 'angebot', zeichen: '✉', ton: 'neutral', text: `Angebot offen seit ${kurz(a.tag)}`, titel: `Letztes Angebot am ${kurz(a.tag)} verschickt, noch keine Antwort` });
 	}
 	const p = i.portal;
+	if (p && !p.gueltig && !p.jeEinLink) l.push({ art: 'portal', zeichen: '○', ton: 'leer', text: 'Portal nicht aktiv', titel: 'Für diesen Kunden wurde noch kein Portal-Link erzeugt' });
 	if (p && (p.gueltig || p.jeEinLink)) {
 		const geoeffnet = p.zugriffe > 0 ? `${p.zugriffe}× geöffnet${p.zuletzt ? `, zuletzt ${datumZeit(p.zuletzt)}` : ''}` : 'noch nie geöffnet';
 		if (!p.gueltig) l.push({ art: 'portal', zeichen: '○', ton: 'leise', text: 'Portal aus', titel: `Kein gültiger Portal-Link (widerrufen oder abgelaufen) · ${geoeffnet}` });
@@ -64,10 +74,11 @@ export function kundenAbzeichen(i: KundenZeilenInfo | undefined | null): KundenA
 	const au = i.auftraege;
 	if (au) {
 		if (au.offen > 0) l.push({ art: 'auftraege', zeichen: '▣', ton: 'neutral', text: `${au.offen} ${au.offen === 1 ? 'offener Auftrag' : 'offene Aufträge'}`, titel: 'Aufträge, die noch nicht abgerechnet sind' });
+		else l.push({ art: 'auftraege', zeichen: '▢', ton: 'leer', text: 'Keine offenen Aufträge', titel: 'Alle Aufträge sind abgerechnet – oder es gibt noch keinen' });
 		if (au.naechsterTermin) {
 			const t = berlinTagVon(au.naechsterTermin);
 			l.push({ art: 'termin', zeichen: '◷', ton: 'neutral', text: `Termin ${tagKurz(t)}`, titel: `Nächster Termin: ${datumZeit(au.naechsterTermin)}` });
-		}
+		} else l.push({ art: 'termin', zeichen: '◷', ton: 'leer', text: 'Kein Termin', titel: 'Kein kommender Termin eingeplant' });
 		if (au.bestandskunde) l.push({ art: 'bestand', zeichen: '★', ton: 'leise', text: 'Bestandskunde', titel: 'Mindestens ein Auftrag ist abgerechnet (Projekt erfolgreich beendet)' });
 	}
 	return l;

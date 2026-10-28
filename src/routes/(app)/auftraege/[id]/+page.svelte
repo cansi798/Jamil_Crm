@@ -26,7 +26,7 @@
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
 	import { euro } from '$lib/geld';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
-	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN, terminKurz } from '$lib/einsatz-art';
+	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN } from '$lib/einsatz-art';
 	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
 	import ZeitKnoepfe from '$lib/components/zeit/ZeitKnoepfe.svelte';
 	import NachkalkulationKarte from '$lib/components/zeit/Nachkalkulation.svelte';
@@ -135,6 +135,17 @@
 				<!-- Auftragsquelle als Chip, Klick ändert sie sofort (Jamil msg 2844) -->
 				<QuelleChip quellen={data.quellen} wert={a.quelleId} name={a.quelleName} farbe={a.quelleFarbe} darf={data.darfBearbeiten && data.quellen.length > 0} absenden={sofort} />
 				<AuftragHinweise angebotInfo={a.angebotInfo} nachfassenInfo={a.nachfassenInfo} />
+				<!-- Kundenportal dezent im Kopf (Jamil msg 3561): nur wenn der Auftrag dort sichtbar ist; Erklärung im Tooltip/ⓘ -->
+				{#if data.portal?.imPortal}
+					<span class="af-portal-chip" data-testid="portal-status-auftrag">
+						{#if data.kundeEinstellbar && data.portal.kundeId}
+							<a class="ah-chip gut" href={`/kunden/${data.portal.kundeId}#portal-einstellung`} title={`Im Kundenportal des Kunden sichtbar${data.portal.kundeHatLink ? '' : ' – der Kunde hat noch keinen Link'}. Einstellungen beim Kunden.`}><span aria-hidden="true">✓</span> Im Portal sichtbar{#if !data.portal.kundeHatLink}<span class="af-portal-ohne"> · noch kein Link</span>{/if}</a>
+						{:else}
+							<span class="ah-chip gut" title="Im Kundenportal des Kunden sichtbar"><span aria-hidden="true">✓</span> Im Portal sichtbar</span>
+						{/if}
+						<InfoFenster id="auftrag.portal" />
+					</span>
+				{/if}
 			</div>
 		</div>
 		<div class="seiten-aktionen">
@@ -144,7 +155,7 @@
 			{#if darfLoeschen}
 				<LoeschenKnopf ding="Auftrag" bind:offen={loeschenOffen} />
 			{/if}
-			<a href={`/auftraege/${a.id}/dokumentation`} class="kd-knopf">Dokumentation</a>
+			<!-- „Dokumentation“ oben entfernt (Jamil msg 3566): erreichbar über „Dokumente & Notizen“ → „Dokumentation öffnen“ -->
 		</div>
 	</header>
 	{#if darfLoeschen}
@@ -231,139 +242,6 @@
 							<ul class="af-zeit-personen">
 								{#each data.zeit.summe.personen as p (p.benutzerId)}<li>{p.name}: {stundenText(p.arbeitMin)}</li>{/each}
 							</ul>
-						{/if}
-					</Karte>
-				</div>
-			{/if}
-			{#if data.portal}
-				<div class="af-k k-portal" id="kundenportal">
-					<Karte>
-						{#snippet titel()}Kundenportal{/snippet}
-						{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
-						<!-- Dezent statt langer Text (Jamil msg 3526): Haken + kurzer Zustand, Erklärung im ⓘ, Links nur mit Recht -->
-						<div class="af-portal-zeile" data-testid="portal-status-auftrag">
-							{#if !data.portal.kundeId}
-								<span class="af-portal-zustand aus"><span aria-hidden="true">–</span> Ohne Kunden kein Kundenportal</span>
-							{:else if data.portal.imPortal}
-								<span class="af-portal-zustand an"><span class="af-haken" aria-hidden="true">✓</span> Im Kundenportal sichtbar</span>
-							{:else}
-								<span class="af-portal-zustand aus"><span aria-hidden="true">–</span> Nicht im Kundenportal</span>
-							{/if}
-							<InfoFenster id="auftrag.portal" />
-						</div>
-						{#if data.portal.kundeId}
-							<p class="kd-info af-portal-mehr" data-testid="portal-hinweis-kunde">
-								{data.portal.kundeHatLink ? 'Kunde hat einen gültigen Link' : 'Kunde hat noch keinen Link'}
-								{#if data.kundeEinstellbar} · <a href={`/kunden/${data.portal.kundeId}#kundenportal`}>Link verwalten</a> · <a href={`/kunden/${data.portal.kundeId}#portal-einstellung`}>Einstellungen des Kunden</a>{/if}
-							</p>
-						{/if}
-						{#if data.portal.angebote.length + data.portal.dateien.length > 0}
-							<p class="af-portal-titel">Freigegebene Dokumente</p>
-							<ul class="af-portal-docs">
-								{#each [...data.portal.angebote.map((x) => ({ art: 'angebot', id: x.id, name: `Angebot ${x.nummer}`, geteilt: x.geteilt })), ...data.portal.dateien.map((x) => ({ art: 'datei', id: x.id, name: anzeigeDateiname(x.name, x.typ, x.angelegt), geteilt: x.geteilt }))] as d (d.id)}
-									<li>
-										<form method="POST" action="?/portalDokument" use:enhance={sofort}>
-											<input type="hidden" name="art" value={d.art} /><input type="hidden" name="refId" value={d.id} />
-											<label><input type="checkbox" name="geteilt" value="ja" checked={d.geteilt} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> {d.name}</label>
-										</form>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					</Karte>
-				</div>
-			{/if}
-			{#if data.nachkalkulation}
-				<div class="af-k k-nachkalk" id="nachkalkulation">
-					<Karte>
-						{#snippet titel()}Nachkalkulation{/snippet}
-						<NachkalkulationKarte nk={data.nachkalkulation} />
-					</Karte>
-				</div>
-			{/if}
-			{#if data.material}
-				<div class="af-k k-material" id="material">
-					<Karte>
-						{#snippet titel()}Material{/snippet}
-						{#snippet aktionen()}
-							{#if data.material && data.material.offenePlan > 0}
-								<form method="POST" action="?/materialWieGeplant" use:enhance>
-									<button type="submit" class="kd-knopf">✓ Wie geplant</button>
-								</form>
-							{/if}
-						{/snippet}
-						{#if form?.materialFehler}<p role="alert" class="kd-fehler">{form.materialFehler}</p>{/if}
-						{#if form?.materialMeldung}<p role="status" class="kd-info">{form.materialMeldung}</p>{/if}
-						{#if data.material.ohneAngebot}
-							<p class="kd-info">Geplantes Material kommt aus dem angenommenen Angebot – hier gibt es noch keins. Verbrauchtes Material kann trotzdem eingetragen werden.</p>
-						{/if}
-						{#if data.material.zeilen.length > 0}
-							<ul class="af-material">
-								{#each data.material.zeilen as m (m.id ?? m.positionId)}
-									<li class:offen={m.positionId && m.id === null}>
-										<span class="af-mat-name">{m.bezeichnung}{#if m.quelle === 'lieferschein'} <small>(Lieferschein)</small>{/if}
-											{#if m.mengePlan !== null}<small>geplant {mengeText(m.mengePlan)} {m.einheit}</small>{/if}
-										</span>
-										<form method="POST" action="?/materialMenge" use:enhance={() => async ({ update }) => update({ reset: false })} class="af-mat-form">
-											{#if m.id}<input type="hidden" name="id" value={m.id} />{:else}<input type="hidden" name="positionId" value={m.positionId} />{/if}
-											<label class="af-mat-menge">
-												<span class="unsichtbar">Verbraucht ({m.einheit})</span>
-												<input name="menge" inputmode="decimal" value={m.menge === null ? '' : mengeText(m.menge)} placeholder={m.mengePlan === null ? '' : mengeText(m.mengePlan)} aria-label={`Verbraucht: ${m.bezeichnung} in ${m.einheit}`} />
-												<span>{m.einheit}</span>
-											</label>
-											<button type="submit" class="kd-knopf hell">{m.id ? 'Ändern' : 'Bestätigen'}</button>
-										</form>
-										{#if m.id && !m.positionId}
-											<form method="POST" action="?/materialLoeschen" use:enhance>
-												<input type="hidden" name="id" value={m.id} />
-												<button type="submit" class="knopf-subtil" aria-label={`${m.bezeichnung} entfernen`} use:rueckfrage={{ frage: `„${m.bezeichnung}“ wirklich entfernen?`, ja: 'Entfernen' }}>✕</button>
-											</form>
-										{/if}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-						<AddPanel label="Material hinzufügen">
-							{#snippet children(schliessen)}
-								<form method="POST" action="?/materialNeu" use:enhance class="af-mat-neu">
-									<label>Bezeichnung <input name="bezeichnung" required maxlength="200" /></label>
-									<label>Menge <input name="menge" inputmode="decimal" required /></label>
-									<label>Einheit <input name="einheit" value="Stk" maxlength="20" /></label>
-									{#if data.preiseSehen}<label>Einkauf je Einheit (€) <input name="preis" inputmode="decimal" /></label>{/if}
-									<div class="af-mat-knoepfe">
-										<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
-										<button type="submit" class="kd-knopf">Speichern</button>
-									</div>
-								</form>
-							{/snippet}
-						</AddPanel>
-						<AddPanel label="Lieferschein fotografieren">
-							{#snippet children(schliessen)}
-								<form method="POST" action="?/lieferschein" enctype="multipart/form-data" use:enhance={() => { kiLaeuft = true; return async ({ update }) => { await update(); kiLaeuft = false; }; }} class="af-mat-neu">
-									<label>Foto des Lieferscheins <input type="file" name="foto" accept="image/jpeg,image/png" capture="environment" required /></label>
-									<label class="af-zustimmung"><input type="checkbox" name="zustimmung" value="ja" required /> Das Foto darf zur Auswertung an die KI gesendet werden (nur das Foto, keine Kundendaten).</label>
-									<div class="af-mat-knoepfe">
-										<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
-										<button type="submit" class="kd-knopf" disabled={kiLaeuft}>{kiLaeuft ? 'KI liest …' : 'Auslesen'}</button>
-									</div>
-								</form>
-							{/snippet}
-						</AddPanel>
-						{#if form?.lieferschein}
-							<form method="POST" action="?/lieferscheinUebernehmen" use:enhance class="af-lieferschein">
-								<p class="kd-info">Bitte prüfen – nur angehakte Zeilen werden übernommen. Gelb = schlecht lesbar.</p>
-								{#each form.lieferschein as p, i (i)}
-									<fieldset class:unsicher={p.unsicher}>
-										<legend class="unsichtbar">Position {i + 1}</legend>
-										<label class="af-nehmen"><input type="checkbox" name={`nehmen_${i}`} value="ja" checked /> <span class="unsichtbar">übernehmen</span></label>
-										<input name={`bezeichnung_${i}`} value={p.bezeichnung} aria-label="Bezeichnung" />
-										<input name={`menge_${i}`} value={mengeText(p.menge)} inputmode="decimal" aria-label="Menge" class="kurz" />
-										<input name={`einheit_${i}`} value={p.einheit} aria-label="Einheit" class="kurz" />
-										{#if data.preiseSehen}<input name={`preis_${i}`} value={p.einzelpreisCent === null ? '' : euro(p.einzelpreisCent).replace(/\s*€/, '')} aria-label="Einkauf je Einheit (€)" class="kurz" />{/if}
-									</fieldset>
-								{/each}
-								<button type="submit" class="kd-knopf">Übernehmen</button>
-							</form>
 						{/if}
 					</Karte>
 				</div>
@@ -464,6 +342,8 @@
 			<div class="af-k k-termine">
 				<Karte>
 					{#snippet titel()}Termine{/snippet}
+					<!-- „geplant ab“ stand in der entfernten Karte „Nächster Termin“ (Jamil msg 3564) -->
+					{#if !a.kommenderTermin && a.geplantAb}<p class="kd-info">Geplant ab {tagDeutsch(a.geplantAb)} – noch kein Termin.</p>{/if}
 					{#if data.darfTermine}
 						<AddPanel label="Termin hinzufügen" offen={!!form?.terminFehler}>
 							{#snippet children(schliessen)}
@@ -511,6 +391,102 @@
 					</ul>
 				</Karte>
 			</div>
+
+			{#if data.material}
+				<div class="af-k k-material" id="material">
+					<Karte>
+						{#snippet titel()}Material{/snippet}
+						{#snippet aktionen()}
+							{#if data.material && data.material.offenePlan > 0}
+								<form method="POST" action="?/materialWieGeplant" use:enhance>
+									<button type="submit" class="kd-knopf">✓ Wie geplant</button>
+								</form>
+							{/if}
+						{/snippet}
+						{#if form?.materialFehler}<p role="alert" class="kd-fehler">{form.materialFehler}</p>{/if}
+						{#if form?.materialMeldung}<p role="status" class="kd-info">{form.materialMeldung}</p>{/if}
+						{#if data.material.ohneAngebot}
+							<p class="kd-info">Geplantes Material kommt aus dem angenommenen Angebot – hier gibt es noch keins. Verbrauchtes Material kann trotzdem eingetragen werden.</p>
+						{/if}
+						{#if data.material.zeilen.length > 0}
+							<ul class="af-material">
+								{#each data.material.zeilen as m (m.id ?? m.positionId)}
+									<li class:offen={m.positionId && m.id === null}>
+										<span class="af-mat-name">{m.bezeichnung}{#if m.quelle === 'lieferschein'} <small>(Lieferschein)</small>{/if}
+											{#if m.mengePlan !== null}<small>geplant {mengeText(m.mengePlan)} {m.einheit}</small>{/if}
+										</span>
+										<form method="POST" action="?/materialMenge" use:enhance={() => async ({ update }) => update({ reset: false })} class="af-mat-form">
+											{#if m.id}<input type="hidden" name="id" value={m.id} />{:else}<input type="hidden" name="positionId" value={m.positionId} />{/if}
+											<label class="af-mat-menge">
+												<span class="unsichtbar">Verbraucht ({m.einheit})</span>
+												<input name="menge" inputmode="decimal" value={m.menge === null ? '' : mengeText(m.menge)} placeholder={m.mengePlan === null ? '' : mengeText(m.mengePlan)} aria-label={`Verbraucht: ${m.bezeichnung} in ${m.einheit}`} />
+												<span>{m.einheit}</span>
+											</label>
+											<button type="submit" class="kd-knopf hell">{m.id ? 'Ändern' : 'Bestätigen'}</button>
+										</form>
+										{#if m.id && !m.positionId}
+											<form method="POST" action="?/materialLoeschen" use:enhance>
+												<input type="hidden" name="id" value={m.id} />
+												<button type="submit" class="knopf-subtil" aria-label={`${m.bezeichnung} entfernen`} use:rueckfrage={{ frage: `„${m.bezeichnung}“ wirklich entfernen?`, ja: 'Entfernen' }}>✕</button>
+											</form>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+						<AddPanel label="Material hinzufügen">
+							{#snippet children(schliessen)}
+								<form method="POST" action="?/materialNeu" use:enhance class="af-mat-neu">
+									<label>Bezeichnung <input name="bezeichnung" required maxlength="200" /></label>
+									<label>Menge <input name="menge" inputmode="decimal" required /></label>
+									<label>Einheit <input name="einheit" value="Stk" maxlength="20" /></label>
+									{#if data.preiseSehen}<label>Einkauf je Einheit (€) <input name="preis" inputmode="decimal" /></label>{/if}
+									<div class="af-mat-knoepfe">
+										<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+										<button type="submit" class="kd-knopf">Speichern</button>
+									</div>
+								</form>
+							{/snippet}
+						</AddPanel>
+						<AddPanel label="Lieferschein fotografieren">
+							{#snippet children(schliessen)}
+								<form method="POST" action="?/lieferschein" enctype="multipart/form-data" use:enhance={() => { kiLaeuft = true; return async ({ update }) => { await update(); kiLaeuft = false; }; }} class="af-mat-neu">
+									<label>Foto des Lieferscheins <input type="file" name="foto" accept="image/jpeg,image/png" capture="environment" required /></label>
+									<label class="af-zustimmung"><input type="checkbox" name="zustimmung" value="ja" required /> Das Foto darf zur Auswertung an die KI gesendet werden (nur das Foto, keine Kundendaten).</label>
+									<div class="af-mat-knoepfe">
+										<button type="button" class="kd-knopf hell" onclick={schliessen}>Abbrechen</button>
+										<button type="submit" class="kd-knopf" disabled={kiLaeuft}>{kiLaeuft ? 'KI liest …' : 'Auslesen'}</button>
+									</div>
+								</form>
+							{/snippet}
+						</AddPanel>
+						{#if form?.lieferschein}
+							<form method="POST" action="?/lieferscheinUebernehmen" use:enhance class="af-lieferschein">
+								<p class="kd-info">Bitte prüfen – nur angehakte Zeilen werden übernommen. Gelb = schlecht lesbar.</p>
+								{#each form.lieferschein as p, i (i)}
+									<fieldset class:unsicher={p.unsicher}>
+										<legend class="unsichtbar">Position {i + 1}</legend>
+										<label class="af-nehmen"><input type="checkbox" name={`nehmen_${i}`} value="ja" checked /> <span class="unsichtbar">übernehmen</span></label>
+										<input name={`bezeichnung_${i}`} value={p.bezeichnung} aria-label="Bezeichnung" />
+										<input name={`menge_${i}`} value={mengeText(p.menge)} inputmode="decimal" aria-label="Menge" class="kurz" />
+										<input name={`einheit_${i}`} value={p.einheit} aria-label="Einheit" class="kurz" />
+										{#if data.preiseSehen}<input name={`preis_${i}`} value={p.einzelpreisCent === null ? '' : euro(p.einzelpreisCent).replace(/\s*€/, '')} aria-label="Einkauf je Einheit (€)" class="kurz" />{/if}
+									</fieldset>
+								{/each}
+								<button type="submit" class="kd-knopf">Übernehmen</button>
+							</form>
+						{/if}
+					</Karte>
+				</div>
+			{/if}
+			{#if data.nachkalkulation}
+				<div class="af-k k-nachkalk" id="nachkalkulation">
+					<Karte>
+						{#snippet titel()}Nachkalkulation{/snippet}
+						<NachkalkulationKarte nk={data.nachkalkulation} />
+					</Karte>
+				</div>
+			{/if}
 
 			{#if data.protokolle}
 				<div class="af-k k-protokolle">
@@ -730,22 +706,6 @@
 				</Karte>
 			</div>
 
-			<div class="af-k k-naechst">
-				<Karte>
-					{#snippet titel()}Nächster Termin{/snippet}
-					<p class="af-naechst">
-						{#if a.kommenderTermin}
-							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10v8.5H3ZM3 7h10M5.5 3v2.5M10.5 3v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
-							<strong>{terminKurz(a.kommenderTermin)}</strong>
-						{:else if a.geplantAb}
-							geplant ab {tagDeutsch(a.geplantAb)} <span class="kd-info">(noch kein Termin)</span>
-						{:else}
-							<span class="kd-info">Noch kein Termin – bei „Termine“ anlegen.</span>
-						{/if}
-					</p>
-				</Karte>
-			</div>
-
 			{#if data.angebote || data.auftragsbestaetigungen.length > 0 || data.abHinweis}
 				<!-- Ausgangsbelege des Auftrags (Jamil msg 3525): Angebote, Auftragsbestätigungen und (mit Lexware) Rechnungen in EINER
 				     Liste, neueste zuerst, Belegart als Abzeichen – gleiche Zeile wie unter „Ausgangsbelege“ (BelegListe) -->
@@ -788,6 +748,23 @@
 								</p>
 							{/if}
 						</div>
+						<!-- Freigaben fürs Kundenportal (früher eigene Karte „Kundenportal“, Jamil msg 3561 aufgelöst) -->
+						{#if data.portal}
+							{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
+							{#if data.portal.angebote.length + data.portal.dateien.length > 0}
+								<p class="af-portal-titel">Im Kundenportal freigeben <span class="kd-info">(Haken = der Kunde sieht es)</span></p>
+								<ul class="af-portal-docs">
+									{#each [...data.portal.angebote.map((x) => ({ art: 'angebot', id: x.id, name: `Angebot ${x.nummer}`, geteilt: x.geteilt })), ...data.portal.dateien.map((x) => ({ art: 'datei', id: x.id, name: anzeigeDateiname(x.name, x.typ, x.angelegt), geteilt: x.geteilt }))] as d (d.id)}
+										<li>
+											<form method="POST" action="?/portalDokument" use:enhance={sofort}>
+												<input type="hidden" name="art" value={d.art} /><input type="hidden" name="refId" value={d.id} />
+												<label><input type="checkbox" name="geteilt" value="ja" checked={d.geteilt} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} /> {d.name}</label>
+											</form>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						{/if}
 						{#if wegeAngebot.length > 0}
 							<AddPanel label="Angebot hinzufügen" offen={!!form?.kiStichworte}>
 								{#snippet children()}
@@ -970,24 +947,22 @@
 		display: contents;
 	}
 	/* Schmal: Ort und Mitarbeiter früh (Monteur unterwegs), dann Arbeit */
+	/* Reihenfolge Aufgaben → Termine → Material → Nachkalkulation (Jamil msg 3563), am Handy genauso */
 	.k-zeit { order: 0; }
-	.k-material { order: 4; }
-	.k-nachkalk { order: 6; }
-	.k-ab { order: 6; }
-	.k-portal { order: 6; }
 	.k-beschreibung { order: 1; }
-	.k-naechst { order: 3; }
 	.k-buchung { order: 1; }
 	.k-ort { order: 2; }
 	.k-mitarbeiter { order: 3; }
 	.k-todos { order: 4; }
 	.k-termine { order: 5; }
-	.k-protokolle { order: 5; }
-	.k-angebote { order: 6; }
-	.k-partner { order: 7; }
-	.k-links { order: 7; }
-	.k-doku { order: 7; }
-	.k-verlauf { order: 8; }
+	.k-material { order: 6; }
+	.k-nachkalk { order: 7; }
+	.k-protokolle { order: 8; }
+	.k-angebote { order: 9; }
+	.k-partner { order: 10; }
+	.k-links { order: 10; }
+	.k-doku { order: 10; }
+	.k-verlauf { order: 11; }
 	@media (min-width: 1200px) {
 		.af-raster {
 			display: grid;
@@ -1044,18 +1019,6 @@
 	}
 	.af-kunde-kurz dd {
 		margin: 0;
-	}
-	.af-naechst {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		margin: 0;
-	}
-	.af-naechst svg {
-		width: 1.1rem;
-		height: 1.1rem;
-		color: var(--ui-akzent-text);
-		flex: none;
 	}
 	.af-stamm {
 		display: grid;
@@ -1354,12 +1317,9 @@
 	.af-portal-docs label { display: flex; gap: var(--ui-a2); align-items: center; min-height: 2.25rem; }
 	.af-portal-titel { margin: var(--ui-a2) 0 0; font-weight: 600; font-size: var(--ui-schrift-s); }
 	/* Kundenportal dezent (msg 3526): Haken + kurzer Zustand, ⓘ für die Erklärung */
-	.af-portal-zeile { display: flex; align-items: center; gap: 0.25rem; min-height: 2rem; }
-	.af-portal-zustand { display: inline-flex; align-items: center; gap: 0.4rem; font-size: var(--ui-schrift-s); font-weight: 600; }
-	.af-portal-zustand.an { color: var(--ui-gruen); }
-	.af-portal-zustand.aus { color: var(--ui-text-leise); }
-	.af-haken { display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--ui-gruen-hell); font-size: 0.75rem; }
-	.af-portal-mehr { margin: 0 0 var(--ui-a2); }
+	.af-portal-chip { display: inline-flex; align-items: center; }
+	.af-portal-chip a.ah-chip { text-decoration: none; }
+	.af-portal-ohne { font-weight: 400; }
 	#auftragsbestaetigung { display: grid; gap: var(--ui-a2); margin-top: var(--ui-a2); }
 	#auftragsbestaetigung > p { margin: 0; }
 </style>

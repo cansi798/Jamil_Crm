@@ -44,6 +44,7 @@ export async function kundenZeilenInfo(k: Kontext, ids: string[], r: KundenZeile
 		ergebnis.set(z.id, {
 			auftraege: r.auftraege ? { offen: z.offen, bestandskunde: z.bestand === true, naechsterTermin: z.termin ? new Date(z.termin).toISOString() : null } : null,
 			angebot: r.angebote && z.angebot ? { status: z.angebot.status, tag: z.angebot.tag, abgelaufen: z.angebot.abgelaufen === true } : null,
+			angebotSichtbar: r.angebote,
 			portal: r.portal
 				? {
 						gueltig: z.portal_gueltig === true,

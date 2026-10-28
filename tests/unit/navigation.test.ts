@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aktiverEintrag, baueNavigation, istAktiv, MOBIL_HAUPT } from '../../src/lib/navigation';
+import { aktiverEintrag, baueNavigation, istAktiv, istBereichsStart, MOBIL_HAUPT } from '../../src/lib/navigation';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import { MODULE } from '../../src/lib/tarife';
 
@@ -140,6 +140,14 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 			expect(alle.filter((e) => istAktiv(e.href, pfad)).length, pfad).toBe(1);
 		}
 		expect(name('/einstellungen/mail-vorlagen/neu')).toBe('E-Mail-Vorlagen');
+	});
+
+	it('Bereichs-Startseite (Titel nur in der Kopfleiste, msgs 3060, 3569): auch der Reiter „Aufmaße“', () => {
+		expect(istBereichsStart('/einstellungen/protokoll-vorlagen', '/einstellungen/protokoll-vorlagen')).toBe(true);
+		expect(istBereichsStart('/einstellungen/protokoll-vorlagen', '/einstellungen/aufmass-vorlagen')).toBe(true);
+		expect(istBereichsStart('/einstellungen/protokoll-vorlagen', '/einstellungen/aufmass-vorlagen/2f1c0b3e-0000-4000-8000-000000000001')).toBe(false);
+		expect(istBereichsStart('/ausgangsbelege', '/angebote')).toBe(false);
+		expect(istBereichsStart(null, '/')).toBe(false);
 	});
 
 	it('Jede Seite markiert genau EINEN Menüpunkt – keine Menü-Adresse mit Suchteil, der genaueste Eintrag gewinnt', () => {

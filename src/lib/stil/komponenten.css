@@ -1338,3 +1338,10 @@ html body .kd-liste a {
 	color: #a4262c;
 	font-weight: 600;
 }
+/* Leerzustand (Kundenliste, Jamil msg 3557): sichtbar, aber ruhig – heller Grund, gestrichelter Rand, leiser Text */
+.ah-chip.leer {
+	background: transparent;
+	border: 1px dashed var(--ui-rand-stark, #c9c4ba);
+	color: var(--m365-text-leise, #616161);
+	padding: calc(0.1rem - 1px) calc(0.45rem - 1px);
+}

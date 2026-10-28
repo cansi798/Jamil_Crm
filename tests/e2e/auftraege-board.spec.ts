@@ -159,8 +159,9 @@ test('Aufgaben: Board mit Ziehen und Menü, Rücknahme bei Fehler, Liste', async
 			await page.locator('.ab-reiter').getByRole('button', { name: /^Offen/ }).click();
 		}
 		// Menü: nach „Erledigt“
-		await karte.locator('.ab-menue summary').click();
-		await karte.getByRole('button', { name: 'Nach „Erledigt“' }).click();
+		// gleiches Status-Menü wie bei den Aufträgen (Jamil msg 3568)
+		await karte.getByRole('button', { name: /^Status von/ }).click();
+		await page.getByRole('menu', { name: /^Status von/ }).getByRole('menuitemradio', { name: /Erledigt/ }).click();
 		await expect.poll(async () => (await todo()).erledigt).toBe(true);
 		if (info.project.name !== 'desktop') await page.locator('.ab-reiter').getByRole('button', { name: /^Erledigt/ }).click();
 		await expect(spalte(page, 'erledigt').locator('.ab-karte', { hasText: titel })).toBeVisible();

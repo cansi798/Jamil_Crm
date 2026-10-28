@@ -92,10 +92,10 @@ export const INFOS: Record<string, Info> = {
 	},
 	'auftrag.portal': {
 		titel: 'Auftrag im Kundenportal',
-		was: 'Zeigt, ob dieser Auftrag im Portal des Kunden steht. Was der Kunde dort sieht (Status, Termine, Namen, Online-Annahme), stellen Sie beim Kunden ein; hier geben Sie nur einzelne Dokumente frei.',
+		was: '„✓ Im Portal sichtbar“ im Kopf des Auftrags heißt: dieser Auftrag steht im Portal des Kunden (steht nichts da, ist er nicht sichtbar). Was der Kunde dort sieht, stellen Sie beim Kunden ein (Klick auf das Kennzeichen); einzelne Angebote und Dateien geben Sie rechts unter „Ausgangsbelege“ → „Im Kundenportal freigeben“ frei.',
 		wirkt: 'Nur das Portal dieses Kunden. Versendete Angebote und Auftragsbestätigungen erscheinen automatisch; ab „Beauftragt“ sieht der Kunde Aufgaben mit Lautstärke oder Schmutz als Arbeitsschritte. Kein anderer Kunde, keine internen Notizen. Abgerechnete Aufträge verschwinden aus dem Portal.',
 		standard: 'Wie beim Kunden bzw. in der Firma eingestellt.',
-		beispiel: '✓ Im Kundenportal sichtbar: der Kunde sieht diesen Auftrag, sobald er seinen Link öffnet.'
+		beispiel: '✓ Im Portal sichtbar: der Kunde sieht diesen Auftrag, sobald er seinen Link öffnet.'
 	},
 	'kunde.portal_seite': {
 		titel: 'Portal-Einstellungen dieses Kunden',
@@ -138,6 +138,13 @@ export const INFOS: Record<string, Info> = {
 		wirkt: 'Das Portal dieses Kunden.',
 		standard: 'Firmen-Standard.',
 		beispiel: 'Nein bei großen Projekten, die Sie lieber persönlich besprechen.'
+	},
+	'kunde.nachfassen': {
+		titel: 'Automatisch nachfassen',
+		was: 'Ob das CRM bei diesem Kunden unbeantwortete Angebote und Rechnungen nach den Stufen der Firma nachfasst (Aufgabe + vorbereitete Mail). „Nein“ schaltet das für diesen Kunden ganz ab.',
+		wirkt: 'Alle Angebote und Rechnungen dieses Kunden. Einzelne Angebote lassen sich zusätzlich am Angebot pausieren.',
+		standard: 'Firmen-Standard (Stufen unter Angebot → Nachfassen).',
+		beispiel: 'Nein bei einem Stammkunden, den Sie lieber selbst anrufen.'
 	},
 	'kunde.ab_automatisch': {
 		titel: 'Auftragsbestätigung automatisch erstellen',

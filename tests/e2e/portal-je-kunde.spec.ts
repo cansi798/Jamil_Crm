@@ -22,23 +22,31 @@ test('Kundenakte: Portal-Einstellungen des Kunden; Auftrag zeigt nur den Hinweis
 	test.skip(!href, 'Seed-Auftrag „Ladenumbau Trockenbau“ fehlt');
 	await page.goto(href!);
 	// dezent (Jamil msg 3526): Haken + kurzer Zustand, Erklärung im ⓘ
-	await expect(page.getByTestId('portal-status-auftrag')).toContainText(/Im Kundenportal sichtbar|Nicht im Kundenportal/);
+	// dezentes Kennzeichen im Auftragskopf (Jamil msg 3561), keine eigene Karte mehr
+	await expect(page.getByTestId('portal-status-auftrag')).toContainText('Im Portal sichtbar');
+	await expect(page.getByRole('heading', { name: 'Kundenportal', exact: true })).toHaveCount(0);
 	await expect(page.getByTestId('portal-status-auftrag').getByRole('button', { name: /Was bewirkt diese Einstellung\? Auftrag im Kundenportal/ })).toBeVisible();
 	await expect(page.getByText('Versendete Angebote und Auftragsbestätigungen erscheinen automatisch')).toHaveCount(0);
 	await expect(page.getByText('Im Portal zeigen', { exact: true })).toHaveCount(0);
 	await expect(page.getByText('Der Kunde sieht:')).toHaveCount(0);
-	await page.getByTestId('portal-hinweis-kunde').getByRole('link', { name: /Einstellungen des Kunden/ }).click();
+	await page.getByTestId('portal-status-auftrag').getByRole('link', { name: /Im Portal sichtbar/ }).click();
 	await expect(page).toHaveURL(/\/kunden\/[0-9a-f-]{36}#portal-einstellung$/);
+	const kundeUrl = page.url().split('#')[0];
 
 	// Kundenakte: Einstellungen für diesen Kunden
 	const block = page.getByTestId('portal-einstellung');
 	await expect(block).toBeVisible();
-	await expect(block.getByRole('button', { name: /Was bewirkt diese Einstellung\? Portal-Einstellungen dieses Kunden/ })).toBeVisible();
+	await expect(page.locator('#portal-einstellung').getByRole('button', { name: /Was bewirkt diese Einstellung\? Portal-Einstellungen dieses Kunden/ })).toBeVisible();
 	const namen = block.getByRole('combobox', { name: /^Namen der Mitarbeiter zeigen/ });
 	await expect(namen).toHaveValue('');
 	await expect(namen.locator('option').first()).toContainText('Firmen-Standard');
 	await namen.selectOption('aus');
-	await block.getByRole('button', { name: 'Einstellungen speichern' }).click();
+	// „Speichern“ oben rechts im Kopf des Abschnitts (Jamil msg 3558)
+	const speichern = page.getByTestId('portal-einstellung-speichern');
+	const kopf = await page.locator('#portal-einstellung .abschnitt-kopf').boundingBox();
+	const knopfBox = await speichern.boundingBox();
+	expect(knopfBox!.y).toBeLessThan(kopf!.y + kopf!.height);
+	await speichern.click();
 	await expect(page.getByRole('status').filter({ hasText: 'Portal-Einstellungen des Kunden gespeichert' })).toBeVisible();
 	await page.reload();
 	await expect(page.getByTestId('portal-einstellung').getByRole('combobox', { name: /^Namen der Mitarbeiter zeigen/ })).toHaveValue('aus');
@@ -46,7 +54,7 @@ test('Kundenakte: Portal-Einstellungen des Kunden; Auftrag zeigt nur den Hinweis
 
 	// zurück auf „wie Firma“
 	await page.getByTestId('portal-einstellung').getByRole('combobox', { name: /^Namen der Mitarbeiter zeigen/ }).selectOption('');
-	await page.getByTestId('portal-einstellung').getByRole('button', { name: 'Einstellungen speichern' }).click();
+	await page.getByTestId('portal-einstellung-speichern').click();
 	await expect(page.getByRole('status').filter({ hasText: 'gespeichert' })).toBeVisible();
 	await page.reload();
 	await expect(page.getByTestId('portal-einstellung').getByRole('combobox', { name: /^Namen der Mitarbeiter zeigen/ })).toHaveValue('');
@@ -55,4 +63,18 @@ test('Kundenakte: Portal-Einstellungen des Kunden; Auftrag zeigt nur den Hinweis
 	await page.goto('/einstellungen/kundenportal');
 	await expect(page.getByText('Der Kunde sieht im Portal (Standard für alle Kunden)')).toBeVisible();
 	await expect(page.getByRole('checkbox', { name: 'Auftragsstatus' })).toBeChecked();
+	// Automatik: gleicher Aufbau, Speichern oben rechts, beide Werte in einem Formular (Jamil msg 3558)
+	await page.goto(kundeUrl);
+	const automatik = page.locator('#automatik');
+	if (await automatik.count()) {
+		await expect(automatik.getByRole('combobox', { name: /Automatisch nachfassen/ })).toBeVisible();
+		await automatik.getByRole('combobox', { name: /Automatisch nachfassen/ }).selectOption('nein');
+		await page.getByTestId('automatik-speichern').click();
+		await expect(automatik.getByRole('status')).toContainText('gespeichert');
+		await page.reload();
+		await expect(page.locator('#automatik').getByRole('combobox', { name: /Automatisch nachfassen/ })).toHaveValue('nein');
+		await page.locator('#automatik').getByRole('combobox', { name: /Automatisch nachfassen/ }).selectOption('ja');
+		await page.getByTestId('automatik-speichern').click();
+		await expect(page.locator('#automatik').getByRole('status')).toContainText('gespeichert');
+	}
 });

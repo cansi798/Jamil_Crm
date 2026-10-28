@@ -239,4 +239,11 @@ Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…"
   Rechnung grün).
 - **Lange Listen wie der Verlauf** scrollen in sich: `components/ui/ScrollBereich.svelte` (Höchsthöhe, am Handy höher,
   per Tastatur erreichbar, benannter Bereich). Nicht pro Seite nachbauen.
+- **Status ändern** immer mit dem gemeinsamen Status-Menü `components/StatusMenue.svelte` (alle Status mit Farbpunkt, aktueller mit
+  Haken, nicht erreichbare ausgegraut mit Grund) – Aufträge und Aufgaben (`stati`), Jamil msg 3568.
+- **Einstellungsblöcke** (z. B. Kundenakte „Kundenportal-Einstellungen“ und „Automatik“): Abschnitt mit ⓘ, Feldreihen mit `InfoFeld` +
+  `Auswahl`, „Speichern“ oben rechts im Abschnittskopf (`<button form="…">`), Rückmeldung direkt unter dem Kopf (Jamil msg 3558).
+- **Auftrag:** „Im Portal sichtbar“ als dezentes Kennzeichen im Kopf (keine eigene Karte, msg 3561); Hauptspalte Aufgaben → Termine →
+  Material → Nachkalkulation (msg 3563); keine zweite Terminanzeige (msg 3564); „Dokumentation“ über „Dokumente & Notizen“ (msg 3566).
+- **Kundenliste:** Abzeichen auch im Leerzustand (gestrichelt, grau: „Kein Angebot“, „Portal nicht aktiv“ …), Jamil msg 3557.
 

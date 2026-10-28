@@ -660,6 +660,22 @@ describe('Kundenportal', () => {
 		expect(((await kundenAktionen.abAutomatisch({ locals: { nutzer: u.chefC }, params: { id: u.kundeA }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams({ abAutomatisch: 'an' }) }) } as never)) as unknown as { status?: number }).status).toBe(402);
 	});
 
+	it('Jamil msg 3558: Abschnitt „Automatik“ speichert Auftragsbestätigung und Nachfassen in einem Formular, Rechte je Feld', async () => {
+		const sende = (nutzer: unknown, felder: Record<string, string>) =>
+			kundenAktionen.automatik({ locals: { nutzer }, params: { id: u.kundeA }, request: new Request('http://t/', { method: 'POST', body: new URLSearchParams(felder) }) } as never) as unknown as Promise<{ status?: number; abMeldung?: string }>;
+		expect(await sende(u.chefA, { abAutomatisch: 'aus', nachfassen: 'nein' })).toMatchObject({ abMeldung: expect.stringContaining('gespeichert') });
+		expect(await ladeKundeAb(kA(), u.kundeA)).toMatchObject({ kunde: false });
+		expect((await root`select kein_nachfassen from app.kunden where id = ${u.kundeA}`)[0].kein_nachfassen).toBe(true);
+		// ungültiger Wert → nichts gespeichert (auch nicht die Auftragsbestätigung)
+		expect((await sende(u.chefA, { abAutomatisch: '', nachfassen: 'vielleicht' })).status).toBe(400);
+		expect((await ladeKundeAb(kA(), u.kundeA)).kunde).toBe(false);
+		// Monteur: weder noch
+		expect((await sende(u.monteurA, { nachfassen: 'ja' })).status).toBe(403);
+		expect((await sende(u.chefA, {})).status).toBe(400);
+		expect(await sende(u.chefA, { abAutomatisch: '', nachfassen: 'ja' })).toMatchObject({ abMeldung: expect.any(String) });
+		expect((await root`select kein_nachfassen from app.kunden where id = ${u.kundeA}`)[0].kein_nachfassen).toBe(false);
+	});
+
 	it('Migration 108: bisherige Werte am Auftrag werden je Kunde übernommen (vorsichtigste Auswahl), nichts geht verloren', async () => {
 		const [kd2] = await root`insert into app.kunden (betrieb_id, art, nachname) values (${u.betriebA}, 'privat', 'Migration Zwei') returning id`;
 		const [kd3] = await root`insert into app.kunden (betrieb_id, art, nachname) values (${u.betriebA}, 'privat', 'Migration Drei') returning id`;

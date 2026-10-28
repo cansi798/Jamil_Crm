@@ -1,32 +1,38 @@
-<script lang="ts">
+<script lang="ts" generics="S extends string = AuftragStatus">
 	/**
 	 * Status-Menü eines Auftrags (Wunsch Jamil, msg 3112): „Status ▾“ öffnet eine schwebende Liste ALLER Status
 	 * untereinander, jeweils mit Farbpunkt; der aktuelle hat einen Haken. Wählbar sind nur die Wechsel, die der Server
 	 * hier erlaubt (`erlaubt`); die anderen stehen ausgegraut mit kurzem Grund. Die Liste liegt obenauf (Popover) –
 	 * die Karte verzieht sich nicht. Tastatur: Pfeile, Pos1/Ende, Enter/Leertaste, Esc; Screenreader: menu/menuitemradio.
+	 * EIN Status-Menü für alle Listen (Jamil msg 3568): Aufträge (Standard) und Aufgaben (`stati` mit eigenen Spalten).
 	 */
 	import { tick } from 'svelte';
 	import { STATUS, STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
 	import { STATUS_FARBEN } from '$lib/auftrag-board';
 	import { overlayLage, overlayStil, zeigeOverlay, type OverlayLage } from '$lib/overlay';
 
+	type Status = { wert: S; name: string; farbe: string };
 	let {
 		status,
 		titel,
 		erlaubt,
 		grund,
 		gesperrt = false,
-		onwaehle
+		onwaehle,
+		stati = STATUS.map((s) => ({ wert: s, name: STATUS_NAMEN[s], farbe: STATUS_FARBEN[s] })) as unknown as Status[]
 	}: {
-		status: AuftragStatus;
-		/** Name des Auftrags (für die Beschriftung) */
+		status: S;
+		/** Name des Auftrags bzw. der Aufgabe (für die Beschriftung) */
 		titel: string;
-		erlaubt: (nach: AuftragStatus) => boolean;
+		erlaubt: (nach: S) => boolean;
 		/** kurzer Grund für ausgegraute Einträge */
-		grund: (nach: AuftragStatus) => string;
+		grund: (nach: S) => string;
 		gesperrt?: boolean;
-		onwaehle: (nach: AuftragStatus) => void;
+		onwaehle: (nach: S) => void;
+		/** Status zur Auswahl in ihrer Reihenfolge (Standard: Statuskette der Aufträge) */
+		stati?: Status[];
 	} = $props();
+	const name = (w: S) => stati.find((x) => x.wert === w)?.name ?? w;
 
 	const id = `sm-${Math.random().toString(36).slice(2, 9)}`;
 	let knopf = $state<HTMLButtonElement>();
@@ -38,7 +44,7 @@
 	async function oeffnen() {
 		if (gesperrt) return;
 		offen = true;
-		aktiv = Math.max(0, STATUS.indexOf(status));
+		aktiv = Math.max(0, stati.findIndex((x) => x.wert === status));
 		await tick();
 		zeigeOverlay(liste);
 		if (knopf && liste) lage = overlayLage(knopf.getBoundingClientRect(), liste.scrollHeight, { minBreite: 208, rechtsBuendig: true });
@@ -50,18 +56,18 @@
 		lage = null;
 		if (fokus) knopf?.focus();
 	}
-	function waehle(nach: AuftragStatus) {
+	function waehle(nach: S) {
 		if (nach === status || !erlaubt(nach)) return;
 		schliessen();
 		onwaehle(nach);
 	}
 	function taste(ev: KeyboardEvent) {
-		const n = STATUS.length;
+		const n = stati.length;
 		if (ev.key === 'ArrowDown') aktiv = (aktiv + 1) % n;
 		else if (ev.key === 'ArrowUp') aktiv = (aktiv - 1 + n) % n;
 		else if (ev.key === 'Home') aktiv = 0;
 		else if (ev.key === 'End') aktiv = n - 1;
-		else if (ev.key === 'Enter' || ev.key === ' ') waehle(STATUS[aktiv]);
+		else if (ev.key === 'Enter' || ev.key === ' ') waehle(stati[aktiv].wert);
 		else if (ev.key === 'Escape') schliessen();
 		else if (ev.key === 'Tab') schliessen(false);
 		else return;
@@ -96,7 +102,7 @@
 		aria-haspopup="menu"
 		aria-expanded={offen}
 		aria-controls={offen ? id : undefined}
-		aria-label={`Status von „${titel}“ ändern (jetzt: ${STATUS_NAMEN[status]})`}
+		aria-label={`Status von „${titel}“ ändern (jetzt: ${name(status)})`}
 		disabled={gesperrt}
 		draggable="false"
 		onpointerdown={(ev) => ev.stopPropagation()}
@@ -121,7 +127,8 @@
 			onpointerdown={(ev) => ev.stopPropagation()}
 			style={lage ? overlayStil(lage) : 'visibility:hidden'}
 		>
-			{#each STATUS as s, i (s)}
+			{#each stati as st, i (st.wert)}
+				{@const s = st.wert}
 				{@const aktuell = s === status}
 				{@const ok = aktuell || erlaubt(s)}
 				<li role="none">
@@ -134,14 +141,14 @@
 						class:aus={!ok}
 						class:aktuell
 						tabindex={i === aktiv ? 0 : -1}
-						title={ok ? (aktuell ? 'aktueller Status' : `Status auf „${STATUS_NAMEN[s]}“ setzen`) : grund(s)}
+						title={ok ? (aktuell ? 'aktueller Status' : `Status auf „${st.name}“ setzen`) : grund(s)}
 						onmousemove={() => (aktiv = i)}
 						onclick={() => waehle(s)}
 					>
-						<span class="sm-punkt" style:background={STATUS_FARBEN[s]} aria-hidden="true"></span>
+						<span class="sm-punkt" style:background={st.farbe} aria-hidden="true"></span>
 						<!-- Jamil msg 3140: Name nie umbrechen, Grund klein darunter statt daneben -->
 						<span class="sm-text">
-							<span class="sm-name">{STATUS_NAMEN[s]}</span>
+							<span class="sm-name">{st.name}</span>
 							{#if !aktuell && !ok}<span class="sm-grund">{grund(s)}</span>{/if}
 						</span>
 						{#if aktuell}

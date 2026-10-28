@@ -180,6 +180,17 @@ export function istAktiv(href: string | null, pfad: string): boolean {
 }
 
 /**
+ * Ist `pfad` die Startseite des Bereichs `href` – genau dessen Adresse oder eine gleichrangige Reiter-Adresse aus AUCH_AKTIV
+ * (z. B. /einstellungen/aufmass-vorlagen zu „Protokoll- & Aufmaß-Vorlagen“)? Dort steht der Titel schon in der Kopfleiste,
+ * die h1 wird nur für Screenreader behalten (Jamil msgs 3060, 3569).
+ */
+export function istBereichsStart(href: string | null, pfad: string): boolean {
+	if (!href) return false;
+	const h = href.split('?')[0];
+	return h === pfad || (AUCH_AKTIV[h] ?? []).some((x) => x === pfad && !x.startsWith('/angebote'));
+}
+
+/**
  * Der EINE markierte Eintrag für `pfad` (Jamil msg 3085: nie zwei Menüpunkte gleichzeitig): unter allen zutreffenden
  * Einträgen der genaueste, d. h. der mit dem längsten Pfad. `null`, wenn keiner passt.
  */

@@ -10,7 +10,6 @@
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
-	import FormFuss from '$lib/components/ui/FormFuss.svelte';
 	import ScrollBereich from '$lib/components/ui/ScrollBereich.svelte';
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
@@ -222,14 +221,30 @@
 				<label>Gültig bis (optional) <input type="date" name="laeuftAb" /></label>
 				<button type="submit" class="kd-knopf">{data.portal.links.some((l) => l.gueltig) ? 'Neuen Link erzeugen (alter wird ungültig)' : 'Link für den Kunden erzeugen'}</button>
 			</form>
-			<!-- Einstellungen gehören zum Kunden, nicht zum Auftrag (Jamil msgs 3423, 3439); leer = Standard der Firma -->
-			<div class="kp-einstellung" id="portal-einstellung" role="group" aria-label="Portal-Einstellungen dieses Kunden" data-testid="portal-einstellung">
-				<p class="kp-titel">Einstellungen für diesen Kunden <InfoFenster id="kunde.portal_seite" /></p>
+			<p class="kp-titel">Im Portal: {data.portal.auftraege.filter((a) => a.imPortal).length} von {data.portal.auftraege.length} Aufträgen</p>
+			<ul class="kd-liste kp-auftraege">
+				{#each data.portal.auftraege as a (a.id)}
+					<li><a href={`/auftraege/${a.id}#kundenportal`}><strong>{a.nummer} {a.titel}</strong><span class="kd-info">{a.imPortal ? 'im Portal' : 'nicht im Portal'}</span></a></li>
+				{/each}
+			</ul>
+		</Abschnitt>
+	{/if}
+
+	<!--
+		Zwei Einstellungsblöcke des Kunden im selben Aufbau (Jamil msg 3558): Abschnitt mit ⓘ, darunter Feldreihen (Auswahl mit ⓘ),
+		„Speichern“ oben rechts im Kopf, Rückmeldung direkt unter dem Kopf. Leer = Standard der Firma.
+	-->
+	{#if data.portal}
+		<Abschnitt titel="Kundenportal-Einstellungen" id="portal-einstellung" info="kunde.portal_seite">
+			{#snippet aktionen()}<button type="submit" form="portal-einstellung-form" class="kd-knopf klein" data-testid="portal-einstellung-speichern">Speichern</button>{/snippet}
+			<div class="kp-einstellung" data-testid="portal-einstellung">
+				{#if form?.einstellungFehler}<p role="alert" class="kd-fehler">{form.einstellungFehler}</p>{/if}
+				{#if form?.einstellungMeldung}<p role="status" class="kp-meldung">{form.einstellungMeldung}</p>{/if}
 				<p class="kd-info">
 					Gilt für alle Aufträge dieses Kunden. „Firmen-Standard“ übernimmt die Einstellung unter
 					{#if data.darfFirmenEinstellungen}<a href="/einstellungen/kundenportal">Auftrag → Kundenportal & Auftragsbestätigung</a>{:else}Auftrag → Kundenportal & Auftragsbestätigung (Einstellungen der Firma){/if}.
 				</p>
-				<form method="POST" action="?/portalEinstellung" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form">
+				<form id="portal-einstellung-form" method="POST" action="?/portalEinstellung" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form">
 					{#each PORTAL_FELDER as fd (fd.name)}
 						<InfoFeld id={fd.info}>
 							<label>{fd.label}
@@ -241,49 +256,43 @@
 							</label>
 						</InfoFeld>
 					{/each}
-					<!-- Rückmeldung direkt am Knopf (am Handy liegt der Abschnittskopf weit oben) -->
-					{#if form?.einstellungFehler}<p role="alert" class="kd-fehler kp-voll">{form.einstellungFehler}</p>{/if}
-					{#if form?.einstellungMeldung}<p role="status" class="kd-info kp-voll">{form.einstellungMeldung}</p>{/if}
-					<FormFuss><button type="submit" class="kd-knopf">Einstellungen speichern</button></FormFuss>
 				</form>
 			</div>
-			<p class="kp-titel">Im Portal: {data.portal.auftraege.filter((a) => a.imPortal).length} von {data.portal.auftraege.length} Aufträgen</p>
-			<ul class="kd-liste kp-auftraege">
-				{#each data.portal.auftraege as a (a.id)}
-					<li><a href={`/auftraege/${a.id}#kundenportal`}><strong>{a.nummer} {a.titel}</strong><span class="kd-info">{a.imPortal ? 'im Portal' : 'nicht im Portal'}</span></a></li>
-				{/each}
-			</ul>
 		</Abschnitt>
 	{/if}
 
-	<!-- Automatik für diesen Kunden (Jamil msg 3521 E): Auftragsbestätigung automatisch (auch ohne Kundenportal) und Nachfassen -->
+	<!-- Automatik für diesen Kunden (Jamil msgs 3521 E, 3558): Auftragsbestätigung automatisch (auch ohne Kundenportal) und Nachfassen -->
 	{#if data.ab || (data.darfBearbeiten && data.nachfassen)}
 		<Abschnitt titel="Automatik" id="automatik" info="kunde.automatik">
-			{#if data.ab}
-				<form method="POST" action="?/abAutomatisch" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form" data-testid="ab-kunde">
-					<InfoFeld id="kunde.ab_automatisch">
-						<label>Auftragsbestätigung automatisch erstellen
-							<Auswahl name="abAutomatisch">
-								<option value="" selected={data.ab.kunde === null}>{firmaText(data.ab.firma)}</option>
-								<option value="an" selected={data.ab.kunde === true}>ja</option>
-								<option value="aus" selected={data.ab.kunde === false}>nein</option>
-							</Auswahl>
-						</label>
-					</InfoFeld>
-					{#if form?.abFehler}<p role="alert" class="kd-fehler kp-voll">{form.abFehler}</p>{/if}
-					{#if form?.abMeldung}<p role="status" class="kd-info kp-voll">Auftragsbestätigung: {form.abMeldung}</p>{/if}
-					<FormFuss><button type="submit" class="kd-knopf hell">Speichern</button></FormFuss>
+			{#snippet aktionen()}<button type="submit" form="automatik-form" class="kd-knopf klein" data-testid="automatik-speichern">Speichern</button>{/snippet}
+			<div class="kp-einstellung" data-testid="ab-kunde">
+				{#if form?.abFehler}<p role="alert" class="kd-fehler">{form.abFehler}</p>{/if}
+				{#if form?.abMeldung}<p role="status" class="kp-meldung">{form.abMeldung}</p>{/if}
+				<p class="kd-info">Was das CRM bei diesem Kunden von selbst macht. „Firmen-Standard“ übernimmt die Einstellung der Firma.</p>
+				<form id="automatik-form" method="POST" action="?/automatik" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form">
+					{#if data.ab}
+						<InfoFeld id="kunde.ab_automatisch">
+							<label>Auftragsbestätigung automatisch erstellen
+								<Auswahl name="abAutomatisch">
+									<option value="" selected={data.ab.kunde === null}>{firmaText(data.ab.firma)}</option>
+									<option value="an" selected={data.ab.kunde === true}>ja</option>
+									<option value="aus" selected={data.ab.kunde === false}>nein</option>
+								</Auswahl>
+							</label>
+						</InfoFeld>
+					{/if}
+					{#if data.darfBearbeiten && data.nachfassen}
+						<InfoFeld id="kunde.nachfassen">
+							<label>Automatisch nachfassen (Angebote, Rechnungen)
+								<Auswahl name="nachfassen">
+									<option value="ja" selected={!data.nachfassen.aus}>Firmen-Standard (Stufen der Firma)</option>
+									<option value="nein" selected={data.nachfassen.aus}>nein – kein automatisches Nachfassen</option>
+								</Auswahl>
+							</label>
+						</InfoFeld>
+					{/if}
 				</form>
-			{/if}
-			{#if data.darfBearbeiten && data.nachfassen}
-				<form method="POST" action="?/nachfassen" use:enhance class="kd-nachfassen">
-					<input type="hidden" name="aus" value={data.nachfassen.aus ? 'nein' : 'ja'} />
-					<label class="kd-haken">
-						<input type="checkbox" checked={data.nachfassen.aus} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} />
-						<span>Kein automatisches Nachfassen (Angebote, Rechnungen)</span>
-					</label>
-				</form>
-			{/if}
+			</div>
 		</Abschnitt>
 	{/if}
 
@@ -613,12 +622,14 @@
 	.kp-knoepfe { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: center; }
 	.kp-frage { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: center; padding: var(--ui-a2) var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-rot-hell); }
 	.kp-alt { flex-basis: 100%; margin: 0; }
-	.kp-einstellung { display: grid; gap: var(--ui-a2); margin: var(--ui-a3) 0; }
+	.kp-einstellung { display: grid; gap: var(--ui-a2); }
 	.kp-einstellung p { margin: 0; }
 	/* doppelte Klasse: sonst gewinnt das spätere `.kp-form { display: flex }` und die Felder stehen ungleich breit */
 	.kp-form.kp-einst-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr)); align-items: end; gap: var(--ui-a2) var(--ui-a3); }
 	.kp-einst-form :global(.form-fuss), .kp-voll { grid-column: 1 / -1; margin: 0; }
 	.kp-einstellung { scroll-margin-top: 5rem; }
+	/* Rückmeldung nach dem Speichern direkt unter dem Kopf (Speichern steht oben rechts, msg 3558) */
+	.kp-meldung { margin: 0; padding: var(--ui-a2) var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-gruen-hell); color: var(--ui-gruen); font-size: var(--ui-schrift-s); font-weight: 600; }
 	.kp-passwort { display: grid; gap: var(--ui-a2); margin: var(--ui-a3) 0; }
 	.kp-passwort p { margin: 0; }
 	.kp-link { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--ui-a2); align-items: center; margin-bottom: var(--ui-a2); font-size: var(--ui-schrift-s); }

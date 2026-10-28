@@ -5,10 +5,21 @@ import { erlaubteSortierungen, kundenAbzeichen, sortierungAus, type KundenZeilen
 const leer: KundenZeilenInfo = { auftraege: null, angebot: null, portal: null };
 
 describe('kundenAbzeichen', () => {
-	it('ohne Infos keine Abzeichen', () => {
+	it('ohne Recht keine Abzeichen; mit Recht steht auch der Leerzustand da (Jamil msg 3557)', () => {
 		expect(kundenAbzeichen(null)).toEqual([]);
 		expect(kundenAbzeichen(leer)).toEqual([]);
-		expect(kundenAbzeichen({ ...leer, auftraege: { offen: 0, bestandskunde: false, naechsterTermin: null } })).toEqual([]);
+		const l = kundenAbzeichen({
+			auftraege: { offen: 0, bestandskunde: false, naechsterTermin: null },
+			angebot: null,
+			angebotSichtbar: true,
+			portal: { gueltig: false, jeEinLink: false, passwort: false, zugriffe: 0, zuletzt: null }
+		});
+		expect(l.map((a) => [a.art, a.ton, a.text])).toEqual([
+			['angebot', 'leer', 'Kein Angebot'],
+			['portal', 'leer', 'Portal nicht aktiv'],
+			['auftraege', 'leer', 'Keine offenen Aufträge'],
+			['termin', 'leer', 'Kein Termin']
+		]);
 	});
 
 	it('Angebot: angenommen grün, offen mit Datum, abgelaufen als Warnung, abgelehnt leise', () => {
@@ -27,7 +38,7 @@ describe('kundenAbzeichen', () => {
 		expect(p({})[0]).toMatchObject({ ton: 'neutral', text: 'Portal aktiv · 0×' });
 		expect(p({ passwort: false })[0]).toMatchObject({ ton: 'warnung', text: 'Portal: Passwort fehlt' });
 		expect(p({ gueltig: false })[0]).toMatchObject({ ton: 'leise', text: 'Portal aus' });
-		expect(p({ gueltig: false, jeEinLink: false })).toEqual([]);
+		expect(p({ gueltig: false, jeEinLink: false })[0]).toMatchObject({ ton: 'leer', text: 'Portal nicht aktiv' });
 	});
 
 	it('Reihenfolge Angebot · Portal · Aufträge · Termin · Bestandskunde', () => {

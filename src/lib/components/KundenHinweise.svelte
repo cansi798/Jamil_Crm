@@ -27,6 +27,16 @@
 		grid-column: 2;
 		margin-top: 0.15rem;
 	}
+	/* Handy: kompakter, damit fünf Abzeichen nicht die halbe Zeile füllen */
+	@media (max-width: 640px) {
+		.kh {
+			gap: 0.2rem 0.25rem;
+		}
+		.kh :global(.ah-chip) {
+			font-size: 0.6875rem;
+			line-height: 1.05rem;
+		}
+	}
 	.kh-unsichtbar {
 		position: absolute;
 		width: 1px;
