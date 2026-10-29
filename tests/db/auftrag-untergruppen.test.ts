@@ -22,7 +22,7 @@ describe('Aufträge: Untergruppen in Anfrage und Angebot', () => {
 		await root?.end();
 	});
 
-	it('Termin (auch vergangen) → „Termin vereinbart“; verschicktes Angebot → „Angebot erhalten“, Entwurf nicht; Status bleibt', async () => {
+	it('Termin (auch vergangen) → „Termin vereinbart“; verschicktes Angebot → „Angebot erstellt“ (vorläufig), Entwurf nicht; Status bleibt', async () => {
 		const neu = await u.neuerAuftrag('anfrage', 'UG neu');
 		const mitTermin = await u.neuerAuftrag('anfrage', 'UG Termin');
 		const vorbei = await u.neuerAuftrag('anfrage', 'UG Termin vorbei');
@@ -51,7 +51,7 @@ describe('Aufträge: Untergruppen in Anfrage und Angebot', () => {
 		expect(untergruppe(liste.find((a) => a.id === neu)!)).toBe('neu');
 	});
 
-	it('Beauftragt: kommende Montage/Wartung → „Termin zur Umsetzung bestätigt“; Besichtigung und vergangene Montage nicht', async () => {
+	it('Beauftragt: kommende Montage/Wartung → „Umsetzung geplant“ (vorläufig); Besichtigung und vergangene Montage nicht', async () => {
 		const ohne = await u.neuerAuftrag('beauftragt', 'UG B ohne');
 		const besichtigung = await u.neuerAuftrag('beauftragt', 'UG B Besichtigung');
 		const vorbei = await u.neuerAuftrag('beauftragt', 'UG B Montage vorbei');

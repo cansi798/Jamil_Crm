@@ -15,9 +15,9 @@ test('Board: Untergruppen in Anfrage, Angebot, Beauftragt und In Arbeit; Liste m
 	// Je Spalte: Gruppen-Überschriften (Ebene 3) und Zahlen = Karten – nur wenn die Spalte Karten hat (sonst „Keine Aufträge“)
 	const GRUPPEN: [string, string, string[]][] = [
 		['anfrage', 'Anfrage', ['Termin vereinbaren', 'Termin vereinbart']],
-		['angebot', 'Angebot', ['Angebot erstellen', 'Angebot erhalten']],
-		['beauftragt', 'Beauftragt', ['Planung durchführen', 'Termin zur Umsetzung bestätigt']],
-		['in_arbeit', 'In Arbeit', ['Arbeiten durchführen', 'Qualitätsprüfung durchführen', 'Endabnahme mit Kunden durchführen']]
+		['angebot', 'Angebot', ['Angebot erstellen', 'Angebot erstellt']],
+		['beauftragt', 'Beauftragt', ['Umsetzung planen', 'Umsetzung geplant']],
+		['in_arbeit', 'In Arbeit', ['Arbeiten durchführen', 'Qualität prüfen', 'Endabnahme durchführen']]
 	];
 	let geprueft = 0;
 	for (const [id, name, titel] of GRUPPEN) {
@@ -68,9 +68,9 @@ test('Auftrag „In Arbeit“: Arbeitsstand unter der Statusleiste setzen und zu
 		else await stand.getByRole('button', { name: titel }).click();
 	};
 	const aktuell = () => (mobil ? stand.getByRole('combobox', { name: 'Arbeitsstand' }) : stand.locator('[aria-current="step"]'));
-	await setze('Qualitätsprüfung durchführen');
+	await setze('Qualität prüfen');
 	if (mobil) await expect(aktuell()).toHaveValue('qualitaet');
-	else await expect(aktuell()).toHaveText('Qualitätsprüfung durchführen');
+	else await expect(aktuell()).toHaveText('Qualität prüfen');
 	await setze('Arbeiten durchführen');
 	if (mobil) await expect(aktuell()).toHaveValue('arbeiten');
 	else await expect(aktuell()).toHaveText('Arbeiten durchführen');

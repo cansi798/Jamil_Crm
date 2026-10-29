@@ -81,19 +81,20 @@ export const STATUS_FARBEN: Record<AuftragStatus, string> = {
 };
 
 /**
- * Untergruppen in den Spalten „Anfrage“ bis „In Arbeit“ (Jamil msgs 3601, 3655, 3658–3660) – nur Anzeige, der Status bleibt.
- * Einheitliche Benennung: Offene Gruppen heißen nach der nächsten Aufgabe („Termin vereinbaren“), erledigte nach dem
- * erreichten Stand („Termin vereinbart“).
- * - Anfrage: „Termin vereinbaren“ (noch kein Termin) und „Termin vereinbart“ (mindestens ein Termin eingeplant – egal ob er
- *   schon war; „vereinbart“ reicht).
- * - Angebot: „Angebot erstellen“ und „Angebot erhalten“ (ein Angebot ist an den Kunden verschickt; Entwürfe zählen nicht,
- *   angenommene/abgelehnte zählen als erhalten).
- * - Beauftragt: „Planung durchführen“ und „Termin zur Umsetzung bestätigt“ (ein kommender oder gerade laufender Termin
- *   der Art Montage oder Wartung ist eingetragen; eine Besichtigung zählt nicht, vergangene Termine auch nicht – Termine
- *   haben standardmäßig die Art „Montage“. Ein eigenes „bestätigt“-Feld gibt es nicht: der eingetragene Termin gilt als
- *   bestätigt).
- * - In Arbeit: „Arbeiten durchführen“ → „Qualitätsprüfung durchführen“ → „Endabnahme mit Kunden durchführen“ – dafür
- *   gibt es keine vorhandenen Daten, darum das Feld `arbeitsstand` am Auftrag (Migration 111), im Auftrag einstellbar.
+ * Untergruppen in den Spalten „Anfrage“ bis „In Arbeit“ (Jamil msgs 3601, 3655, 3658–3660, 3685) – nur Anzeige, der Status
+ * bleibt. Namen nach EINER Logik (msg 3685, A/B): offene Gruppe = nächste Aufgabe (Infinitiv, „Termin vereinbaren“),
+ * erledigte Gruppe = erreichter Stand (Partizip desselben Verbs, „Termin vereinbart“); „In Arbeit“ ist eine Kette offener
+ * Aufgaben. Kurz, damit sie in die schmalen Board-Spalten passen.
+ *
+ * VORLÄUFIGE Zuordnung (msg 3685, C/D: „Die Logik, wann ein Auftrag automatisch weiterrutscht, sage ich dir noch. Bitte
+ * nichts selbst erfinden.“) – bis Jamil die Regeln festlegt, bleibt es so, ohne neue Automatik:
+ * - Anfrage: „Termin vereinbart“, sobald es irgendeinen Termin gibt (auch einen vergangenen).
+ * - Angebot: „Angebot erstellt“ erst, wenn ein Angebot an den Kunden verschickt ist (auch angenommen/abgelehnt);
+ *   ein Entwurf zählt noch nicht.
+ * - Beauftragt: „Umsetzung geplant“, wenn ein kommender oder gerade laufender Termin der Art Montage oder Wartung
+ *   eingetragen ist (Besichtigung und vergangene Termine zählen nicht – neue Termine haben standardmäßig die Art „Montage“).
+ * - In Arbeit: „Arbeiten durchführen“ → „Qualität prüfen“ → „Endabnahme durchführen“ – von Hand im Auftrag unter der
+ *   Statusleiste (Feld `arbeitsstand`, Migration 111); jeder Statuswechsel setzt auf „Arbeiten durchführen“ zurück.
  *   Nach der Endabnahme folgt wie bisher der Status „Abgenommen“.
  * `erledigt` = erreichter Stand (grünes Kennzeichen in der Liste), sonst nächste Aufgabe (graues Kennzeichen).
  */
@@ -106,16 +107,16 @@ export const UNTERGRUPPEN: Partial<Record<AuftragStatus, UntergruppeInfo[]>> = {
 	],
 	angebot: [
 		{ id: 'ohne_angebot', titel: 'Angebot erstellen', erledigt: false },
-		{ id: 'mit_angebot', titel: 'Angebot erhalten', erledigt: true }
+		{ id: 'mit_angebot', titel: 'Angebot erstellt', erledigt: true }
 	],
 	beauftragt: [
-		{ id: 'planung', titel: 'Planung durchführen', erledigt: false },
-		{ id: 'umsetzung', titel: 'Termin zur Umsetzung bestätigt', erledigt: true }
+		{ id: 'planung', titel: 'Umsetzung planen', erledigt: false },
+		{ id: 'umsetzung', titel: 'Umsetzung geplant', erledigt: true }
 	],
 	in_arbeit: [
 		{ id: 'arbeiten', titel: 'Arbeiten durchführen', erledigt: false },
-		{ id: 'qualitaet', titel: 'Qualitätsprüfung durchführen', erledigt: false },
-		{ id: 'abnahme', titel: 'Endabnahme mit Kunden durchführen', erledigt: false }
+		{ id: 'qualitaet', titel: 'Qualität prüfen', erledigt: false },
+		{ id: 'abnahme', titel: 'Endabnahme durchführen', erledigt: false }
 	]
 };
 const ALLE_UNTERGRUPPEN = Object.values(UNTERGRUPPEN).flat() as UntergruppeInfo[];

@@ -178,10 +178,10 @@ export const INFOS: Record<string, Info> = {
 	// ——— Listen ———
 	'auftraege.untergruppen': {
 		titel: 'Untergruppen im Board',
-		was: 'Offene Gruppen nennen den nächsten Schritt, erledigte den Stand. Anfrage: Termin vereinbaren / vereinbart. Angebot: Angebot erstellen / erhalten (verschickt). Beauftragt: Planung durchführen / Termin zur Umsetzung bestätigt (kommende Montage oder Wartung). In Arbeit: Arbeiten → Qualitätsprüfung → Endabnahme.',
-		wirkt: 'Nur die Anzeige: im Board als Gruppen mit Zahl, in der Liste neben dem Status. Der Status bleibt. Die ersten drei ergeben sich aus Terminen und Angeboten; den Arbeitsstand stellen Sie im Auftrag unter der Statusleiste ein.',
-		standard: 'Immer an. Ein Statuswechsel setzt den Arbeitsstand auf „Arbeiten durchführen“ zurück.',
-		beispiel: 'Sie planen für einen beauftragten Auftrag die Montage ein – die Karte rutscht von „Planung durchführen“ zu „Termin zur Umsetzung bestätigt“.'
+		was: 'Offen = nächste Aufgabe, erledigt = erreichter Stand. Anfrage: Termin vereinbaren / vereinbart. Angebot: Angebot erstellen / erstellt. Beauftragt: Umsetzung planen / geplant. In Arbeit: Arbeiten durchführen → Qualität prüfen → Endabnahme durchführen.',
+		wirkt: 'Nur die Anzeige: im Board als Gruppen mit Zahl, in der Liste neben dem Status. Der Status bleibt. Den Arbeitsstand stellen Sie im Auftrag unter der Statusleiste ein.',
+		standard: 'Vorläufig, die genauen Regeln folgen: „erstellt“ erst bei verschicktem Angebot, „geplant“ bei kommendem Montage- oder Wartungstermin, „vereinbart“ bei jedem Termin.',
+		beispiel: 'Sie planen für einen beauftragten Auftrag die Montage ein – die Karte rutscht von „Umsetzung planen“ zu „Umsetzung geplant“.'
 	},
 	'kunden.zeile': {
 		titel: 'Infos in der Kundenzeile',

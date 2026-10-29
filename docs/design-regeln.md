@@ -246,10 +246,11 @@ Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…"
 - **Auftrag:** „Im Portal sichtbar“ als dezentes Kennzeichen im Kopf (keine eigene Karte, msg 3561); Hauptspalte Aufgaben → Termine →
   Material → Nachkalkulation (msg 3563); keine zweite Terminanzeige (msg 3564); „Dokumentation“ über „Dokumente & Notizen“ (msg 3566).
 - **Kundenliste:** Abzeichen auch im Leerzustand (gestrichelt, grau: „Kein Angebot“, „Portal nicht aktiv“ …), Jamil msg 3557.
-- **Untergruppen im Auftrags-Board** (Jamil msgs 3601, 3655, 3658–3660): „Anfrage“ → Termin vereinbaren / Termin vereinbart,
-  „Angebot“ → Angebot erstellen / Angebot erhalten, „Beauftragt“ → Planung durchführen / Termin zur Umsetzung bestätigt,
-  „In Arbeit“ → Arbeiten durchführen → Qualitätsprüfung durchführen → Endabnahme mit Kunden durchführen. Benennung: offene Gruppe
-  = nächste Aufgabe (Infinitiv), erledigte = erreichter Stand (Partizip). Zwischenüberschriften mit Zahl über `KachelBoard gruppen`,
+- **Untergruppen im Auftrags-Board** (Jamil msgs 3601, 3655, 3658–3660, 3685): „Anfrage“ → Termin vereinbaren / Termin vereinbart,
+  „Angebot“ → Angebot erstellen / Angebot erstellt, „Beauftragt“ → Umsetzung planen / Umsetzung geplant, „In Arbeit“ → Arbeiten
+  durchführen → Qualität prüfen → Endabnahme durchführen. Benennung: offene Gruppe = nächste Aufgabe (Infinitiv), erledigte =
+  erreichter Stand (Partizip desselben Verbs), kurz für schmale Spalten. Die Zuordnung ist VORLÄUFIG, bis Jamil die Regeln
+  festlegt (msg 3685) – keine eigenen Regeln oder Automatiken dazuerfinden. Zwischenüberschriften mit Zahl über `KachelBoard gruppen`,
   Gruppen und Regeln nur in `UNTERGRUPPEN`/`untergruppe()` (`lib/auftrag-board.ts`); in der Liste als Kennzeichen neben dem
   Status (offen grau, erledigt grün über `erledigt`). Abgeleitet aus Terminen/Angeboten; nur der Arbeitsstand („In Arbeit“) ist
   ein Feld (Migration 111), einstellbar in der `StatusKette` im Auftrag. Nur Anzeige, der Status bleibt. Neue Untergruppen kommen

@@ -71,7 +71,7 @@ export type Auftrag = {
 	hatTermin: boolean;
 	/**
 	 * Kommender (oder gerade laufender) Termin zur Umsetzung eingetragen – Art Montage oder Wartung, keine Besichtigung?
-	 * Untergruppe in „Beauftragt“ (msg 3655). Nur kommende zählen: Termine haben standardmäßig die Art „Montage“, eine
+	 * Untergruppe in „Beauftragt“ (msg 3655). VORLÄUFIGE Regel, bis Jamil sie festlegt (msg 3685). Nur kommende zählen: Termine haben standardmäßig die Art „Montage“, eine
 	 * frühere Besichtigung aus der Anfrage-Zeit mit falscher Art soll den Auftrag nicht als „Termin bestätigt“ zeigen.
 	 */
 	hatUmsetzungstermin: boolean;

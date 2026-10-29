@@ -30,14 +30,23 @@ describe('untergruppe', () => {
 		for (const s of ['abgenommen', 'abgerechnet'] as const)
 			expect(untergruppe({ status: s, hatTermin: true, hatUmsetzungstermin: true, arbeitsstand: 'abnahme' })).toBeNull();
 		expect(UNTERGRUPPEN.anfrage!.map((g) => g.titel)).toEqual(['Termin vereinbaren', 'Termin vereinbart']);
-		expect(UNTERGRUPPEN.angebot!.map((g) => g.titel)).toEqual(['Angebot erstellen', 'Angebot erhalten']);
-		expect(UNTERGRUPPEN.beauftragt!.map((g) => g.titel)).toEqual(['Planung durchführen', 'Termin zur Umsetzung bestätigt']);
+		expect(UNTERGRUPPEN.angebot!.map((g) => g.titel)).toEqual(['Angebot erstellen', 'Angebot erstellt']);
+		expect(UNTERGRUPPEN.beauftragt!.map((g) => g.titel)).toEqual(['Umsetzung planen', 'Umsetzung geplant']);
 		expect(UNTERGRUPPEN.in_arbeit!.map((g) => g.titel)).toEqual([
 			'Arbeiten durchführen',
-			'Qualitätsprüfung durchführen',
-			'Endabnahme mit Kunden durchführen'
+			'Qualität prüfen',
+			'Endabnahme durchführen'
 		]);
-		expect(UNTERGRUPPE_TITEL.umsetzung).toBe('Termin zur Umsetzung bestätigt');
+		expect(UNTERGRUPPE_TITEL.umsetzung).toBe('Umsetzung geplant');
+		// eine Logik (msg 3685): erledigte Gruppe = Partizip desselben Verbs wie die offene
+		for (const s of ['anfrage', 'angebot', 'beauftragt'] as const) {
+			const [offen, erledigt] = UNTERGRUPPEN[s]!.map((g) => g.titel.split(' '));
+			expect(erledigt[0]).toBe(offen[0]);
+			expect(offen[1].endsWith('en')).toBe(true);
+			expect(erledigt[1].endsWith('t')).toBe(true);
+		}
+		// kurz für die schmalen Spalten
+		for (const g of Object.values(UNTERGRUPPEN).flat()) expect(g!.titel.length).toBeLessThanOrEqual(22);
 		// offene Gruppen (nächster Schritt) grau, erreichter Stand grün
 		for (const s of ['anfrage', 'angebot', 'beauftragt'] as const)
 			expect(UNTERGRUPPEN[s]!.map((g) => untergruppeErledigt(g.id))).toEqual([false, true]);
