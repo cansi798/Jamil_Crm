@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { schwebend } from '$lib/overlay';
 	/**
-	 * Glocke (Wunsch Jamil msg 2679): Zahl der ungelesenen Erinnerungen, Liste zum Aufklappen. Aktualisiert sich jede
-	 * Minute (wenn die Seite sichtbar ist) und beim Zurückkehren in die App.
+	 * Glocke (Wunsch Jamil msg 2679): Zahl der ungelesenen Erinnerungen und Benachrichtigungen (wenn einen etwas betrifft,
+	 * msg 3734), Liste zum Aufklappen. Aktualisiert sich jede Minute (wenn die Seite sichtbar ist) und beim Zurückkehren in die App.
 	 */
 	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -87,7 +87,7 @@
 			{#if liste === null}
 				<p class="gl-leer">Lädt …</p>
 			{:else if liste.length === 0}
-				<p class="gl-leer">Noch keine Erinnerungen. Beim Anlegen einer Aufgabe oder Termins „Erinnern“ wählen.</p>
+				<p class="gl-leer">Noch keine Benachrichtigungen. Hier erscheint, was dich betrifft, und deine Erinnerungen.</p>
 			{:else}
 				<ul>
 					{#each liste as e (e.id)}
@@ -101,7 +101,7 @@
 					{/each}
 				</ul>
 			{/if}
-			<footer><a href="/konto/benachrichtigungen" onclick={() => (offen = false)}>Aufs Handy/PC schicken (Push) …</a></footer>
+			<footer><a href="/konto/benachrichtigungen" onclick={() => (offen = false)}>Einstellungen und Push aufs Handy/PC …</a></footer>
 		</div>
 	{/if}
 </div>

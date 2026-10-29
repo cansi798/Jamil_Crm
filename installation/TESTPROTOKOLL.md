@@ -112,6 +112,12 @@ Migration 113 auf einer Kopie der Vorschau-Datenbank geprüft: angewendet, zweit
 unverändert (dort noch keine Partner); Kopie gelöscht. Probe-Installation weiterhin nicht möglich (Docker-Adressbereiche auf
 diesem Server belegt, siehe oben) – nachholen, sobald Netze frei sind.
 
+## Prüfung 29.10.2026 (Benachrichtigungen – Migration 114)
+
+Migration 114 auf einer Kopie der Vorschau-Datenbank geprüft: angewendet, zweiter Lauf „Keine neuen Migrationen“, keine
+Nachrichten beim Einspielen (die Trigger greifen erst bei neuen Änderungen); Kopie gelöscht. Probe-Installation weiterhin
+nicht möglich (Docker-Adressbereiche belegt) – nachholen, sobald Netze frei sind.
+
 ## So wiederholen (für Entwickler)
 
 ```sh

@@ -266,3 +266,5 @@ Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…"
   nur über `naechsterGeltenderStatus`/`vorigerGeltenderStatus`/`zielErlaubt`/`startStatus` – nirgends eigene Varianten.
 - **Partner-Quellen** (Jamil msg 3707): In der Liste der Auftragsquellen Etikett „Partner“ und Hinweis „Gehört zu Partner X – nur
   aus- oder einschalten“; der ✕ ist gesperrt, die Auftraggeber-Auswahl entfällt. Aus/Ein und Ablauf bleiben wie bei jeder Quelle.
+- **Benachrichtigungen** (Jamil msg 3734): neue Ereignisse nur über Trigger + `app.benachrichtige()` (Migration 114), nie eigene
+  Push-/Glocken-Wege bauen. Kategorie wählen (aufgabe/termin/auftrag), Schlüssel je Objekt (bündelt), Link zum Objekt.

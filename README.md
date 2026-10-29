@@ -303,6 +303,11 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Namen beim Umbenennen mit (solange unverändert) und schaltet die Quelle aus, wenn der Partner aus- oder weggeschaltet wird.
     Löschschutz per Trigger `auftrag_quellen_partner_schutz` (Kaskade beim Löschen eines Betriebs bleibt möglich), dazu 409 in
     `loescheQuelle`/`setzeQuellenPartner`. Die Startliste zählt Partner-Quellen nicht mit.
+33. Benachrichtigungen (Migration 114, Jamil msg 3734): Datenbank-Trigger auf `todo_mitarbeiter`, `einsaetze`,
+    `auftrag_zustaendige` und `auftraege.status` rufen `app.benachrichtige()` (SECURITY DEFINER) – nie für den Auslöser
+    (`app.benutzer_id`), nie für öffentliche Abläufe (die melden selbst), gebündelt je Schlüssel 15 Minuten, je Person und
+    Kategorie abschaltbar (`benachrichtigung_einstellungen`, Änderungsprotokoll). Glocke liest Erinnerungen und
+    Benachrichtigungen zusammen; Push schickt der Erinnerungs-Dienst (`stelleBenachrichtigungenZu`). Kein E-Mail-Versand.
 
 ## Installation auf einem eigenen Server
 

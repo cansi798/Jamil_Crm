@@ -2,13 +2,17 @@
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { onMount } from 'svelte';
 	import '$lib/stil/kunden.css';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
+	import { enhance } from '$app/forms';
+	import Abschnitt from '$lib/components/Abschnitt.svelte';
+	import Schalter from '$lib/components/ui/Schalter.svelte';
+	import { BENACHRICHTIGUNGS_KATEGORIEN } from '$lib/benachrichtigungen';
 
 	/**
 	 * Push-Benachrichtigungen auf diesem Gerät (Wunsch Jamil msg 2679). Android/PC: im Browser erlauben. iPhone/iPad:
 	 * erst „Zum Home-Bildschirm“ hinzufügen und die App von dort öffnen (Apple erlaubt Push nur so, ab iOS 16.4).
 	 */
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	type Zustand = 'pruefe' | 'nicht_moeglich' | 'ios_homescreen' | 'blockiert' | 'aus' | 'an';
 	let zustand = $state<Zustand>('pruefe');
@@ -109,8 +113,9 @@
 <main class="kd-seite">
 	<h1>Benachrichtigungen</h1>
 	<p class="kd-info">
-		Erinnerungen zu Aufgaben und Terminen erscheinen immer in der Glocke oben. Hier schaltest du zusätzlich Push-Nachrichten auf diesem Gerät
-		ein – dann klingelt das Handy bzw. der PC, auch wenn das CRM gerade nicht offen ist.
+		Erinnerungen zu Aufgaben und Terminen erscheinen immer in der Glocke oben – und eine Nachricht, sobald dich etwas betrifft (dir wird eine
+		Aufgabe zugewiesen, du wirst für einen Termin eingeteilt …). Hier schaltest du zusätzlich Push-Nachrichten auf diesem Gerät ein – dann
+		klingelt das Handy bzw. der PC, auch wenn das CRM gerade nicht offen ist.
 	<InfoFenster id="benachrichtigungen.seite" /></p>
 
 	<section class="bn-karte" aria-label="Dieses Gerät">
@@ -143,6 +148,26 @@
 		<p class="kd-info">Angemeldete Geräte insgesamt: {geraete}</p>
 	</section>
 
+	<Abschnitt titel="Worüber benachrichtigen?" id="bn-wahl" info="benachrichtigungen.wahl">
+		{#snippet aktionen()}<button type="submit" form="bn-wahl-form" class="kd-knopf klein" data-testid="bn-wahl-speichern">Speichern</button>{/snippet}
+		{#if form && 'wahlGespeichert' in form}<p role="status" class="kd-info bn-ok">Gespeichert.</p>{/if}
+		{#if form && 'fehler' in form}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
+		<p class="kd-info">Du bekommst eine Nachricht, wenn jemand anderes etwas tut, das dich betrifft – nie für deine eigenen Änderungen.</p>
+		<form id="bn-wahl-form" method="POST" action="?/wahl" use:enhance={() => async ({ update }) => update({ reset: false })}>
+			<ul class="bn-wahl">
+				{#each BENACHRICHTIGUNGS_KATEGORIEN as kat (kat.id)}
+					<li data-kategorie={kat.id}>
+						<div class="bn-wahl-text"><strong>{kat.titel}</strong><span class="kd-info">{kat.wann}</span></div>
+						<div class="bn-wahl-schalter">
+							<Schalter name={`${kat.id}_glocke`} label="Glocke" an={data.wahl[kat.id].glocke} />
+							<Schalter name={`${kat.id}_push`} label="Push" an={data.wahl[kat.id].push} />
+						</div>
+					</li>
+				{/each}
+			</ul>
+		</form>
+	</Abschnitt>
+
 	<section class="bn-karte" aria-label="So funktioniert es">
 		<h2>So funktioniert es</h2>
 		<ul>
@@ -173,5 +198,35 @@
 	}
 	.bn-karte li {
 		margin: 0.25rem 0;
+	}
+	.bn-ok {
+		color: var(--ui-gruen);
+		font-weight: 600;
+	}
+	.bn-wahl {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.bn-wahl li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem 1rem;
+		padding: 0.6rem 0;
+		border-top: 1px dashed var(--m365-rand);
+	}
+	.bn-wahl li:first-child {
+		border-top: 0;
+	}
+	.bn-wahl-text {
+		display: grid;
+		gap: 0.15rem;
+		flex: 1 1 16rem;
+	}
+	.bn-wahl-schalter {
+		display: flex;
+		gap: 1.25rem;
 	}
 </style>

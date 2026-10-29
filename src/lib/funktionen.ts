@@ -42,6 +42,18 @@ export type Funktion = {
 
 export const FUNKTIONEN: Funktion[] = [
 	{
+		id: 'benachrichtigungen',
+		schritt: 'auftrag',
+		name: 'Benachrichtigungen, wenn einen etwas betrifft',
+		was: 'Glocke und Push für die Betroffenen: Aufgabe zugewiesen; für einen Termin eingeteilt, eigener Termin verschoben, geändert oder abgesagt; für einen Auftrag zuständig oder dessen Status geändert. Nie für eigene Änderungen.',
+		wann: 'Sobald jemand anderes so eine Änderung speichert; mehrere Änderungen an derselben Sache innerhalb von 15 Minuten werden zusammengefasst.',
+		href: '/konto/benachrichtigungen',
+		info: 'benachrichtigungen.wahl',
+		zustand: 'keiner',
+		modul: 'auftraege',
+		recht: 'erinnerungen.nutzen'
+	},
+	{
 		id: 'quellen',
 		schritt: 'anfrage',
 		name: 'Auftragsquellen',

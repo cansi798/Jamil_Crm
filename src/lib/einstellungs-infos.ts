@@ -378,6 +378,13 @@ export const INFOS: Record<string, Info> = {
 		standard: 'Nur sichtbar, wenn der Server angebunden ist.',
 		beispiel: 'Mitarbeiter melden sich mit dem Nextcloud-Konto an.'
 	},
+	'benachrichtigungen.wahl': {
+		titel: 'Worüber benachrichtigen?',
+		was: 'Je Bereich (Aufgaben, Termine, Aufträge): Nachricht in der Glocke und Push aufs Handy an oder aus. Benachrichtigt wird nur, wenn jemand anderes etwas tut, das Sie betrifft.',
+		wirkt: 'Nur Sie. Glocke aus = keine Nachricht in diesem Bereich; Push aus = nur die Glocke. Erinnerungen, die Sie selbst stellen, und Online-Buchungen kommen immer.',
+		standard: 'Alles an.',
+		beispiel: 'Termine: Glocke an, Push aus – Sie sehen neue Termine in der Glocke, das Handy klingelt dafür aber nicht.'
+	},
 	'benachrichtigungen.seite': {
 		titel: 'Benachrichtigungen (Erinnerungen)',
 		was: 'Ob dieses Gerät Mitteilungen bekommt, z. B. Erinnerungen an Einsätze und Aufgaben.',

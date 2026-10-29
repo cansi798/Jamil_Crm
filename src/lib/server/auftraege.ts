@@ -458,7 +458,9 @@ async function setzeZustaendige(tx: TransactionSql, k: Kontext, auftragId: strin
 			select id from app.benutzer where betrieb_id = ${k.betriebId} and aktiv and id = any(${ids}::uuid[])`;
 		if (da.length !== ids.length) throw new ApiFehler(400, 'Zuständig kann nur ein aktiver Mitarbeiter des Betriebs sein.');
 	}
-	await tx`delete from app.auftrag_zustaendige where auftrag_id = ${auftragId} and betrieb_id = ${k.betriebId}`;
+	// Nur Unterschiede schreiben: wer bleibt, wird nicht neu eingetragen (sonst käme bei jedem Speichern erneut
+	// „Auftrag für dich“, Benachrichtigungen Migration 114)
+	await tx`delete from app.auftrag_zustaendige where auftrag_id = ${auftragId} and betrieb_id = ${k.betriebId} and not (benutzer_id = any(${ids}::uuid[]))`;
 	if (ids.length > 0) {
 		await tx`
 			insert into app.auftrag_zustaendige ${tx(
@@ -466,7 +468,7 @@ async function setzeZustaendige(tx: TransactionSql, k: Kontext, auftragId: strin
 				'betrieb_id',
 				'auftrag_id',
 				'benutzer_id'
-			)}`;
+			)} on conflict do nothing`;
 	}
 }
 

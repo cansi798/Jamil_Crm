@@ -4,6 +4,7 @@ import { ApiFehler } from './fehler';
 import { UUID } from './kunden';
 import { ausTagUndUhrzeit, berlinTag, berlinUhrzeit, istTag, tagKurz } from '../zeit';
 import { erinnerungAusFeld, istPushEndpunkt, MAX_ERINNERUNGEN, MAX_MINUTEN_VORHER, vorlaufText } from '../erinnerungen';
+import { BENACHRICHTIGUNGS_KATEGORIEN, glockenText, istBenachrichtigungsKategorie, type BenachrichtigungsKategorie } from '../benachrichtigungen';
 
 /**
  * Erinnerungen (Wunsch Jamil msg 2679) für Aufgaben und Termine: bis zu zwei je Person und Ziel, relativ („1 Stunde
@@ -129,22 +130,32 @@ export async function eigeneErinnerungen(k: Kontext, ziel: Ziel): Promise<Erinne
 export type Benachrichtigung = { id: string; titel: string; text: string | null; link: string; zeit: string; gelesen: boolean };
 
 export async function benachrichtigungen(k: Kontext, limit = 20): Promise<{ ungelesen: number; liste: Benachrichtigung[] }> {
+	const max = Math.min(Math.max(limit, 1), 50);
 	return mitBetrieb(k, async (tx) => {
+		// Glocke = fällige Erinnerungen und Hinweise (app.erinnerungen) + Benachrichtigungen, wenn einen etwas betrifft
+		// (app.benachrichtigungen, Jamil msg 3734) – nur die eigenen
 		const [{ n }] = await tx`
-			select count(*)::int as n from app.erinnerungen
-			where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} and ergebnis = 'gesendet' and gelesen_am is null`;
+			select (select count(*)::int from app.erinnerungen
+					where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} and ergebnis = 'gesendet' and gelesen_am is null)
+				+ (select count(*)::int from app.benachrichtigungen
+					where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} and gelesen_am is null) as n`;
 		const z = await tx`
-			select id, titel, text, link, gesendet_am, gelesen_am from app.erinnerungen
-			where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} and ergebnis = 'gesendet'
-			order by gesendet_am desc limit ${Math.min(Math.max(limit, 1), 50)}`;
+			(select id, titel, text, link, gesendet_am as zeit, gelesen_am, 1 as anzahl from app.erinnerungen
+				where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} and ergebnis = 'gesendet'
+				order by gesendet_am desc limit ${max})
+			union all
+			(select id, titel, text, link, aktualisiert as zeit, gelesen_am, anzahl from app.benachrichtigungen
+				where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId}
+				order by aktualisiert desc limit ${max})
+			order by zeit desc limit ${max}`;
 		return {
 			ungelesen: n,
 			liste: z.map((r) => ({
 				id: r.id,
 				titel: r.titel,
-				text: r.text,
+				text: glockenText(r.text, Number(r.anzahl)),
 				link: r.link,
-				zeit: new Date(r.gesendet_am).toISOString(),
+				zeit: new Date(r.zeit).toISOString(),
 				gelesen: r.gelesen_am !== null
 			}))
 		};
@@ -154,10 +165,16 @@ export async function benachrichtigungen(k: Kontext, limit = 20): Promise<{ unge
 /** Eine (id) oder alle Benachrichtigungen des Nutzers als gelesen markieren. */
 export async function markiereGelesen(k: Kontext, id: unknown): Promise<void> {
 	if (id !== undefined && id !== null && (typeof id !== 'string' || !UUID.test(id))) throw new ApiFehler(400, 'Ungültige Benachrichtigung.');
-	await mitBetrieb(k, (tx) => tx`
-		update app.erinnerungen set gelesen_am = now()
-		where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} and gelesen_am is null and ergebnis = 'gesendet'
-			${id ? tx`and id = ${id as string}` : tx``}`);
+	await mitBetrieb(k, async (tx) => {
+		await tx`
+			update app.erinnerungen set gelesen_am = now()
+			where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} and gelesen_am is null and ergebnis = 'gesendet'
+				${id ? tx`and id = ${id as string}` : tx``}`;
+		await tx`
+			update app.benachrichtigungen set gelesen_am = now()
+			where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId} and gelesen_am is null
+				${id ? tx`and id = ${id as string}` : tx``}`;
+	});
 }
 
 // ——— Web-Push (VAPID) ———
@@ -364,6 +381,71 @@ async function inhalt(tx: TransactionSql, k: Kontext, r: Record<string, any>): P
 	};
 }
 
+/**
+ * Push für neue Benachrichtigungen (Migration 114): je Nachricht genau einmal, nur wenn sie noch frisch ist (eine Stunde)
+ * – gebündelte Änderungen danach schicken keinen weiteren Push. Push-Fehler halten nichts auf.
+ */
+export async function stelleBenachrichtigungenZu(limit = 100): Promise<{ gesendet: number; ohne: number }> {
+	const offen = await systemAbfrage((sql) => sql`select * from app.benachrichtigungen_push_offen(${limit})`);
+	let gesendet = 0;
+	let ohne = 0;
+	for (const o of offen) {
+		const k = { betriebId: o.betrieb_id as string, benutzerId: o.benutzer_id as string };
+		try {
+			const n = await mitBetrieb(k, async (tx) => {
+				const [r] = await tx`
+					update app.benachrichtigungen
+					set push_am = now(), push_ergebnis = case when angelegt > now() - interval '1 hour' then 'gesendet' else 'keins' end
+					where id = ${o.id} and betrieb_id = ${k.betriebId} and push_ergebnis is null
+					returning titel, text, link, push_ergebnis`;
+				return r ?? null;
+			});
+			if (!n || n.push_ergebnis !== 'gesendet') {
+				ohne++;
+				continue;
+			}
+			gesendet++;
+			await sendePush(k, { titel: n.titel, text: n.text ?? '', link: n.link }).catch((e) => console.error('Web-Push (Benachrichtigung):', e));
+		} catch (e) {
+			console.error('Benachrichtigung zustellen fehlgeschlagen:', e);
+		}
+	}
+	return { gesendet, ohne };
+}
+
+// ——— Persönliche Einstellungen: worüber benachrichtigen (Glocke / Push je Kategorie) ———
+
+export type BenachrichtigungsWahl = Record<BenachrichtigungsKategorie, { glocke: boolean; push: boolean }>;
+
+export async function ladeBenachrichtigungsWahl(k: Kontext): Promise<BenachrichtigungsWahl> {
+	return mitBetrieb(k, async (tx) => {
+		const z = await tx`
+			select kategorie, glocke, push from app.benachrichtigung_einstellungen
+			where betrieb_id = ${k.betriebId} and benutzer_id = ${k.benutzerId}`;
+		const wahl = Object.fromEntries(BENACHRICHTIGUNGS_KATEGORIEN.map((x) => [x.id, { glocke: true, push: true }])) as BenachrichtigungsWahl;
+		for (const r of z) if (istBenachrichtigungsKategorie(r.kategorie)) wahl[r.kategorie] = { glocke: r.glocke, push: r.push };
+		return wahl;
+	});
+}
+
+/** Nur die eigenen Einstellungen; Push ohne Glocke gibt es nicht (Push aus, wenn die Glocke aus ist). */
+export async function speichereBenachrichtigungsWahl(k: Kontext, wahl: Partial<Record<string, { glocke: unknown; push: unknown }>>): Promise<void> {
+	await mitBetrieb(k, async (tx) => {
+		for (const kat of BENACHRICHTIGUNGS_KATEGORIEN) {
+			const w = wahl[kat.id];
+			if (!w) continue;
+			const glocke = w.glocke === true;
+			const push = glocke && w.push === true;
+			await tx`
+				insert into app.benachrichtigung_einstellungen (betrieb_id, benutzer_id, kategorie, glocke, push)
+				values (${k.betriebId}, ${k.benutzerId}, ${kat.id}, ${glocke}, ${push})
+				on conflict (benutzer_id, kategorie) do update set glocke = excluded.glocke, push = excluded.push
+				where app.benachrichtigung_einstellungen.glocke is distinct from excluded.glocke
+					or app.benachrichtigung_einstellungen.push is distinct from excluded.push`;
+		}
+	});
+}
+
 let dienst: ReturnType<typeof setInterval> | null = null;
 let laeuft = false;
 /** Hintergrund-Dienst starten (jede Minute). In Tests nicht. */
@@ -374,6 +456,7 @@ export function starteErinnerungsDienst(intervallMs = 60_000): void {
 		laeuft = true;
 		try {
 			await stelleFaelligeZu();
+			await stelleBenachrichtigungenZu();
 		} catch (e) {
 			console.error('Erinnerungs-Dienst:', e);
 		} finally {
