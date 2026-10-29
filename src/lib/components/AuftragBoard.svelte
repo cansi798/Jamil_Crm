@@ -8,6 +8,9 @@
 		kurzAdresse,
 		STATUS_FARBEN,
 		UNTERGRUPPEN,
+		UEBERSPRUNGEN_TITEL,
+		schrittUebersprungen,
+		statusUebersprungen,
 		untergruppe,
 		verschiebeKarte,
 		zielErlaubt,
@@ -39,6 +42,7 @@
 		hatTermin: boolean;
 		hatUmsetzungstermin: boolean;
 		arbeitsstand: string | null;
+		quelleUebersprungen: string[];
 	};
 
 	/**
@@ -74,7 +78,7 @@
 	const ANGEBOT_NAMEN: Record<string, string> = { entwurf: 'Entwurf', versendet: 'versendet', angenommen: 'angenommen' };
 
 	async function verschiebe(karte: Karte, nach: AuftragStatus) {
-		if (!darfBearbeiten || laeuft.has(karte.id) || !zielErlaubt(karte.status, nach)) return;
+		if (!darfBearbeiten || laeuft.has(karte.id) || !zielErlaubt(karte.status, nach, karte.quelleUebersprungen)) return;
 		const von = karte.status;
 		spalten = verschiebeKarte(spalten, karte.id, nach);
 		laeuft = new Set([...laeuft, karte.id]);
@@ -88,7 +92,7 @@
 			});
 			const koerper = await r.json().catch(() => null);
 			if (!r.ok) throw new Error(koerper?.fehler ?? `Fehler ${r.status}`);
-			if (koerper?.id) spalten = aktualisiereKarte(spalten, { id: koerper.id, status: koerper.status, titel: koerper.titel });
+			if (koerper?.id) spalten = aktualisiereKarte(spalten, { id: koerper.id, status: koerper.status, titel: koerper.titel, arbeitsstand: koerper.arbeitsstand ?? null });
 			meldung = `„${karte.titel}“ ist jetzt „${STATUS_NAMEN[nach]}“.`;
 		} catch (e) {
 			// Zurücknehmen: Karte wieder in die alte Spalte
@@ -109,7 +113,11 @@
 
 	/** Board: wie beim Ziehen nur ein Schritt (Server-Regel); weitere Sprünge gehen im Auftrag selbst. */
 	const grund = (k: Karte) => (nach: AuftragStatus) =>
-		STATUS.indexOf(nach) > STATUS.indexOf(k.status) ? 'erst die Schritte davor' : 'nur ein Schritt zurück';
+		statusUebersprungen(nach, k.quelleUebersprungen)
+			? 'für diese Auftragsquelle übersprungen'
+			: STATUS.indexOf(nach) > STATUS.indexOf(k.status)
+				? 'erst die Schritte davor'
+				: 'nur ein Schritt zurück';
 </script>
 
 {#snippet kachel(k: Karte)}
@@ -121,7 +129,7 @@
 				<StatusMenue
 					status={k.status}
 					titel={k.titel}
-					erlaubt={(nach) => zielErlaubt(k.status, nach)}
+					erlaubt={(nach) => zielErlaubt(k.status, nach, k.quelleUebersprungen)}
 					grund={grund(k)}
 					gesperrt={laeuft.has(k.id)}
 					onwaehle={(nach) => void verschiebe(k, nach)}
@@ -172,10 +180,18 @@
 <KachelBoard
 	spalten={kachelSpalten}
 	ziehbar={() => darfBearbeiten}
-	zielErlaubt={(k, _von, nach) => zielErlaubt(k.status, nach as AuftragStatus)}
+	zielErlaubt={(k, _von, nach) => zielErlaubt(k.status, nach as AuftragStatus, k.quelleUebersprungen)}
 	onablegen={(k, _von, nach) => void verschiebe(k, nach as AuftragStatus)}
 	onverboten={verboten}
-	gruppen={(sp) => UNTERGRUPPEN[sp as AuftragStatus]?.map((g) => ({ id: g.id, titel: g.titel, passt: (k: Karte) => untergruppe(k) === g.id })) ?? null}
+	gruppen={(sp) => {
+		const gr = UNTERGRUPPEN[sp as AuftragStatus];
+		if (!gr) return null;
+		// Ablauf je Auftragsquelle (msg 3703): Aufträge ohne geltenden Schritt in diesem Status stehen unter „Schritt übersprungen“
+		return [
+			...gr.map((g) => ({ id: g.id as string, titel: g.titel, passt: (k: Karte) => untergruppe(k) === g.id })),
+			{ id: 'uebersprungen', titel: UEBERSPRUNGEN_TITEL, passt: (k: Karte) => schrittUebersprungen(k), nurWennBelegt: true }
+		];
+	}}
 	karte={kachel}
 	{geist}
 	{fuss}

@@ -295,6 +295,14 @@ export const INFOS: Record<string, Info> = {
 		beispiel: 'Nach einem halben Jahr sehen Sie, welche Quelle die meisten angenommenen Angebote bringt.'
 	},
 
+	'quellen.ablauf': {
+		titel: 'Ablauf je Auftragsquelle',
+		was: 'Je Auftragsquelle legen Sie fest, welche Schritte gelten (Termin vereinbaren, Angebot erstellen, Umsetzung planen, Arbeiten, Qualität, Endabnahme). Übersprungene Schritte erscheinen für diese Aufträge nicht im Board und in der Liste.',
+		wirkt: 'Alle Aufträge der Quelle. Ist ein ganzer Status übersprungen, gehen „Weiter“ und das Ziehen im Board gleich zum nächsten geltenden Status; neue Aufträge beginnen dort. Bestehende Aufträge werden nicht verschoben.',
+		standard: 'Alles gilt – genau wie bisher. Die Statusleiste im Auftrag kann jeden Status weiterhin direkt setzen.',
+		beispiel: 'Bei einem Partner, der den Termin selbst macht, „Termin vereinbaren“ überspringen: Seine Aufträge beginnen gleich bei „Angebot“.'
+	},
+
 	// ——— Firma, Kalkulation, Kennzahlen ———
 	'briefkopf.seite': {
 		titel: 'Briefkopf und Firmenprofil',

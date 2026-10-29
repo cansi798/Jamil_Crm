@@ -164,7 +164,7 @@
 			Die Anfrage und ihre Aufgaben werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.
 		</LoeschenPanel>
 	{/if}
-	<StatusKette status={a.status} darfBearbeiten={data.darfBearbeiten} untergruppe={untergruppe(a)} />
+	<StatusKette status={a.status} darfBearbeiten={data.darfBearbeiten} untergruppe={untergruppe(a)} uebersprungen={a.quelleUebersprungen} />
 
 	{#if data.kundenHinweise && (data.kundenHinweise.notiz || data.kundenHinweise.notizen.length > 0)}
 		<aside class="af-hinweise" aria-label="Hinweise zum Kunden">

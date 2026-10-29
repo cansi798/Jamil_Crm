@@ -7,11 +7,25 @@
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import AuftragsquelleEtikett from '$lib/components/AuftragsquelleEtikett.svelte';
 	import { standardFarbe } from '$lib/farben';
+	import Abschnitt from '$lib/components/Abschnitt.svelte';
+	import Segmente from '$lib/components/ui/Segmente.svelte';
+	import { ABLAUF_SCHRITTE } from '$lib/auftrag-board';
+	import { STATUS_NAMEN } from '$lib/auftrag-status';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	const fehlerIn = (b: string) => (form && form.bereich === b && 'fehler' in form ? (form.fehler as string) : null);
 	const ohneReset = () => async ({ update }: { update: (o?: { reset?: boolean }) => Promise<void> }) => update({ reset: false });
+
+	// Ablauf je Auftragsquelle (Jamil msg 3703): eine Quelle wählen, je Schritt „gilt / überspringen“
+	let ablaufQuelle = $state<string>('');
+	const gewaehlt = $derived(data.quellen.find((q) => q.id === ablaufQuelle) ?? data.quellen[0] ?? null);
+	const ABLAUF_OPTIONEN = [
+		{ wert: 'gilt', text: 'gilt' },
+		{ wert: 'ueberspringen', text: 'überspringen' }
+	] as const;
+	const anzahlUebersprungen = (q: { uebersprungen: string[] }) => q.uebersprungen.length;
+	const ablaufMeldung = $derived(form && form.bereich === 'ablauf' && 'ergebnis' in form ? 'Ablauf gespeichert.' : null);
 </script>
 
 <svelte:head>
@@ -43,6 +57,7 @@
 					</label>
 					<input type="hidden" name="aktiv" value="false" />
 					<span class="kd-info">{q.auftraege} Auftr.</span>
+					{#if anzahlUebersprungen(q) > 0}<span class="ah-chip leise" data-testid="quelle-uebersprungen">{anzahlUebersprungen(q)} {anzahlUebersprungen(q) === 1 ? 'Schritt' : 'Schritte'} übersprungen</span>{/if}
 				</form>
 				<div class="qu-knoepfe">
 					{#if data.auftraggeber.length}
@@ -82,6 +97,51 @@
 			</form>
 		{/snippet}
 	</AddPanel>
+
+	{#if gewaehlt}
+		<Abschnitt titel="Ablauf je Auftragsquelle" id="ablauf" info="quellen.ablauf">
+			{#snippet aktionen()}<button type="submit" form="ablauf-form" class="kd-knopf klein" data-testid="ablauf-speichern">Speichern</button>{/snippet}
+			{#if fehlerIn('ablauf')}<p role="alert" class="kd-fehler">{fehlerIn('ablauf')}</p>{/if}
+			{#if ablaufMeldung}<p role="status" class="kd-info qu-meldung">{ablaufMeldung}</p>{/if}
+			<p class="kd-info">
+				Je Auftragsquelle: Welche Schritte durchlaufen ihre Aufträge? „Überspringen“ blendet den Schritt im Board und in der Liste für diese
+				Aufträge aus; ist ein ganzer Status übersprungen, geht „Weiter“ gleich zum nächsten geltenden Status. Standard: alles gilt (wie bisher).
+			</p>
+			<label class="qu-wahl">
+				Auftragsquelle
+				<Auswahl aria-label="Auftragsquelle für den Ablauf" onchange={(ev) => (ablaufQuelle = ev.currentTarget.value)}>
+					{#each data.quellen as q (q.id)}<option value={q.id} selected={q.id === gewaehlt.id}>{q.name}{q.aktiv ? '' : ' (aus)'}</option>{/each}
+				</Auswahl>
+				<AuftragsquelleEtikett name={gewaehlt.name} farbe={gewaehlt.farbe} />
+			</label>
+			{#key gewaehlt.id}
+				<form id="ablauf-form" method="POST" action="?/ablauf" use:enhance={ohneReset} data-testid="ablauf-form">
+					<input type="hidden" name="id" value={gewaehlt.id} />
+					<table class="qu-ablauf">
+						<thead>
+							<tr><th scope="col">Status</th><th scope="col">Schritt</th><th scope="col">Für {gewaehlt.name}</th></tr>
+						</thead>
+						<tbody>
+							{#each ABLAUF_SCHRITTE as sch, i (sch.id)}
+								<tr data-schritt={sch.id}>
+									<td class="qu-status">{i === 0 || ABLAUF_SCHRITTE[i - 1].status !== sch.status ? STATUS_NAMEN[sch.status] : ''}</td>
+									<th scope="row" class="qu-schritt">{sch.titel}</th>
+									<td>
+										<Segmente
+											name={`schritt_${sch.id}`}
+											label={`${sch.titel} für ${gewaehlt.name}`}
+											optionen={ABLAUF_OPTIONEN}
+											wert={gewaehlt.uebersprungen.includes(sch.id) ? 'ueberspringen' : 'gilt'}
+										/>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</form>
+			{/key}
+		</Abschnitt>
+	{/if}
 </main>
 
 <style>
@@ -128,6 +188,73 @@
 		display: flex !important;
 		align-items: center;
 		gap: 0.5rem;
+	}
+	/* Ablauf je Auftragsquelle (msg 3703) */
+	.qu-wahl {
+		display: flex !important;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.75rem;
+		margin: 0.25rem 0 0.75rem;
+	}
+	.qu-wahl :global(select) {
+		width: auto;
+		min-width: 12rem;
+	}
+	.qu-meldung {
+		color: var(--ui-gruen);
+		font-weight: 600;
+	}
+	.qu-ablauf {
+		width: 100%;
+		border-collapse: collapse;
+	}
+	.qu-ablauf th[scope='col'] {
+		padding: 0.35rem 0.5rem;
+		color: var(--m365-text-leise);
+		font-family: var(--ui-schrift-titel);
+		font-size: 0.6875rem;
+		letter-spacing: 0.06em;
+		text-align: left;
+		text-transform: uppercase;
+	}
+	.qu-ablauf td,
+	.qu-ablauf th[scope='row'] {
+		padding: 0.45rem 0.5rem;
+		border-top: 1px dashed var(--m365-rand);
+		text-align: left;
+		vertical-align: middle;
+	}
+	.qu-status {
+		font-weight: 600;
+		white-space: nowrap;
+	}
+	.qu-schritt {
+		font-weight: 500;
+	}
+	@media (max-width: 40rem) {
+		.qu-ablauf thead {
+			display: none;
+		}
+		.qu-ablauf,
+		.qu-ablauf tbody,
+		.qu-ablauf tr,
+		.qu-ablauf td,
+		.qu-ablauf th[scope='row'] {
+			display: block;
+		}
+		.qu-ablauf tr {
+			padding: 0.5rem 0;
+			border-top: 1px dashed var(--m365-rand);
+		}
+		.qu-ablauf td,
+		.qu-ablauf th[scope='row'] {
+			padding: 0.15rem 0;
+			border: 0;
+		}
+		.qu-status:empty {
+			display: none !important;
+		}
 	}
 	.qu-knoepfe,
 		.qu-knoepfe form {

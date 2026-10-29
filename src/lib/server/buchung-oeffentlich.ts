@@ -4,7 +4,8 @@ import { pruefeBild } from './bildpruefung';
 import { sendePush, type PushNachricht } from './erinnerungen';
 import { mailVersand } from './nachfassen';
 import { baueMail, holeSignatur, mailWerte, vorlageFuer } from './mail-vorlagen';
-import { ONLINE_QUELLE, startlisteFallsLeer } from './quellen';
+import { ONLINE_QUELLE, startlisteFallsLeer, uebersprungeneSchritte } from './quellen';
+import { startStatus } from '../auftrag-board';
 import {
 	globaleEinbettenDomains,
 	ladeDienste,
@@ -379,9 +380,11 @@ export async function bucheTermin(token: unknown, e: Buchungseingabe, o: { jetzt
 					`Kontakt laut Buchung: ${name}, ${kontakt.email}, ${kontakt.telefon}${kontakt.strasse ? `, ${kontakt.strasse}, ${kontakt.plz ?? ''} ${kontakt.ort ?? ''}`.trimEnd() : ''}.`,
 					kunde.neu ? 'Neuer Kunde.' : 'Vorhandener Kunde (erkannt an E-Mail bzw. Telefon) – Angaben bitte prüfen.'
 				].join('\n');
+				// Überspringt die Auftragsquelle „Anfrage“, beginnt der Auftrag im ersten geltenden Status (msg 3703)
+				const status = startStatus(await uebersprungeneSchritte(tx, k.betriebId, quelleId));
 				const [auftrag] = await tx`
-					insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, quelle_id, beschreibung)
-					values (${k.betriebId}, ${`${l.dienst.name} – ${name}`.slice(0, 200)}, ${kunde.id}, ${objektId}, ${quelleId}, ${beschreibung})
+					insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, quelle_id, status, beschreibung)
+					values (${k.betriebId}, ${`${l.dienst.name} – ${name}`.slice(0, 200)}, ${kunde.id}, ${objektId}, ${quelleId}, ${status}, ${beschreibung})
 					returning id, nummer`;
 				await tx`insert into app.auftrag_zustaendige (betrieb_id, auftrag_id, benutzer_id) values (${k.betriebId}, ${auftrag.id}, ${benutzerId})`;
 				const [einsatz] = await tx`

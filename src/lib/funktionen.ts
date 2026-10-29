@@ -54,6 +54,18 @@ export const FUNKTIONEN: Funktion[] = [
 		recht: 'einstellungen'
 	},
 	{
+		id: 'quellen-ablauf',
+		schritt: 'anfrage',
+		name: 'Ablauf je Auftragsquelle',
+		was: 'Je Auftragsquelle gilt oder entfällt jeder Schritt (z. B. „Termin vereinbaren“). Übersprungene Schritte erscheinen nicht; „Weiter“ lässt übersprungene Status aus, neue Aufträge beginnen im ersten geltenden.',
+		wann: 'Beim Anlegen eines Auftrags, bei „Weiter“/Ziehen im Board und in der Anzeige von Board und Liste.',
+		href: '/einstellungen/quellen',
+		info: 'quellen.ablauf',
+		zustand: 'keiner',
+		modul: 'auftraege',
+		recht: 'einstellungen'
+	},
+	{
 		id: 'online-buchung',
 		schritt: 'anfrage',
 		name: 'Online-Buchung',

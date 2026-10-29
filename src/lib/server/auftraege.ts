@@ -3,8 +3,9 @@ import { ApiFehler } from './fehler';
 import { anzeigeName, likeMuster, sucheWoerter, textFeld, UUID } from './kunden';
 import { hatRecht } from './rechte';
 import { darfEines } from './tarif';
-import { erlaubterWechsel, istStatus, type AuftragStatus } from '../auftrag-status';
-import { istArbeitsstand, type Arbeitsstand } from '../auftrag-board';
+import { erlaubterWechsel, istStatus, STATUS, type AuftragStatus } from '../auftrag-status';
+import { istArbeitsstand, naechsterGeltenderStatus, startStatus, statusUebersprungen, vorigerGeltenderStatus, type Arbeitsstand } from '../auftrag-board';
+import { uebersprungeneSchritte } from './quellen';
 import { istTag } from '../zeit';
 
 /**
@@ -54,6 +55,8 @@ export type Auftrag = {
 	quelleId: string | null;
 	quelleName: string | null;
 	quelleFarbe: string | null;
+	/** Übersprungene Schritte der Auftragsquelle (Jamil msg 3703, Migration 112); leer = alles gilt */
+	quelleUebersprungen: string[];
 	/** Einsatzort: Adresse des Objekts, sonst die Adresse des Kunden (Standard), sonst null. */
 	adresse: string | null;
 	adresseVonObjekt: boolean;
@@ -246,7 +249,7 @@ export const NACHFASSEN_FAELLIG_SQL = `exists (select 1 from json_to_record(${NA
 	where nf.tag <= (now() at time zone 'Europe/Berlin')::date and not nf.pausiert)`;
 
 export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anlage_id, an.bezeichnung as anlage_bezeichnung,
-	a.quelle_id, qu.name as quelle_name, qu.farbe as quelle_farbe, a.status, a.beschreibung,
+	a.quelle_id, qu.name as quelle_name, qu.farbe as quelle_farbe, coalesce(qu.uebersprungen, '{}') as quelle_uebersprungen, a.status, a.beschreibung,
 	to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab, a.angelegt, a.geaendert,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
@@ -317,6 +320,7 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 		quelleId: z.quelle_id ?? null,
 		quelleName: z.quelle_name ?? null,
 		quelleFarbe: z.quelle_farbe ?? null,
+		quelleUebersprungen: Array.isArray(z.quelle_uebersprungen) ? z.quelle_uebersprungen : [],
 		adresse: ortAus(z),
 		adresseVonObjekt: objektAdresse !== null,
 		zustaendige: typeof z.zustaendige === 'string' ? JSON.parse(z.zustaendige) : (z.zustaendige ?? []),
@@ -472,10 +476,12 @@ export async function legeAuftragAn(k: Kontext, e: Record<string, unknown>): Pro
 	const zustaendige = pruefeZustaendigeEingabe(e.zustaendige);
 	return mitBetrieb(k, async (tx) => {
 		await pruefeBezuege(tx, k, w);
+		// Überspringt die Auftragsquelle „Anfrage“, beginnt der Auftrag im ersten geltenden Status (msg 3703)
+		const status = startStatus(await uebersprungeneSchritte(tx, k.betriebId, w.quelleId));
 		const [z] = await tx`
-			insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, anlage_id, quelle_id, beschreibung, geplant_ab,
+			insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, anlage_id, quelle_id, status, beschreibung, geplant_ab,
 				einmal_name, einmal_telefon, einmal_email, einmal_strasse, einmal_plz, einmal_ort)
-			values (${k.betriebId}, ${w.titel}, ${w.kundeId}, ${w.objektId}, ${w.anlageId}, ${w.quelleId}, ${w.beschreibung}, ${w.geplantAb},
+			values (${k.betriebId}, ${w.titel}, ${w.kundeId}, ${w.objektId}, ${w.anlageId}, ${w.quelleId}, ${status}, ${w.beschreibung}, ${w.geplantAb},
 				${w.einmal?.name ?? null}, ${w.einmal?.telefon ?? null}, ${w.einmal?.email ?? null}, ${w.einmal?.strasse ?? null},
 				${w.einmal?.plz ?? null}, ${w.einmal?.ort ?? null})
 			returning id`;
@@ -573,7 +579,7 @@ export async function uebernimmEinmalKunde(k: Kontext, id: string, sicht: Sicht 
 	});
 }
 
-/** Statuswechsel um genau einen Schritt (sonst 409 `Statuswechsel nicht erlaubt`). */
+/** Statuswechsel um genau einen (geltenden) Schritt (sonst 409 `Statuswechsel nicht erlaubt`). */
 export async function setzeStatus(
 	k: Kontext,
 	id: string,
@@ -586,12 +592,22 @@ export async function setzeStatus(
 	pruefeAuftragsId(id);
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select a.status from app.auftraege a
+			select a.status, coalesce(q.uebersprungen, '{}') as uebersprungen from app.auftraege a
+			left join app.auftrag_quellen q on q.id = a.quelle_id and q.betrieb_id = a.betrieb_id
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
 		if (!alt) throw nichtGefunden();
-		const erlaubt = opts.sprung ? alt.status !== nach : erlaubterWechsel(alt.status, nach);
+		// Ablauf je Auftragsquelle (msg 3703): Ein Schritt vor/zurück landet im nächsten bzw. vorigen GELTENDEN Status –
+		// übersprungene Status werden dabei ausgelassen. Ein ausdrücklicher Sprung (Statusleiste) darf jede Station wählen.
+		const ueb: string[] = alt.uebersprungen ?? [];
+		let ziel: AuftragStatus | null = nach;
+		if (!opts.sprung) {
+			const vor = STATUS.indexOf(nach) > STATUS.indexOf(alt.status);
+			const geltend = vor ? naechsterGeltenderStatus(alt.status, ueb) : vorigerGeltenderStatus(alt.status, ueb);
+			ziel = erlaubterWechsel(alt.status, nach) || nach === geltend ? (statusUebersprungen(nach, ueb) ? geltend : nach) : null;
+		}
+		const erlaubt = ziel !== null && ziel !== alt.status;
 		if (!erlaubt) throw new ApiFehler(409, 'Statuswechsel nicht erlaubt');
-		await tx`update app.auftraege set status = ${nach} where id = ${id} and betrieb_id = ${k.betriebId}`;
+		await tx`update app.auftraege set status = ${ziel} where id = ${id} and betrieb_id = ${k.betriebId}`;
 		return ladeEinen(tx, k, sicht, id);
 	});
 }

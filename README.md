@@ -293,6 +293,11 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
 30. Arbeitsstand (Migration 111, `auftraege.arbeitsstand`, Jamil msg 3658): Untergruppe im Status „In Arbeit“ (leer = Arbeiten
     durchführen, `qualitaet`, `abnahme`); setzen nur mit „Aufträge bearbeiten“ und nur in „In Arbeit“ (`setzeArbeitsstand`),
     jeder Statuswechsel leert ihn per Trigger. Alle anderen Untergruppen sind abgeleitet (`untergruppe()`, `lib/auftrag-board.ts`).
+31. Ablauf je Auftragsquelle (Migration 112, `auftrag_quellen.uebersprungen`, Jamil msg 3703): übersprungene Schritte je Quelle
+    (Recht „Einstellungen“, Änderungsprotokoll über den Quellen-Trigger). Ein Status ist übersprungen, wenn alle seine Schritte es
+    sind: neue Aufträge beginnen im ersten geltenden Status, ein Schritt vor/zurück (`setzeStatus` ohne Sprung, Board) landet im
+    nächsten geltenden; der Sprung in der Statusleiste darf jeden Status setzen. Bestehende Kopplungen (Angebot versendet/angenommen,
+    Portal-Annahme) bleiben unverändert, bis Jamil die Regeln festlegt.
 
 ## Installation auf einem eigenen Server
 

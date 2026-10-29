@@ -2,7 +2,8 @@ import { error, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler } from '$lib/server/fehler';
 import { betriebKontext, hatRecht, pruefeRecht } from '$lib/server/rechte';
-import { listeQuellen, loescheQuelle, speichereQuelle, verschiebeQuelle } from '$lib/server/quellen';
+import { listeQuellen, loescheQuelle, speichereAblauf, speichereQuelle, verschiebeQuelle } from '$lib/server/quellen';
+import { ABLAUF_SCHRITTE } from '$lib/auftrag-board';
 import { listePartner, quellenPartner, setzeQuellenPartner } from '$lib/server/partner';
 
 /** Einstellungen → Auftragsquellen (Wunsch Jamil msgs 2593/2672): Name, Farbe, aktiv, Reihenfolge – Recht „Einstellungen“. */
@@ -42,6 +43,16 @@ export const actions: Actions = {
 		const f = await request.formData();
 		const id = String(f.get('id') ?? '');
 		return ausfuehren(locals, id, () => setzeQuellenPartner(betriebKontext(locals), id, f.get('partnerId')));
+	},
+	/** Ablauf je Auftragsquelle (Jamil msg 3703): je Schritt `schritt_<id>` = gilt | ueberspringen. */
+	ablauf: async ({ locals, request }) => {
+		const f = await request.formData();
+		const id = String(f.get('id') ?? '');
+		const uebersprungen = ABLAUF_SCHRITTE.filter((x) => f.get(`schritt_${x.id}`) === 'ueberspringen').map((x) => x.id);
+		return ausfuehren(locals, 'ablauf', async () => {
+			await speichereAblauf(betriebKontext(locals), { [id]: uebersprungen });
+			return 'gespeichert';
+		});
 	},
 	loeschen: async ({ locals, request }) => {
 		const id = String((await request.formData()).get('id') ?? '');

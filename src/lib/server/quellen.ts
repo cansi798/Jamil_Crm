@@ -3,6 +3,7 @@ import { ApiFehler } from './fehler';
 import { textFeld, UUID } from './kunden';
 import { berlinTag, istTag, tagPlus } from '../zeit';
 import { istFarbe, standardFarbe } from '../farben';
+import { ABLAUF_SCHRITTE, istAblaufSchritt } from '../auftrag-board';
 
 /**
  * Auftragsquellen (Wunsch Jamil msg 2593): Website, Hornbach, Obi, Empfehlung, … – zentral gepflegt (Einstellungen →
@@ -10,7 +11,16 @@ import { istFarbe, standardFarbe } from '../farben';
  * (Chef/Admin, mit Beträgen nur mit „Preise sehen“).
  */
 
-export type Quelle = { id: string; name: string; aktiv: boolean; sortierung: number; farbe: string; auftraege: number };
+export type Quelle = {
+	id: string;
+	name: string;
+	aktiv: boolean;
+	sortierung: number;
+	farbe: string;
+	auftraege: number;
+	/** übersprungene Schritte (Ablauf je Quelle, Jamil msg 3703); leer = alles gilt */
+	uebersprungen: string[];
+};
 
 export const START_QUELLEN = ['Website', 'Hornbach', 'Obi', 'Empfehlung', 'Zeitung', 'MyHammer', 'Telefon', 'Online-Buchung', 'Sonstiges'];
 
@@ -37,12 +47,20 @@ export async function listeQuellen(k: Kontext, nurAktive = false): Promise<Quell
 	return mitBetrieb(k, async (tx) => {
 		await startlisteFallsLeer(tx, k);
 		const z = await tx`
-			select q.id, q.name, q.aktiv, q.sortierung, q.farbe,
+			select q.id, q.name, q.aktiv, q.sortierung, q.farbe, q.uebersprungen,
 				(select count(*)::int from app.auftraege a where a.quelle_id = q.id and a.betrieb_id = q.betrieb_id) as auftraege
 			from app.auftrag_quellen q
 			where q.betrieb_id = ${k.betriebId} ${nurAktive ? tx`and q.aktiv` : tx``}
 			order by q.sortierung, public.unaccent(lower(q.name)), q.id`;
-		return z.map((r) => ({ id: r.id, name: r.name, aktiv: r.aktiv, sortierung: r.sortierung, farbe: r.farbe, auftraege: r.auftraege }));
+		return z.map((r) => ({
+			id: r.id,
+			name: r.name,
+			aktiv: r.aktiv,
+			sortierung: r.sortierung,
+			farbe: r.farbe,
+			auftraege: r.auftraege,
+			uebersprungen: r.uebersprungen ?? []
+		}));
 	});
 }
 
@@ -164,4 +182,38 @@ export async function auswertung(k: Kontext, von: string, bis: string): Promise<
 export function standardZeitraum(jetzt = new Date()): { von: string; bis: string } {
 	const bis = berlinTag(jetzt);
 	return { von: tagPlus(bis, -365), bis };
+}
+
+/** Übersprungene Schritte einer Quelle (leer, wenn keine Quelle oder alles gilt) – in einer laufenden Transaktion. */
+export async function uebersprungeneSchritte(tx: TransactionSql, betriebId: string, quelleId: string | null | undefined): Promise<string[]> {
+	if (!quelleId) return [];
+	const [q] = await tx`select uebersprungen from app.auftrag_quellen where id = ${quelleId} and betrieb_id = ${betriebId}`;
+	return q?.uebersprungen ?? [];
+}
+
+/**
+ * Ablauf je Auftragsquelle speichern (Jamil msg 3703): `uebersprungen` je Quellen-ID = Liste der übersprungenen Schritte
+ * (Schlüssel aus `ABLAUF_SCHRITTE`). Nur Quellen des eigenen Betriebs; unbekannte Schritte → 400. Bestehende Aufträge
+ * werden dabei NICHT verschoben – die Einstellung wirkt bei Anzeige und beim nächsten Statusschritt.
+ */
+export async function speichereAblauf(k: Kontext, eintraege: Record<string, unknown>): Promise<void> {
+	const geprueft: [string, string[]][] = [];
+	for (const [id, liste] of Object.entries(eintraege)) {
+		const roh = Array.isArray(liste) ? liste : [];
+		if (!roh.every(istAblaufSchritt)) throw new ApiFehler(400, 'Ablauf: unbekannter Schritt.');
+		// in fester Reihenfolge und ohne Doppelte speichern (sauberes Änderungsprotokoll)
+		geprueft.push([pruefeId(id), ABLAUF_SCHRITTE.map((x) => x.id).filter((x) => roh.includes(x))]);
+	}
+	await mitBetrieb(k, async (tx) => {
+		for (const [id, liste] of geprueft) {
+			const z = await tx`
+				update app.auftrag_quellen set uebersprungen = ${liste}
+				where id = ${id} and betrieb_id = ${k.betriebId} and uebersprungen is distinct from ${liste}::text[]
+				returning id`;
+			if (z.length === 0) {
+				const [da] = await tx`select 1 from app.auftrag_quellen where id = ${id} and betrieb_id = ${k.betriebId}`;
+				if (!da) throw nichtGefunden();
+			}
+		}
+	});
 }

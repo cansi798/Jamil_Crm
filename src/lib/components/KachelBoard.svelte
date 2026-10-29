@@ -42,7 +42,7 @@
 		 * Optionale Untergruppen innerhalb einer Spalte (Jamil msgs 3601 ff.: „Anfrage“ → Termin vereinbaren / vereinbart, „Angebot“ →
 		 * Angebot erstellen / Angebot erstellt …): je Gruppe eine kleine Zwischenüberschrift mit Zahl, darunter ihre Karten.
 		 */
-		gruppen?: (spalte: string) => { id: string; titel: string; passt: (k: K) => boolean }[] | null;
+		gruppen?: (spalte: string) => { id: string; titel: string; passt: (k: K) => boolean; nurWennBelegt?: boolean }[] | null;
 	} = $props();
 
 	// Handy: angezeigte Spalte (Reiter)
@@ -191,12 +191,15 @@
 				{#if gruppen?.(s.id) && s.karten.length > 0}
 					{#each gruppen(s.id) ?? [] as g (g.id)}
 						{@const drin = s.karten.filter(g.passt)}
-						<li class="ab-gruppe" data-gruppe={g.id} role="presentation">
-							<h3 class="ab-gruppe-titel">{g.titel} <span class="ab-gruppe-zahl"><span class="ab-unsichtbar">(</span>{drin.length}<span class="ab-unsichtbar">)</span></span></h3>
-						</li>
-						{#each drin as k (k.id)}
-							{@render eintrag(k, s.id)}
-						{/each}
+						<!-- `nurWennBelegt`: z. B. „Schritt übersprungen“ (Ablauf je Auftragsquelle) erscheint nur, wenn Karten drin sind -->
+						{#if !g.nurWennBelegt || drin.length > 0}
+							<li class="ab-gruppe" data-gruppe={g.id} role="presentation">
+								<h3 class="ab-gruppe-titel">{g.titel} <span class="ab-gruppe-zahl"><span class="ab-unsichtbar">(</span>{drin.length}<span class="ab-unsichtbar">)</span></span></h3>
+							</li>
+							{#each drin as k (k.id)}
+								{@render eintrag(k, s.id)}
+							{/each}
+						{/if}
 					{/each}
 				{:else}
 					{#each s.karten as k (k.id)}

@@ -259,3 +259,8 @@ Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…"
   `portal/PortalHuelle.svelte` (Hausfarbe, Kopffarbe, Hintergrund, Schriften, Logo-Variante passend zur Kopffarbe, Karten,
   Knöpfe, Felder, Fuß). Buchung: schmal (40rem), Kopfzeile „Online-Terminbuchung“; Portal: weit (72rem), „Ihr Kundenportal“.
   Die Grundbausteine stehen mit `:where(.pt)` in der Hülle, damit seitenspezifische Regeln weiter gewinnen.
+- **Ablauf je Auftragsquelle** (Jamil msg 3703, Migration 112): Schritte = die offenen Untergruppen (`ABLAUF_SCHRITTE` in
+  `lib/auftrag-board.ts`), je Quelle „gilt / überspringen“ (`ui/Segmente`) im Abschnitt „Ablauf je Auftragsquelle“ unter
+  Einstellungen → Auftragsquellen, „Speichern“ oben rechts. Übersprungene Schritte erscheinen nicht; steht ein Auftrag in einem
+  Status ohne geltenden Schritt, zeigt das Board ihn unter „Schritt übersprungen“ (`KachelBoard` `nurWennBelegt`). Statusregeln
+  nur über `naechsterGeltenderStatus`/`vorigerGeltenderStatus`/`zielErlaubt`/`startStatus` – nirgends eigene Varianten.

@@ -1,4 +1,4 @@
-import { erlaubterWechsel, naechsterStatus, vorigerStatus, type AuftragStatus } from './auftrag-status';
+import { erlaubterWechsel, STATUS, type AuftragStatus } from './auftrag-status';
 
 /**
  * Zustand des Auftrags-Boards im Browser – ohne Svelte und ohne Serverbezug, damit es testbar bleibt.
@@ -11,14 +11,21 @@ export type BoardSpalte<K extends { id: string; status: AuftragStatus }> = {
 	karten: K[];
 };
 
-/** Darf eine Karte von `von` nach `nach` gezogen werden? (Gleiche Spalte ist kein Wechsel.) */
-export const zielErlaubt = (von: AuftragStatus, nach: AuftragStatus): boolean => erlaubterWechsel(von, nach);
+/**
+ * Darf eine Karte von `von` nach `nach` gezogen werden? Ein Schritt in der Statuskette – übersprungene Status der
+ * Auftragsquelle (`uebersprungen`, Jamil msg 3703) zählen dabei nicht: Ziel ist der nächste bzw. vorige GELTENDE Status.
+ */
+export const zielErlaubt = (von: AuftragStatus, nach: AuftragStatus, uebersprungen: readonly string[] = []): boolean =>
+	nach !== von &&
+	(nach === naechsterGeltenderStatus(von, uebersprungen) ||
+		nach === vorigerGeltenderStatus(von, uebersprungen) ||
+		(erlaubterWechsel(von, nach) && !statusUebersprungen(nach, uebersprungen)));
 
-/** Mögliche Ziele für das Menü „Status ändern“: zurück und weiter (falls vorhanden). */
-export function moeglicheZiele(s: AuftragStatus): { richtung: 'zurueck' | 'weiter'; status: AuftragStatus }[] {
+/** Mögliche Ziele für das Menü „Status ändern“: zurück und weiter (falls vorhanden; übersprungene Status ausgelassen). */
+export function moeglicheZiele(s: AuftragStatus, uebersprungen: readonly string[] = []): { richtung: 'zurueck' | 'weiter'; status: AuftragStatus }[] {
 	const ziele: { richtung: 'zurueck' | 'weiter'; status: AuftragStatus }[] = [];
-	const zurueck = vorigerStatus(s);
-	const weiter = naechsterStatus(s);
+	const zurueck = vorigerGeltenderStatus(s, uebersprungen);
+	const weiter = naechsterGeltenderStatus(s, uebersprungen);
 	if (zurueck) ziele.push({ richtung: 'zurueck', status: zurueck });
 	if (weiter) ziele.push({ richtung: 'weiter', status: weiter });
 	return ziele;
@@ -28,14 +35,14 @@ export function moeglicheZiele(s: AuftragStatus): { richtung: 'zurueck' | 'weite
  * Karte `id` in die Spalte `nach` verschieben (oben einsortiert) – liefert neue Spalten (unverändert, wenn die Karte
  * fehlt oder der Wechsel nicht erlaubt ist). Die Anzahl beider Spalten wird angepasst.
  */
-export function verschiebeKarte<K extends { id: string; status: AuftragStatus }>(
+export function verschiebeKarte<K extends { id: string; status: AuftragStatus; quelleUebersprungen?: readonly string[] }>(
 	spalten: BoardSpalte<K>[],
 	id: string,
 	nach: AuftragStatus
 ): BoardSpalte<K>[] {
 	const quelle = spalten.find((s) => s.karten.some((k) => k.id === id));
 	const karte = quelle?.karten.find((k) => k.id === id);
-	if (!quelle || !karte || !zielErlaubt(karte.status, nach) || !spalten.some((s) => s.status === nach)) return spalten;
+	if (!quelle || !karte || !zielErlaubt(karte.status, nach, karte.quelleUebersprungen) || !spalten.some((s) => s.status === nach)) return spalten;
 	const verschoben = { ...karte, status: nach };
 	return spalten.map((s) => {
 		if (s === quelle) return { ...s, anzahl: Math.max(0, s.anzahl - 1), karten: s.karten.filter((k) => k.id !== id) };
@@ -129,13 +136,59 @@ export const ARBEITSSTAENDE = ['qualitaet', 'abnahme'] as const;
 export type Arbeitsstand = (typeof ARBEITSSTAENDE)[number];
 export const istArbeitsstand = (w: unknown): w is Arbeitsstand => typeof w === 'string' && (ARBEITSSTAENDE as readonly string[]).includes(w);
 
+/**
+ * Ablauf je Auftragsquelle (Jamil msg 3703, Konzept `docs/konzept-anfragequellen.md` Etappe 2): Die SCHRITTE sind die
+ * offenen Untergruppen (nächste Aufgabe). Je Quelle kann jeder Schritt „gilt“ oder „überspringen“; gespeichert werden nur
+ * die übersprungenen (`auftrag_quellen.uebersprungen`, Migration 112). Leer = alles gilt = genau das bisherige Verhalten.
+ * Ein Status ist übersprungen, wenn ALLE seine Schritte übersprungen sind (Anfrage, Angebot und Beauftragt haben je einen,
+ * In Arbeit hat drei). Abgenommen und Abgerechnet haben keine Schritte und gelten immer.
+ */
+export const ABLAUF_SCHRITTE = (Object.entries(UNTERGRUPPEN) as [AuftragStatus, UntergruppeInfo[]][]).flatMap(([status, gruppen]) =>
+	gruppen.filter((g) => !g.erledigt).map((g) => ({ id: g.id, titel: g.titel, status }))
+);
+export const istAblaufSchritt = (w: unknown): w is Untergruppe => typeof w === 'string' && ABLAUF_SCHRITTE.some((x) => x.id === w);
+
+export function statusUebersprungen(s: AuftragStatus, uebersprungen: readonly string[] = []): boolean {
+	const schritte = ABLAUF_SCHRITTE.filter((x) => x.status === s);
+	return schritte.length > 0 && schritte.every((x) => uebersprungen.includes(x.id));
+}
+/** Nächster bzw. voriger Status, der für diese Quelle gilt (oder `null` am Ende der Kette). */
+export function naechsterGeltenderStatus(s: AuftragStatus, uebersprungen: readonly string[] = []): AuftragStatus | null {
+	return STATUS.slice(STATUS.indexOf(s) + 1).find((x) => !statusUebersprungen(x, uebersprungen)) ?? null;
+}
+export function vorigerGeltenderStatus(s: AuftragStatus, uebersprungen: readonly string[] = []): AuftragStatus | null {
+	return [...STATUS.slice(0, STATUS.indexOf(s))].reverse().find((x) => !statusUebersprungen(x, uebersprungen)) ?? null;
+}
+/** Startstatus eines neuen Auftrags: „Anfrage“, außer die Quelle überspringt sie – dann der erste geltende Status. */
+export const startStatus = (uebersprungen: readonly string[] = []): AuftragStatus =>
+	statusUebersprungen('anfrage', uebersprungen) ? (naechsterGeltenderStatus('anfrage', uebersprungen) ?? 'anfrage') : 'anfrage';
+
+/**
+ * Untergruppe eines Auftrags. Mit `quelleUebersprungen`: Ein übersprungener Schritt erscheint nicht – in „In Arbeit“
+ * steht der Auftrag dann im nächsten geltenden Schritt (sonst im vorigen); gibt es im Status keinen geltenden Schritt
+ * mehr (der Auftrag steht z. B. noch aus der Zeit vor der Einstellung oder durch eine bestehende Kopplung in einem
+ * übersprungenen Status), ist das Ergebnis `null` – Board und Liste zeigen ihn dann unter „Schritt übersprungen“.
+ */
 export function untergruppe(a: {
 	status: AuftragStatus;
 	hatTermin?: boolean;
 	hatUmsetzungstermin?: boolean;
 	angebotInfo?: { status: string } | null;
 	arbeitsstand?: string | null;
+	quelleUebersprungen?: readonly string[];
 }): Untergruppe | null {
+	const roh = rohUntergruppe(a);
+	const ueb = a.quelleUebersprungen ?? [];
+	if (!roh || !ueb.includes(roh)) return roh;
+	const kette = (UNTERGRUPPEN[a.status] ?? []).filter((g) => !g.erledigt).map((g) => g.id);
+	const i = kette.indexOf(roh);
+	return kette.slice(i + 1).find((x) => !ueb.includes(x)) ?? [...kette.slice(0, i)].reverse().find((x) => !ueb.includes(x)) ?? null;
+}
+/** Steht der Auftrag in einem Status mit Untergruppen, deren Schritt für seine Quelle übersprungen ist? */
+export const schrittUebersprungen = (a: Parameters<typeof untergruppe>[0]): boolean => !!UNTERGRUPPEN[a.status] && untergruppe(a) === null;
+export const UEBERSPRUNGEN_TITEL = 'Schritt übersprungen';
+
+function rohUntergruppe(a: Parameters<typeof untergruppe>[0]): Untergruppe | null {
 	if (a.status === 'anfrage') return a.hatTermin ? 'termin' : 'neu';
 	if (a.status === 'angebot') return a.angebotInfo ? 'mit_angebot' : 'ohne_angebot';
 	if (a.status === 'beauftragt') return a.hatUmsetzungstermin ? 'umsetzung' : 'planung';

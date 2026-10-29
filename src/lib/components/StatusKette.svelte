@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
-	import { naechsterStatus, STATUS, STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
-	import { UNTERGRUPPEN, type Untergruppe } from '$lib/auftrag-board';
+	import { STATUS, STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
+	import { naechsterGeltenderStatus, statusUebersprungen, UNTERGRUPPEN, type Untergruppe } from '$lib/auftrag-board';
 
 	/**
 	 * Kompakte Statusleiste eines Auftrags (Wunsch Jamil, msg 2581): eine schmale Zeile mit sechs Stationen, die aktuelle
@@ -18,19 +18,22 @@
 		darfBearbeiten = false,
 		aktion = '?/status',
 		untergruppe = null,
-		standAktion = '?/arbeitsstand'
+		standAktion = '?/arbeitsstand',
+		uebersprungen = []
 	}: {
 		status: AuftragStatus;
 		darfBearbeiten?: boolean;
 		aktion?: string;
 		untergruppe?: Untergruppe | null;
 		standAktion?: string;
+		/** übersprungene Schritte der Auftragsquelle (msg 3703): solche Status sind gestrichelt, „Weiter →“ lässt sie aus */
+		uebersprungen?: readonly string[];
 	} = $props();
-	const schritte = $derived(status === 'in_arbeit' ? (UNTERGRUPPEN.in_arbeit ?? []) : []);
+	const schritte = $derived(status === 'in_arbeit' ? (UNTERGRUPPEN.in_arbeit ?? []).filter((g) => !uebersprungen.includes(g.id)) : []);
 	const schrittIndex = $derived(schritte.findIndex((g) => g.id === untergruppe));
 
 	const index = $derived(STATUS.indexOf(status));
-	const weiter = $derived(naechsterStatus(status));
+	const weiter = $derived(naechsterGeltenderStatus(status, uebersprungen));
 	const zurueckOk = (ziel: AuftragStatus) =>
 		STATUS.indexOf(ziel) > index || confirm(`Status wirklich zurück auf „${STATUS_NAMEN[ziel]}“ setzen?`);
 </script>
@@ -40,13 +43,15 @@
 		<input type="hidden" name="sprung" value="1" />
 		<ol aria-label="Status">
 			{#each STATUS as s, i (s)}
-				<li class:erledigt={i < index} class:aktuell={s === status}>
+				<li class:erledigt={i < index} class:aktuell={s === status} class:uebersprungen={statusUebersprungen(s, uebersprungen)}>
 					{#if darfBearbeiten && s !== status}
 						<button
 							type="submit"
 							name="status"
 							value={s}
-							title={`Status auf „${STATUS_NAMEN[s]}“ setzen`}
+							title={statusUebersprungen(s, uebersprungen)
+								? `„${STATUS_NAMEN[s]}“ ist für diese Auftragsquelle übersprungen – Klick setzt den Status trotzdem`
+								: `Status auf „${STATUS_NAMEN[s]}“ setzen`}
 							onclick={(ev) => {
 								if (!zurueckOk(s)) ev.preventDefault();
 							}}>{STATUS_NAMEN[s]}</button
@@ -76,7 +81,7 @@
 					else ev.currentTarget.value = status;
 				}}
 			>
-				{#each STATUS as s (s)}<option value={s} selected={s === status}>{STATUS_NAMEN[s]}</option>{/each}
+				{#each STATUS as s (s)}<option value={s} selected={s === status}>{STATUS_NAMEN[s]}{statusUebersprungen(s, uebersprungen) ? ' (übersprungen)' : ''}</option>{/each}
 			</Auswahl>
 		{:else}
 			<span class="sk-chip">{STATUS_NAMEN[status]}</span>
@@ -181,10 +186,22 @@
 		background: var(--m365-primaer-hell);
 		color: var(--ui-akzent-text);
 	}
+	/* Für die Auftragsquelle übersprungen (msg 3703): blass und durchgestrichen, bleibt aber anklickbar */
+	li.uebersprungen > button,
+	li.uebersprungen > span {
+		background: transparent;
+		box-shadow: inset 0 0 0 1px var(--m365-rand);
+		color: var(--m365-text-leise);
+		text-decoration: line-through;
+		opacity: 0.75;
+	}
 	li.aktuell > span {
 		background: var(--m365-primaer);
 		color: var(--ui-akzent-auf);
 		font-weight: 600;
+		text-decoration: none;
+		opacity: 1;
+		box-shadow: none;
 	}
 	.sk-weiter {
 		flex: 0 0 auto;

@@ -1,6 +1,17 @@
 # Konzept: Anfragequellen & Abläufe (Entwurf, noch nicht gebaut)
 
 Stand 29.10.2026 · Wünsche von Jamil, Talk msgs 3688, 3692/3693 (Antwort 3689) · **Erst Jamils Okay, dann bauen.**
+
+> **Umsetzungsstand (msg 3703):** Jamil hat NUR den Ablauf pro Quelle freigegeben („gilt / überspringen“). Gebaut ist Etappe 2
+> (Migration 112, Abschnitt „Ablauf je Auftragsquelle“ auf der vorhandenen Seite Auftragsquellen). Alles andere (Art, Standard-
+> Quelle, Angebotsart/Empfänger, Website-Formular, Mail-Eingang, Umbenennung) ist NICHT gebaut und bleibt Vorschlag.
+>
+> Festgelegt beim Bauen: Schritte = die offenen Untergruppen; ein Status gilt als übersprungen, wenn alle seine Schritte
+> übersprungen sind. Neue Aufträge beginnen im ersten geltenden Status; „Weiter“, das Status-Menü und Ziehen im Board gehen zum
+> nächsten bzw. vorigen geltenden Status; der Sprung in der Statusleiste (ausdrückliche Wahl) darf jeden Status setzen, auch einen
+> übersprungenen (gestrichelt markiert). Bestehende Aufträge werden nie automatisch verschoben; steht einer in einem Status ohne
+> geltenden Schritt, zeigt das Board ihn unter „Schritt übersprungen“. Die vorhandenen Kopplungen (Angebot versendet → Angebot,
+> angenommen/Portal-Annahme → Beauftragt) bleiben unverändert, bis Jamil die Weiterschalt-Regeln (msg 3685 C/D) festlegt.
 Die Regeln pro Quelle trägt Jamil selbst ein – dieses Konzept legt **keine** Partner-Regeln fest.
 
 ## Ziel in einem Satz

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
-	import { UNTERGRUPPE_TITEL, untergruppe, untergruppeErledigt } from '$lib/auftrag-board';
+	import { UEBERSPRUNGEN_TITEL, UNTERGRUPPE_TITEL, schrittUebersprungen, untergruppe, untergruppeErledigt } from '$lib/auftrag-board';
 	import { mitEinstellungen } from '$lib/kennzahlen';
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 		import Umschalter from '$lib/components/ui/Umschalter.svelte';
@@ -186,8 +186,9 @@
 						<span class="af-kopfzeile">
 							<strong>{a.titel}</strong>
 							<span class="af-status-gruppe">
-								<!-- Untergruppe bei Anfrage/Angebot/Beauftragt (Jamil msgs 3601, 3655): dezent neben dem Status -->
-								{#if untergruppe(a)}{@const ug = untergruppe(a)!}<span class={`ah-chip ${untergruppeErledigt(ug) ? 'gut' : 'leise'}`} data-untergruppe={ug}>{UNTERGRUPPE_TITEL[ug]}</span>{/if}
+								<!-- Untergruppe (Jamil msgs 3601, 3655, 3703): dezent neben dem Status; übersprungene Schritte der Quelle erscheinen nicht -->
+								{#if untergruppe(a)}{@const ug = untergruppe(a)!}<span class={`ah-chip ${untergruppeErledigt(ug) ? 'gut' : 'leise'}`} data-untergruppe={ug}>{UNTERGRUPPE_TITEL[ug]}</span>
+								{:else if schrittUebersprungen(a)}<span class="ah-chip leise" data-untergruppe="uebersprungen">{UEBERSPRUNGEN_TITEL}</span>{/if}
 								<span class={`af-status s-${a.status}`}>{STATUS_NAMEN[a.status]}</span>
 							</span>
 						</span>
