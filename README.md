@@ -298,6 +298,11 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     sind: neue Aufträge beginnen im ersten geltenden Status, ein Schritt vor/zurück (`setzeStatus` ohne Sprung, Board) landet im
     nächsten geltenden; der Sprung in der Statusleiste darf jeden Status setzen. Bestehende Kopplungen (Angebot versendet/angenommen,
     Portal-Annahme) bleiben unverändert, bis Jamil die Regeln festlegt.
+32. Partner als Auftragsquelle (Migration 113, Jamil msg 3707): Trigger auf `app.partner` legt je Auftraggeber eine Quelle an
+    (ausgeschaltet; gleichnamige Quelle ohne Partner wird verknüpft statt verdoppelt; Name vergeben → „… (Partner)“), zieht den
+    Namen beim Umbenennen mit (solange unverändert) und schaltet die Quelle aus, wenn der Partner aus- oder weggeschaltet wird.
+    Löschschutz per Trigger `auftrag_quellen_partner_schutz` (Kaskade beim Löschen eines Betriebs bleibt möglich), dazu 409 in
+    `loescheQuelle`/`setzeQuellenPartner`. Die Startliste zählt Partner-Quellen nicht mit.
 
 ## Installation auf einem eigenen Server
 

@@ -24,6 +24,7 @@ import {
 	NACHWEIS_MAX_BYTES,
 	nachweisStatus,
 	PARTNER_ART_NAMEN,
+	partnerHinweis,
 	type NachweisArt,
 	type NachweisStatus,
 	type PartnerArt
@@ -519,8 +520,14 @@ export async function setzeQuellenPartner(k: Kontext, quelleId: unknown, partner
 	const qid = pruefeId(quelleId, () => new ApiFehler(404, 'Auftragsquelle nicht gefunden.'));
 	await mitBetrieb(k, async (tx) => {
 		const p = partnerId === null || partnerId === undefined || partnerId === '' ? null : await partnerDerArt(tx, k, partnerId, 'auftraggeber');
-		const z = await tx`update app.auftrag_quellen set partner_id = ${p?.id ?? null} where id = ${qid} and betrieb_id = ${k.betriebId} returning id`;
-		if (z.length === 0) throw new ApiFehler(404, 'Auftragsquelle nicht gefunden.');
+		// Partner-Quellen (Migration 113) bleiben bei ihrem Partner (Jamil msg 3707)
+		const [alt] = await tx`
+			select q.partner_id, pa.name as partner_name from app.auftrag_quellen q
+			left join app.partner pa on pa.id = q.partner_id and pa.betrieb_id = q.betrieb_id
+			where q.id = ${qid} and q.betrieb_id = ${k.betriebId}`;
+		if (!alt) throw new ApiFehler(404, 'Auftragsquelle nicht gefunden.');
+		if (alt.partner_id && alt.partner_name && alt.partner_id !== (p?.id ?? null)) throw new ApiFehler(409, partnerHinweis(alt.partner_name));
+		await tx`update app.auftrag_quellen set partner_id = ${p?.id ?? null} where id = ${qid} and betrieb_id = ${k.betriebId}`;
 	});
 }
 

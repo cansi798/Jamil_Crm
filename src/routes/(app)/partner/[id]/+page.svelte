@@ -44,7 +44,8 @@
 		</div>
 	</header>
 	<LoeschenPanel ding="Partner" bind:offen={loeschenOffen} fehler={fehlerIn('loeschen')}>
-		Der Partner „{p.name}“ wird endgültig gelöscht. Hängt er an Aufträgen, wird er nur deaktiviert.
+		Der Partner „{p.name}“ wird endgültig gelöscht. Hängt er an Aufträgen, wird er nur deaktiviert. Seine Auftragsquelle wird
+		ausgeschaltet; Aufträge behalten ihre Quelle.
 	</LoeschenPanel>
 	{#if okIn('loeschen')}<p class="kd-info" role="status">{okIn('loeschen')}</p>{/if}
 	{#if p.portalNotiz}<p class="kd-info">Portal: {p.portalNotiz}</p>{/if}

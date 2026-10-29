@@ -289,9 +289,9 @@ export const INFOS: Record<string, Info> = {
 	},
 	'quellen.seite': {
 		titel: 'Auftragsquellen',
-		was: 'Woher ein Auftrag kommt (Website, Empfehlung, Hornbach …). Erscheint am Auftrag und in der Auswertung.',
-		wirkt: 'Aufträge und die Auswertung nach Auftragsquelle.',
-		standard: 'Wie angelegt.',
+		was: 'Woher ein Auftrag kommt (Website, Empfehlung, Hornbach …). Erscheint am Auftrag und in der Auswertung. Jeder Auftraggeber-Partner bekommt automatisch eine eigene Quelle mit dem Etikett „Partner“.',
+		wirkt: 'Aufträge und die Auswertung nach Auftragsquelle. Partner-Quellen lassen sich nur aus- und einschalten, nicht löschen; wird der Partner ausgeschaltet oder gelöscht, geht auch seine Quelle aus.',
+		standard: 'Wie angelegt; neue Partner-Quellen sind zuerst ausgeschaltet.',
 		beispiel: 'Nach einem halben Jahr sehen Sie, welche Quelle die meisten angenommenen Angebote bringt.'
 	},
 

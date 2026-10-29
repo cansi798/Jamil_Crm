@@ -11,6 +11,7 @@
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import { ABLAUF_SCHRITTE } from '$lib/auftrag-board';
 	import { STATUS_NAMEN } from '$lib/auftrag-status';
+	import { partnerHinweis } from '$lib/partner';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -37,7 +38,8 @@
 	<p class="kd-info">
 		Woher kommen eure Aufträge? Bei jedem neuen Auftrag wird die Auftragsquelle gewählt; die <a href="/auswertung/quellen">Auswertung</a> zeigt, was
 		jede Auftragsquelle bringt. Die Farbe erscheint als Etikett auf den Auftragskarten und in der Liste. Eine Auftragsquelle, die schon an
-		Aufträgen hängt, wird beim Löschen nur ausgeschaltet.
+		Aufträgen hängt, wird beim Löschen nur ausgeschaltet. Jeder Auftraggeber-Partner erscheint hier automatisch als eigene Quelle (zuerst
+		ausgeschaltet); solche Partner-Quellen lassen sich nur aus- und einschalten, nicht löschen.
 	<InfoFenster id="quellen.seite" /></p>
 	{#if form && 'ergebnis' in form && form.ergebnis === 'deaktiviert'}
 		<p class="kt-hinweis" role="status">Die Auftragsquelle hängt an Aufträgen und wurde deshalb nur ausgeschaltet.</p>
@@ -60,7 +62,10 @@
 					{#if anzahlUebersprungen(q) > 0}<span class="ah-chip leise" data-testid="quelle-uebersprungen">{anzahlUebersprungen(q)} {anzahlUebersprungen(q) === 1 ? 'Schritt' : 'Schritte'} übersprungen</span>{/if}
 				</form>
 				<div class="qu-knoepfe">
-					{#if data.auftraggeber.length}
+					{#if q.partnerName}
+						<!-- Partner-Quelle (Jamil msg 3707): gehört fest zum Partner, kein Löschen -->
+						<span class="ah-chip" data-testid="quelle-partner" title={partnerHinweis(q.partnerName)}>Partner</span>
+					{:else if data.auftraggeber.length}
 						<form method="POST" action="?/partner" use:enhance={ohneReset}>
 							<input type="hidden" name="id" value={q.id} />
 							<Auswahl name="partnerId" klein aria-label={`Auftraggeber für ${q.name}`} onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
@@ -74,11 +79,16 @@
 						<button type="submit" name="richtung" value="hoch" class="kd-knopf hell klein" disabled={i === 0} aria-label={`${q.name} nach oben`}>↑</button>
 						<button type="submit" name="richtung" value="runter" class="kd-knopf hell klein" disabled={i === data.quellen.length - 1} aria-label={`${q.name} nach unten`}>↓</button>
 					</form>
-					<form method="POST" action="?/loeschen" use:enhance>
-						<input type="hidden" name="id" value={q.id} />
-						<button type="submit" class="kd-knopf hell klein" aria-label={`${q.name} löschen`} use:rueckfrage={`Auftragsquelle „${q.name}“ wirklich löschen?`}>✕</button>
-					</form>
+					{#if q.partnerName}
+						<button type="button" class="kd-knopf hell klein" disabled aria-label={`${q.name} löschen – nicht möglich: ${partnerHinweis(q.partnerName)}`} title={partnerHinweis(q.partnerName)}>✕</button>
+					{:else}
+						<form method="POST" action="?/loeschen" use:enhance>
+							<input type="hidden" name="id" value={q.id} />
+							<button type="submit" class="kd-knopf hell klein" aria-label={`${q.name} löschen`} use:rueckfrage={`Auftragsquelle „${q.name}“ wirklich löschen?`}>✕</button>
+						</form>
+					{/if}
 				</div>
+				{#if q.partnerName}<p class="kd-info qu-partner-hinweis" data-testid="quelle-partner-hinweis">{partnerHinweis(q.partnerName)}</p>{/if}
 				{#if fehlerIn(q.id)}<p role="alert" class="kd-fehler">{fehlerIn(q.id)}</p>{/if}
 			</li>
 		{/each}
@@ -188,6 +198,11 @@
 		display: flex !important;
 		align-items: center;
 		gap: 0.5rem;
+	}
+	.qu-partner-hinweis {
+		flex-basis: 100%;
+		margin: 0;
+		font-size: var(--ui-schrift-s);
 	}
 	/* Ablauf je Auftragsquelle (msg 3703) */
 	.qu-wahl {

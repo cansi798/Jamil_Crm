@@ -26,3 +26,6 @@ export function nachweisStatus(gueltigBis: string | null, heute: string): Nachwe
 	return gueltigBis <= tagPlus(heute, ERINNERN_TAGE) ? 'bald' : 'ok';
 }
 
+
+/** Auftragsquellen eines Partners (Jamil msg 3707, Migration 113): nicht löschbar – Hinweis in Einstellungen und Fehlermeldung. */
+export const partnerHinweis = (name: string) => `Gehört zu Partner „${name}“ – nur aus- oder einschalten.`;

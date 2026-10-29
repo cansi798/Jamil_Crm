@@ -4,6 +4,7 @@ import { textFeld, UUID } from './kunden';
 import { berlinTag, istTag, tagPlus } from '../zeit';
 import { istFarbe, standardFarbe } from '../farben';
 import { ABLAUF_SCHRITTE, istAblaufSchritt } from '../auftrag-board';
+import { partnerHinweis } from '../partner';
 
 /**
  * Auftragsquellen (Wunsch Jamil msg 2593): Website, Hornbach, Obi, Empfehlung, … – zentral gepflegt (Einstellungen →
@@ -20,6 +21,8 @@ export type Quelle = {
 	auftraege: number;
 	/** übersprungene Schritte (Ablauf je Quelle, Jamil msg 3703); leer = alles gilt */
 	uebersprungen: string[];
+	/** Quelle gehört zu diesem Partner (Jamil msg 3707, Migration 113): nicht löschbar, nur aus-/einschalten */
+	partnerName: string | null;
 };
 
 export const START_QUELLEN = ['Website', 'Hornbach', 'Obi', 'Empfehlung', 'Zeitung', 'MyHammer', 'Telefon', 'Online-Buchung', 'Sonstiges'];
@@ -34,7 +37,8 @@ const pruefeId = (id: unknown) => {
 };
 
 export async function startlisteFallsLeer(tx: TransactionSql, k: Pick<Kontext, 'betriebId'>): Promise<void> {
-	const [da] = await tx`select 1 from app.auftrag_quellen where betrieb_id = ${k.betriebId} limit 1`;
+	// Partner-Quellen (Migration 113) zählen nicht: ein neuer Betrieb, der zuerst einen Partner anlegt, bekommt trotzdem die Startliste
+	const [da] = await tx`select 1 from app.auftrag_quellen where betrieb_id = ${k.betriebId} and partner_id is null limit 1`;
 	if (da) return;
 	let nr = 1;
 	for (const name of START_QUELLEN) {
@@ -47,9 +51,10 @@ export async function listeQuellen(k: Kontext, nurAktive = false): Promise<Quell
 	return mitBetrieb(k, async (tx) => {
 		await startlisteFallsLeer(tx, k);
 		const z = await tx`
-			select q.id, q.name, q.aktiv, q.sortierung, q.farbe, q.uebersprungen,
+			select q.id, q.name, q.aktiv, q.sortierung, q.farbe, q.uebersprungen, p.name as partner_name,
 				(select count(*)::int from app.auftraege a where a.quelle_id = q.id and a.betrieb_id = q.betrieb_id) as auftraege
 			from app.auftrag_quellen q
+			left join app.partner p on p.id = q.partner_id and p.betrieb_id = q.betrieb_id
 			where q.betrieb_id = ${k.betriebId} ${nurAktive ? tx`and q.aktiv` : tx``}
 			order by q.sortierung, public.unaccent(lower(q.name)), q.id`;
 		return z.map((r) => ({
@@ -59,7 +64,8 @@ export async function listeQuellen(k: Kontext, nurAktive = false): Promise<Quell
 			sortierung: r.sortierung,
 			farbe: r.farbe,
 			auftraege: r.auftraege,
-			uebersprungen: r.uebersprungen ?? []
+			uebersprungen: r.uebersprungen ?? [],
+			partnerName: r.partner_name ?? null
 		}));
 	});
 }
@@ -101,10 +107,17 @@ export async function verschiebeQuelle(k: Kontext, id: unknown, richtung: number
 	});
 }
 
-/** Löschen; ist die Quelle an Aufträgen gesetzt, wird sie nur ausgeschaltet (Auswertung bleibt richtig). */
+/**
+ * Löschen; ist die Quelle an Aufträgen gesetzt, wird sie nur ausgeschaltet (Auswertung bleibt richtig). Quellen eines
+ * Partners lassen sich gar nicht löschen (Jamil msg 3707) – nur aus- und einschalten (auch in der Datenbank gesperrt).
+ */
 export async function loescheQuelle(k: Kontext, id: unknown): Promise<'geloescht' | 'deaktiviert'> {
 	const qid = pruefeId(id);
 	return mitBetrieb(k, async (tx) => {
+		const [partner] = await tx`
+			select p.name from app.auftrag_quellen q join app.partner p on p.id = q.partner_id and p.betrieb_id = q.betrieb_id
+			where q.id = ${qid} and q.betrieb_id = ${k.betriebId}`;
+		if (partner) throw new ApiFehler(409, partnerHinweis(partner.name));
 		const [benutzt] = await tx`select 1 from app.auftraege where quelle_id = ${qid} and betrieb_id = ${k.betriebId} limit 1`;
 		if (benutzt) {
 			const z = await tx`update app.auftrag_quellen set aktiv = false where id = ${qid} and betrieb_id = ${k.betriebId} returning id`;

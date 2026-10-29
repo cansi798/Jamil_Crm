@@ -106,6 +106,12 @@ Probe-Installation brach beim Anlegen der Docker-Netze ab („all predefined add
 diesem Server sind alle Docker-Adressbereiche belegt); Reste (Volume) entfernt, laufende Container nicht angefasst.
 Probelauf nachholen, sobald Netze frei sind (oder auf einem anderen Server).
 
+## Prüfung 29.10.2026 (Partner als Auftragsquelle – Migration 113)
+
+Migration 113 auf einer Kopie der Vorschau-Datenbank geprüft: angewendet, zweiter Lauf „Keine neuen Migrationen“, Quellen
+unverändert (dort noch keine Partner); Kopie gelöscht. Probe-Installation weiterhin nicht möglich (Docker-Adressbereiche auf
+diesem Server belegt, siehe oben) – nachholen, sobald Netze frei sind.
+
 ## So wiederholen (für Entwickler)
 
 ```sh

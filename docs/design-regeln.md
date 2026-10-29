@@ -264,3 +264,5 @@ Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…"
   Einstellungen → Auftragsquellen, „Speichern“ oben rechts. Übersprungene Schritte erscheinen nicht; steht ein Auftrag in einem
   Status ohne geltenden Schritt, zeigt das Board ihn unter „Schritt übersprungen“ (`KachelBoard` `nurWennBelegt`). Statusregeln
   nur über `naechsterGeltenderStatus`/`vorigerGeltenderStatus`/`zielErlaubt`/`startStatus` – nirgends eigene Varianten.
+- **Partner-Quellen** (Jamil msg 3707): In der Liste der Auftragsquellen Etikett „Partner“ und Hinweis „Gehört zu Partner X – nur
+  aus- oder einschalten“; der ✕ ist gesperrt, die Auftraggeber-Auswahl entfällt. Aus/Ein und Ablauf bleiben wie bei jeder Quelle.
