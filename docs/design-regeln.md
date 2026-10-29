@@ -246,7 +246,15 @@ Texte nur in `src/lib/einstellungs-infos.ts`. Seitenweit: `<InfoFenster id="…"
 - **Auftrag:** „Im Portal sichtbar“ als dezentes Kennzeichen im Kopf (keine eigene Karte, msg 3561); Hauptspalte Aufgaben → Termine →
   Material → Nachkalkulation (msg 3563); keine zweite Terminanzeige (msg 3564); „Dokumentation“ über „Dokumente & Notizen“ (msg 3566).
 - **Kundenliste:** Abzeichen auch im Leerzustand (gestrichelt, grau: „Kein Angebot“, „Portal nicht aktiv“ …), Jamil msg 3557.
-- **Untergruppen im Auftrags-Board** (Jamil msg 3601): „Anfrage“ → Neu / Termin vereinbart, „Angebot“ → Noch kein Angebot /
-  Angebot erhalten – Zwischenüberschriften mit Zahl über `KachelBoard gruppen`, Regeln in `untergruppe()` (`lib/auftrag-board.ts`);
-  in der Liste als Kennzeichen neben dem Status. Nur Anzeige, der Status bleibt.
-
+- **Untergruppen im Auftrags-Board** (Jamil msgs 3601, 3655, 3658–3660): „Anfrage“ → Termin vereinbaren / Termin vereinbart,
+  „Angebot“ → Angebot erstellen / Angebot erhalten, „Beauftragt“ → Planung durchführen / Termin zur Umsetzung bestätigt,
+  „In Arbeit“ → Arbeiten durchführen → Qualitätsprüfung durchführen → Endabnahme mit Kunden durchführen. Benennung: offene Gruppe
+  = nächste Aufgabe (Infinitiv), erledigte = erreichter Stand (Partizip). Zwischenüberschriften mit Zahl über `KachelBoard gruppen`,
+  Gruppen und Regeln nur in `UNTERGRUPPEN`/`untergruppe()` (`lib/auftrag-board.ts`); in der Liste als Kennzeichen neben dem
+  Status (offen grau, erledigt grün über `erledigt`). Abgeleitet aus Terminen/Angeboten; nur der Arbeitsstand („In Arbeit“) ist
+  ein Feld (Migration 111), einstellbar in der `StatusKette` im Auftrag. Nur Anzeige, der Status bleibt. Neue Untergruppen kommen
+  nur dort hinzu – keine eigenen Überschriften oder Chips in einzelnen Seiten.
+- **Online-Buchung = Portal-Design** (STÄNDIGE Regel, Jamil msg 3662): Buchungsseiten und Kundenportal teilen
+  `portal/PortalHuelle.svelte` (Hausfarbe, Kopffarbe, Hintergrund, Schriften, Logo-Variante passend zur Kopffarbe, Karten,
+  Knöpfe, Felder, Fuß). Buchung: schmal (40rem), Kopfzeile „Online-Terminbuchung“; Portal: weit (72rem), „Ihr Kundenportal“.
+  Die Grundbausteine stehen mit `:where(.pt)` in der Hülle, damit seitenspezifische Regeln weiter gewinnen.

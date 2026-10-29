@@ -1,16 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import PortalFigur from '$lib/components/portal/PortalFigur.svelte';
-	import PortalKopf from '$lib/components/portal/PortalKopf.svelte';
-	import { kopfIstHell } from '$lib/portal-kopf';
+	import PortalHuelle from '$lib/components/portal/PortalHuelle.svelte';
 	import { PORTAL_STUFEN, portalStatusText } from '$lib/portal-status';
 	import FortschrittsWeg from '$lib/components/portal/FortschrittsWeg.svelte';
 	import PortalSchritte from '$lib/components/portal/PortalSchritte.svelte';
 	import BestandskundenKarte from '$lib/components/portal/BestandskundenKarte.svelte';
 	import SkizzenKreis from '$lib/components/portal/SkizzenKreis.svelte';
 	import SkizzenRahmen from '$lib/components/portal/SkizzenRahmen.svelte';
-	import { farbStil } from '$lib/farbe';
-	import { portalMarkeStil } from '$lib/portal-marke';
 	import { euro } from '$lib/geld';
 	import { tagDeutsch, tagKurz } from '$lib/zeit';
 	import type { ActionData, PageData } from './$types';
@@ -28,7 +25,6 @@
 	const s = $derived(data.seite);
 	const m = $derived(s.betrieb.marke);
 	const doc = (art: string, id: string) => `/portal/${data.token}/dokument/${art}/${id}`;
-	const stil = $derived([farbStil(data.akzent), '--ui-akzent-dunkel: var(--ui-akzent-text)', ...portalMarkeStil(m)].join('; '));
 	const webLink = $derived(s.betrieb.web ? (/^https?:\/\//i.test(s.betrieb.web) ? s.betrieb.web : `https://${s.betrieb.web}`) : null);
 	const telLink = $derived(s.betrieb.telefon ? `tel:${s.betrieb.telefon.replace(/[^0-9+]/g, '')}` : null);
 	const mailLink = (nummer: string) => (s.betrieb.email ? `mailto:${s.betrieb.email}?subject=${encodeURIComponent(`Frage zu ${nummer}`)}` : null);
@@ -117,15 +113,15 @@
 	{#if ebene === 1}<h1 {id}>{t.vorn}<span class="pt-akzent">{t.wort}</span></h1>{:else}<h2 {id}>{t.vorn}<span class="pt-akzent">{t.wort}</span></h2>{/if}
 {/snippet}
 
-<div class="pt" class:gross={m.titelGross} style={stil}>
-	<!-- Kopf wie auf der Passwort-Seite (Jamil msgs 3087/3088, 3126): Logo passend zur Kopffarbe, „Ihr Kundenportal“ -->
-	<PortalKopf
-		klasse="pt-kopf"
-		name={s.betrieb.name}
-		hell={kopfIstHell(m.dunkel)}
-		logo={s.betrieb.logo ? { src: `/portal/${data.token}/logo?variante=${s.betrieb.logo.variante}`, feld: s.betrieb.logo.feld } : null}
-	/>
-
+<!-- Hülle im Portal-Design (gemeinsam mit der Online-Buchung, msg 3662): Kopf wie auf der Passwort-Seite (msgs 3087/3088, 3126) -->
+<PortalHuelle
+	kopfKlasse="pt-kopf"
+	name={s.betrieb.name}
+	akzent={data.akzent}
+	marke={m}
+	logo={s.betrieb.logo ? { src: `/portal/${data.token}/logo?variante=${s.betrieb.logo.variante}`, feld: s.betrieb.logo.feld } : null}
+	kontakt={{ telefon: s.betrieb.telefon, email: s.betrieb.email, web: s.betrieb.web }}
+>
 	<main class="pt-inhalt">
 		<section class="pt-dash" aria-label="Überblick">
 			<div class="pt-kachel">
@@ -328,55 +324,9 @@
 		{#if s.bestandskarte}<BestandskundenKarte karte={s.bestandskarte} />{/if}
 	</main>
 
-	<footer class="pt-fuss">
-		<span>{s.betrieb.name}</span>
-		{#if s.betrieb.telefon}<a href={telLink}>{s.betrieb.telefon}</a>{/if}
-		{#if s.betrieb.email}<a href={`mailto:${s.betrieb.email}`}>{s.betrieb.email}</a>{/if}
-		{#if webLink}<a href={webLink} target="_blank" rel="noopener noreferrer">{s.betrieb.web}</a>{/if}
-	</footer>
-</div>
+</PortalHuelle>
 
 <style>
-	:global(body) {
-		background: var(--ui-hintergrund);
-	}
-	.pt {
-		min-height: 100vh;
-		background: var(--pt-grund);
-		color: var(--ui-text);
-		font-family: var(--pt-text);
-	}
-	/* Überschriften wie die Website des Betriebs (Schrift, Großbuchstaben, letztes Wort in der Akzentfarbe) */
-	.pt :global(h1),
-	.pt :global(h2),
-	.pt :global(h3) {
-		font-family: var(--pt-titel);
-		text-transform: var(--pt-gross);
-	}
-	.gross :global(h1),
-	.gross :global(h2) {
-		letter-spacing: 0.02em;
-		font-weight: 800;
-	}
-	.pt-akzent {
-		color: var(--ui-akzent-text);
-	}
-	.pt-eyebrow {
-		display: block;
-		color: var(--ui-akzent-text);
-		font-family: var(--pt-titel);
-		font-size: 0.6875rem;
-		font-weight: 700;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-	}
-	.pt-inhalt,
-	.pt-fuss {
-		max-width: 72rem;
-		margin: 0 auto;
-		padding-left: 16px;
-		padding-right: 16px;
-	}
 	.pt-inhalt {
 		display: grid;
 		gap: 0.85rem;
@@ -493,16 +443,6 @@
 			position: sticky;
 			top: 1rem;
 		}
-	}
-	.pt-karte {
-		display: grid;
-		gap: 0.55rem;
-		padding: 1rem 1.1rem;
-		border-radius: var(--ui-radius-karte);
-		border: 1px solid var(--ui-rand);
-		background: var(--ui-flaeche);
-		box-shadow: var(--ui-schatten);
-		animation: pt-rein 0.5s ease-out both;
 	}
 	h1 {
 		margin: 0;
@@ -755,21 +695,6 @@
 		background: var(--ui-flaeche);
 		border: 1px solid var(--ui-akzent-rand);
 	}
-	.pt-form label {
-		display: grid;
-		gap: 0.25rem;
-	}
-	.pt-form input:not([type='checkbox']),
-	.pt-form textarea {
-		min-height: 2.75rem;
-		font: inherit;
-		padding: 0 0.6rem;
-		border: 1px solid var(--ui-rand-stark);
-		border-radius: var(--ui-radius);
-	}
-	.pt-form textarea {
-		padding: 0.6rem;
-	}
 	.pt-check {
 		display: flex !important;
 		gap: 0.6rem;
@@ -791,61 +716,9 @@
 	.pt-ansprech .pt-knoepfe {
 		justify-content: flex-start;
 	}
-	.pt-knopf {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 2.75rem;
-		padding: 0 1.25rem;
-		border: 0;
-		border-radius: var(--ui-knopf-radius);
-		background: var(--ui-akzent);
-		color: var(--ui-akzent-auf);
-		font: inherit;
-		font-family: var(--pt-titel);
-		font-weight: 700;
-		text-decoration: none;
-		cursor: pointer;
-	}
-	.gross .pt-knopf {
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		font-size: 0.875rem;
-	}
-	.pt-knopf:hover {
-		background: var(--ui-akzent-hover);
-	}
-	.pt-knopf.hell {
-		background: var(--ui-flaeche);
-		color: var(--ui-text);
-		border: 1px solid var(--ui-rand-stark);
-	}
-	.pt-knopf:focus-visible {
-		outline: none;
-		box-shadow: var(--ui-fokus-ring);
-	}
-	.pt-fuss {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem 1.2rem;
-		padding-top: 1rem;
-		padding-bottom: 2rem;
-		border-top: 1px solid var(--ui-rand);
-		color: var(--ui-text-leise);
-		font-size: var(--ui-schrift-s);
-	}
-	.pt-fuss a {
-		color: var(--ui-text-leise);
-	}
-	@keyframes pt-rein {
-		from {
-			opacity: 0;
-			transform: translateY(8px);
-		}
-	}
+	/* Einblenden: @keyframes pt-rein steht in PortalHuelle (global) */
 	@media (prefers-reduced-motion: reduce) {
-		.pt-kachel,
-		.pt-karte {
+		.pt-kachel {
 			animation: none;
 		}
 	}

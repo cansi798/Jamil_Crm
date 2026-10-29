@@ -2,17 +2,32 @@
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { naechsterStatus, STATUS, STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
+	import { UNTERGRUPPEN, type Untergruppe } from '$lib/auftrag-board';
 
 	/**
 	 * Kompakte Statusleiste eines Auftrags (Wunsch Jamil, msg 2581): eine schmale Zeile mit sechs Stationen, die aktuelle
 	 * hervorgehoben, am Ende „Weiter →“. Mit `auftraege.bearbeiten` springt ein Klick auf eine Station dorthin (zurück nur
 	 * nach Rückfrage). Am Handy: aktueller Status als Auswahl plus „Weiter →“. Der Server prüft das Recht erneut.
+	 *
+	 * Im Status „In Arbeit“ darunter der Arbeitsstand (Jamil msg 3658): die Untergruppen aus `UNTERGRUPPEN.in_arbeit` als
+	 * kleine Schritte, ein Klick setzt den Stand (`standAktion`, Feld `stand`). Die anderen Untergruppen ergeben sich von
+	 * selbst aus Terminen und Angeboten und sind hier nicht einstellbar.
 	 */
 	let {
 		status,
 		darfBearbeiten = false,
-		aktion = '?/status'
-	}: { status: AuftragStatus; darfBearbeiten?: boolean; aktion?: string } = $props();
+		aktion = '?/status',
+		untergruppe = null,
+		standAktion = '?/arbeitsstand'
+	}: {
+		status: AuftragStatus;
+		darfBearbeiten?: boolean;
+		aktion?: string;
+		untergruppe?: Untergruppe | null;
+		standAktion?: string;
+	} = $props();
+	const schritte = $derived(status === 'in_arbeit' ? (UNTERGRUPPEN.in_arbeit ?? []) : []);
+	const schrittIndex = $derived(schritte.findIndex((g) => g.id === untergruppe));
 
 	const index = $derived(STATUS.indexOf(status));
 	const weiter = $derived(naechsterStatus(status));
@@ -72,6 +87,31 @@
 		<form method="POST" action={aktion} use:enhance class="sk-mobil sk-mobil-weiter">
 			<input type="hidden" name="sprung" value="1" />
 			<button type="submit" name="status" value={weiter} class="sk-weiter">Weiter → {STATUS_NAMEN[weiter]}</button>
+		</form>
+	{/if}
+
+	{#if schritte.length > 0}
+		<form method="POST" action={standAktion} use:enhance class="sk-stand" class:kann={darfBearbeiten} data-testid="arbeitsstand">
+			<span class="sk-stand-titel" id="sk-stand-titel">Arbeitsstand</span>
+			<ol aria-labelledby="sk-stand-titel" class="sk-stand-schritte">
+				{#each schritte as g, i (g.id)}
+					<li class:erledigt={i < schrittIndex} class:aktuell={i === schrittIndex}>
+						{#if darfBearbeiten && i !== schrittIndex}
+							<button type="submit" name="stand" value={g.id} title={`Arbeitsstand auf „${g.titel}“ setzen`}>{g.titel}</button>
+						{:else}
+							<span aria-current={i === schrittIndex ? 'step' : undefined}>{g.titel}</span>
+						{/if}
+					</li>
+				{/each}
+			</ol>
+			{#if darfBearbeiten}
+				<!-- Handy: Auswahl statt Schritte -->
+				<div class="sk-stand-wahl">
+					<Auswahl name="stand" aria-label="Arbeitsstand" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+						{#each schritte as g (g.id)}<option value={g.id} selected={g.id === untergruppe}>{g.titel}</option>{/each}
+					</Auswahl>
+				</div>
+			{/if}
 		</form>
 	{/if}
 </div>
@@ -175,7 +215,41 @@
 		color: var(--ui-akzent-text) !important;
 		font-weight: 600;
 	}
+	/* Arbeitsstand: kleinere Schritte in derselben Form wie die Statusleiste */
+	.sk-stand {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		width: 100%;
+	}
+	.sk-stand-titel {
+		flex: 0 0 auto;
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--m365-text-leise);
+	}
+	.sk-stand-schritte li > button,
+	.sk-stand-schritte li > span {
+		height: 2rem;
+		font-size: 0.75rem;
+	}
+	.sk-stand-wahl {
+		display: none;
+	}
 	@media (max-width: 40rem) {
+		.sk-stand.kann .sk-stand-schritte {
+			display: none;
+		}
+		.sk-stand:not(.kann) .sk-stand-schritte li:not(.aktuell) {
+			display: none;
+		}
+		.sk-stand-wahl {
+			display: block;
+			flex: 1 1 auto;
+			min-width: 0;
+		}
 		.sk-leiste {
 			display: none;
 		}

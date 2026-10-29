@@ -10,7 +10,8 @@
 		name,
 		logo,
 		hell,
-		klasse = ''
+		klasse = '',
+		untertitel = 'Ihr Kundenportal'
 	}: {
 		name: string;
 		logo: { src: string; feld: 'weiss' | 'dunkel' | null } | null;
@@ -18,6 +19,8 @@
 		hell: boolean;
 		/** zusätzliche Klasse (Portal-Seite: `pt-kopf`, daran erkennen die Tests das angemeldete Portal) */
 		klasse?: string;
+		/** kleine Zeile neben dem Logo (Online-Buchung: „Online-Terminbuchung“, msg 3662) */
+		untertitel?: string;
 	} = $props();
 </script>
 
@@ -27,10 +30,10 @@
 			<span class="pk-logo" class:feld-weiss={logo.feld === 'weiss'} class:feld-dunkel={logo.feld === 'dunkel'}>
 				<img src={logo.src} alt={`Logo ${name}`} />
 			</span>
-			<span class="pk-portal">Ihr Kundenportal</span>
+			<span class="pk-portal">{untertitel}</span>
 		{:else}
 			<span class="pk-firma">
-				<small>Ihr Kundenportal</small>
+				<small>{untertitel}</small>
 				<strong>{name}</strong>
 			</span>
 		{/if}
@@ -46,7 +49,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.9rem;
-		max-width: 72rem;
+		max-width: var(--pt-breite, 72rem);
+		box-sizing: border-box;
 		min-height: 4.5rem;
 		margin: 0 auto;
 		padding: 0.6rem 16px;

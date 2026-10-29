@@ -81,6 +81,14 @@ Immer über den gemeinsamen Helfer `$lib/overlay` (`schwebend`, `schwebendesDeta
 positionieren: oberste Ebene (Popover), klappt bei Platzmangel nach oben, Höhe begrenzt (scrollt in sich), schließt
 bei Klick außerhalb, Esc und Scrollen.
 
+## Online-Buchung im Design des Kundenportals (STÄNDIGE Regel von Jamil, Talk msg 3662)
+
+Alle öffentlichen Buchungsseiten (`/buchen/…`, `/buchung/…` und neue) sehen immer aus wie das Kundenportal. Dafür gibt es
+EINE Hülle: `components/portal/PortalHuelle.svelte` (Farben, Schriften, Kopf `PortalKopf`, Fuß, `.pt-karte`, `.pt-knopf`,
+`.pt-eyebrow`, Felder in `.pt-form`/`.pt-felder`) – das Portal und `components/buchung/Rahmen.svelte` benutzen sie beide.
+Design-Änderungen am Portal gehören in die Hülle, nicht in eine einzelne Seite; neue Buchungsseiten nehmen `Rahmen` und
+die `.pt-…`-Bausteine statt eigener Karten oder Knöpfe.
+
 ## Einstellungen: Info-Fenster, Übersicht, Neuigkeiten, Ebenen (Jamil, Talk msg 3423)
 
 - **Jede Einstellung hat ein ⓘ** (`ui/InfoFenster.svelte`, Texte zentral in `src/lib/einstellungs-infos.ts`: Was sie verändert ·

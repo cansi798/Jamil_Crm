@@ -81,27 +81,63 @@ export const STATUS_FARBEN: Record<AuftragStatus, string> = {
 };
 
 /**
- * Untergruppen in den Spalten „Anfrage“ und „Angebot“ (Jamil, Sprachnachricht msg 3601) – nur Anzeige, der Status bleibt:
- * - Anfrage: „Neu“ (noch kein Termin) und „Termin vereinbart“ (mindestens ein Termin eingeplant – egal ob er schon war;
- *   „vereinbart“ reicht, er muss nicht stattgefunden haben).
- * - Angebot: „Noch kein Angebot“ und „Angebot erhalten“ (ein Angebot ist an den Kunden verschickt; Entwürfe zählen nicht,
+ * Untergruppen in den Spalten „Anfrage“ bis „In Arbeit“ (Jamil msgs 3601, 3655, 3658–3660) – nur Anzeige, der Status bleibt.
+ * Einheitliche Benennung: Offene Gruppen heißen nach der nächsten Aufgabe („Termin vereinbaren“), erledigte nach dem
+ * erreichten Stand („Termin vereinbart“).
+ * - Anfrage: „Termin vereinbaren“ (noch kein Termin) und „Termin vereinbart“ (mindestens ein Termin eingeplant – egal ob er
+ *   schon war; „vereinbart“ reicht).
+ * - Angebot: „Angebot erstellen“ und „Angebot erhalten“ (ein Angebot ist an den Kunden verschickt; Entwürfe zählen nicht,
  *   angenommene/abgelehnte zählen als erhalten).
+ * - Beauftragt: „Planung durchführen“ und „Termin zur Umsetzung bestätigt“ (ein kommender oder gerade laufender Termin
+ *   der Art Montage oder Wartung ist eingetragen; eine Besichtigung zählt nicht, vergangene Termine auch nicht – Termine
+ *   haben standardmäßig die Art „Montage“. Ein eigenes „bestätigt“-Feld gibt es nicht: der eingetragene Termin gilt als
+ *   bestätigt).
+ * - In Arbeit: „Arbeiten durchführen“ → „Qualitätsprüfung durchführen“ → „Endabnahme mit Kunden durchführen“ – dafür
+ *   gibt es keine vorhandenen Daten, darum das Feld `arbeitsstand` am Auftrag (Migration 111), im Auftrag einstellbar.
+ *   Nach der Endabnahme folgt wie bisher der Status „Abgenommen“.
+ * `erledigt` = erreichter Stand (grünes Kennzeichen in der Liste), sonst nächste Aufgabe (graues Kennzeichen).
  */
-export type Untergruppe = 'neu' | 'termin' | 'ohne_angebot' | 'mit_angebot';
-export const UNTERGRUPPEN: Partial<Record<AuftragStatus, { id: Untergruppe; titel: string }[]>> = {
+export type Untergruppe = 'neu' | 'termin' | 'ohne_angebot' | 'mit_angebot' | 'planung' | 'umsetzung' | 'arbeiten' | 'qualitaet' | 'abnahme';
+type UntergruppeInfo = { id: Untergruppe; titel: string; erledigt: boolean };
+export const UNTERGRUPPEN: Partial<Record<AuftragStatus, UntergruppeInfo[]>> = {
 	anfrage: [
-		{ id: 'neu', titel: 'Neu' },
-		{ id: 'termin', titel: 'Termin vereinbart' }
+		{ id: 'neu', titel: 'Termin vereinbaren', erledigt: false },
+		{ id: 'termin', titel: 'Termin vereinbart', erledigt: true }
 	],
 	angebot: [
-		{ id: 'ohne_angebot', titel: 'Noch kein Angebot' },
-		{ id: 'mit_angebot', titel: 'Angebot erhalten' }
+		{ id: 'ohne_angebot', titel: 'Angebot erstellen', erledigt: false },
+		{ id: 'mit_angebot', titel: 'Angebot erhalten', erledigt: true }
+	],
+	beauftragt: [
+		{ id: 'planung', titel: 'Planung durchführen', erledigt: false },
+		{ id: 'umsetzung', titel: 'Termin zur Umsetzung bestätigt', erledigt: true }
+	],
+	in_arbeit: [
+		{ id: 'arbeiten', titel: 'Arbeiten durchführen', erledigt: false },
+		{ id: 'qualitaet', titel: 'Qualitätsprüfung durchführen', erledigt: false },
+		{ id: 'abnahme', titel: 'Endabnahme mit Kunden durchführen', erledigt: false }
 	]
 };
-export const UNTERGRUPPE_TITEL: Record<Untergruppe, string> = { neu: 'Neu', termin: 'Termin vereinbart', ohne_angebot: 'Noch kein Angebot', mit_angebot: 'Angebot erhalten' };
+const ALLE_UNTERGRUPPEN = Object.values(UNTERGRUPPEN).flat() as UntergruppeInfo[];
+export const UNTERGRUPPE_TITEL = Object.fromEntries(ALLE_UNTERGRUPPEN.map((g) => [g.id, g.titel])) as Record<Untergruppe, string>;
+/** Erreichter Stand (grünes Kennzeichen) statt nächster Aufgabe (graues Kennzeichen). */
+export const untergruppeErledigt = (u: Untergruppe): boolean => ALLE_UNTERGRUPPEN.some((g) => g.id === u && g.erledigt);
 
-export function untergruppe(a: { status: AuftragStatus; hatTermin?: boolean; angebotInfo?: { status: string } | null }): Untergruppe | null {
+/** Gespeicherter Arbeitsstand (Migration 111); leer = „Arbeiten durchführen“. */
+export const ARBEITSSTAENDE = ['qualitaet', 'abnahme'] as const;
+export type Arbeitsstand = (typeof ARBEITSSTAENDE)[number];
+export const istArbeitsstand = (w: unknown): w is Arbeitsstand => typeof w === 'string' && (ARBEITSSTAENDE as readonly string[]).includes(w);
+
+export function untergruppe(a: {
+	status: AuftragStatus;
+	hatTermin?: boolean;
+	hatUmsetzungstermin?: boolean;
+	angebotInfo?: { status: string } | null;
+	arbeitsstand?: string | null;
+}): Untergruppe | null {
 	if (a.status === 'anfrage') return a.hatTermin ? 'termin' : 'neu';
 	if (a.status === 'angebot') return a.angebotInfo ? 'mit_angebot' : 'ohne_angebot';
+	if (a.status === 'beauftragt') return a.hatUmsetzungstermin ? 'umsetzung' : 'planung';
+	if (a.status === 'in_arbeit') return istArbeitsstand(a.arbeitsstand) ? a.arbeitsstand : 'arbeiten';
 	return null;
 }

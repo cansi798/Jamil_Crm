@@ -170,18 +170,18 @@ export const INFOS: Record<string, Info> = {
 	'portal.erscheinungsbild': {
 		titel: 'Erscheinungsbild des Kundenportals',
 		was: 'Farben und Schriften des Portals, damit es wie Ihre Internetseite aussieht.',
-		wirkt: 'Das Kundenportal aller Kunden (und die Vorschau in den Einstellungen).',
+		wirkt: 'Das Kundenportal aller Kunden und immer auch die Online-Buchungsseiten (gleicher Kopf, gleiche Farben, Schriften, Karten und Knöpfe) – plus die Vorschau in den Einstellungen.',
 		standard: 'Anthrazit-Kopf, helle Seite, Schrift Montserrat/Inter.',
 		beispiel: 'Dunkelblauer Kopf und Ihre Hausfarbe als Akzent.'
 	},
 
 	// ——— Listen ———
 	'auftraege.untergruppen': {
-		titel: 'Anfrage und Angebot genauer',
-		was: 'Anfrage: „Neu“ (noch kein Termin) oder „Termin vereinbart“ (ein Termin ist eingeplant, er muss noch nicht stattgefunden haben). Angebot: „Noch kein Angebot“ oder „Angebot erhalten“ (ein Angebot ist verschickt; Entwürfe zählen nicht). Im Board als Gruppen, in der Liste neben dem Status.',
-		wirkt: 'Nur die Anzeige. Der Status des Auftrags bleibt gleich; die Gruppe ergibt sich von selbst aus Terminen und Angeboten.',
-		standard: 'Immer an.',
-		beispiel: 'Sie legen für eine neue Anfrage eine Besichtigung an – die Karte rutscht von „Neu“ zu „Termin vereinbart“.'
+		titel: 'Untergruppen im Board',
+		was: 'Offene Gruppen nennen den nächsten Schritt, erledigte den Stand. Anfrage: Termin vereinbaren / vereinbart. Angebot: Angebot erstellen / erhalten (verschickt). Beauftragt: Planung durchführen / Termin zur Umsetzung bestätigt (kommende Montage oder Wartung). In Arbeit: Arbeiten → Qualitätsprüfung → Endabnahme.',
+		wirkt: 'Nur die Anzeige: im Board als Gruppen mit Zahl, in der Liste neben dem Status. Der Status bleibt. Die ersten drei ergeben sich aus Terminen und Angeboten; den Arbeitsstand stellen Sie im Auftrag unter der Statusleiste ein.',
+		standard: 'Immer an. Ein Statuswechsel setzt den Arbeitsstand auf „Arbeiten durchführen“ zurück.',
+		beispiel: 'Sie planen für einen beauftragten Auftrag die Montage ein – die Karte rutscht von „Planung durchführen“ zu „Termin zur Umsetzung bestätigt“.'
 	},
 	'kunden.zeile': {
 		titel: 'Infos in der Kundenzeile',

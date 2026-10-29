@@ -57,7 +57,7 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<Rahmen betrieb={b.betrieb} farben={data.farben} logoUrl={`${basis}/logo?v=${b.betrieb.logoStand}`} datenschutzUrl={b.datenschutzUrl}>
+<Rahmen betrieb={b.betrieb} logoBasis={`${basis}/logo`} datenschutzUrl={b.datenschutzUrl}>
 	{#if b.status === 'storniert'}
 		<section class="bv-kopf abgesagt" role="status">
 			<h1>Termin abgesagt</h1>
@@ -67,15 +67,17 @@
 		<section class="bv-kopf" role="status">
 			{#if data.neu && !meldung}
 				<p class="bv-haken" aria-hidden="true">✓</p>
-				<h1>Vielen Dank, Ihr Termin ist gebucht!</h1>
+				<span class="pt-eyebrow">Online-Terminbuchung</span>
+				<h1>Vielen Dank, Ihr Termin ist <span class="pt-akzent">gebucht!</span></h1>
 			{:else}
-				<h1>Ihr Termin</h1>
+				<span class="pt-eyebrow">Online-Terminbuchung</span>
+				<h1>Ihr <span class="pt-akzent">Termin</span></h1>
 			{/if}
 			{#if meldung}<p class="bv-ok">{meldung}</p>{/if}
 		</section>
 	{/if}
 
-	<section class="bv-karte" aria-label="Termin">
+	<section class="pt-karte bv-karte" aria-label="Termin">
 		<dl>
 			<dt>Termin</dt>
 			<dd><strong>{b.dienst.name}</strong></dd>
@@ -90,7 +92,7 @@
 		</dl>
 		{#if b.status === 'aktiv'}
 			<div class="bv-knoepfe">
-				<a class="kd-knopf" href={`${basis}/kalender`} download="Termin.ics">In meinen Kalender (.ics)</a>
+				<a class="pt-knopf" href={`${basis}/kalender`} download="Termin.ics">In meinen Kalender (.ics)</a>
 			</div>
 			{#if data.neu}
 				<p class="bv-hinweis">
@@ -101,29 +103,29 @@
 	</section>
 
 	{#if b.aenderbar}
-		<section class="bv-karte" aria-label="Termin ändern">
+		<section class="pt-karte bv-karte" aria-label="Termin ändern">
 			{#if modus === 'ansicht'}
 				<div class="bv-knoepfe">
-					<button type="button" class="kd-knopf hell" onclick={() => ((modus = 'verschieben'), (fehler = null), (meldung = null))}>Termin verschieben</button>
-					<button type="button" class="kd-knopf gefahr" onclick={() => ((modus = 'absagen'), (fehler = null), (meldung = null))}>Termin absagen</button>
+					<button type="button" class="pt-knopf hell" onclick={() => ((modus = 'verschieben'), (fehler = null), (meldung = null))}>Termin verschieben</button>
+					<button type="button" class="pt-knopf hell bv-gefahr" onclick={() => ((modus = 'absagen'), (fehler = null), (meldung = null))}>Termin absagen</button>
 				</div>
 			{:else if modus === 'verschieben'}
 				<h2>Neuen Termin wählen</h2>
 				<TerminWahl url={`${basis}/termine`} bind:gewaehlt={neu} bind:this={terminWahl} />
 				{#if fehler}<p class="kd-fehler" role="alert">{fehler}</p>{/if}
 				<div class="bv-knoepfe">
-					<button type="button" class="kd-knopf" disabled={!neu || sendet} onclick={() => senden('verschieben', { beginn: neu }, 'Ihr Termin wurde verschoben.')}>
+					<button type="button" class="pt-knopf" disabled={!neu || sendet} onclick={() => senden('verschieben', { beginn: neu }, 'Ihr Termin wurde verschoben.')}>
 						{neu ? `Auf ${wann(neu)} verschieben` : 'Bitte neuen Termin wählen'}
 					</button>
-					<button type="button" class="kd-knopf hell" onclick={() => (modus = 'ansicht')}>Abbrechen</button>
+					<button type="button" class="pt-knopf hell" onclick={() => (modus = 'ansicht')}>Abbrechen</button>
 				</div>
 			{:else}
 				<h2>Termin wirklich absagen?</h2>
 				<p>Der Termin am {wann(b.beginn)} wird abgesagt. Das lässt sich nicht rückgängig machen.</p>
 				{#if fehler}<p class="kd-fehler" role="alert">{fehler}</p>{/if}
 				<div class="bv-knoepfe">
-					<button type="button" class="kd-knopf gefahr" disabled={sendet} onclick={() => senden('absagen', { absagen: true }, 'Ihr Termin wurde abgesagt.')}>Ja, absagen</button>
-					<button type="button" class="kd-knopf hell" onclick={() => (modus = 'ansicht')}>Nein, Termin behalten</button>
+					<button type="button" class="pt-knopf hell bv-gefahr" disabled={sendet} onclick={() => senden('absagen', { absagen: true }, 'Ihr Termin wurde abgesagt.')}>Ja, absagen</button>
+					<button type="button" class="pt-knopf hell" onclick={() => (modus = 'ansicht')}>Nein, Termin behalten</button>
 				</div>
 			{/if}
 		</section>
@@ -131,17 +133,18 @@
 </Rahmen>
 
 <style>
+	/* Größen wie im Kundenportal */
 	h1 {
-		margin: 0;
-		font-size: var(--ui-schrift-xxl);
-		line-height: 1.25;
+		margin: 0.15rem 0 0;
+		font-size: clamp(1.35rem, 3vw, 1.9rem);
+		line-height: 1.15;
 	}
 	h2 {
-		margin: 0 0 0.75rem;
-		font-size: var(--ui-schrift-xl);
+		margin: 0;
+		font-size: 1.05rem;
+		line-height: 1.2;
 	}
 	.bv-kopf {
-		margin-bottom: 1rem;
 		text-align: center;
 	}
 	.bv-haken {
@@ -155,6 +158,9 @@
 		color: #fff;
 		font-size: 2rem;
 	}
+	.bv-kopf .pt-eyebrow {
+		margin-bottom: 0.15rem;
+	}
 	.abgesagt h1 {
 		color: var(--ui-gefahr);
 	}
@@ -162,13 +168,9 @@
 		color: var(--ui-gruen);
 		font-weight: 600;
 	}
-	.bv-karte {
-		margin-bottom: 1rem;
-		padding: 1rem;
-		border: 1px solid var(--ui-rand);
-		border-radius: var(--ui-radius-karte);
-		background: var(--ui-flaeche);
-		box-shadow: var(--ui-schatten);
+	.bv-gefahr {
+		color: var(--ui-gefahr);
+		border-color: var(--ui-gefahr);
 	}
 	dl {
 		display: grid;
@@ -188,10 +190,10 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
-		margin-top: 1rem;
+		margin-top: 0.5rem;
 	}
 	.bv-hinweis {
-		margin: 1rem 0 0;
+		margin: 0.5rem 0 0;
 		color: var(--ui-text-leise);
 		line-height: 1.6;
 	}

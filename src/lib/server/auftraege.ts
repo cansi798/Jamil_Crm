@@ -4,6 +4,7 @@ import { anzeigeName, likeMuster, sucheWoerter, textFeld, UUID } from './kunden'
 import { hatRecht } from './rechte';
 import { darfEines } from './tarif';
 import { erlaubterWechsel, istStatus, type AuftragStatus } from '../auftrag-status';
+import { istArbeitsstand, type Arbeitsstand } from '../auftrag-board';
 import { istTag } from '../zeit';
 
 /**
@@ -68,6 +69,14 @@ export type Auftrag = {
 	kommenderTermin: { beginn: string; art: string } | null;
 	/** Gibt es überhaupt einen Termin (auch einen vergangenen)? – Untergruppe „Termin vereinbart“ bei Anfragen (Jamil msg 3601) */
 	hatTermin: boolean;
+	/**
+	 * Kommender (oder gerade laufender) Termin zur Umsetzung eingetragen – Art Montage oder Wartung, keine Besichtigung?
+	 * Untergruppe in „Beauftragt“ (msg 3655). Nur kommende zählen: Termine haben standardmäßig die Art „Montage“, eine
+	 * frühere Besichtigung aus der Anfrage-Zeit mit falscher Art soll den Auftrag nicht als „Termin bestätigt“ zeigen.
+	 */
+	hatUmsetzungstermin: boolean;
+	/** Arbeitsstand im Status „In Arbeit“ (msg 3658, Migration 111): null = Arbeiten durchführen */
+	arbeitsstand: Arbeitsstand | null;
 	/** Abzeichen „Angebot verschickt 18.10.“ / „angenommen“ / „abgelehnt“ (Wunsch Jamil msg 2674). */
 	angebotInfo: { status: 'versendet' | 'angenommen' | 'abgelehnt'; tag: string } | null;
 	/** Nächstes Nachfassen (Tag in Berlin) und ob pausiert. */
@@ -250,6 +259,9 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anla
 		where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id and e.ende >= now()
 		order by e.beginn, e.id limit 1) as kommender_termin,
 	exists (select 1 from app.einsaetze e where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id) as hat_termin,
+	exists (select 1 from app.einsaetze e where e.auftrag_id = a.id and e.betrieb_id = a.betrieb_id
+		and e.art in ('montage', 'wartung') and e.ende >= now()) as hat_umsetzungstermin,
+	a.arbeitsstand,
 	${ANGEBOT_SQL} as angebot_info,
 	${NACHFASSEN_SQL} as nachfassen_info`;
 
@@ -316,6 +328,8 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 			return t ? { beginn: iso(t.beginn), art: t.art } : null;
 		})(),
 		hatTermin: z.hat_termin === true,
+		hatUmsetzungstermin: z.hat_umsetzungstermin === true,
+		arbeitsstand: istArbeitsstand(z.arbeitsstand) ? z.arbeitsstand : null,
 		angebotInfo: json(z.angebot_info),
 		nachfassenInfo: json(z.nachfassen_info),
 		angelegt: iso(z.angelegt),
@@ -578,6 +592,25 @@ export async function setzeStatus(
 		const erlaubt = opts.sprung ? alt.status !== nach : erlaubterWechsel(alt.status, nach);
 		if (!erlaubt) throw new ApiFehler(409, 'Statuswechsel nicht erlaubt');
 		await tx`update app.auftraege set status = ${nach} where id = ${id} and betrieb_id = ${k.betriebId}`;
+		return ladeEinen(tx, k, sicht, id);
+	});
+}
+
+/**
+ * Arbeitsstand im Status „In Arbeit“ setzen (msg 3658): `null` = Arbeiten durchführen, `qualitaet`, `abnahme`.
+ * Nur solange der Auftrag „In Arbeit“ ist (sonst 409); bei jedem Statuswechsel leert ein Trigger das Feld (Migration 111).
+ */
+export async function setzeArbeitsstand(k: Kontext, id: string, stand: unknown, sicht: Sicht = ALLE(k.benutzerId)): Promise<Auftrag> {
+	pruefeAuftragsId(id);
+	const wert = stand === null || stand === '' || stand === 'arbeiten' ? null : istArbeitsstand(stand) ? stand : undefined;
+	if (wert === undefined) throw new ApiFehler(400, 'Unbekannter Arbeitsstand');
+	return mitBetrieb(k, async (tx) => {
+		const [alt] = await tx`
+			select a.status from app.auftraege a
+			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
+		if (!alt) throw nichtGefunden();
+		if (alt.status !== 'in_arbeit') throw new ApiFehler(409, 'Den Arbeitsstand gibt es nur im Status „In Arbeit“');
+		await tx`update app.auftraege set arbeitsstand = ${wert} where id = ${id} and betrieb_id = ${k.betriebId}`;
 		return ladeEinen(tx, k, sicht, id);
 	});
 }

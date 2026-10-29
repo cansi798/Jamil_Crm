@@ -39,8 +39,8 @@
 		leer?: string;
 		reiterLabel?: string;
 		/**
-		 * Optionale Untergruppen innerhalb einer Spalte (Jamil msg 3601: „Anfrage“ → Neu / Termin vereinbart, „Angebot“ →
-		 * Noch kein Angebot / Angebot erhalten): je Gruppe eine kleine Zwischenüberschrift mit Zahl, darunter ihre Karten.
+		 * Optionale Untergruppen innerhalb einer Spalte (Jamil msgs 3601 ff.: „Anfrage“ → Termin vereinbaren / vereinbart, „Angebot“ →
+		 * Angebot erstellen / Angebot erhalten …): je Gruppe eine kleine Zwischenüberschrift mit Zahl, darunter ihre Karten.
 		 */
 		gruppen?: (spalte: string) => { id: string; titel: string; passt: (k: K) => boolean }[] | null;
 	} = $props();

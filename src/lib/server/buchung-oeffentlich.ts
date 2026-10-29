@@ -30,6 +30,8 @@ import {
 import { auswerten, alleFelder, bereinigeAntworten, fehlendeFelder, type Antworten, type Schema } from '../protokoll-formular';
 import { berlinTag, berlinUhrzeit, istTag, tagDeutsch, tagKurz, tagPlus } from '../zeit';
 import { standardFarbe } from '../farben';
+import { markeAusProfil, type PortalMarke } from '../portal-marke';
+import { portalLogo, type PortalLogo } from '../portal-kopf';
 
 /**
  * Öffentliche Online-Buchung (ohne Anmeldung, Wunsch Jamil msgs 2684/2686).
@@ -52,6 +54,8 @@ export type Betriebsanzeige = {
 	farbe: string;
 	hatLogo: boolean;
 	logoStand: string;
+	/** Aussehen wie das Kundenportal (STÄNDIGE Regel, Jamil msg 3662): Hausfarbe, Kopf/Hintergrund/Schriften, Logo-Variante */
+	aussehen: { akzent: string | null; marke: PortalMarke; logo: PortalLogo | null };
 };
 
 export type OeffentlicherDienst = {
@@ -107,7 +111,8 @@ async function ladeLink(tx: TransactionSql, k: Kontext): Promise<LinkDaten> {
 async function betriebsanzeige(tx: TransactionSql, betriebId: string, dienstFarbe: string): Promise<Betriebsanzeige> {
 	const [b] = await tx`
 		select coalesce(nullif(btrim(p.firmenname), ''), be.name) as name, p.telefon, p.email, p.web, p.farbe,
-			p.logo is not null as hat_logo, p.logo_geaendert
+			p.logo is not null as hat_logo, p.logo_dunkel is not null as hat_logo_dunkel, greatest(p.logo_geaendert, p.logo_dunkel_geaendert) as logo_geaendert,
+			p.dunkel_farbe, p.hintergrund_farbe, p.titel_schrift, p.text_schrift, coalesce(p.titel_gross, false) as titel_gross
 		from app.betriebe be left join app.betrieb_profil p on p.betrieb_id = be.id where be.id = ${betriebId}`;
 	return {
 		name: b?.name ?? '',
@@ -115,8 +120,13 @@ async function betriebsanzeige(tx: TransactionSql, betriebId: string, dienstFarb
 		email: b?.email ?? null,
 		web: b?.web ?? null,
 		farbe: b?.farbe ?? dienstFarbe,
-		hatLogo: b?.hat_logo === true,
-		logoStand: b?.logo_geaendert ? String(new Date(b.logo_geaendert).getTime()) : '0'
+		hatLogo: b?.hat_logo === true || b?.hat_logo_dunkel === true,
+		logoStand: b?.logo_geaendert ? String(new Date(b.logo_geaendert).getTime()) : '0',
+		aussehen: {
+			akzent: b?.farbe ?? null,
+			marke: markeAusProfil(b),
+			logo: portalLogo(b?.dunkel_farbe, { briefkopf: b?.hat_logo === true, dunkel: b?.hat_logo_dunkel === true })
+		}
 	};
 }
 
@@ -150,16 +160,26 @@ export async function ladeSeite(token: unknown): Promise<Seite | null> {
 	});
 }
 
+/**
+ * Logo des Betriebs in der gewünschten Variante (wie im Kundenportal: `dunkel` = helle Variante für einen dunklen Kopf),
+ * sonst die andere Variante.
+ */
+async function logoVariante(tx: TransactionSql, betriebId: string, variante: 'briefkopf' | 'dunkel'): Promise<{ bytes: Uint8Array; typ: string } | null> {
+	const [z] = await tx`
+		select case when ${variante} = 'dunkel' then coalesce(logo_dunkel, logo) else coalesce(logo, logo_dunkel) end as logo,
+			case when ${variante} = 'dunkel' then (case when logo_dunkel is not null then logo_dunkel_typ else logo_typ end)
+				else (case when logo is not null then logo_typ else logo_dunkel_typ end) end as logo_typ
+		from app.betrieb_profil where betrieb_id = ${betriebId} and (logo is not null or logo_dunkel is not null)`;
+	if (!z) return null;
+	const buf = z.logo as Buffer;
+	return { bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), typ: z.logo_typ };
+}
+
 /** Logo des Betriebs zum Link (oder null). */
-export async function logoZumLink(token: unknown): Promise<{ bytes: Uint8Array; typ: string } | null> {
+export async function logoZumLink(token: unknown, variante: 'briefkopf' | 'dunkel' = 'briefkopf'): Promise<{ bytes: Uint8Array; typ: string } | null> {
 	const k = await loeseLinkAuf(token);
 	if (!k) return null;
-	return mitBetriebOeffentlich(k.betriebId, async (tx) => {
-		const [z] = await tx`select logo, logo_typ from app.betrieb_profil where betrieb_id = ${k.betriebId} and logo is not null`;
-		if (!z) return null;
-		const buf = z.logo as Buffer;
-		return { bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), typ: z.logo_typ };
-	});
+	return mitBetriebOeffentlich(k.betriebId, (tx) => logoVariante(tx, k.betriebId, variante));
 }
 
 export type Termine = { tage: { tag: string; zeiten: { beginn: string; ende: string }[] }[]; naechsterVon: string | null; bisTag: string };
@@ -602,15 +622,10 @@ export async function kalenderDaten(token: unknown): Promise<{ uid: string; begi
 }
 
 /** Logo des Betriebs zur Buchung (Verwaltungs-Seite). */
-export async function logoZurBuchung(token: unknown): Promise<{ bytes: Uint8Array; typ: string } | null> {
+export async function logoZurBuchung(token: unknown, variante: 'briefkopf' | 'dunkel' = 'briefkopf'): Promise<{ bytes: Uint8Array; typ: string } | null> {
 	const v = await loeseVerwaltungAuf(token);
 	if (!v) return null;
-	return mitBetriebOeffentlich(v.betriebId, async (tx) => {
-		const [z] = await tx`select logo, logo_typ from app.betrieb_profil where betrieb_id = ${v.betriebId} and logo is not null`;
-		if (!z) return null;
-		const buf = z.logo as Buffer;
-		return { bytes: new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), typ: z.logo_typ };
-	});
+	return mitBetriebOeffentlich(v.betriebId, (tx) => logoVariante(tx, v.betriebId, variante));
 }
 
 /** Einbett-Erlaubnis einer Verwaltungs-Seite (für die CSP). */

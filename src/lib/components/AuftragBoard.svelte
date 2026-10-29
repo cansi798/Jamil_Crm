@@ -37,6 +37,8 @@
 		angebotInfo: AngebotInfo | null;
 		nachfassenInfo: NachfassenInfo | null;
 		hatTermin: boolean;
+		hatUmsetzungstermin: boolean;
+		arbeitsstand: string | null;
 	};
 
 	/**

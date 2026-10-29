@@ -9,6 +9,7 @@
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import BelegListe, { type BelegZeile } from '$lib/components/ausgangsbelege/BelegListe.svelte';
 	import StatusKette from '$lib/components/StatusKette.svelte';
+	import { untergruppe } from '$lib/auftrag-board';
 	import AuftragHinweise from '$lib/components/AuftragHinweise.svelte';
 	import TodoListe from '$lib/components/TodoListe.svelte';
 	import TodoNeu from '$lib/components/TodoNeu.svelte';
@@ -163,7 +164,7 @@
 			Die Anfrage und ihre Aufgaben werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.
 		</LoeschenPanel>
 	{/if}
-	<StatusKette status={a.status} darfBearbeiten={data.darfBearbeiten} />
+	<StatusKette status={a.status} darfBearbeiten={data.darfBearbeiten} untergruppe={untergruppe(a)} />
 
 	{#if data.kundenHinweise && (data.kundenHinweise.notiz || data.kundenHinweise.notizen.length > 0)}
 		<aside class="af-hinweise" aria-label="Hinweise zum Kunden">

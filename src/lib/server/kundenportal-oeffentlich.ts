@@ -18,7 +18,7 @@ import { summen, istMwstSatz } from '../geld';
 import { berlinTag, berlinUhrzeit, tagKurz } from '../zeit';
 import { anzeigeDateiname } from '../dateiname';
 import { bestandAusDatenbank, bestandKarteFuer, bestandStatusAb, type BestandAb, type BestandKarte } from '../bestandskunden';
-import type { PortalMarke } from '../portal-marke';
+import { markeAusProfil, type PortalMarke } from '../portal-marke';
 import { figurFuer, istAnrede, teamRolle, type Figur } from '../portal-figur';
 
 /**
@@ -325,13 +325,7 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			web: b.web,
 			logo: portalLogo(b.dunkel_farbe, { briefkopf: b.hat_logo === true, dunkel: b.hat_logo_dunkel === true }),
 			farbe: b.farbe,
-			marke: {
-				dunkel: b.dunkel_farbe ?? null,
-				hintergrund: b.hintergrund_farbe ?? null,
-				titelSchrift: b.titel_schrift === 'inter' ? 'inter' : 'montserrat',
-				textSchrift: b.text_schrift === 'opensans' ? 'opensans' : 'inter',
-				titelGross: b.titel_gross === true
-			}
+			marke: markeAusProfil(b)
 		},
 		agbUrl: b.agb_url,
 		agbPdf: b.agb_pdf_hochgeladen ? { stand: new Date(b.agb_pdf_hochgeladen).toISOString() } : null,

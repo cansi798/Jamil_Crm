@@ -8,6 +8,7 @@ import {
 	loescheAuftrag,
 	pruefeStatus,
 	setzeStatus,
+	setzeArbeitsstand,
 	sichtVon,
 	uebernimmEinmalKunde,
 	zustaendigeAus
@@ -579,6 +580,17 @@ export const actions: Actions = {
 			await setzeStatus(betriebKontext(locals), params.id, pruefeStatus(form.get('status')), sichtVon(locals.nutzer!), {
 				sprung: form.get('sprung') === '1'
 			});
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+		redirect(303, `/auftraege/${params.id}`);
+	},
+	/** Arbeitsstand im Status „In Arbeit“ (msg 3658): Feld `stand` = arbeiten | qualitaet | abnahme. */
+	arbeitsstand: async ({ locals, params, request }) => {
+		const form = await request.formData();
+		try {
+			await darf(locals, 'auftraege', 'auftraege.bearbeiten');
+			await setzeArbeitsstand(betriebKontext(locals), params.id, form.get('stand'), sichtVon(locals.nutzer!));
 		} catch (e) {
 			return alsFormFehler(e);
 		}

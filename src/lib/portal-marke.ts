@@ -14,3 +14,15 @@ export function portalMarkeStil(m: PortalMarke): string[] {
 		`--pt-gross: ${m.titelGross ? 'uppercase' : 'none'}`
 	];
 }
+
+/** Erscheinungsbild aus einer Zeile von app.betrieb_profil (Spalten dunkel_farbe, hintergrund_farbe, titel_schrift,
+ * text_schrift, titel_gross) – gleich für Kundenportal und Online-Buchung (msg 3662). */
+export function markeAusProfil(b: Record<string, unknown> | null | undefined): PortalMarke {
+	return {
+		dunkel: typeof b?.dunkel_farbe === 'string' ? b.dunkel_farbe : null,
+		hintergrund: typeof b?.hintergrund_farbe === 'string' ? b.hintergrund_farbe : null,
+		titelSchrift: b?.titel_schrift === 'inter' ? 'inter' : 'montserrat',
+		textSchrift: b?.text_schrift === 'opensans' ? 'opensans' : 'inter',
+		titelGross: b?.titel_gross === true
+	};
+}

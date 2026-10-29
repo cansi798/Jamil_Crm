@@ -3,7 +3,6 @@ import type { PageServerLoad } from './$types';
 import { ladeSeite } from '$lib/server/buchung-oeffentlich';
 import { formStempel } from '$lib/server/buchung-schutz';
 import { OEFFENTLICHE_KOPFZEILEN } from '$lib/server/buchung-anfrage';
-import { abgedunkelt, akzentLesbar, aufgehellt } from '$lib/farben';
 
 /**
  * Öffentliche Buchungsseite /buchen/<Token> (ohne Anmeldung, Wunsch Jamil msgs 2684/2686). Unbekannter oder
@@ -14,12 +13,10 @@ export const load: PageServerLoad = async ({ params, locals, setHeaders }) => {
 	const seite = await ladeSeite(params.token);
 	if (!seite) error(404, 'Dieser Buchungslink ist nicht (mehr) gültig.');
 	locals.einbettenErlaubt = seite.einbetten;
-	const akzent = akzentLesbar(seite.betrieb.farbe);
 	const { einbetten: _e, ...rest } = seite;
 	return {
 		token: params.token,
 		seite: rest,
-		stempel: formStempel(),
-		farben: { akzent, hover: abgedunkelt(akzent, 0.85), dunkel: abgedunkelt(akzent, 0.7), hell: aufgehellt(akzent, 0.12), zart: aufgehellt(akzent, 0.05) }
+		stempel: formStempel()
 	};
 };

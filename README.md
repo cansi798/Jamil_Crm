@@ -290,6 +290,9 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Portal-Öffnungen: vorhandene Zähler je Link (`portal_links.zugriffe`, `letzter_zugriff`) – keine neue Erfassung, keine IPs.
 29. Unteraufgaben (Migration 110, `app.todo_unteraufgaben`, RLS, Protokoll): anlegen/löschen mit „Aufträge bearbeiten“, abhaken
     auch durch die Mitarbeiter der Aufgabe; mit der Aufgabe gelöscht, nie im Kundenportal.
+30. Arbeitsstand (Migration 111, `auftraege.arbeitsstand`, Jamil msg 3658): Untergruppe im Status „In Arbeit“ (leer = Arbeiten
+    durchführen, `qualitaet`, `abnahme`); setzen nur mit „Aufträge bearbeiten“ und nur in „In Arbeit“ (`setzeArbeitsstand`),
+    jeder Statuswechsel leert ihn per Trigger. Alle anderen Untergruppen sind abgeleitet (`untergruppe()`, `lib/auftrag-board.ts`).
 
 ## Installation auf einem eigenen Server
 

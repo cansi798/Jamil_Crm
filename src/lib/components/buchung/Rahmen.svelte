@@ -1,36 +1,45 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
-	import { farbStil } from '$lib/farbe';
+	import PortalHuelle from '$lib/components/portal/PortalHuelle.svelte';
+	import type { PortalMarke } from '$lib/portal-marke';
+	import type { PortalLogo } from '$lib/portal-kopf';
 
 	/**
-	 * Rahmen der öffentlichen Buchungsseiten (Online-Buchung): Kopf mit Logo und Firmenname in der Hausfarbe, Inhalt,
-	 * Fuß mit Kontakt und Datenschutz. Die Hausfarbe setzt die Design-Tokens (`--ui-akzent` …) nur hier drin.
+	 * Rahmen der öffentlichen Buchungsseiten (Online-Buchung) – im Design des Kundenportals (STÄNDIGE Regel von Jamil,
+	 * msg 3662): dieselbe Hülle `PortalHuelle` (Farben, Schriften, Kopf mit Logo, Karten, Knöpfe, Fuß), nur schmaler
+	 * und mit „Online-Terminbuchung“ statt „Ihr Kundenportal“. Änderungen am Portal-Design kommen so automatisch hier an.
 	 * Eingebettet (iframe) meldet die Seite ihre Höhe an die Website (postMessage `crm-buchung-hoehe`), damit das
 	 * iframe ohne Scrollbalken mitwächst.
 	 */
 	let {
 		betrieb,
-		farben,
-		logoUrl,
+		logoBasis,
 		datenschutzUrl = null,
 		children
 	}: {
-		betrieb: { name: string; telefon: string | null; email: string | null; web: string | null; hatLogo: boolean };
-		farben: { akzent: string; hover: string; dunkel: string; hell: string; zart: string };
-		logoUrl: string | null;
+		betrieb: {
+			name: string;
+			telefon: string | null;
+			email: string | null;
+			web: string | null;
+			logoStand: string;
+			aussehen: { akzent: string | null; marke: PortalMarke; logo: PortalLogo | null };
+		};
+		/** z. B. `/buchen/<Token>/logo` */
+		logoBasis: string;
 		datenschutzUrl?: string | null;
 		children: Snippet;
 	} = $props();
 
-	// Alle Akzent-Tokens aus der Hausfarbe (gleiche Ableitung wie in der App, Text darauf immer lesbar)
-	const stil = $derived(`${farbStil(farben.akzent)}; --ui-akzent-dunkel: var(--ui-akzent-text)`);
-	const webLink = $derived(betrieb.web ? (/^https?:\/\//i.test(betrieb.web) ? betrieb.web : `https://${betrieb.web}`) : null);
-	const sichererLink = (u: string | null) => (u && /^https?:\/\//i.test(u) ? u : null);
+	const a = $derived(betrieb.aussehen);
+	const logo = $derived(a.logo ? { src: `${logoBasis}?variante=${a.logo.variante}&v=${betrieb.logoStand}`, feld: a.logo.feld } : null);
 
 	let wurzel = $state<HTMLElement>();
+	let eingebettet = $state(false);
 	onMount(() => {
 		if (window.parent === window || !wurzel) return;
+		eingebettet = true;
 		let letzte = 0;
 		const melden = () => {
 			const h = Math.ceil(document.documentElement.scrollHeight);
@@ -45,64 +54,27 @@
 	});
 </script>
 
-<div class="bu-rahmen" style={stil} bind:this={wurzel}>
-	<header class="bu-kopf">
-		{#if betrieb.hatLogo && logoUrl}
-			<img class="bu-logo" src={logoUrl} alt={`Logo ${betrieb.name}`} />
-		{/if}
-		<span class="bu-firma">{betrieb.name}</span>
-	</header>
-	<main class="bu-inhalt">
+<PortalHuelle
+	bind:element={wurzel}
+	name={betrieb.name}
+	akzent={a.akzent}
+	marke={a.marke}
+	{logo}
+	untertitel="Online-Terminbuchung"
+	breite="schmal"
+	vollhoehe={!eingebettet}
+	kontakt={{ telefon: betrieb.telefon, email: betrieb.email, web: betrieb.web, datenschutzUrl }}
+>
+	<main class="pt-inhalt bu-inhalt">
 		{@render children()}
 	</main>
-	<footer class="bu-fuss">
-		<span>{betrieb.name}</span>
-		{#if betrieb.telefon}<a href={`tel:${betrieb.telefon.replace(/[^\d+]/g, '')}`}>{betrieb.telefon}</a>{/if}
-		{#if betrieb.email}<a href={`mailto:${betrieb.email}`}>{betrieb.email}</a>{/if}
-		{#if webLink}<a href={webLink} target="_blank" rel="noopener noreferrer">{betrieb.web}</a>{/if}
-		{#if sichererLink(datenschutzUrl)}<a href={sichererLink(datenschutzUrl)} target="_blank" rel="noopener noreferrer">Datenschutz</a>{/if}
-	</footer>
-</div>
+</PortalHuelle>
 
 <style>
-	:global(body) {
-		background: var(--ui-hintergrund);
-	}
-	.bu-rahmen {
-		max-width: 40rem;
-		margin: 0 auto;
-		padding: 0 0 1.5rem;
-		color: var(--ui-text);
-	}
-	.bu-kopf {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 1rem 1rem 0.85rem;
-		border-bottom: 4px solid var(--ui-akzent);
-		background: var(--ui-flaeche);
-	}
-	.bu-logo {
-		max-height: 3rem;
-		max-width: 10rem;
-		object-fit: contain;
-	}
-	.bu-firma {
-		font-weight: 700;
-		font-size: var(--ui-schrift-l);
-	}
 	.bu-inhalt {
-		padding: 1rem;
-	}
-	.bu-fuss {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.35rem 1rem;
-		padding: 1rem;
-		font-size: var(--ui-schrift-s);
-		color: var(--ui-text-leise);
-	}
-	.bu-fuss a {
-		color: var(--ui-text-leise);
+		display: grid;
+		gap: 0.85rem;
+		padding-top: 1.25rem;
+		padding-bottom: 2rem;
 	}
 </style>

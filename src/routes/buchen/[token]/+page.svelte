@@ -119,10 +119,11 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<Rahmen betrieb={s.betrieb} farben={data.farben} logoUrl={`${basis}/logo?v=${s.betrieb.logoStand}`} datenschutzUrl={s.datenschutzUrl}>
+<Rahmen betrieb={s.betrieb} logoBasis={`${basis}/logo`} datenschutzUrl={s.datenschutzUrl}>
 	<section class="bu-dienst" aria-labelledby="dienst-titel">
 		<span class="bu-punkt" style={`background:${s.dienst.farbe}`} aria-hidden="true"></span>
 		<div>
+			<span class="pt-eyebrow">Termin online buchen</span>
 			<h1 id="dienst-titel">{s.dienst.name}</h1>
 			<p class="bu-eckdaten">
 				<span>{s.dienst.dauerText}</span>
@@ -133,15 +134,15 @@
 		</div>
 	</section>
 
-	<section class="bu-karte" aria-labelledby="schritt-1">
+	<section class="pt-karte bu-karte" aria-labelledby="schritt-1">
 		<h2 id="schritt-1"><span class="bu-nr">1</span> Termin wählen</h2>
 		<TerminWahl url={`${basis}/termine`} bind:gewaehlt bind:this={terminWahl} />
 		{#if gewaehlt}<p class="bu-gewaehlt" role="status">Gewählt: <strong>{terminText(gewaehlt)}</strong></p>{/if}
 	</section>
 
-	<form class="bu-karte" aria-labelledby="schritt-2" onsubmit={buchen} novalidate bind:this={formularAnker}>
+	<form class="pt-karte bu-karte" aria-labelledby="schritt-2" onsubmit={buchen} novalidate bind:this={formularAnker}>
 		<h2 id="schritt-2"><span class="bu-nr">2</span> Ihre Angaben</h2>
-		<div class="bu-felder">
+		<div class="bu-felder pt-felder">
 			<div class="bu-zwei">
 				<label>Vorname *<input type="text" bind:value={kontakt.vorname} autocomplete="given-name" maxlength="100" required aria-invalid={!!feldFehler.vorname} /></label>
 				<label>Name *<input type="text" bind:value={kontakt.nachname} autocomplete="family-name" maxlength="100" required aria-invalid={!!feldFehler.nachname} /></label>
@@ -198,7 +199,7 @@
 		</label>
 
 		{#if fehler}<p class="kd-fehler" role="alert">{fehler}</p>{/if}
-		<button type="submit" class="kd-knopf bu-absenden" disabled={sendet} data-testid="buchen">
+		<button type="submit" class="pt-knopf bu-absenden" disabled={sendet} data-testid="buchen">
 			{#if sendet}Wird gebucht …{:else if gewaehlt}Termin am {terminText(gewaehlt)} verbindlich buchen{:else}Termin verbindlich buchen{/if}
 		</button>
 		<p class="bu-klein">* Pflichtangaben</p>
@@ -206,28 +207,29 @@
 </Rahmen>
 
 <style>
+	/* Größen wie im Kundenportal */
 	h1 {
-		margin: 0 0 0.25rem;
-		font-size: var(--ui-schrift-xxl);
-		line-height: 1.2;
+		margin: 0.15rem 0 0.25rem;
+		font-size: clamp(1.35rem, 3vw, 1.9rem);
+		line-height: 1.15;
 	}
 	h2 {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		margin: 0 0 0.75rem;
-		font-size: var(--ui-schrift-xl);
+		margin: 0;
+		font-size: 1.05rem;
+		line-height: 1.2;
 	}
 	.bu-dienst {
 		display: flex;
 		gap: 0.75rem;
-		margin-bottom: 1rem;
 	}
 	.bu-punkt {
 		flex: none;
 		width: 0.75rem;
 		height: 0.75rem;
-		margin-top: 0.6rem;
+		margin-top: 1.45rem;
 		border-radius: 999px;
 	}
 	.bu-eckdaten {
@@ -243,15 +245,9 @@
 		white-space: pre-line;
 		line-height: 1.6;
 	}
-	.bu-karte {
-		margin-bottom: 1rem;
-		padding: 1rem;
-		border: 1px solid var(--ui-rand);
-		border-radius: var(--ui-radius-karte);
-		background: var(--ui-flaeche);
-		box-shadow: var(--ui-schatten);
-	}
+	/* Karten selbst: .pt-karte aus PortalHuelle (Design des Kundenportals, msg 3662) */
 	.bu-nr {
+		flex: none;
 		display: inline-grid;
 		place-items: center;
 		width: 1.75rem;
@@ -262,7 +258,7 @@
 		font-size: var(--ui-schrift-m);
 	}
 	.bu-gewaehlt {
-		margin: 0.75rem 0 0;
+		margin: 0.25rem 0 0;
 	}
 	.bu-felder,
 	.bu-fragen {
@@ -271,22 +267,14 @@
 		gap: 0.75rem;
 	}
 	.bu-fragen {
-		margin-top: 1.25rem;
+		margin-top: 0.75rem;
 		padding-top: 1rem;
 		border-top: 1px solid var(--ui-rand);
 	}
+	/* Felder selbst: .pt-felder aus PortalHuelle; hier nur die Beschriftung */
 	.bu-felder label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
 		font-weight: 600;
 		font-size: var(--ui-schrift-s);
-		color: var(--ui-text-leise);
-	}
-	.bu-felder input {
-		width: 100%;
-		min-width: 0;
-		box-sizing: border-box;
 	}
 	.bu-zwei > *,
 	.bu-plz > * {
@@ -318,7 +306,7 @@
 		display: flex;
 		align-items: flex-start;
 		gap: 0.6rem;
-		margin: 1.25rem 0 0.75rem;
+		margin: 0.75rem 0 0.25rem;
 		line-height: 1.6;
 		cursor: pointer;
 	}
@@ -332,7 +320,7 @@
 	.bu-absenden {
 		width: 100%;
 		min-height: 3rem;
-		font-size: var(--ui-schrift-l) !important;
+		margin-top: 0.25rem;
 	}
 	.bu-klein {
 		margin: 0.5rem 0 0;

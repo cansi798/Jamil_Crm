@@ -140,7 +140,7 @@
 		</label>
 		<div class="bk-portal" role="group" aria-labelledby="bk-portal-titel">
 			<div class="bk-h2info"><h2 id="bk-portal-titel">Erscheinungsbild Kundenportal</h2><InfoFenster id="portal.erscheinungsbild" /></div>
-			<p class="kd-info">So sieht das Portal für Ihre Kunden aus – passend zu Ihrer Website. Die CRM-App selbst nutzt nur die Hausfarbe.</p>
+			<p class="kd-info">So sehen das Portal und die Online-Buchungsseiten für Ihre Kunden aus – passend zu Ihrer Website. Die CRM-App selbst nutzt nur die Hausfarbe.</p>
 			<p class="kd-info">
 				Im Kundenportal wird das normale Logo verwendet, groß und ohne Feld, daneben „Ihr Kundenportal“. Nur bei einer dunklen
 				Kopffarbe nimmt das Portal automatisch die <a href="#logo-dunkel-titel">helle Variante</a>. Firmenname, Telefon und E-Mail
