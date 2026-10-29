@@ -98,6 +98,14 @@ angewendet, Admin angelegt, `/api/gesundheit` ok, Sicherung + Wiederherstellung 
 `9-deinstallieren.sh --ja` ohne Reste. Vorher Migration 111 auf einer Kopie der Vorschau-Datenbank geprüft (zweiter Lauf:
 „Keine neuen Migrationen“, Arbeitsstand setzbar), Kopie danach gelöscht. Vorschau-Container unberührt.
 
+## Prüfung 29.10.2026 (Ablauf je Auftragsquelle – Migration 112, Commit 199895f)
+
+Migration 112 auf einer Kopie der Vorschau-Datenbank geprüft: angewendet, zweiter Lauf „Keine neuen Migrationen“, alle
+Quellen danach mit leerem `uebersprungen` (= bisheriges Verhalten); Kopie gelöscht. Paket gebaut. Die unbeaufsichtigte
+Probe-Installation brach beim Anlegen der Docker-Netze ab („all predefined address pools have been fully subnetted“ – auf
+diesem Server sind alle Docker-Adressbereiche belegt); Reste (Volume) entfernt, laufende Container nicht angefasst.
+Probelauf nachholen, sobald Netze frei sind (oder auf einem anderen Server).
+
 ## So wiederholen (für Entwickler)
 
 ```sh
