@@ -370,3 +370,7 @@ Einstieg: `installation/CRM-Installation.sh` (Menü), Anleitung: `installation/A
   Sandbox; Daten bleiben erhalten). Dieses Repo ändert die Sandbox nicht.
 - **Vorschau-Neustart.** `start-vorschau.sh` beendet über die PID-Datei und zusätzlich jeden Prozess `node build`
   im Container; läuft dort noch ein anderer Dienst mit diesem Befehl, wird er mit beendet.
+
+## Lizenz
+
+Alle Rechte vorbehalten – siehe [LICENSE](LICENSE). Nutzung, Vervielfältigung oder Weitergabe nur mit schriftlicher Zustimmung der Waybuild UG (haftungsbeschränkt).
