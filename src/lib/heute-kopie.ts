@@ -1,6 +1,6 @@
 import { berlinTag } from './zeit';
 import { istKontaktweg } from './kontaktweg';
-import { pruefeSchritte, STATUS, type Antworten, type LeitfadenKunde, type LeitfadenStatus, type Schritt } from './leitfaden';
+import { pruefeSchritte, STATUS, type Antworten, type LeitfadenKunde, type LeitfadenProtokolle, type LeitfadenStatus, type Schritt } from './leitfaden';
 
 /**
  * Offline-Kopie von „Meine Einsätze heute“ (Pflichtenheft Abschnitt 2: Termine des Tages bleiben bei schlechtem Netz
@@ -43,6 +43,8 @@ export type HeuteLeitfaden = {
 	schritte: Schritt[];
 	antworten: Antworten;
 	kunde: LeitfadenKunde | null;
+	/** Protokolle der Protokoll-Schritte (Schema + Antworten), damit sie auch offline gehen (Jamil msg 4353) */
+	protokolle?: LeitfadenProtokolle;
 	status: LeitfadenStatus;
 	begruendung: string | null;
 	erledigt: number;
@@ -63,6 +65,19 @@ function speicher(): Storage | null {
 
 const kurz = (w: unknown, max: number) => (typeof w === 'string' ? w.slice(0, max) : null);
 
+/** Protokolle für die Kopie: nur Kennung, Titel, Schema, Antworten, Stand – keine Dateien (die liegen auf dem Server). */
+function bereinigeProtokolle(p: unknown): LeitfadenProtokolle {
+	const aus: LeitfadenProtokolle = {};
+	if (!p || typeof p !== 'object') return aus;
+	for (const [id, x] of Object.entries(p as Record<string, any>)) {
+		aus[id] =
+			x && typeof x === 'object' && typeof x.id === 'string' && x.schema && Array.isArray(x.schema.seiten)
+				? { id: x.id, titel: kurz(x.titel, 200) ?? 'Protokoll', schema: x.schema, antworten: x.antworten && typeof x.antworten === 'object' ? x.antworten : {}, status: x.status === 'abgeschlossen' ? 'abgeschlossen' : 'entwurf', pdfDateiId: null }
+				: null;
+	}
+	return aus;
+}
+
 /** Leitfaden für die Kopie: nur geprüfte Schritte, Antworten als Objekt, Kundendaten als Text – sonst weg. */
 function bereinigeLeitfaden(l: HeuteLeitfaden): HeuteLeitfaden | null {
 	try {
@@ -74,6 +89,7 @@ function bereinigeLeitfaden(l: HeuteLeitfaden): HeuteLeitfaden | null {
 			kunde: k
 				? { email: kurz(k.email, 200), telefon: kurz(k.telefon, 50), bevorzugter_kontakt: istKontaktweg(k.bevorzugter_kontakt) ? k.bevorzugter_kontakt : null, strasse: kurz(k.strasse, 200), plz: kurz(k.plz, 20), ort: kurz(k.ort, 200) }
 				: null,
+			protokolle: bereinigeProtokolle(l.protokolle),
 			status: (STATUS as readonly string[]).includes(l.status) ? l.status : 'offen',
 			begruendung: kurz(l.begruendung, 1000),
 			erledigt: Number(l.erledigt) || 0,

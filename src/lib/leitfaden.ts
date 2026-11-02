@@ -12,8 +12,9 @@
  * Reine Funktionen ohne Serverbezug – Server, Leitfaden-Seite und Offline-Seite rechnen gleich.
  */
 import { istKontaktweg, KONTAKTWEG_NAMEN, type Kontaktweg } from './kontaktweg';
+import { fehlendeFelder, type Antworten as ProtokollAntworten, type Schema as ProtokollSchema } from './protokoll-formular';
 
-export const SCHRITT_TYPEN = ['hinweis', 'frage', 'kundendaten', 'abhaken', 'foto', 'aufgabe', 'notiz'] as const;
+export const SCHRITT_TYPEN = ['hinweis', 'frage', 'kundendaten', 'abhaken', 'foto', 'protokoll', 'aufgabe', 'notiz'] as const;
 export type SchrittTyp = (typeof SCHRITT_TYPEN)[number];
 
 export const SCHRITT_TYP_NAMEN: Record<SchrittTyp, string> = {
@@ -22,6 +23,7 @@ export const SCHRITT_TYP_NAMEN: Record<SchrittTyp, string> = {
 	kundendaten: 'Kundendaten prüfen/ergänzen',
 	abhaken: 'Abhaken',
 	foto: 'Fotos',
+	protokoll: 'Protokoll ausfüllen',
 	aufgabe: 'Aufgabe anlegen',
 	notiz: 'Notiz'
 };
@@ -56,7 +58,25 @@ export type Schritt = {
 	mindestens?: number;
 	/** aufgabe: Vorschlag für den Titel der Aufgabe */
 	aufgabeTitel?: string;
+	/** protokoll: Protokoll-Vorlage (Gruppe = immer die aktuelle Version) und ihr Name zur Anzeige (Jamil msg 4353) */
+	vorlageGruppe?: string;
+	vorlageName?: string;
 };
+
+/** Ein Protokoll im Leitfaden (Schritt „Protokoll ausfüllen“): Schema der Vorlage, Antworten, Stand. */
+export type LeitfadenProtokoll = {
+	id: string;
+	titel: string;
+	schema: ProtokollSchema;
+	antworten: ProtokollAntworten;
+	status: 'entwurf' | 'abgeschlossen';
+	pdfDateiId: string | null;
+};
+/** Protokolle eines Durchlaufs je Schritt-Kennung (null = Vorlage nicht mehr verfügbar). */
+export type LeitfadenProtokolle = Record<string, LeitfadenProtokoll | null>;
+
+/** Wert einer Eingabe in ein Protokoll-Feld (offline wie alle Eingaben; je Feld gewinnt die spätere). */
+export type ProtokollEingabe = { feld: string; wert: unknown };
 
 /** Kundendaten, wie sie der Leitfaden kennt (aktueller Stand der Kundenakte). */
 export type LeitfadenKunde = {
@@ -101,7 +121,18 @@ export const STARTVORLAGE: Schritt[] = [
 	{ id: 'sonstiges', typ: 'notiz', titel: 'Sonstiges / Notizen', pflicht: false }
 ];
 
+/**
+ * Startvorlage mit Schritt „Protokoll ausfüllen“ (vor der Aufgabe fürs Büro), z. B. mit dem Besichtigungsprotokoll
+ * des Betriebs (Seed, Jamil msg 4353).
+ */
+export function mitProtokollSchritt(schritte: Schritt[], vorlageGruppe: string, vorlageName: string): Schritt[] {
+	const neu: Schritt = { id: 'protokoll', typ: 'protokoll', titel: vorlageName, hilfe: 'Direkt hier ausfüllen – das PDF landet beim Abschluss in den Dokumenten des Auftrags.', pflicht: true, vorlageGruppe, vorlageName };
+	const i = schritte.findIndex((x) => x.typ === 'aufgabe');
+	return i < 0 ? [...schritte, neu] : [...schritte.slice(0, i), neu, ...schritte.slice(i)];
+}
+
 const ID = /^[a-z0-9-]{1,40}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const ist = <T extends string>(liste: readonly T[], w: unknown): w is T => typeof w === 'string' && (liste as readonly string[]).includes(w);
 
 /** Text kürzen/säubern: Zeichenkette, ohne NUL, getrimmt, höchstens `max` Zeichen; sonst ''. */
@@ -147,6 +178,13 @@ export function pruefeSchritte(roh: unknown): Schritt[] {
 			s.mindestens = Number.isInteger(n) && n >= 1 && n <= 20 ? n : 1;
 		}
 		if (o.typ === 'aufgabe') s.aufgabeTitel = text(o.aufgabeTitel, 200) || titel;
+		if (o.typ === 'protokoll') {
+			const g = typeof o.vorlageGruppe === 'string' ? o.vorlageGruppe.trim().toLowerCase() : '';
+			if (!UUID.test(g)) throw new Error(`Schritt ${nr}: Bitte eine Protokoll-Vorlage wählen.`);
+			s.vorlageGruppe = g;
+			const name = text(o.vorlageName, 200);
+			if (name) s.vorlageName = name;
+		}
 		return s;
 	});
 }
@@ -182,8 +220,12 @@ export function kundenWertText(feld: KundenFeld, w: unknown): string {
 }
 
 /** Ist ein Schritt erledigt? Kundendaten zählen, sobald sie in der Kundenakte stehen (egal woher). */
-export function istErledigt(s: Schritt, a: Antwort | undefined, kunde: LeitfadenKunde | null): boolean {
+export function istErledigt(s: Schritt, a: Antwort | undefined, kunde: LeitfadenKunde | null, protokolle: LeitfadenProtokolle = {}): boolean {
 	switch (s.typ) {
+		case 'protokoll': {
+			const p = protokolle[s.id];
+			return !!p && (p.status === 'abgeschlossen' || fehlendeFelder(p.schema, p.antworten).length === 0);
+		}
 		case 'hinweis':
 			return true;
 		case 'kundendaten':
@@ -201,14 +243,14 @@ export function istErledigt(s: Schritt, a: Antwort | undefined, kunde: Leitfaden
 }
 
 /** Offene Pflichtschritte (in Reihenfolge). */
-export function fehlendePflicht(schritte: Schritt[], antworten: Antworten, kunde: LeitfadenKunde | null): Schritt[] {
-	return schritte.filter((s) => s.pflicht && !istErledigt(s, antworten[s.id], kunde));
+export function fehlendePflicht(schritte: Schritt[], antworten: Antworten, kunde: LeitfadenKunde | null, protokolle: LeitfadenProtokolle = {}): Schritt[] {
+	return schritte.filter((s) => s.pflicht && !istErledigt(s, antworten[s.id], kunde, protokolle));
 }
 
 /** Fortschritt: erledigte (ohne reine Hinweise) von allen. */
-export function fortschritt(schritte: Schritt[], antworten: Antworten, kunde: LeitfadenKunde | null): { erledigt: number; gesamt: number } {
+export function fortschritt(schritte: Schritt[], antworten: Antworten, kunde: LeitfadenKunde | null, protokolle: LeitfadenProtokolle = {}): { erledigt: number; gesamt: number } {
 	const zaehlen = schritte.filter((s) => s.typ !== 'hinweis');
-	return { erledigt: zaehlen.filter((s) => istErledigt(s, antworten[s.id], kunde)).length, gesamt: zaehlen.length };
+	return { erledigt: zaehlen.filter((s) => istErledigt(s, antworten[s.id], kunde, protokolle)).length, gesamt: zaehlen.length };
 }
 
 /**
@@ -221,6 +263,11 @@ export function pruefeWert(s: Schritt, w: unknown): unknown {
 			throw new Error('Ein Hinweis braucht keine Eingabe.');
 		case 'foto':
 			throw new Error('Fotos bitte über „Foto aufnehmen“ hinzufügen.');
+		case 'protokoll': {
+			const o = (w ?? {}) as Record<string, unknown>;
+			if (typeof o.feld !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(o.feld)) throw new Error('Unbekanntes Feld im Protokoll.');
+			return { feld: o.feld, wert: o.wert } satisfies ProtokollEingabe;
+		}
 		case 'abhaken':
 			if (typeof w !== 'boolean') throw new Error('Bitte abhaken oder nicht.');
 			return w;
@@ -278,7 +325,8 @@ export function zusammenfassung(
 	schritte: Schritt[],
 	antworten: Antworten,
 	kunde: LeitfadenKunde | null,
-	begruendung: string | null
+	begruendung: string | null,
+	protokolle: LeitfadenProtokolle = {}
 ): string {
 	const zeilen = [`${name} – Ergebnis`];
 	for (const s of schritte) {
@@ -295,6 +343,11 @@ export function zusammenfassung(
 			case 'foto':
 				w = `${Array.isArray(a?.wert) ? a.wert.length : 0} Foto(s)`;
 				break;
+			case 'protokoll': {
+				const p = protokolle[s.id];
+				w = !p ? 'Vorlage nicht verfügbar' : p.status === 'abgeschlossen' ? `„${p.titel}“ abgeschlossen (PDF bei den Dokumenten)` : `„${p.titel}“ noch nicht fertig (Entwurf beim Auftrag)`;
+				break;
+			}
 			case 'aufgabe':
 				w = a ? ((a.wert as AufgabeWert).anlegen ? `angelegt: ${(a.wert as AufgabeWert).titel}` : 'nicht angelegt') : '–';
 				break;

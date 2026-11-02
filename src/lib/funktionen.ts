@@ -54,6 +54,18 @@ export const FUNKTIONEN: Funktion[] = [
 		recht: 'einstellungen'
 	},
 	{
+		id: 'leitfaden_verpasst',
+		schritt: 'anfrage',
+		name: 'Hinweis bei nicht abgeschlossenem Leitfaden',
+		was: 'Ist ein Termin mit Leitfaden vorbei und der Leitfaden nicht abgeschlossen, bekommen Büro und Chef (alle mit „Alle Aufträge ansehen“) einmal einen Hinweis in Glocke bzw. Push.',
+		wann: 'Kurz nach dem Ende des Termins (einmal je Termin; nur Termine der letzten 2 Tage).',
+		href: '/einstellungen/leitfaden',
+		info: 'leitfaden.seite',
+		zustand: 'keiner',
+		modul: 'plantafel',
+		recht: 'einstellungen'
+	},
+	{
 		id: 'benachrichtigungen',
 		schritt: 'auftrag',
 		name: 'Benachrichtigungen, wenn einen etwas betrifft',

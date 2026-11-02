@@ -88,6 +88,21 @@ describe('Leitfaden-Ausgang', () => {
 		expect((await senden((async () => new Response('{}', { status: 200 })) as never)).gesendet).toBe(1);
 	});
 
+	it('Protokoll (msg 4353): Foto mit Feld und Unterschrift mit Namen gehen an die passenden Adressen', async () => {
+		einreihen({ art: 'foto', opId: 'f2', einsatzId: 'e1', schrittId: 'prot', feld: 'fotos', zeit: '2026-11-03T08:00:00.000Z', typ: 'image/jpeg', daten: 'data:image/jpeg;base64,/9j/4A==' });
+		einreihen({ art: 'unterschrift', opId: 'u1', einsatzId: 'e1', schrittId: 'prot', feld: 'unterschrift', name: 'Herr Becker', zeit: '2026-11-03T08:01:00.000Z', daten: 'data:image/png;base64,iVBORw==' });
+		const gesehen: unknown[] = [];
+		await senden((async (url: string, init: RequestInit) => {
+			const f = init.body as FormData;
+			gesehen.push([url, f.get('feld'), f.get('name')]);
+			return new Response('{}', { status: 200 });
+		}) as never);
+		expect(gesehen).toEqual([
+			['/api/leitfaden/e1/foto', 'fotos', null],
+			['/api/leitfaden/e1/unterschrift', 'unterschrift', 'Herr Becker']
+		]);
+	});
+
 	it('gehört einem Benutzer: meldet sich jemand anderes an, ist der Ausgang leer', () => {
 		einreihen(op(1));
 		expect(speicher.getItem(AUSGANG_SCHLUESSEL)).not.toBeNull();

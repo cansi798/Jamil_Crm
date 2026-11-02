@@ -320,7 +320,16 @@ async function ausfuehrenJe(
 		case 'abfrage_nachkalkulation':
 		case 'abfrage_verlust':
 		case 'portallink_zeigen':
+		case 'leitfaden_oeffnen':
+		case 'abfrage_leitfaden':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
+		case 'leitfaden_eingabe': {
+			const { speichereEingaben } = await import('../leitfaden');
+			const zeit = new Date().toISOString();
+			const eingaben = (w.eingaben as { schrittId: string; wert: unknown }[]).map((e) => ({ ...e, opId: crypto.randomUUID(), zeit }));
+			await speichereEingaben(k, nutzer, w.einsatzId, eingaben);
+			return { status: 200, meldung: `Im Leitfaden gespeichert (${eingaben.length} ${eingaben.length === 1 ? 'Angabe' : 'Angaben'})`, link: `/leitfaden/${w.einsatzId}`, warnungen: [] };
+		}
 		case 'dienst_anlegen': {
 			const { legeDienstAn } = await import('../buchung');
 			const ids = (w.mitarbeiterIds as (string | null)[]).filter((x): x is string => !!x);

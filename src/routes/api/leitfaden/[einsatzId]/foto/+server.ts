@@ -9,7 +9,7 @@ export const POST: RequestHandler = async ({ locals, params, request }) => {
 	try {
 		const k = betriebKontext(locals);
 		const f = await request.formData();
-		return json(await speichereFoto(k, locals.nutzer!, params.einsatzId, { opId: f.get('opId'), schrittId: f.get('schrittId'), zeit: f.get('zeit'), datei: f.get('datei') }));
+		return json(await speichereFoto(k, locals.nutzer!, params.einsatzId, { opId: f.get('opId'), schrittId: f.get('schrittId'), zeit: f.get('zeit'), datei: f.get('datei'), feld: f.get('feld') }));
 	} catch (e) {
 		return alsAntwort(e);
 	}

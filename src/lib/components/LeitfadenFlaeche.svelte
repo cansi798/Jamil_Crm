@@ -11,6 +11,7 @@
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import KontaktwegSymbol from '$lib/components/ui/KontaktwegSymbol.svelte';
+	import Assistent from '$lib/components/protokoll/Assistent.svelte';
 	import { istKontaktweg, KONTAKTWEG_OPTIONEN } from '$lib/kontaktweg';
 	import { verkleinereFoto } from '$lib/bild-verkleinern';
 	import {
@@ -25,10 +26,12 @@
 		type Antworten,
 		type AufgabeWert,
 		type LeitfadenKunde,
+		type LeitfadenProtokolle,
 		type LeitfadenStatus,
+		type ProtokollEingabe,
 		type Schritt
 	} from '$lib/leitfaden';
-	import { einreihen, fehlerListe, fehlerVerwerfen, neueOpId, senden, wartend, type AusgangFehler, type AusgangOp } from '$lib/leitfaden-ausgang';
+	import { einreihen, fehlerListe, fehlerVerwerfen, neueOpId, senden, wartend, zuruecknehmen, type AusgangFehler, type AusgangOp } from '$lib/leitfaden-ausgang';
 
 	export type FlaecheStand = {
 		einsatzId: string;
@@ -40,6 +43,8 @@
 		schritte: Schritt[];
 		antworten: Antworten;
 		kunde: LeitfadenKunde | null;
+		/** Protokolle der Schritte „Protokoll ausfüllen“ (Jamil msg 4353) */
+		protokolle?: LeitfadenProtokolle;
 		status: LeitfadenStatus;
 		begruendung: string | null;
 	};
@@ -62,7 +67,25 @@
 	const sicht = $derived.by(() => {
 		let antworten = server.antworten;
 		const kunde: LeitfadenKunde | null = server.kunde ? { ...server.kunde } : null;
+		// Protokolle: wartende Eingaben schon anzeigen (Werte, Fotos und Unterschriften „wartet“)
+		const protokolle: LeitfadenProtokolle = {};
+		for (const [id, p] of Object.entries(server.protokolle ?? {})) protokolle[id] = p ? { ...p, antworten: { ...p.antworten } } : null;
 		for (const o of ops) {
+			const p = 'schrittId' in o ? protokolle[o.schrittId] : null;
+			if (p && o.art === 'eingabe') {
+				const pe = o.wert as ProtokollEingabe;
+				p.antworten[pe.feld] = pe.wert;
+				continue;
+			}
+			if (p && o.art === 'foto' && o.feld) {
+				const bisher = Array.isArray(p.antworten[o.feld]) ? (p.antworten[o.feld] as string[]) : [];
+				p.antworten[o.feld] = [...bisher, `wartet:${o.opId}`];
+				continue;
+			}
+			if (p && o.art === 'unterschrift') {
+				p.antworten[o.feld] = { dateiId: `wartet:${o.opId}`, name: o.name, zeit: o.zeit };
+				continue;
+			}
 			if (o.art === 'eingabe') {
 				antworten = uebernimm(antworten, o.schrittId, o.wert, o.zeit).antworten;
 				const s = server.schritte.find((x) => x.id === o.schrittId);
@@ -76,10 +99,10 @@
 				antworten = { ...antworten, [o.schrittId]: { wert: [...bisher, `wartet:${o.opId}`], zeit: o.zeit } };
 			}
 		}
-		return { antworten, kunde };
+		return { antworten, kunde, protokolle };
 	});
-	const fehlend = $derived(fehlendePflicht(server.schritte, sicht.antworten, sicht.kunde));
-	const stand_ = $derived(fortschritt(server.schritte, sicht.antworten, sicht.kunde));
+	const fehlend = $derived(fehlendePflicht(server.schritte, sicht.antworten, sicht.kunde, sicht.protokolle));
+	const stand_ = $derived(fortschritt(server.schritte, sicht.antworten, sicht.kunde, sicht.protokolle));
 	const fertig = $derived(server.status !== 'offen' || pendingAbschluss);
 
 	function auffrischen() {
@@ -91,7 +114,7 @@
 		const r = await senden();
 		const neu = r.staende.get(einsatzId) as (FlaecheStand & { id?: string }) | null | undefined;
 		if (neu && Array.isArray(neu.schritte)) {
-			server = { ...server, antworten: neu.antworten, kunde: neu.kunde, status: neu.status, begruendung: neu.begruendung };
+			server = { ...server, antworten: neu.antworten, kunde: neu.kunde, protokolle: neu.protokolle ?? server.protokolle, status: neu.status, begruendung: neu.begruendung };
 			onstand?.(server);
 		}
 		ohneNetz = r.offline;
@@ -136,6 +159,7 @@
 	}
 
 	function abschliessen() {
+		alleWartendenMerken();
 		if (fehlend.length > 0 && begruendung.trim() === '') {
 			meldung = 'Es fehlen noch Pflichtschritte – bitte kurz begründen, warum.';
 			return;
@@ -143,12 +167,66 @@
 		merke({ art: 'abschluss', opId: neueOpId(), einsatzId, zeit: new Date().toISOString(), begruendung: fehlend.length > 0 ? begruendung.trim() : '' });
 	}
 
+	// ——— Protokoll im Leitfaden (Jamil msg 4353) ———
+	// Texte nicht bei jedem Tastendruck senden: je Feld kurz warten, dann EINE Eingabe
+	const warten = new Map<string, { timer: ReturnType<typeof setTimeout>; los: () => void }>();
+	function protokollWert(s: Schritt, feld: string, w: unknown) {
+		const schluessel = `${s.id}:${feld}`;
+		const alt = warten.get(schluessel);
+		if (alt) clearTimeout(alt.timer);
+		const los = () => {
+			warten.delete(schluessel);
+			eingeben(s, { feld, wert: w });
+		};
+		warten.set(schluessel, { timer: setTimeout(los, typeof w === 'string' ? 700 : 0), los });
+	}
+	/** Beim Verlassen: noch wartende Texte sofort merken (nichts geht verloren). */
+	function alleWartendenMerken() {
+		for (const { timer, los } of [...warten.values()]) {
+			clearTimeout(timer);
+			los();
+		}
+	}
+	const alsDaten = (blob: Blob) =>
+		new Promise<string>((ok, nein) => {
+			const r = new FileReader();
+			r.onload = () => ok(String(r.result));
+			r.onerror = () => nein(r.error);
+			r.readAsDataURL(blob);
+		});
+	async function protokollFoto(s: Schritt, feld: string, datei: File) {
+		const { blob, typ } = await verkleinereFoto(datei, 1600);
+		if (!merke({ art: 'foto', opId: neueOpId(), einsatzId, schrittId: s.id, feld, zeit: new Date().toISOString(), daten: await alsDaten(blob), typ })) throw new Error(meldung ?? 'Speicher voll');
+	}
+	async function protokollFotoLoeschen(s: Schritt, id: string) {
+		if (id.startsWith('wartet:')) {
+			zuruecknehmen(id.slice(7));
+			auffrischen();
+			return;
+		}
+		const pid = server.protokolle?.[s.id]?.id;
+		const r = await fetch(`/api/protokoll-formulare/${pid}/dateien/${id}`, { method: 'DELETE' }).catch(() => null);
+		if (!r?.ok) throw new Error('Entfernen geht nur mit Netz – bitte später nochmal.');
+		const neu = await fetch(`/api/leitfaden/${einsatzId}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+		if (neu) server = { ...server, protokolle: neu.protokolle };
+	}
+	async function protokollUnterschrift(s: Schritt, feld: string, png: Uint8Array, name: string) {
+		const daten = await alsDaten(new Blob([png as BlobPart], { type: 'image/png' }));
+		if (!merke({ art: 'unterschrift', opId: neueOpId(), einsatzId, schrittId: s.id, feld, name, zeit: new Date().toISOString(), daten })) throw new Error(meldung ?? 'Speicher voll');
+	}
+	const protokollFotoUrl = (s: Schritt) => (id: string) => (id.startsWith('wartet:') ? null : `/api/protokoll-formulare/${server.protokolle?.[s.id]?.id}/dateien/${id}`);
+
 	onMount(() => {
 		auffrischen();
 		void schicken();
 		const online = () => void schicken();
 		window.addEventListener('online', online);
-		return () => window.removeEventListener('online', online);
+		window.addEventListener('pagehide', alleWartendenMerken);
+		return () => {
+			alleWartendenMerken();
+			window.removeEventListener('online', online);
+			window.removeEventListener('pagehide', alleWartendenMerken);
+		};
 	});
 
 	const wert = (s: Schritt) => sicht.antworten[s.id]?.wert;
@@ -191,7 +269,7 @@
 
 	<ol class="lf-schritte">
 		{#each server.schritte as s, i (s.id)}
-			{@const erledigt = istErledigt(s, sicht.antworten[s.id], sicht.kunde)}
+			{@const erledigt = istErledigt(s, sicht.antworten[s.id], sicht.kunde, sicht.protokolle)}
 			<li class="lf-schritt" class:erledigt class:pflicht-offen={s.pflicht && !erledigt} data-testid={`schritt-${s.id}`}>
 				<div class="lf-schritt-kopf">
 					<span class="lf-marke" aria-hidden="true">{erledigt ? '✓' : i + 1}</span>
@@ -263,6 +341,26 @@
 						</label>
 					{/if}
 					<p class="lf-ziel">→ landet bei den Dokumenten des Auftrags</p>
+				{:else if s.typ === 'protokoll'}
+					{@const p = sicht.protokolle[s.id]}
+					{#if !p}
+						<p class="kd-info">Die Protokoll-Vorlage{s.vorlageName ? ` „${s.vorlageName}“` : ''} ist nicht mehr verfügbar.</p>
+					{:else}
+						<div class="lf-protokoll" data-testid={`protokoll-${s.id}`}>
+							<Assistent
+								alles
+								schema={p.schema}
+								antworten={p.antworten}
+								gesperrt={fertig || p.status === 'abgeschlossen'}
+								onwert={(f, w) => protokollWert(s, f, w)}
+								fotoUrl={protokollFotoUrl(s)}
+								onfoto={(f, d) => protokollFoto(s, f, d)}
+								onfotoLoeschen={(_f, id) => protokollFotoLoeschen(s, id)}
+								onunterschrift={(f, png, name) => protokollUnterschrift(s, f, png, name)}
+							/>
+						</div>
+						<p class="lf-ziel">{p.status === 'abgeschlossen' ? '✓ Protokoll abgeschlossen – PDF bei den Dokumenten des Auftrags' : '→ wird beim Abschluss als PDF in den Dokumenten des Auftrags gespeichert'}</p>
+					{/if}
 				{:else if s.typ === 'aufgabe'}
 					{@const a = aufgabe(s)}
 					<label class="lf-haken">
@@ -486,5 +584,11 @@
 			height: 2.5rem !important;
 			padding: 0 0.5rem !important;
 		}
+	}
+	.lf-protokoll {
+		padding: 0.25rem 0;
+	}
+	.lf-protokoll :global(.pa-titel) {
+		font-size: 0.95rem;
 	}
 </style>

@@ -11,7 +11,7 @@
  * Offline (4b): Jede Eingabe hat eine Kennung (`opId`). Kommt dieselbe Eingabe zweimal an, wirkt sie nur einmal; je
  * Schritt gewinnt die spätere Eingabe (Zeitpunkt vom Gerät). Fremde/unbekannte Termine sind immer 404.
  */
-import { inEinerTransaktion, mitBetrieb, type Kontext, type TransactionSql } from './db';
+import { inEinerTransaktion, mitBetrieb, systemAbfrage, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { hatRecht } from './rechte';
 import { hatModul } from './tarif';
@@ -32,9 +32,20 @@ import {
 	type Antworten,
 	type AufgabeWert,
 	type LeitfadenKunde,
+	type LeitfadenProtokoll,
+	type LeitfadenProtokolle,
 	type LeitfadenStatus,
+	type ProtokollEingabe,
 	type Schritt
 } from '../leitfaden';
+import {
+	schliesseAb as schliesseProtokollAb,
+	speichereAntworten as speichereProtokollAntworten,
+	speichereFoto as speichereProtokollFoto,
+	speichereUnterschrift as speichereProtokollUnterschrift,
+	starteProtokoll
+} from './protokoll-formulare';
+import { fehlendeFelder } from '../protokoll-formular';
 
 export type LeitfadenEinstellung = {
 	aktiv: boolean;
@@ -62,6 +73,8 @@ export type LeitfadenStand = {
 	schritte: Schritt[];
 	antworten: Antworten;
 	kunde: LeitfadenKunde | null;
+	/** Protokolle der Schritte „Protokoll ausfüllen“ (Jamil msg 4353) */
+	protokolle: LeitfadenProtokolle;
 	status: LeitfadenStatus;
 	begruendung: string | null;
 	abgeschlossenAm: string | null;
@@ -73,6 +86,8 @@ export type LeitfadenStand = {
 export type Eingabe = { opId: string; schrittId: string; wert: unknown; zeit: string };
 
 const ARTEN = ['besichtigung', 'montage', 'wartung'];
+/** Die Leitfaden-Prüfung (eingeteilte Person bzw. Plantafel) ersetzt beim Protokoll die Auftragssicht. */
+const ALLE = (k: Kontext) => ({ alle: true, benutzerId: k.benutzerId });
 const nichtGefunden = () => new ApiFehler(404, 'Termin nicht gefunden.');
 const iso = (d: unknown) => (d ? new Date(d as string).toISOString() : null);
 
@@ -154,7 +169,7 @@ const STAND_SQL = `d.id, d.einsatz_id, d.auftrag_id, d.benutzer_id, d.name, d.sc
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	k.email::text as kunde_email, k.telefon as kunde_telefon, k.bevorzugter_kontakt as kunde_kontaktweg,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, a.einmal_name`;
-function zuStand(z: Record<string, any>): LeitfadenStand {
+function zuStand(z: Record<string, any>, protokolle: LeitfadenProtokolle = {}): LeitfadenStand {
 	const kunde: LeitfadenKunde | null = z.kunde_id
 		? { email: z.kunde_email, telefon: z.kunde_telefon, bevorzugter_kontakt: z.kunde_kontaktweg, strasse: z.kunde_strasse, plz: z.kunde_plz, ort: z.kunde_ort }
 		: null;
@@ -175,12 +190,13 @@ function zuStand(z: Record<string, any>): LeitfadenStand {
 		schritte,
 		antworten,
 		kunde,
+		protokolle,
 		status: z.status,
 		begruendung: z.begruendung,
 		abgeschlossenAm: iso(z.abgeschlossen_am),
 		abgeschlossenVon: z.abgeschlossen_von_name ?? null,
-		fortschritt: fortschritt(schritte, antworten, kunde),
-		fehlend: fehlendePflicht(schritte, antworten, kunde).map((s) => s.id)
+		fortschritt: fortschritt(schritte, antworten, kunde, protokolle),
+		fehlend: fehlendePflicht(schritte, antworten, kunde, protokolle).map((s) => s.id)
 	};
 }
 
@@ -195,7 +211,29 @@ async function ladeStand(tx: TransactionSql, k: Kontext, wo: { durchlaufId?: str
 		left join app.benutzer ab on ab.id = d.abgeschlossen_von and ab.betrieb_id = d.betrieb_id
 		where d.betrieb_id = ${k.betriebId}
 			and ${wo.durchlaufId ? tx`d.id = ${wo.durchlaufId}` : tx`d.einsatz_id = ${wo.einsatzId!}`}`;
-	return z ? zuStand(z) : null;
+	if (!z) return null;
+	return zuStand(z, await ladeProtokolle(tx, k, z.schritte as Schritt[], z.ergebnis));
+}
+
+/** Protokolle der Protokoll-Schritte (Kennungen in `ergebnis.protokolle`) mit Schema der Vorlage und Antworten. */
+async function ladeProtokolle(tx: TransactionSql, k: Kontext, schritte: Schritt[], ergebnis: unknown): Promise<LeitfadenProtokolle> {
+	const ids = ((ergebnis as { protokolle?: Record<string, string | null> } | null)?.protokolle ?? {}) as Record<string, string | null>;
+	const liste = Object.values(ids).filter((x): x is string => !!x);
+	const gefunden = liste.length
+		? await tx`
+			select p.id, p.titel, p.antworten, p.status, p.pdf_datei_id, v.schema from app.protokolle p
+			join app.protokoll_vorlagen v on v.id = p.vorlage_id and v.betrieb_id = p.betrieb_id
+			where p.betrieb_id = ${k.betriebId} and p.id = any(${liste}::uuid[])`
+		: [];
+	const ergebnisse: LeitfadenProtokolle = {};
+	for (const s of schritte) {
+		if (s.typ !== 'protokoll') continue;
+		const p = gefunden.find((x) => x.id === ids[s.id]);
+		ergebnisse[s.id] = p
+			? ({ id: p.id, titel: p.titel, schema: p.schema, antworten: p.antworten ?? {}, status: p.status, pdfDateiId: p.pdf_datei_id } satisfies LeitfadenProtokoll)
+			: null;
+	}
+	return ergebnisse;
 }
 
 /**
@@ -208,10 +246,25 @@ async function holeOderStarte(tx: TransactionSql, k: Kontext, t: Termin): Promis
 	if (!t.auftragId) return null;
 	const [v] = await tx`select aktiv, name, arten, terminarten, schritte, version from app.leitfaden_vorlagen where betrieb_id = ${k.betriebId}`;
 	if (!v || !giltFuer({ aktiv: v.aktiv, arten: v.arten, terminarten: v.terminarten.map(String) }, { art: t.art, terminartId: t.terminartId, mitAuftrag: true })) return null;
-	await tx`
+	const [neu] = await tx`
 		insert into app.leitfaden_durchlaeufe (betrieb_id, einsatz_id, auftrag_id, benutzer_id, name, version, schritte)
 		values (${k.betriebId}, ${t.id}, ${t.auftragId}, ${t.benutzerId}, ${v.name}, ${v.version}, ${tx.json(v.schritte)})
-		on conflict (einsatz_id) do nothing`;
+		on conflict (einsatz_id) do nothing
+		returning id`;
+	// Schritte „Protokoll ausfüllen“ (Jamil msg 4353): je Schritt ein Protokoll aus der aktuellen Version der Vorlage
+	if (neu) {
+		const protokolle: Record<string, string | null> = {};
+		for (const s of v.schritte as Schritt[]) {
+			if (s.typ !== 'protokoll' || !s.vorlageGruppe) continue;
+			const [pv] = await tx`
+				select id from app.protokoll_vorlagen
+				where betrieb_id = ${k.betriebId} and gruppe_id = ${s.vorlageGruppe} and aktuell and not archiviert and art = 'protokoll'`;
+			protokolle[s.id] = pv ? (await starteProtokoll(k, ALLE(k), { vorlageId: pv.id, auftragId: t.auftragId })).id : null;
+		}
+		if (Object.keys(protokolle).length > 0) {
+			await tx`update app.leitfaden_durchlaeufe set ergebnis = ${tx.json({ protokolle })} where id = ${neu.id} and betrieb_id = ${k.betriebId}`;
+		}
+	}
 	return ladeStand(tx, k, { einsatzId: t.id });
 }
 
@@ -293,9 +346,13 @@ async function schreibeKundendaten(tx: TransactionSql, k: Kontext, kundeId: stri
 		where id = ${kundeId} and betrieb_id = ${k.betriebId}`;
 }
 
-async function sperreOffen(tx: TransactionSql, k: Kontext, einsatzId: string): Promise<{ id: string; antworten: Antworten; status: string; schritte: Schritt[] }> {
+async function sperreOffen(
+	tx: TransactionSql,
+	k: Kontext,
+	einsatzId: string
+): Promise<{ id: string; antworten: Antworten; status: string; schritte: Schritt[]; ergebnis: { protokolle?: Record<string, string | null>; aufgaben?: string[]; notiz?: string | null } }> {
 	const [d] = await tx`
-		select id, antworten, status, schritte from app.leitfaden_durchlaeufe
+		select id, antworten, status, schritte, ergebnis from app.leitfaden_durchlaeufe
 		where einsatz_id = ${einsatzId} and betrieb_id = ${k.betriebId} for update`;
 	if (!d) throw new ApiFehler(404, 'Für diesen Termin gibt es keinen Leitfaden.');
 	return d as never;
@@ -331,11 +388,25 @@ export async function speichereEingaben(k: Kontext, nutzer: Nutzer, einsatzId: s
 				} catch (e) {
 					throw new ApiFehler(400, `${s.titel}: ${(e as Error).message}`);
 				}
-				const r = uebernimm(antworten, s.id, wert, zeit, nutzer.id);
-				if (r.geaendert) {
-					antworten = r.antworten;
-					neu = true;
-					if (s.typ === 'kundendaten' && t.kundeId) await schreibeKundendaten(tx, k, t.kundeId, s.feld!, wert);
+				if (s.typ === 'protokoll') {
+					// Protokoll im Leitfaden (Jamil msg 4353): je Feld gewinnt die spätere Eingabe
+					const pid = d.ergebnis?.protokolle?.[s.id];
+					if (!pid) throw new ApiFehler(400, `${s.titel}: Die Protokoll-Vorlage ist nicht mehr verfügbar.`);
+					const pe = wert as ProtokollEingabe;
+					const zeiten = ((antworten[s.id]?.wert as { zeiten?: Record<string, string> } | undefined)?.zeiten ?? {}) as Record<string, string>;
+					if (!zeiten[pe.feld] || zeiten[pe.feld] <= zeit) {
+						const [p] = await tx`select antworten from app.protokolle where id = ${pid} and betrieb_id = ${k.betriebId}`;
+						await speichereProtokollAntworten(k, ALLE(k), pid, { ...(p?.antworten ?? {}), [pe.feld]: pe.wert });
+						antworten = { ...antworten, [s.id]: { wert: { zeiten: { ...zeiten, [pe.feld]: zeit } }, zeit, von: nutzer.id } };
+						neu = true;
+					}
+				} else {
+					const r = uebernimm(antworten, s.id, wert, zeit, nutzer.id);
+					if (r.geaendert) {
+						antworten = r.antworten;
+						neu = true;
+						if (s.typ === 'kundendaten' && t.kundeId) await schreibeKundendaten(tx, k, t.kundeId, s.feld!, wert);
+					}
 				}
 				await tx`insert into app.leitfaden_eingaben (op_id, betrieb_id, durchlauf_id, art) values (${opId}, ${k.betriebId}, ${d.id}, 'eingabe')`;
 			}
@@ -352,7 +423,7 @@ export async function speichereFoto(
 	k: Kontext,
 	nutzer: Nutzer,
 	einsatzId: string,
-	f: { opId: unknown; schrittId: unknown; zeit: unknown; datei: unknown }
+	f: { opId: unknown; schrittId: unknown; zeit: unknown; datei: unknown; feld?: unknown }
 ): Promise<LeitfadenStand> {
 	await pruefeModulPlantafel(k);
 	const opId = pruefeOp(f.opId);
@@ -372,6 +443,15 @@ export async function speichereFoto(
 			const [schon] = await tx`select 1 from app.leitfaden_eingaben where op_id = ${opId}`;
 			if (schon) return (await ladeStand(tx, k, { einsatzId }))!;
 			if (d.status !== 'offen') throw new ApiFehler(409, 'Der Leitfaden ist schon abgeschlossen.');
+			// Foto für ein Feld des Protokolls (Jamil msg 4353): landet im Protokoll (und damit im PDF)
+			const ps = d.schritte.find((x) => x.id === f.schrittId && x.typ === 'protokoll');
+			if (ps) {
+				const pid = d.ergebnis?.protokolle?.[ps.id];
+				if (!pid) throw new ApiFehler(400, `${ps.titel}: Die Protokoll-Vorlage ist nicht mehr verfügbar.`);
+				await speichereProtokollFoto(k, ALLE(k), pid, f.feld, { name: `foto.${datei.type === 'image/png' ? 'png' : 'jpg'}`, inhalt });
+				await tx`insert into app.leitfaden_eingaben (op_id, betrieb_id, durchlauf_id, art) values (${opId}, ${k.betriebId}, ${d.id}, 'foto')`;
+				return (await ladeStand(tx, k, { einsatzId }))!;
+			}
 			const s = d.schritte.find((x) => x.id === f.schrittId && x.typ === 'foto');
 			if (!s) throw new ApiFehler(400, 'Diesen Foto-Schritt gibt es im Leitfaden nicht.');
 			const endung = datei.type === 'image/png' ? 'png' : datei.type === 'image/webp' ? 'webp' : 'jpg';
@@ -385,6 +465,36 @@ export async function speichereFoto(
 			const antworten: Antworten = { ...d.antworten, [s.id]: { wert: [...bisher, neu.id], zeit, von: nutzer.id } };
 			await tx`update app.leitfaden_durchlaeufe set antworten = ${tx.json(antworten as never)} where id = ${d.id} and betrieb_id = ${k.betriebId}`;
 			await tx`insert into app.leitfaden_eingaben (op_id, betrieb_id, durchlauf_id, art, ergebnis) values (${opId}, ${k.betriebId}, ${d.id}, 'foto', ${tx.json({ dateiId: neu.id })})`;
+			return (await ladeStand(tx, k, { einsatzId }))!;
+		})
+	);
+}
+
+/** Unterschrift in einem Protokoll-Feld des Leitfadens (PNG vom Unterschriftsfeld + Name); idempotent über `opId`. */
+export async function speichereUnterschrift(
+	k: Kontext,
+	nutzer: Nutzer,
+	einsatzId: string,
+	f: { opId: unknown; schrittId: unknown; feld: unknown; name: unknown; datei: unknown }
+): Promise<LeitfadenStand> {
+	await pruefeModulPlantafel(k);
+	const opId = pruefeOp(f.opId);
+	if (!(f.datei instanceof Blob) || f.datei.size === 0) throw new ApiFehler(400, 'Die Unterschrift fehlt.');
+	const png = new Uint8Array(await f.datei.arrayBuffer());
+	return inEinerTransaktion(k, 'leitfaden', () =>
+		mitBetrieb(k, async (tx) => {
+			const t = await ladeTermin(tx, k, einsatzId);
+			pruefeAusfuellen(nutzer, t);
+			if (!(await holeOderStarte(tx, k, t))) throw new ApiFehler(404, 'Für diesen Termin gibt es keinen Leitfaden.');
+			const d = await sperreOffen(tx, k, einsatzId);
+			const [schon] = await tx`select 1 from app.leitfaden_eingaben where op_id = ${opId}`;
+			if (schon) return (await ladeStand(tx, k, { einsatzId }))!;
+			if (d.status !== 'offen') throw new ApiFehler(409, 'Der Leitfaden ist schon abgeschlossen.');
+			const ps = d.schritte.find((x) => x.id === f.schrittId && x.typ === 'protokoll');
+			const pid = ps ? d.ergebnis?.protokolle?.[ps.id] : null;
+			if (!ps || !pid) throw new ApiFehler(400, 'Diesen Protokoll-Schritt gibt es im Leitfaden nicht.');
+			await speichereProtokollUnterschrift(k, ALLE(k), pid, f.feld, png, f.name);
+			await tx`insert into app.leitfaden_eingaben (op_id, betrieb_id, durchlauf_id, art) values (${opId}, ${k.betriebId}, ${d.id}, 'unterschrift')`;
 			return (await ladeStand(tx, k, { einsatzId }))!;
 		})
 	);
@@ -408,11 +518,20 @@ export async function schliesseAb(k: Kontext, nutzer: Nutzer, einsatzId: string,
 			const [schon] = await tx`select 1 from app.leitfaden_eingaben where op_id = ${opId}`;
 			if (schon || d.status !== 'offen') return (await ladeStand(tx, k, { einsatzId }))!;
 			const stand = (await ladeStand(tx, k, { einsatzId }))!;
-			const fehlt = fehlendePflicht(stand.schritte, stand.antworten, stand.kunde);
+			const fehlt = fehlendePflicht(stand.schritte, stand.antworten, stand.kunde, stand.protokolle);
 			if (fehlt.length > 0 && !begruendung) {
 				throw new ApiFehler(400, `Es fehlen noch Pflichtschritte (${fehlt.map((s) => s.titel).join(', ')}). Abschließen geht dann nur mit Begründung.`);
 			}
-			const ergebnis: { aufgaben: string[]; notiz: string | null } = { aufgaben: [], notiz: null };
+			const ergebnis: { protokolle?: Record<string, string | null>; aufgaben: string[]; notiz: string | null } = { protokolle: d.ergebnis?.protokolle, aufgaben: [], notiz: null };
+			// Protokolle (Jamil msg 4353): vollständige werden wie gewohnt abgeschlossen – PDF in die Dokumente des Auftrags;
+			// unvollständige bleiben als Entwurf am Auftrag (der Leitfaden ging dann nur mit Begründung)
+			const protokolle = { ...stand.protokolle };
+			for (const s of stand.schritte) {
+				const p = s.typ === 'protokoll' ? stand.protokolle[s.id] : null;
+				if (!p || p.status !== 'entwurf' || fehlendeFelder(p.schema, p.antworten).length > 0) continue;
+				await schliesseProtokollAb(k, ALLE(k), p.id);
+				protokolle[s.id] = { ...p, status: 'abgeschlossen' };
+			}
 			for (const s of stand.schritte) {
 				const a = stand.antworten[s.id]?.wert as AufgabeWert | undefined;
 				if (s.typ !== 'aufgabe' || !a?.anlegen) continue;
@@ -423,16 +542,25 @@ export async function schliesseAb(k: Kontext, nutzer: Nutzer, einsatzId: string,
 				ergebnis.aufgaben.push(todo.id);
 			}
 			const status: LeitfadenStatus = fehlt.length > 0 ? 'mit_begruendung' : 'abgeschlossen';
-			const notizText = zusammenfassung(stand.name, stand.schritte, stand.antworten, stand.kunde, fehlt.length > 0 ? begruendung : null).slice(0, 10_000);
+			const notizText = zusammenfassung(stand.name, stand.schritte, stand.antworten, stand.kunde, fehlt.length > 0 ? begruendung : null, protokolle).slice(0, 10_000);
 			const [n] = await tx`
 				insert into app.notizen (betrieb_id, auftrag_id, text, von_benutzer_id) values (${k.betriebId}, ${t.auftragId}, ${notizText}, ${nutzer.id}) returning id`;
 			ergebnis.notiz = n.id;
 			await tx`
 				update app.leitfaden_durchlaeufe set status = ${status}, begruendung = ${fehlt.length > 0 ? begruendung : null},
-					abgeschlossen_am = now(), abgeschlossen_von = ${nutzer.id}, ergebnis = ${tx.json(ergebnis)}
+					abgeschlossen_am = now(), abgeschlossen_von = ${nutzer.id}, ergebnis = ${tx.json(ergebnis as never)}
 				where id = ${d.id} and betrieb_id = ${k.betriebId}`;
 			await tx`insert into app.leitfaden_eingaben (op_id, betrieb_id, durchlauf_id, art) values (${opId}, ${k.betriebId}, ${d.id}, 'abschluss')`;
 			return (await ladeStand(tx, k, { einsatzId }))!;
 		})
 	);
+}
+
+/**
+ * Hinweis ans Büro (Jamil msg 4353): Termine mit Leitfaden, die vorbei sind und deren Leitfaden nicht abgeschlossen
+ * wurde – einmal je Termin, über alle Betriebe (Hintergrund-Dienst, jede Minute). Gibt die Zahl der gemeldeten Termine.
+ */
+export async function meldeVerpassteLeitfaeden(limit = 200): Promise<number> {
+	const [z] = await systemAbfrage((sql) => sql`select app.leitfaden_verpasst_melden(${limit}) as n`);
+	return Number(z?.n ?? 0);
 }

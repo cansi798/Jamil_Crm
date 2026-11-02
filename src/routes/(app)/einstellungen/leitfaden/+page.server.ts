@@ -5,6 +5,7 @@ import { alsSeitenFehler, seitenZugriff } from '$lib/server/seite';
 import { darf } from '$lib/server/tarif';
 import { listeTerminarten } from '$lib/server/buchung';
 import { ladeEinstellung, speichereEinstellung } from '$lib/server/leitfaden';
+import { listeVorlagen } from '$lib/server/protokoll-formulare';
 
 /**
  * Einstellungen → Anfrage → Leitfaden beim Termin (Jamil msgs 4302/4304; 4340: 1c je Terminart, 3a einer je Firma):
@@ -12,8 +13,13 @@ import { ladeEinstellung, speichereEinstellung } from '$lib/server/leitfaden';
  */
 export const load: PageServerLoad = async ({ locals }) => {
 	const k = await seitenZugriff(locals, 'plantafel', 'einstellungen');
-	const [einstellung, terminarten] = await alsSeitenFehler(() => Promise.all([ladeEinstellung(k), listeTerminarten(k)]));
-	return { einstellung, terminarten: terminarten.map((t) => ({ id: t.id, name: t.name, farbe: t.farbe, aktiv: t.aktiv })) };
+	const [einstellung, terminarten, vorlagen] = await alsSeitenFehler(() => Promise.all([ladeEinstellung(k), listeTerminarten(k), listeVorlagen(k, { art: 'protokoll' })]));
+	return {
+		einstellung,
+		terminarten: terminarten.map((t) => ({ id: t.id, name: t.name, farbe: t.farbe, aktiv: t.aktiv })),
+		// Schritt „Protokoll ausfüllen“ (Jamil msg 4353): Vorlagen aus dem Protokoll-Baukasten (immer die aktuelle Version)
+		protokollVorlagen: vorlagen.filter((v) => !v.archiviert).map((v) => ({ gruppeId: v.gruppeId, name: v.name }))
+	};
 };
 
 export const actions: Actions = {

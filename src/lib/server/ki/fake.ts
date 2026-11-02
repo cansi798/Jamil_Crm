@@ -338,6 +338,35 @@ function dienstAnlegen(t: string): { aktion: string; daten: Record<string, unkno
 	};
 }
 
+/** Leitfaden: „Wie weit ist der Leitfaden bei Demir?“, „Im Leitfaden: E-Mail ist …“, „Leitfaden starten (für Demir)“. */
+function leitfadenBefehl(t: string, l: string): { aktion: string; daten: Record<string, unknown> } | null {
+	const mitLeitfaden = /\bleitfaden/.test(l);
+	const bei = (m: RegExpExecArray | null) => (m ? sauber(m[1]).replace(/[?.!]+$/, '') : '');
+	if (mitLeitfaden && /\b(stand|status|wie\s+weit|fertig)\b/.test(l)) {
+		const auftrag = bei(/\b(?:bei|beim|von|für|fuer|zu[mr]?)\s+(?:auftrag\s+)?(.+)$/i.exec(t));
+		if (auftrag) return { aktion: 'abfrage_leitfaden', daten: { auftrag } };
+	}
+	// Eingaben: „Im Leitfaden: E-Mail ist max@…“, „E-Mail ist max@…, bevorzugt per WhatsApp“
+	const email = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/.exec(t)?.[0];
+	const tel = /\b(?:telefon(?:nummer)?|handy(?:nummer)?|nummer)\s+(?:ist|lautet)?\s*:?\s*([+\d][\d /-]{4,}\d)/i.exec(t)?.[1];
+	const weg = /\b(?:bevorzugt|am\s+liebsten|lieber|kontakt(?:weg)?)\b[^,.]*?\b(e-?mail|mail|chat|whatsapp|nachrichten?|telefonisch|telefon|anrufen|anruf|angerufen)\b/i.exec(t)?.[1]?.toLowerCase();
+	const eingabeSatz = mitLeitfaden || /^\s*(?:die\s+)?(?:e-?mail(?:-?adresse)?|telefon(?:nummer)?|handy(?:nummer)?)\s+(?:ist|lautet)\b/i.test(t);
+	if (eingabeSatz && (email || tel || weg) && !/\b(neue[nrs]?|anlegen|lege?)\s+kunde/i.test(t)) {
+		const daten: Record<string, unknown> = {};
+		if (email) daten.email = email;
+		if (tel) daten.telefon = tel.trim();
+		if (weg) daten.bevorzugter_kontakt = /mail/.test(weg) ? 'email' : /chat|whatsapp|nachricht/.test(weg) ? 'chat' : 'telefon';
+		const k = /\bleitfaden\s+(?:bei|von|für|fuer)\s+([A-ZÄÖÜ][\wäöüß-]+)/i.exec(t)?.[1];
+		if (k) daten.kunde = k;
+		return { aktion: 'leitfaden_eingabe', daten };
+	}
+	if (mitLeitfaden && /(?:^|\s)(starte\w*|öffne\w*|oeffne\w*|fortsetzen|weiter\w*|zeig\w*|mach\w*)(?:\s|$|[?.!])/.test(l)) {
+		const kunde = bei(/\b(?:bei|beim|von|für|fuer)\s+(?:kunde\s+|kundin\s+|familie\s+)?(.+)$/i.exec(t)).replace(/\s+(?:starten|öffnen|oeffnen|fortsetzen|weitermachen)$/i, '');
+		return { aktion: 'leitfaden_oeffnen', daten: kunde ? { kunde } : {} };
+	}
+	return null;
+}
+
 export function deute(text: string, kontext: KiKontext, einzeln = false): { aktion: string; daten: Record<string, unknown> } {
 	const t = bereinige(text);
 	const l = t.toLowerCase();
@@ -359,6 +388,9 @@ export function deute(text: string, kontext: KiKontext, einzeln = false): { akti
 		const m = re.exec(t);
 		return m ? sauber(m[1]).replace(/^(?:dem|den|der|die|das|auftrag|kunde|kunden|bei|für|fuer)\s+/gi, '').replace(/[?.!]+$/, '') : '';
 	};
+	// Leitfaden beim Termin (Jamil msg 4353): Stand, Eingaben, öffnen
+	const lf = leitfadenBefehl(t, l);
+	if (lf) return lf;
 	if (/\bverlust\b/.test(l) && /\bauftr[aä]g/.test(l)) return { aktion: 'abfrage_verlust', daten: {} };
 	if (/\bnachkalkulation\b|\bwie\s+(?:lief|läuft|war|ist)\s+(?:es\s+)?(?:beim?\s+|der\s+|den\s+)?auftrag\b/.test(l)) {
 		const auftrag = auftragAus(/\b(?:auftrags?|nachkalkulation(?:\s+(?:für|fuer|von|zu))?)\s+(.+)$/i);

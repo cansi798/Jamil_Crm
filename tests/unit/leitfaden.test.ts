@@ -131,3 +131,29 @@ describe('zusammenfassung', () => {
 		expect(t).not.toContain('Begrüßen');
 	});
 });
+
+describe('Schritt „Protokoll ausfüllen“ (Jamil msg 4353)', () => {
+	const G = '11111111-1111-4111-8111-111111111111';
+	const schritt: Schritt = { id: 'prot', typ: 'protokoll', titel: 'Besichtigungsprotokoll', pflicht: true, vorlageGruppe: G, vorlageName: 'Besichtigung' };
+	const schema = { seiten: [{ id: 's', titel: 'S', abschnitte: [{ id: 'a', felder: [{ id: 'bereich', typ: 'text' as const, label: 'Bereich', pflicht: true }] }] }] };
+	it('braucht eine Vorlage; Kennung der Vorlage wird klein geschrieben', () => {
+		expect(() => pruefeSchritte([{ id: 'p', typ: 'protokoll', titel: 'P', pflicht: true }])).toThrow(/Protokoll-Vorlage/);
+		expect(pruefeSchritte([{ ...schritt, vorlageGruppe: G.toUpperCase() }])[0]).toMatchObject({ vorlageGruppe: G, vorlageName: 'Besichtigung' });
+	});
+	it('erledigt, wenn alle Pflichtfelder des Protokolls ausgefüllt sind oder es abgeschlossen ist; ohne Protokoll nie', () => {
+		const p = { id: 'x', titel: 'Besichtigung', schema, antworten: {}, status: 'entwurf' as const, pdfDateiId: null };
+		expect(istErledigt(schritt, undefined, null, {})).toBe(false);
+		expect(istErledigt(schritt, undefined, null, { prot: null })).toBe(false);
+		expect(istErledigt(schritt, undefined, null, { prot: p })).toBe(false);
+		expect(istErledigt(schritt, undefined, null, { prot: { ...p, antworten: { bereich: 'Bad' } } })).toBe(true);
+		expect(istErledigt(schritt, undefined, null, { prot: { ...p, status: 'abgeschlossen' } })).toBe(true);
+		expect(fehlendePflicht([schritt], {}, null, { prot: p }).map((s) => s.id)).toEqual(['prot']);
+		expect(fortschritt([schritt], {}, null, { prot: { ...p, antworten: { bereich: 'Bad' } } })).toEqual({ erledigt: 1, gesamt: 1 });
+	});
+	it('Eingabe = Feld + Wert; ungültiger Feldname → Fehler; Zusammenfassung nennt den Stand', () => {
+		expect(pruefeWert(schritt, { feld: 'bereich', wert: 'Bad' })).toEqual({ feld: 'bereich', wert: 'Bad' });
+		expect(() => pruefeWert(schritt, { feld: 'böse feld', wert: 1 })).toThrow(/Feld/);
+		const p = { id: 'x', titel: 'Besichtigung', schema, antworten: {}, status: 'abgeschlossen' as const, pdfDateiId: 'd' };
+		expect(zusammenfassung('L', [schritt], {}, null, null, { prot: p })).toContain('„Besichtigung“ abgeschlossen (PDF bei den Dokumenten)');
+	});
+});

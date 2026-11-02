@@ -88,6 +88,11 @@ export async function pruefeAktionsRechte(
 		case 'portallink_zeigen':
 			await darf(locals, 'kundenportal', 'auftraege.bearbeiten');
 			return pruefeModul(locals, 'auftraege');
+		case 'leitfaden_oeffnen':
+		case 'abfrage_leitfaden':
+		case 'leitfaden_eingabe':
+			// Leitfaden (Jamil msg 4353): Zugriff prüft der Leitfaden selbst (eingeteilte Person bzw. Plantafel)
+			return pruefeModul(locals, 'plantafel');
 		case 'dienst_anlegen':
 		case 'buchungslink_zeigen':
 			await darf(locals, 'auftraege', 'buchung.verwalten');

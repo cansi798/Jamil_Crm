@@ -37,6 +37,11 @@
 		if (neuerTyp === 'frage') s.antwortArt = 'text';
 		if (neuerTyp === 'kundendaten') s.feld = 'email';
 		if (neuerTyp === 'foto') s.mindestens = 1;
+		if (neuerTyp === 'protokoll' && data.protokollVorlagen[0]) {
+			s.vorlageGruppe = data.protokollVorlagen[0].gruppeId;
+			s.vorlageName = data.protokollVorlagen[0].name;
+			s.titel = data.protokollVorlagen[0].name;
+		}
 		schritte = [...schritte, s];
 	}
 	function verschiebe(i: number, d: -1 | 1) {
@@ -130,6 +135,25 @@
 							</label>
 						{:else if s.typ === 'foto'}
 							<label class="lf-feld lf-schmal">Mindestens so viele Fotos <input type="number" min="1" max="20" value={s.mindestens ?? 1} oninput={(ev) => (s.mindestens = Number(ev.currentTarget.value))} /></label>
+						{:else if s.typ === 'protokoll'}
+							{#if data.protokollVorlagen.length === 0}
+								<p class="kd-info">Noch keine Protokoll-Vorlage – bitte zuerst unter <a href="/einstellungen/protokoll-vorlagen">Vorlagen → Protokoll- & Aufmaß-Vorlagen</a> anlegen.</p>
+							{:else}
+								<label class="lf-feld">Protokoll-Vorlage
+									<Auswahl
+										value={s.vorlageGruppe ?? ''}
+										onchange={(ev) => {
+											const v = data.protokollVorlagen.find((x) => x.gruppeId === ev.currentTarget.value);
+											s.vorlageGruppe = v?.gruppeId;
+											s.vorlageName = v?.name;
+										}}
+									>
+										<option value="" selected={!s.vorlageGruppe}>– bitte wählen –</option>
+										{#each data.protokollVorlagen as v (v.gruppeId)}<option value={v.gruppeId} selected={s.vorlageGruppe === v.gruppeId}>{v.name}</option>{/each}
+									</Auswahl>
+								</label>
+								<p class="kd-info">Wird im Leitfaden ausgefüllt (Pflichtfelder, Fotos, Unterschrift) und beim Abschluss als PDF in den Dokumenten des Auftrags gespeichert.</p>
+							{/if}
 						{:else if s.typ === 'aufgabe'}
 							<label class="lf-feld">Vorschlag für die Aufgabe <input type="text" maxlength="200" value={s.aufgabeTitel ?? ''} oninput={(ev) => (s.aufgabeTitel = ev.currentTarget.value)} placeholder="z. B. Angebot erstellen" /></label>
 						{/if}

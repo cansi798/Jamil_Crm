@@ -38,12 +38,15 @@ export const AKTIONEN = [
 	'abfrage_verlust',
 	'portallink_zeigen',
 	'angebot_entscheidung',
-	'vorlage_anwenden'
+	'vorlage_anwenden',
+	'leitfaden_oeffnen',
+	'abfrage_leitfaden',
+	'leitfaden_eingabe'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
 export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen', 'kalender_zeigen', 'buchungslink_zeigen',
-	'abfrage_nachkalkulation', 'abfrage_verlust', 'portallink_zeigen'] as const;
+	'abfrage_nachkalkulation', 'abfrage_verlust', 'portallink_zeigen', 'leitfaden_oeffnen', 'abfrage_leitfaden'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt' | 'mehrere_schritte';
@@ -194,6 +197,9 @@ export type KiAktion =
 	| { aktion: 'portallink_zeigen'; daten: { auftrag: string } }
 	| { aktion: 'angebot_entscheidung'; daten: { angebot: string; status: 'angenommen' | 'abgelehnt' } }
 	| { aktion: 'vorlage_anwenden'; daten: VorlageAnwendenDaten }
+	| { aktion: 'leitfaden_oeffnen'; daten: { kunde?: string } }
+	| { aktion: 'abfrage_leitfaden'; daten: { auftrag: string } }
+	| { aktion: 'leitfaden_eingabe'; daten: { kunde?: string; email?: string; telefon?: string; bevorzugter_kontakt?: 'email' | 'chat' | 'telefon'; notiz?: string } }
 	| { aktion: 'unbekannt'; daten: Record<string, never> }
 	| { aktion: 'mehrere_schritte'; daten: { schritte: SchrittAktion[] } };
 
@@ -506,6 +512,28 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		required: ['auftrag'],
 		additionalProperties: false
 	},
+	leitfaden_oeffnen: {
+		type: 'object',
+		properties: { kunde: text(100, 'Kunde oder Auftrag des Termins, falls genannt') },
+		additionalProperties: false
+	},
+	abfrage_leitfaden: {
+		type: 'object',
+		properties: { auftrag: text(100, 'Auftrag wie gesprochen (Kundenname, Titel oder Nummer)') },
+		required: ['auftrag'],
+		additionalProperties: false
+	},
+	leitfaden_eingabe: {
+		type: 'object',
+		properties: {
+			kunde: text(100, 'Kunde des Termins, nur wenn genannt'),
+			email: text(200, 'E-Mail-Adresse des Kunden'),
+			telefon: text(50, 'Telefonnummer des Kunden'),
+			bevorzugter_kontakt: { type: 'string', enum: ['email', 'chat', 'telefon'], description: 'Wie der Kunde erreicht werden will (Chat/WhatsApp/Nachricht, E-Mail, Telefon/Anruf)' },
+			notiz: text(2000, 'Notiz für den Leitfaden')
+		},
+		additionalProperties: false
+	},
 	angebot_entscheidung: {
 		type: 'object',
 		properties: {
@@ -577,6 +605,10 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	abfrage_nachkalkulation: 'Frage beantworten, wie ein Auftrag gelaufen ist – Plan gegen Ist, Gewinn, Ampel („Wie lief der Auftrag Müller?“).',
 	abfrage_verlust: 'Frage beantworten, welche Aufträge Verlust machen („Welche Aufträge machen Verlust?“).',
 	portallink_zeigen: 'Kundenportal eines Auftrags öffnen bzw. Link für den Kunden erzeugen („Kundenportal für Müller“).',
+	leitfaden_oeffnen: 'Leitfaden beim Termin öffnen („Leitfaden starten“, „Leitfaden fortsetzen für Demir“).',
+	abfrage_leitfaden: 'Frage nach dem Stand des Leitfadens eines Auftrags beantworten („Wie weit ist der Leitfaden bei Demir?“).',
+	leitfaden_eingabe:
+		'Werte im offenen Leitfaden eintragen: E-Mail, Telefon, bevorzugter Kontaktweg oder Notiz des Kunden („Im Leitfaden: E-Mail ist max@example.org, bevorzugt per WhatsApp“).',
 	angebot_entscheidung: 'Ein versendetes Angebot als angenommen oder abgelehnt eintragen („Angebot Müller ist angenommen“, „Kunde Schmidt hat abgelehnt“).',
 	vorlage_anwenden:
 		'Aufgaben-Vorlage (Auftrags-Vorlage) auf einen bestehenden Auftrag anwenden: ihre Aufgaben kommen zum Auftrag dazu („Vorlage Badsanierung auf Auftrag Müller anwenden“).',

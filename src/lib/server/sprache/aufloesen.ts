@@ -968,7 +968,10 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_verlust: 'Aufträge mit Verlust',
 	portallink_zeigen: 'Kundenportal',
 	angebot_entscheidung: 'Angebot entschieden',
-	vorlage_anwenden: 'Aufgaben-Vorlage übernehmen'
+	vorlage_anwenden: 'Aufgaben-Vorlage übernehmen',
+	leitfaden_oeffnen: 'Leitfaden öffnen',
+	abfrage_leitfaden: 'Leitfaden-Stand',
+	leitfaden_eingabe: 'Im Leitfaden eintragen'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -1007,6 +1010,8 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 			return werte.angebotId ? `/angebote/${werte.angebotId}` : '/ausgangsbelege/angebote';
 		case 'dienst_anlegen':
 			return '/einstellungen/online-buchung';
+		case 'leitfaden_eingabe':
+			return werte.einsatzId ? `/leitfaden/${werte.einsatzId}` : '/';
 		default:
 			return '/';
 	}
@@ -1018,7 +1023,7 @@ export async function loeseAuf(
 	nutzer: Nutzer,
 	aktion: Exclude<
 		KiAktion,
-		{ aktion: 'unbekannt' | 'mehrere_schritte' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' }
+		{ aktion: 'unbekannt' | 'mehrere_schritte' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' | 'leitfaden_oeffnen' | 'abfrage_leitfaden' }
 	>,
 	jetzt: Date
 ): Promise<Vorschau> {
@@ -1028,6 +1033,13 @@ export async function loeseAuf(
 			case 'kunde_anlegen':
 				bau = await kundeAnlegen(k, aktion.daten);
 				break;
+			case 'leitfaden_eingabe': {
+				// Eingaben per Sprache in den offenen Leitfaden (Jamil msg 4353) – gespeichert erst nach „Ja“
+				const { leitfadenEingabeVorschau } = await import('./leitfaden');
+				const v = await leitfadenEingabeVorschau(k, nutzer, aktion.daten, jetzt);
+				bau = { ...neuerBau(), werte: v.werte, zeilen: v.zeilen, warnungen: v.warnungen, fehlt: v.fehlt ? [v.fehlt] : [] };
+				break;
+			}
 			case 'auftrag_anlegen':
 				bau = await auftragAnlegen(k, nutzer, aktion.daten, jetzt);
 				break;

@@ -70,7 +70,7 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 			heute = heute.map((e) => {
 				const l = lf.get(e.id);
 				return l
-					? { ...e, leitfaden: { name: l.name, schritte: l.schritte, antworten: l.antworten, kunde: l.kunde, status: l.status, begruendung: l.begruendung, erledigt: l.fortschritt.erledigt, gesamt: l.fortschritt.gesamt } }
+					? { ...e, leitfaden: { name: l.name, schritte: l.schritte, antworten: l.antworten, kunde: l.kunde, protokolle: l.protokolle, status: l.status, begruendung: l.begruendung, erledigt: l.fortschritt.erledigt, gesamt: l.fortschritt.gesamt } }
 					: e;
 			});
 		}

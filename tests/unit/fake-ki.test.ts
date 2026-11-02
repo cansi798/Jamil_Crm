@@ -48,6 +48,21 @@ describe('FakeKi (regelbasiert)', () => {
 		expect(await ki.aktionAusText('Wie wird das Wetter morgen?', kontext)).toEqual({ aktion: 'unbekannt', daten: {} });
 	});
 
+	it('Leitfaden (Jamil msg 4353): öffnen, Stand, Eingaben', async () => {
+		expect(await ki.aktionAusText('Leitfaden starten', kontext)).toEqual({ aktion: 'leitfaden_oeffnen', daten: {} });
+		expect(await ki.aktionAusText('Leitfaden fortsetzen für Demir', kontext)).toEqual({ aktion: 'leitfaden_oeffnen', daten: { kunde: 'Demir' } });
+		expect(await ki.aktionAusText('Öffne den Leitfaden bei Familie Demir', kontext)).toEqual({ aktion: 'leitfaden_oeffnen', daten: { kunde: 'Demir' } });
+		expect(await ki.aktionAusText('Wie weit ist der Leitfaden bei Demir?', kontext)).toEqual({ aktion: 'abfrage_leitfaden', daten: { auftrag: 'Demir' } });
+		expect(await ki.aktionAusText('Im Leitfaden: E-Mail ist max@example.org, bevorzugt per WhatsApp', kontext)).toEqual({
+			aktion: 'leitfaden_eingabe',
+			daten: { email: 'max@example.org', bevorzugter_kontakt: 'chat' }
+		});
+		expect((await ki.aktionAusText('Im Leitfaden bei Becker: Telefon ist 0171 2345678', kontext)).daten).toEqual({ telefon: '0171 2345678', kunde: 'Becker' });
+		expect(await ki.aktionAusText('E-Mail ist kunde@beispiel.de', kontext)).toEqual({ aktion: 'leitfaden_eingabe', daten: { email: 'kunde@beispiel.de' } });
+		// Kunde anlegen bleibt Kunde anlegen
+		expect((await ki.aktionAusText('Neuer Kunde Eva Schulz aus Hamburg, bevorzugt per WhatsApp', kontext)).aktion).toBe('kunde_anlegen');
+	});
+
 	it('Kunde mit bevorzugtem Kontaktweg (Jamil msgs 4289/4291)', async () => {
 		expect(await ki.aktionAusText('Neuer Kunde Eva Schulz aus Hamburg, bevorzugt per WhatsApp', kontext)).toEqual({
 			aktion: 'kunde_anlegen',

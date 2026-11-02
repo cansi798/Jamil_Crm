@@ -43,9 +43,9 @@ export const INFOS: Record<string, Info> = {
 	},
 	'leitfaden.schritte': {
 		titel: 'Schritte des Leitfadens',
-		was: 'Was vor Ort zu tun ist: Hinweise, Fragen, Kundendaten prüfen/ergänzen, Abhaken, Fotos, Aufgabe anlegen, Notiz. Pflichtschritte müssen erledigt sein – sonst geht Abschließen nur mit Begründung und das Büro bekommt einen Hinweis.',
+		was: 'Was vor Ort zu tun ist: Hinweise, Fragen, Kundendaten prüfen/ergänzen, Abhaken, Fotos, Protokoll ausfüllen (Vorlage aus dem Protokoll-Baukasten, PDF beim Abschluss), Aufgabe anlegen, Notiz. Pflichtschritte müssen erledigt sein – sonst geht Abschließen nur mit Begründung und das Büro bekommt einen Hinweis.',
 		wirkt: 'Neue Leitfäden. Wer gerade einen Leitfaden ausfüllt, behält die bisherigen Schritte.',
-		standard: 'Startvorlage „Besichtigung“ mit 10 Schritten.',
+		standard: 'Startvorlage „Besichtigung“ mit 10 Schritten (bei Bauwelt zusätzlich das Besichtigungsprotokoll).',
 		beispiel: 'Sie fügen die Frage „Gibt es Haustiere?“ hinzu und machen „Fotos“ zur Pflicht.'
 	},
 	// ——— Kundenportal & Auftragsbestätigung ———

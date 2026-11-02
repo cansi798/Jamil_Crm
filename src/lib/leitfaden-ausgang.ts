@@ -17,7 +17,8 @@ export const AUSGANG_SCHLUESSEL = 'crm-leitfaden-ausgang-v1';
 
 export type AusgangOp =
 	| { art: 'eingabe'; opId: string; einsatzId: string; schrittId: string; wert: unknown; zeit: string }
-	| { art: 'foto'; opId: string; einsatzId: string; schrittId: string; zeit: string; daten: string; typ: string }
+	| { art: 'foto'; opId: string; einsatzId: string; schrittId: string; zeit: string; daten: string; typ: string; feld?: string }
+	| { art: 'unterschrift'; opId: string; einsatzId: string; schrittId: string; zeit: string; daten: string; feld: string; name: string }
 	| { art: 'abschluss'; opId: string; einsatzId: string; zeit: string; begruendung: string };
 
 export type AusgangFehler = { op: AusgangOp; meldung: string };
@@ -85,6 +86,11 @@ export function fehlerVerwerfen(opId: string): void {
 	schreibe(a);
 }
 
+/** Noch nicht gesendete Eingabe zurücknehmen (z. B. ein wartendes Foto wieder entfernen). */
+export function zuruecknehmen(opId: string): void {
+	entferne(opId);
+}
+
 function entferne(opId: string, fehler?: string): void {
 	const a = lies();
 	const op = a.warteschlange.find((o) => o.opId === opId);
@@ -114,8 +120,18 @@ function anfrage(op: AusgangOp): { url: string; init: RequestInit } {
 		f.set('opId', op.opId);
 		f.set('schrittId', op.schrittId);
 		f.set('zeit', op.zeit);
+		if (op.feld) f.set('feld', op.feld);
 		f.set('datei', alsBlob(op.daten, op.typ), `foto.${op.typ === 'image/png' ? 'png' : 'jpg'}`);
 		return { url: `${basis}/foto`, init: { method: 'POST', body: f } };
+	}
+	if (op.art === 'unterschrift') {
+		const f = new FormData();
+		f.set('opId', op.opId);
+		f.set('schrittId', op.schrittId);
+		f.set('feld', op.feld);
+		f.set('name', op.name);
+		f.set('datei', alsBlob(op.daten, 'image/png'), 'unterschrift.png');
+		return { url: `${basis}/unterschrift`, init: { method: 'POST', body: f } };
 	}
 	return { url: `${basis}/abschliessen`, init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ opId: op.opId, begruendung: op.begruendung }) } };
 }

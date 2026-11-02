@@ -470,6 +470,15 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 	if (aktion.aktion === 'portallink_zeigen') {
 		return { text, vorschlag: null, karte: await beantworteAuftragsLink(k, nutzer, aktion.aktion, aktion.daten.auftrag) };
 	}
+	// Leitfaden beim Termin (Jamil msg 4353): öffnen bzw. Stand – nur lesend
+	if (aktion.aktion === 'leitfaden_oeffnen') {
+		const { beantworteLeitfadenOeffnen } = await import('./leitfaden');
+		return { text, vorschlag: null, karte: await beantworteLeitfadenOeffnen(k, nutzer, aktion.daten.kunde, jetzt) };
+	}
+	if (aktion.aktion === 'abfrage_leitfaden') {
+		const { beantworteLeitfadenStand } = await import('./leitfaden');
+		return { text, vorschlag: null, karte: await beantworteLeitfadenStand(k, nutzer, aktion.daten.auftrag) };
+	}
 	if (aktion.aktion === 'kalender_zeigen') {
 		return { text, vorschlag: null, karte: await beantworteKalender(k, nutzer, aktion.daten, jetzt) };
 	}

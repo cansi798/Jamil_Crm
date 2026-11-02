@@ -55,7 +55,7 @@
 				{#if offline && offenerLeitfaden === e.id}
 					<LeitfadenFlaeche
 						offline
-						stand={{ einsatzId: e.id, name: e.leitfaden.name, kundeName: e.kundeName, auftragNummer: e.auftragNummer, auftragTitel: e.auftragTitel, terminBeginn: e.beginn, schritte: e.leitfaden.schritte, antworten: e.leitfaden.antworten, kunde: e.leitfaden.kunde, status: e.leitfaden.status, begruendung: e.leitfaden.begruendung }}
+						stand={{ einsatzId: e.id, name: e.leitfaden.name, kundeName: e.kundeName, auftragNummer: e.auftragNummer, auftragTitel: e.auftragTitel, terminBeginn: e.beginn, schritte: e.leitfaden.schritte, antworten: e.leitfaden.antworten, kunde: e.leitfaden.kunde, protokolle: e.leitfaden.protokolle ?? {}, status: e.leitfaden.status, begruendung: e.leitfaden.begruendung }}
 					/>
 				{/if}
 			{/if}

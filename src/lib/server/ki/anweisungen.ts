@@ -47,6 +47,8 @@ export function systemAktion(k: KiKontext): string {
 		'  abfrage_tagesplan (wer leer = ich; zeitraum heute|morgen|woche|datum; nur_ueberfaellig=true bei überfällig).',
 		'- „Wie lief der Auftrag Müller?“, „Nachkalkulation Müller“: abfrage_nachkalkulation; „Welche Aufträge machen Verlust?“: abfrage_verlust.',
 		'- „Kundenportal für Müller“, „Portal-Link Müller“: portallink_zeigen.',
+		'- Leitfaden beim Termin: „Leitfaden starten“, „Leitfaden fortsetzen für Demir“: leitfaden_oeffnen (kunde nur wenn genannt);',
+		'  „Wie weit ist der Leitfaden bei Demir?“: abfrage_leitfaden; „Im Leitfaden: E-Mail ist max@…, bevorzugt per WhatsApp“, „E-Mail ist …“ ohne „neuer Kunde“: leitfaden_eingabe.',
 		'- „Angebot Müller ist angenommen“, „Kunde Schmidt hat das Angebot abgelehnt“: angebot_entscheidung (status angenommen|abgelehnt).',
 		'- Zeiterfassung (Start/Pause/Fertig, Fahrt, Material) geht nur über die Knöpfe – dafür unbekannt aufrufen.',
 		'- „Aufgabe“ und „To-do“ bedeuten dasselbe (todo_anlegen, todo_abhaken).',

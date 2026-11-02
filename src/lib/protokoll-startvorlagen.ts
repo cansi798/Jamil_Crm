@@ -124,6 +124,34 @@ export const STARTVORLAGEN: Startvorlage[] = [
 		}
 	},
 	{
+		// Für den Leitfaden beim Termin (Jamil msg 4353): kurzes Protokoll der Besichtigung mit Fotos und Unterschrift
+		schluessel: 'besichtigung',
+		name: 'Besichtigungsprotokoll',
+		beschreibung: 'Bereich, Zustand und Besonderheiten vor Ort, Fotos und Unterschrift des Kunden – passt in den Leitfaden der Besichtigung.',
+		schema: {
+			seiten: [
+				{
+					id: 's_besichtigung',
+					titel: 'Besichtigung',
+					abschnitte: [
+						{
+							id: 'a_besichtigung',
+							felder: [
+								{ id: 'datum', typ: 'datum', label: 'Datum', pflicht: true },
+								{ id: 'bereich', typ: 'text', label: 'Besichtigter Bereich', pflicht: true, hilfe: 'z. B. Bad im 1. OG' },
+								{ id: 'zustand', typ: 'auswahl', label: 'Zustand', optionen: ['gut', 'mittel', 'schlecht'] },
+								{ id: 'vor_ort', typ: 'checkliste', label: 'Vor Ort geprüft', optionen: ['Wasseranschluss', 'Stromanschluss', 'Zugang / Parken', 'Entsorgung'] },
+								{ id: 'besonderheiten', typ: 'textlang', label: 'Besonderheiten' },
+								{ id: 'fotos', typ: 'foto', label: 'Fotos', minFotos: 1 },
+								{ id: 'unterschrift_kunde', typ: 'unterschrift', label: 'Unterschrift Kunde', wer: 'kunde', pflicht: true }
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	{
 		schluessel: 'abnahme',
 		name: 'Abnahmeprotokoll',
 		beschreibung: 'Abnahme der Leistung mit Begehung, Mängeln (Foto nur Pflicht bei Mängeln) und Unterschrift des Kunden.',

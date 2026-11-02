@@ -7,7 +7,7 @@ import { ladeEnv, urlAusUmgebung } from './migrate';
 import { hashePasswort, pruefePasswort } from '../src/lib/server/auth/passwort';
 import { VORLAGEN, VORLAGEN_NAMEN, type Vorlage } from '../src/lib/server/rechte';
 import { STARTVORLAGEN } from '../src/lib/protokoll-startvorlagen';
-import { STARTVORLAGE as LEITFADEN_START } from '../src/lib/leitfaden';
+import { mitProtokollSchritt, STARTVORLAGE as LEITFADEN_START } from '../src/lib/leitfaden';
 import { totpUri } from '../src/lib/server/auth/totp';
 import { berlinTag, berlinZeitpunkt, tagPlus, wocheVon } from '../src/lib/zeit';
 import { GUELTIG_TAGE, STANDARD_EINLEITUNG, STANDARD_SCHLUSS } from '../src/lib/server/angebote';
@@ -706,10 +706,14 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			const neueAngebotsVorlagen = await sichereAngebotsVorlagen(tx, betrieb.id);
 			const neueProtokollVorlagen = await sichereProtokollVorlagen(tx, betrieb.id);
 			// Leitfaden beim Termin (Jamil msgs 4302/4304, 4340): eingeschaltet mit der Startvorlage – nur wenn noch keiner da ist
+			// Stufe 2 (msg 4353): mit Schritt „Besichtigungsprotokoll“; ein unveränderter Leitfaden der ersten Stufe wird ergänzt
+			const [bp] = await tx`select gruppe_id from app.protokoll_vorlagen where betrieb_id = ${betrieb.id} and name = 'Besichtigungsprotokoll' and aktuell limit 1`;
+			const lfSchritte = bp ? mitProtokollSchritt(LEITFADEN_START, bp.gruppe_id, 'Besichtigungsprotokoll') : LEITFADEN_START;
 			await tx`
 				insert into app.leitfaden_vorlagen (betrieb_id, aktiv, name, arten, schritte)
-				values (${betrieb.id}, true, 'Leitfaden Besichtigung', ${['besichtigung']}, ${tx.json(LEITFADEN_START as never)})
-				on conflict (betrieb_id) do nothing`;
+				values (${betrieb.id}, true, 'Leitfaden Besichtigung', ${['besichtigung']}, ${tx.json(lfSchritte as never)})
+				on conflict (betrieb_id) do update set schritte = excluded.schritte, version = app.leitfaden_vorlagen.version + 1
+				where app.leitfaden_vorlagen.schritte = ${tx.json(LEITFADEN_START as never)} and excluded.schritte <> app.leitfaden_vorlagen.schritte`;
 			return { neueBenutzer, neueKunden, ...planung, ...angebote, neueVorlagen, neueAngebotsVorlagen, neueProtokollVorlagen };
 		});
 	} finally {

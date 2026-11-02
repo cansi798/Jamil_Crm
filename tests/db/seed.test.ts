@@ -223,8 +223,12 @@ describe('seed-dev', () => {
 	});
 
 	it('Leitfaden beim Termin: Bauwelt hat ihn eingeschaltet (Besichtigung, Startvorlage)', async () => {
-		const [l] = await sql`select aktiv, arten, jsonb_array_length(schritte) as n from app.leitfaden_vorlagen`;
-		expect(l).toEqual({ aktiv: true, arten: ['besichtigung'], n: 10 });
+		const [l] = await sql`select aktiv, arten, jsonb_array_length(schritte) as n, schritte from app.leitfaden_vorlagen`;
+		expect(l).toMatchObject({ aktiv: true, arten: ['besichtigung'], n: 11 });
+		// Stufe 2 (msg 4353): Schritt „Besichtigungsprotokoll“ mit der Vorlage des Betriebs
+		const p = l.schritte.find((s: { typ: string }) => s.typ === 'protokoll');
+		const [v] = await sql`select gruppe_id from app.protokoll_vorlagen where name = 'Besichtigungsprotokoll'`;
+		expect(p).toMatchObject({ vorlageGruppe: v.gruppe_id, pflicht: true });
 	});
 
 	it('Beispielkunden mit bevorzugtem Kontaktweg (E-Mail, Chat, Telefon) und einer ohne Angabe', async () => {

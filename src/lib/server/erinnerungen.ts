@@ -456,6 +456,8 @@ export function starteErinnerungsDienst(intervallMs = 60_000): void {
 		laeuft = true;
 		try {
 			await stelleFaelligeZu();
+			// Leitfaden nicht abgeschlossen, Termin vorbei → Hinweis ans Büro (Jamil msg 4353), Push gleich mit
+			await (await import('./leitfaden')).meldeVerpassteLeitfaeden();
 			await stelleBenachrichtigungenZu();
 		} catch (e) {
 			console.error('Erinnerungs-Dienst:', e);
