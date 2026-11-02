@@ -22,7 +22,7 @@ import { holeKolonne, listeKolonnen } from '$lib/server/kolonnen';
 import { listeQuellen } from '$lib/server/quellen';
 import { verlaufZeile } from '$lib/verlauf';
 import { ausTagUndUhrzeit, berlinTag, istTag } from '$lib/zeit';
-import { holeKunde } from '$lib/server/kunden';
+import { aendereKunde, holeKunde } from '$lib/server/kunden';
 import { listeKundenNotizen } from '$lib/server/kundenakte';
 import { mitarbeiterAus, todoAktionen } from '$lib/server/todo-aktionen';
 import { auftragUnterlagen, dokumentHochladen, notizHinzufuegen, unterlageLoeschen } from '$lib/server/auftrag-unterlagen';
@@ -175,6 +175,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 				auftrag.kundeArt === 'einmal' && darfBearbeiten && hatRecht(nutzer, 'kunden.bearbeiten') && (await hatModul(k.betriebId, 'kunden')),
 			kundenHinweise: kunde ? { notiz: kunde.notiz ?? null, notizen: kundenNotizen.slice(0, 3), weitere: Math.max(0, kundenNotizen.length - 3) } : null,
 			kundeLesbar: hatRecht(nutzer, 'kunden.lesen'),
+			// Kontaktweg des Kunden direkt im Auftrag festlegen (Jamil msg 4337) – wer Kunden bearbeiten darf
+			darfKontaktweg: auftrag.kundeArt === 'kunde' && hatRecht(nutzer, 'kunden.bearbeiten') && (await hatModul(k.betriebId, 'kunden')),
 			// Preisschutz: Beträge nur mit `preise.sehen`
 			angebote: angebote && (preise ? angebote : ohnePreise(angebote)),
 			darfAngebote: angeboteSichtbar && preise,
@@ -283,6 +285,23 @@ export const actions: Actions = {
 		}
 	},
 	/** Einmal-Kunden in die Kundendatenbank übernehmen und zum neuen Kunden springen. */
+	/**
+	 * Bevorzugten Kontaktweg des Kunden direkt im Auftrag setzen (Jamil msg 4337): gespeichert wird beim KUNDEN (eine Stelle,
+	 * Änderungsprotokoll der Kundendaten). Nur sichtbare Aufträge mit Kunde aus der Kundendatenbank; Recht `kunden.bearbeiten`.
+	 */
+	kontaktweg: async ({ locals, params, request }) => {
+		const wert = (await request.formData()).get('bevorzugter_kontakt');
+		try {
+			await darf(locals, 'kunden', 'kunden.bearbeiten');
+			const k = betriebKontext(locals);
+			const auftrag = await holeAuftrag(k, sichtVon(locals.nutzer!), params.id);
+			if (!auftrag.kundeId) throw new ApiFehler(400, 'Dieser Auftrag hat keinen Kunden aus der Kundendatenbank.');
+			await aendereKunde(k, auftrag.kundeId, { bevorzugter_kontakt: typeof wert === 'string' ? wert : '' });
+		} catch (e) {
+			return alsFormFehler(e);
+		}
+		return { kontaktwegGespeichert: true };
+	},
 	kundeUebernehmen: async ({ locals, params }) => {
 		let kundeId: string | null;
 		try {

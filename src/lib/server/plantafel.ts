@@ -1,3 +1,4 @@
+import type { Kontaktweg } from '../kontaktweg';
 import { erinnerungenAusEingabe, setzeErinnerungen } from './erinnerungen';
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
@@ -52,6 +53,10 @@ export type Einsatz = {
 	kolonne: { id: string; name: string } | null;
 	/** Status des Auftrags (Kalender: Farbe nach Status). */
 	auftragStatus: string;
+	/** Kunde aus der Kundendatenbank? Nur dann gibt es einen bevorzugten Kontaktweg (Jamil msgs 4289/4291, 4337). */
+	kundeImBestand: boolean;
+	/** Bevorzugter Kontaktweg des Kunden; null = keine Angabe bzw. kein Kunde. */
+	kontaktweg: Kontaktweg | null;
 };
 
 export type Abwesenheit = {
@@ -184,7 +189,7 @@ export const EINSATZ_AUSWAHL = `e.id, e.auftrag_id, e.titel as eigener_titel, e.
 	e.terminart_id, ta.name as terminart_name, ta.farbe as terminart_farbe,
 	a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.status as auftrag_status, b.name as benutzer_name,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
-	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
+	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, k.id as kunde_id, k.bevorzugter_kontakt as kunde_kontaktweg,
 	o.id as objekt_id, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
 	a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort,
 	e.gruppe_id, e.kolonne_id, ko.name as kolonne_name,
@@ -220,7 +225,9 @@ export function zuEinsatz(z: Record<string, any>, warnungen: Warnung[] = []): Ei
 		warnungen,
 		gruppe: z.gruppe_id ? { id: z.gruppe_id, vonTag: z.gruppe_von, bisTag: z.gruppe_bis } : null,
 		kolonne: z.kolonne_id ? { id: z.kolonne_id, name: z.kolonne_name } : null,
-		auftragStatus: z.auftrag_status ?? 'eigen'
+		auftragStatus: z.auftrag_status ?? 'eigen',
+		kundeImBestand: !!z.kunde_id,
+		kontaktweg: z.kunde_kontaktweg ?? null
 	};
 }
 

@@ -20,6 +20,7 @@
 	import { anzeigeDateiname } from '$lib/dateiname';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import KontaktwegChip from '$lib/components/KontaktwegChip.svelte';
+	import { KONTAKTWEG_OPTIONEN } from '$lib/kontaktweg';
 	import AuftragPartner from '$lib/components/AuftragPartner.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
@@ -569,7 +570,21 @@
 						<dd>
 								{#if a.kundeArt === 'kunde'}
 									{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
-									{#if a.kontaktweg}<span class="af-kontaktweg"><KontaktwegChip weg={a.kontaktweg} /></span>{/if}
+									<!-- Bevorzugter Kontaktweg des Kunden – immer sichtbar, bei Recht direkt änderbar (Jamil msgs 4289/4291, 4337) -->
+									<div class="af-kontaktweg" data-testid="auftrag-kontaktweg">
+										{#if data.darfKontaktweg}
+											<form method="POST" action="?/kontaktweg" use:enhance={sofort} class="af-inline">
+												<label class="af-feld">
+													Kontaktweg
+													<Auswahl name="bevorzugter_kontakt" aria-label="Bevorzugter Kontaktweg" onchange={(ev) => ev.currentTarget.form?.requestSubmit()}>
+														{#each KONTAKTWEG_OPTIONEN as o (o.wert)}<option value={o.wert} selected={(a.kontaktweg ?? '') === o.wert}>{o.text}</option>{/each}
+													</Auswahl>
+												</label>
+											</form>
+										{:else}
+											<span class="af-kw-text">Kontaktweg: {#if a.kontaktweg}<KontaktwegChip weg={a.kontaktweg} kurz />{:else}<span class="kd-info">keine Angabe</span>{/if}</span>
+										{/if}
+									</div>
 									{#if data.portal && a.kundeId && !data.portal.kundeLinkUrl}
 										<!-- Kein (öffnebarer) Portal-Link (msg 3050): zur Verwaltung beim Kunden – hier wird nichts erzeugt -->
 										<span class="af-portal-kurz" data-testid="kunde-portal">
@@ -1328,6 +1343,15 @@
 	/* Bevorzugter Kontaktweg des Kunden (Jamil msgs 4289/4291) unter dem Namen */
 	.af-kontaktweg {
 		display: flex;
-		margin-top: 0.3rem;
+		margin-top: 0.5rem;
+	}
+	.af-kontaktweg > form {
+		flex: 1 1 auto;
+	}
+	.af-kw-text {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: var(--ui-schrift-s);
 	}
 </style>

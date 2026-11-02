@@ -83,17 +83,26 @@ test('Kontaktweg: anlegen mit Chat, Abzeichen in Akte und Liste, Filter, ändern
 	}
 });
 
-test('Kontaktweg im Auftrag: Abzeichen unter dem Kundennamen', async ({ page }, info) => {
+test('Kontaktweg im Auftrag: immer sichtbar, direkt änderbar, gespeichert beim Kunden (Jamil msg 4337)', async ({ page }, info) => {
 	await anmelden(page, BUERO);
-	const kunde = await api(page, 'POST', '/api/kunden', { art: 'privat', nachname: `E2E-KontaktAuftrag ${info.project.name} ${Date.now()}`, bevorzugter_kontakt: 'email' });
+	const kunde = await api(page, 'POST', '/api/kunden', { art: 'privat', nachname: `E2E-KontaktAuftrag ${info.project.name} ${Date.now()}` });
 	let auftragId: string | null = null;
 	try {
 		const auftrag = await api(page, 'POST', '/api/auftraege', { titel: 'E2E Kontaktweg', kundeId: kunde.id });
 		auftragId = auftrag.id;
 		await page.goto(`/auftraege/${auftragId}`);
-		const chip = page.locator('.af-kontaktweg').getByTestId('kontaktweg-chip');
-		await expect(chip).toHaveText(/Bevorzugt: E-Mail/);
+		const bereich = page.getByTestId('auftrag-kontaktweg');
+		await expect(bereich).toBeVisible();
+		const wahl = bereich.getByRole('combobox', { name: 'Bevorzugter Kontaktweg' });
+		await expect(wahl).toHaveValue('');
+		await wahl.selectOption('chat');
+		await expect.poll(async () => (await api(page, 'GET', `/api/kunden/${kunde.id}`)).bevorzugter_kontakt).toBe('chat');
+		await page.reload();
+		await expect(page.getByTestId('auftrag-kontaktweg').getByRole('combobox', { name: 'Bevorzugter Kontaktweg' })).toHaveValue('chat');
 		await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
+		// Kundenakte zeigt dasselbe
+		await page.goto(`/kunden/${kunde.id}`);
+		await expect(page.getByTestId('kontaktweg').getByTestId('kontaktweg-chip')).toHaveAttribute('data-weg', 'chat');
 	} finally {
 		if (auftragId) await api(page, 'DELETE', `/api/auftraege/${auftragId}`);
 		await api(page, 'DELETE', `/api/kunden/${kunde.id}`);

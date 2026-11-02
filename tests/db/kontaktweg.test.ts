@@ -4,6 +4,8 @@ import { frischeTestDb, type TestDb } from './setup';
 import { initDb, mitBetrieb, schliesseDb } from '../../src/lib/server/db';
 import { VORLAGEN } from '../../src/lib/server/rechte';
 import { holeAuftrag } from '../../src/lib/server/auftraege';
+import { meineEinsaetzeHeute } from '../../src/lib/server/plantafel';
+import { actions as auftragAktionen, load as auftragLoad } from '../../src/routes/(app)/auftraege/[id]/+page.server';
 import { listeKunden } from '../../src/lib/server/kunden';
 import { POST as kundePost } from '../../src/routes/api/kunden/+server';
 import { GET as kundeGet, PUT as kundePut } from '../../src/routes/api/kunden/[id]/+server';
@@ -71,6 +73,7 @@ describe('Bevorzugter Kontaktweg', () => {
 	});
 
 	beforeEach(async () => {
+		await root`delete from app.einsaetze`;
 		await root`delete from app.auftraege`;
 		await root`delete from app.kunden`;
 	});
@@ -189,5 +192,49 @@ describe('Bevorzugter Kontaktweg', () => {
 		const sicht = { alle: true, benutzerId: chefA.id };
 		expect((await holeAuftrag(k, sicht, a.id)).kontaktweg).toBe('telefon');
 		expect((await holeAuftrag(k, sicht, ohne.id)).kontaktweg).toBeNull();
+	});
+
+	it('Auftrag: Kontaktweg direkt im Auftrag setzen (Jamil msg 4337) – speichert beim Kunden; Monteur/fremder Betrieb/ohne Kunde nicht', async () => {
+		const [kd] = await root`insert into app.kunden (betrieb_id, art, nachname) values (${betriebA}, 'privat', 'Inline') returning id`;
+		const [a] = await root`insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, 'Bad', ${kd.id}) returning id`;
+		const [einmal] = await root`insert into app.auftraege (betrieb_id, titel, einmal_name) values (${betriebA}, 'Einmal', 'Gast') returning id`;
+		const setze = (n: Nutzer, id: string, w: string) =>
+			auftragAktionen.kontaktweg({ ...ort(n), params: { id }, request: formAnfrage({ bevorzugter_kontakt: w }) } as never) as Promise<any>;
+
+		const geladen = (await auftragLoad({ ...ort(chefA), params: { id: a.id }, url: new URL(`http://localhost/auftraege/${a.id}`) } as never)) as any;
+		expect(geladen.darfKontaktweg).toBe(true);
+		expect(geladen.auftrag.kontaktweg).toBeNull();
+
+		expect(await setze(chefA, a.id, 'telefon')).toEqual({ kontaktwegGespeichert: true });
+		expect((await root`select bevorzugter_kontakt from app.kunden where id = ${kd.id}`)[0].bevorzugter_kontakt).toBe('telefon');
+		const [p] = await root`select nachher->>'bevorzugter_kontakt' as neu from app.aenderungen where tabelle = 'kunden' and datensatz_id = ${kd.id} and aktion = 'geaendert'`;
+		expect(p.neu).toBe('telefon');
+		expect((await setze(chefA, a.id, '')).kontaktwegGespeichert).toBe(true);
+		expect((await root`select bevorzugter_kontakt from app.kunden where id = ${kd.id}`)[0].bevorzugter_kontakt).toBeNull();
+
+		expect((await setze(chefA, a.id, 'fax')).status).toBe(400);
+		expect((await setze(monteurA, a.id, 'chat')).status).toBe(403);
+		expect((await setze(chefB, a.id, 'chat')).status).toBe(404);
+		expect((await setze(chefA, einmal.id, 'chat')).status).toBe(400);
+		expect((await root`select bevorzugter_kontakt from app.kunden where id = ${kd.id}`)[0].bevorzugter_kontakt).toBeNull();
+	});
+
+	it('Meine Einsätze heute: Kontaktweg des Kunden (auch „keine Angabe“), eigener Termin ohne Kunde', async () => {
+		const [kd] = await root`insert into app.kunden (betrieb_id, art, nachname, bevorzugter_kontakt) values (${betriebA}, 'privat', 'Heute', 'chat') returning id`;
+		const [ohne] = await root`insert into app.kunden (betrieb_id, art, nachname) values (${betriebA}, 'privat', 'OhneWeg') returning id`;
+		const [a1] = await root`insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, 'Mit', ${kd.id}) returning id`;
+		const [a2] = await root`insert into app.auftraege (betrieb_id, titel, kunde_id) values (${betriebA}, 'Ohne', ${ohne.id}) returning id`;
+		const jetzt = new Date('2026-11-03T09:00:00Z');
+		await root`insert into app.einsaetze (betrieb_id, auftrag_id, benutzer_id, beginn, ende) values
+			(${betriebA}, ${a1.id}, ${monteurA.id}, '2026-11-03T07:00:00Z', '2026-11-03T08:00:00Z'),
+			(${betriebA}, ${a2.id}, ${monteurA.id}, '2026-11-03T09:00:00Z', '2026-11-03T10:00:00Z')`;
+		await root`insert into app.einsaetze (betrieb_id, benutzer_id, titel, beginn, ende) values
+			(${betriebA}, ${monteurA.id}, 'Werkstatt', '2026-11-03T11:00:00Z', '2026-11-03T12:00:00Z')`;
+		const liste = await meineEinsaetzeHeute({ betriebId: betriebA, benutzerId: monteurA.id }, monteurA.id, jetzt);
+		expect(liste.map((e) => [e.auftragTitel, e.kundeImBestand, e.kontaktweg])).toEqual([
+			['Mit', true, 'chat'],
+			['Ohne', true, null],
+			['Werkstatt', false, null]
+		]);
 	});
 });

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { berlinUhrzeit } from '$lib/zeit';
 	import type { HeuteEinsatz } from '$lib/heute-kopie';
+	import KontaktwegChip from '$lib/components/KontaktwegChip.svelte';
+	import { istKontaktweg } from '$lib/kontaktweg';
 
 	/**
 	 * „Meine Einsätze heute“ als Karten: Uhrzeit, Kunde, Adresse (öffnet Google Maps in neuem Tab) und Auftrag.
@@ -25,6 +27,10 @@
 				<span class="heute-auftrag">{e.auftragNummer ? `${e.auftragNummer} · ` : ''}{e.auftragTitel}</span>
 			{:else}
 				{#if e.auftragId}<a class="heute-auftrag" href={`/auftraege/${e.auftragId}`}>{e.auftragNummer} · {e.auftragTitel}</a>{:else}<span class="heute-auftrag">📌 {e.auftragTitel} (eigener Termin)</span>{/if}
+			{/if}
+			{#if e.kundeImBestand}
+				<!-- Bevorzugter Kontaktweg des Kunden (Jamil msg 4337) -->
+				<span class="heute-kontakt" data-testid="heute-kontaktweg">Kontaktweg: {#if istKontaktweg(e.kontaktweg)}<KontaktwegChip weg={e.kontaktweg} kurz />{:else}keine Angabe{/if}</span>
 			{/if}
 			{#if e.notiz}<span class="heute-notiz">{e.notiz}</span>{/if}
 			{#each sichereLinks(e.links) as l (l.url)}
@@ -52,6 +58,13 @@
 		border-left: 5px solid var(--primaer);
 		border-radius: 0.5rem;
 		background: var(--flaeche);
+	}
+	.heute-kontakt {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		font-size: 0.875rem;
+		color: var(--ui-text-leise);
 	}
 	.heute-zeit {
 		font-size: 1.15rem;

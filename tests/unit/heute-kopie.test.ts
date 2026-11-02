@@ -34,7 +34,9 @@ const EINSATZ: HeuteEinsatz = {
 	auftragTitel: 'Badsanierung',
 	kundeName: 'Müller',
 	ort: 'Hauptstraße 1, 20095 Hamburg',
-	notiz: 'Schlüssel beim Nachbarn'
+	notiz: 'Schlüssel beim Nachbarn',
+	kundeImBestand: true,
+	kontaktweg: 'chat'
 };
 
 describe('Offline-Kopie „Meine Einsätze heute“', () => {
@@ -74,6 +76,13 @@ describe('Offline-Kopie „Meine Einsätze heute“', () => {
 		const roh = JSON.parse(speicher.getItem(SCHLUESSEL)!);
 		expect(Object.keys(roh.einsaetze[0]).sort()).toEqual(Object.keys(EINSATZ).sort());
 		expect(speicher.getItem(SCHLUESSEL)).not.toContain('1234');
+	});
+
+	it('Kontaktweg (msg 4337): nur email/chat/telefon, sonst null; kundeImBestand nur true/false', () => {
+		const komisch = { ...EINSATZ, kontaktweg: '<b>fax</b>', kundeImBestand: 'ja' } as never;
+		speichere('b1', '2026-10-21', [komisch], berlinZeitpunkt('2026-10-21', 7));
+		const roh = JSON.parse(speicher.getItem(SCHLUESSEL)!);
+		expect(roh.einsaetze[0]).toMatchObject({ kontaktweg: null, kundeImBestand: false });
 	});
 
 	it('Links (msg 2850): nur Titel, Adresse, Domain und nur http/https', () => {

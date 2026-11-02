@@ -1,4 +1,5 @@
 import { berlinTag } from './zeit';
+import { istKontaktweg } from './kontaktweg';
 
 /**
  * Offline-Kopie von „Meine Einsätze heute“ (Pflichtenheft Abschnitt 2: Termine des Tages bleiben bei schlechtem Netz
@@ -27,13 +28,16 @@ export type HeuteEinsatz = {
 	kundeName: string;
 	ort: string | null;
 	notiz: string | null;
+	/** Kunde aus der Kundendatenbank und sein bevorzugter Kontaktweg (Jamil msg 4337) – kein Geheimnis, darf offline mit. */
+	kundeImBestand?: boolean;
+	kontaktweg?: 'email' | 'chat' | 'telefon' | null;
 	/** Links am Auftrag (Jamil msg 2850) – nur Titel, Adresse, Domain. */
 	links?: { titel: string; url: string; domain: string }[] | null;
 };
 
 export type HeuteKopie = { benutzerId: string; tag: string; stand: string; einsaetze: HeuteEinsatz[] };
 
-const FELDER = ['id', 'beginn', 'ende', 'auftragId', 'auftragNummer', 'auftragTitel', 'kundeName', 'ort', 'notiz'] as const;
+const FELDER = ['id', 'beginn', 'ende', 'auftragId', 'auftragNummer', 'auftragTitel', 'kundeName', 'ort', 'notiz', 'kundeImBestand', 'kontaktweg'] as const;
 
 function speicher(): Storage | null {
 	try {
@@ -47,6 +51,8 @@ function speicher(): Storage | null {
 function bereinige(e: HeuteEinsatz): HeuteEinsatz {
 	const sauber: Record<string, unknown> = {};
 	for (const f of FELDER) sauber[f] = e[f] ?? null;
+	sauber.kundeImBestand = e.kundeImBestand === true;
+	sauber.kontaktweg = istKontaktweg(e.kontaktweg) ? e.kontaktweg : null;
 	// Links nur, wenn vorhanden: Titel, Adresse (nur http/https), Domain – nichts sonst
 	if (Array.isArray(e.links)) {
 		sauber.links = e.links
