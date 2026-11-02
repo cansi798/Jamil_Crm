@@ -144,3 +144,44 @@ test('Ohne Netz: Eingabe bleibt auf dem Gerät und geht raus, sobald wieder Netz
 		await api(page, 'DELETE', `/api/kunden/${kunde.id}`);
 	}
 });
+
+test('Protokoll im Leitfaden (msg 4353): Felder, Foto und Unterschrift auf der einen Fläche, PDF beim Abschluss', async ({ page, browser }, info) => {
+	test.skip(!!vorschauSperre(), 'legt Testdaten an – nicht gegen die Vorschau');
+	await anmelden(page, BUERO);
+	const name = `E2E-Protokoll ${info.project.name} ${Date.now()}`;
+	const { kunde, auftrag, termin } = await besichtigungHeute(page, name);
+	const { ctx, seite } = await alsMonteur(browser, info.project.use);
+	try {
+		await seite.goto(`/leitfaden/${termin.id}`);
+		const prot = seite.getByTestId('protokoll-protokoll');
+		await expect(prot).toBeVisible();
+		await prot.locator('[data-feld="bereich"] input').fill('Bad im 1. OG');
+		await prot.locator('[data-feld="bereich"] input').press('Tab');
+		await prot.getByTestId('foto-fotos').setInputFiles({ name: 'raum.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') });
+		const feld = prot.locator('[data-feld="unterschrift_kunde"]');
+		await feld.getByTestId('name-unterschrift_kunde').fill('Erika Mustermann');
+		const canvas = feld.getByTestId('unterschrift-canvas');
+		await canvas.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+		const box = (await canvas.boundingBox())!;
+		await seite.mouse.move(box.x + 20, box.y + box.height / 2);
+		await seite.mouse.down();
+		for (let i = 1; i <= 12; i++) await seite.mouse.move(box.x + 20 + i * 15, box.y + box.height / 2 - Math.sin(i / 2) * 30);
+		await seite.mouse.up();
+		await feld.getByTestId('unterschrift-speichern').click();
+		await expect(seite.getByTestId('schritt-protokoll')).toHaveClass(/erledigt/, { timeout: 15_000 });
+		await erwarteKeinQuerScrollen(seite, seite.viewportSize()!.width);
+		// Rest des Leitfadens mit Begründung abschließen → Protokoll wird abgeschlossen (PDF)
+		await expect(seite.getByTestId('leitfaden-wartet')).toHaveCount(0, { timeout: 15_000 });
+		const fuss = seite.getByTestId('leitfaden-abschluss');
+		await fuss.getByLabel('Begründung').fill('Nur Protokoll getestet');
+		await fuss.getByRole('button', { name: 'Mit Begründung abschließen' }).click();
+		await expect(seite.getByTestId('leitfaden-status')).toContainText('erledigt mit Begründung');
+		const stand = await api(page, 'GET', `/api/leitfaden/${termin.id}`);
+		expect(stand.protokolle.protokoll.status).toBe('abgeschlossen');
+		expect(stand.protokolle.protokoll.antworten.bereich).toBe('Bad im 1. OG');
+	} finally {
+		await ctx.close();
+		await api(page, 'DELETE', `/api/auftraege/${auftrag.id}`).catch(() => null);
+		await api(page, 'DELETE', `/api/kunden/${kunde.id}`).catch(() => null);
+	}
+});

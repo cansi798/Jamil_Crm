@@ -123,10 +123,10 @@ describe('Protokoll-Formulare', () => {
 	});
 
 	it('Beispielvorlagen übernehmen ist idempotent', async () => {
-		// zwei Protokoll- und (seit msg 2842) zwei Aufmaß-Beispiele
-		expect(await uebernimmStartvorlagen(kA())).toBe(4);
+		// drei Protokoll- (seit msg 4353 auch „Besichtigungsprotokoll“ für den Leitfaden) und (seit msg 2842) zwei Aufmaß-Beispiele
+		expect(await uebernimmStartvorlagen(kA())).toBe(5);
 		expect(await uebernimmStartvorlagen(kA())).toBe(0);
-		expect((await listeVorlagen(kA(), { art: 'protokoll' })).map((v) => v.name)).toEqual(['Abdichtungsprotokoll Bad', 'Abnahmeprotokoll']);
+		expect((await listeVorlagen(kA(), { art: 'protokoll' })).map((v) => v.name)).toEqual(['Abdichtungsprotokoll Bad', 'Abnahmeprotokoll', 'Besichtigungsprotokoll']);
 		expect((await listeVorlagen(kA(), { art: 'aufmass' })).map((v) => v.name)).toEqual(['Aufmaß Bad', 'Aufmaß Boden/Fliesen']);
 	});
 
