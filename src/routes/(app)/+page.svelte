@@ -6,6 +6,8 @@
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import NavSymbol from '$lib/components/NavSymbol.svelte';
 	import HeuteListe from '$lib/components/HeuteListe.svelte';
+	import KontaktwegChip from '$lib/components/KontaktwegChip.svelte';
+	import { STATUS_NAMEN as LF_STATUS } from '$lib/leitfaden';
 	import ZeitKnoepfe from '$lib/components/zeit/ZeitKnoepfe.svelte';
 	import { loesche, speichere } from '$lib/heute-kopie';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
@@ -155,7 +157,20 @@
 							{#each ab.liste as e, i (i)}
 								<li class:ueberfaellig={e.ueberfaellig}>
 									<span class="plan-zeit">{e.zeit}</span>
-									<span class="plan-was"><a href={e.link}>{e.titel}</a>{#if e.ort}<small>{e.ort}</small>{/if}</span>
+									<span class="plan-was">
+										<a href={e.link}>{e.titel}</a>{#if e.ort}<small>{e.ort}</small>{/if}
+										{#if e.kundeImBestand}
+											<!-- Bevorzugter Kontaktweg (Jamil msg 4337) und Leitfaden beim Termin (msgs 4302/4304, 4340) -->
+											<small class="plan-kontakt" data-testid="plan-kontaktweg">Kontaktweg: {#if e.kontaktweg}<KontaktwegChip weg={e.kontaktweg} kurz />{:else}keine Angabe{/if}</small>
+										{/if}
+										{#if e.leitfaden && e.einsatzId}
+											{#if e.leitfaden.status === 'offen'}
+												<a class="kd-knopf klein plan-leitfaden" href={`/leitfaden/${e.einsatzId}`} data-testid="plan-leitfaden">Leitfaden {e.leitfaden.erledigt > 0 ? 'fortsetzen' : 'starten'} · {e.leitfaden.erledigt}/{e.leitfaden.gesamt}</a>
+											{:else}
+												<span class="ah-chip gut plan-leitfaden" data-testid="plan-leitfaden">✓ Leitfaden {LF_STATUS[e.leitfaden.status]}</span>
+											{/if}
+										{/if}
+									</span>
 								</li>
 							{/each}
 						</ul>
@@ -895,4 +910,6 @@
 	.zeit-link {
 		font-size: var(--ui-schrift-s);
 	}
+	.plan-kontakt { display: inline-flex; align-items: center; gap: 0.3rem; }
+	.plan-leitfaden { justify-self: start; margin-top: 0.25rem; }
 </style>

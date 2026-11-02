@@ -390,7 +390,7 @@
 								{#if e.notiz}<span class="kd-info">{e.notiz}</span>{/if}
 								{#if data.leitfaeden.find((l) => l.einsatzId === e.id)}
 									{@const l = data.leitfaeden.find((x) => x.einsatzId === e.id)!}
-									<a href="#leitfaden" class={`ah-chip ${l.status === 'abgeschlossen' ? 'gut' : l.status === 'mit_begruendung' ? 'warnung' : 'leise'}`} data-testid="termin-leitfaden">
+									<a href="#leitfaden" class={`ah-chip af-lf-chip ${l.status === 'abgeschlossen' ? 'gut' : l.status === 'mit_begruendung' ? 'warnung' : 'leise'}`} data-testid="termin-leitfaden">
 										Leitfaden: {l.status === 'offen' ? `${l.fortschritt.erledigt}/${l.fortschritt.gesamt}` : LF_STATUS[l.status]}
 									</a>
 								{/if}
@@ -1414,4 +1414,5 @@
 	.af-lf-liste li { display: grid; gap: 0.1rem; }
 	.af-lf-liste span { color: var(--ui-text-leise); }
 	.af-lf-liste strong { font-weight: 600; overflow-wrap: anywhere; white-space: pre-line; }
+	.af-lf-chip { justify-self: start; align-self: start; width: fit-content; text-decoration: none; }
 </style>

@@ -82,6 +82,12 @@ describe('Leitfaden-Ausgang', () => {
 		]);
 	});
 
+	it('leerer Ausgang: Senden ist sofort fertig und blockiert spätere Sendungen nicht', async () => {
+		expect((await senden((async () => new Response('{}')) as never)).gesendet).toBe(0);
+		einreihen(op(1));
+		expect((await senden((async () => new Response('{}', { status: 200 })) as never)).gesendet).toBe(1);
+	});
+
 	it('gehört einem Benutzer: meldet sich jemand anderes an, ist der Ausgang leer', () => {
 		einreihen(op(1));
 		expect(speicher.getItem(AUSGANG_SCHLUESSEL)).not.toBeNull();

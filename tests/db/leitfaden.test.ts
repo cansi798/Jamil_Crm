@@ -207,6 +207,9 @@ describe('Leitfaden beim Termin', () => {
 			await schliesseAb(k(monteur), monteur, terminId, { opId: uuid(), begruendung: 'egal' });
 			expect(await root`select 1 from app.notizen where auftrag_id = ${auftragId}`).toHaveLength(1);
 			await expect(speichereEingaben(k(monteur), monteur, terminId, [{ opId: uuid(), schrittId: 'vorhaben', wert: 'x', zeit: Z(9) }])).rejects.toMatchObject({ status: 409 });
+			// Auftrag gelöscht → Leitfaden und seine Hinweise sind weg
+			await root`delete from app.auftraege where id = ${auftragId}`;
+			expect(await root`select 1 from app.benachrichtigungen where schluessel like 'leitfaden:%'`).toHaveLength(0);
 		});
 		it('alles erledigt → „abgeschlossen“, gewählte Aufgabe entsteht am Auftrag, kein Hinweis ans Büro', async () => {
 			await einschalten();

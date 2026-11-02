@@ -1,3 +1,5 @@
+import type { Kontaktweg } from '../kontaktweg';
+import type { LeitfadenStatus } from '../leitfaden';
 import { mitBetrieb, type Kontext } from './db';
 import { ApiFehler } from './fehler';
 import { ortAus, kundeNameAus } from './auftraege';
@@ -14,7 +16,19 @@ import { berlinTag, berlinUhrzeit, tagDeutsch, tagPlus, wochentag } from '../zei
  * (`todos.alle_lesen`) – das gilt für Aufgaben UND Termine.
  */
 
-export type PlanEintrag = { zeit: string; titel: string; ort: string | null; link: string; ueberfaellig: boolean };
+export type PlanEintrag = {
+	zeit: string;
+	titel: string;
+	ort: string | null;
+	link: string;
+	ueberfaellig: boolean;
+	/** nur Termine: Kennung, Kunde aus der Kundendatenbank und sein bevorzugter Kontaktweg (Jamil msg 4337) */
+	einsatzId?: string;
+	kundeImBestand?: boolean;
+	kontaktweg?: Kontaktweg | null;
+	/** Leitfaden beim Termin (Jamil msgs 4302/4304, 4340) – setzt die Startseite */
+	leitfaden?: { status: LeitfadenStatus; erledigt: number; gesamt: number; name: string } | null;
+};
 export type Tagesplan = {
 	person: { id: string; name: string };
 	von: string;
@@ -68,7 +82,7 @@ export async function tagesplan(
 				select e.id, e.beginn, e.ende, e.art, a.id as auftrag_id, a.nummer, coalesce(a.titel, e.titel) as titel, a.objekt_id,
 					o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
 					k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
-					k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort,
+					k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, k.id as kunde_id, k.bevorzugter_kontakt as kunde_kontaktweg,
 					a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort
 				from app.einsaetze e
 				left join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
@@ -99,7 +113,10 @@ export async function tagesplan(
 				titel: t.auftrag_id ? `${t.titel} – ${kundeNameAus(t)}` : `📌 ${t.titel}`,
 				ort: t.auftrag_id ? ortAus(t) : null,
 				link: t.auftrag_id ? `/auftraege/${t.auftrag_id}` : `/plantafel?ansicht=tag&tag=${tag}`,
-				ueberfaellig: false
+				ueberfaellig: false,
+				einsatzId: t.id,
+				kundeImBestand: !!t.kunde_id,
+				kontaktweg: t.kunde_kontaktweg ?? null
 			};
 		});
 		const zuTodo = (t: Record<string, any>): PlanEintrag => ({

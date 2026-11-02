@@ -171,7 +171,7 @@
 		<p class="lf-zahl" data-testid="leitfaden-fortschritt">{stand_.erledigt} von {stand_.gesamt} erledigt{fehlend.length ? ` · ${fehlend.length} Pflicht offen` : ''}</p>
 		{#if ohneNetz || ops.length > 0}
 			<p class="lf-netz" role="status" data-testid="leitfaden-wartet">
-				{#if ohneNetz}Kein Netz – {/if}{ops.length} {ops.length === 1 ? 'Eingabe wartet' : 'Eingaben warten'} auf das Senden{ohneNetz ? ' und gehen automatisch raus, sobald wieder Netz da ist.' : ' …'}
+				{`${ohneNetz ? 'Kein Netz – ' : ''}${ops.length} ${ops.length === 1 ? 'Eingabe wartet' : 'Eingaben warten'} auf das Senden${ohneNetz ? ` und ${ops.length === 1 ? 'geht' : 'gehen'} automatisch raus, sobald wieder Netz da ist.` : ' …'}`}
 			</p>
 		{/if}
 		{#if server.status !== 'offen'}
@@ -206,9 +206,11 @@
 					{#if !sicht.kunde}
 						<p class="kd-info">Der Auftrag hat keinen Kunden aus der Kundendatenbank.</p>
 					{:else if s.feld === 'bevorzugter_kontakt'}
+						<div class="lf-kw">
 						<Segmente label={s.titel} wert={istKontaktweg(vorhanden) ? vorhanden : ''} optionen={KONTAKTWEG_OPTIONEN} onchange={(w) => !fertig && eingeben(s, w)}>
 							{#snippet symbol(w)}<KontaktwegSymbol weg={istKontaktweg(w) ? w : ''} groesse={15} />{/snippet}
 						</Segmente>
+						</div>
 					{:else if s.feld === 'adresse'}
 						{@const a = adresse()}
 						<form class="lf-adresse" onsubmit={(ev) => { ev.preventDefault(); const f = new FormData(ev.currentTarget); eingeben(s, { strasse: f.get('strasse'), plz: f.get('plz'), ort: f.get('ort') }); }}>
@@ -468,5 +470,21 @@
 	}
 	.lf-fuss .kd-knopf {
 		justify-self: stretch;
+	}
+	.lf-kw :global(.seg-teil) {
+		gap: 0.35rem;
+	}
+	/* Handy: vier Wege als 2 × 2-Raster wie im Kundenformular (kein Querscrollen) */
+	@media (max-width: 480px) {
+		:global(html body) .lf-kw :global(.seg) {
+			display: grid !important;
+			grid-template-columns: 1fr 1fr;
+			height: auto !important;
+			border-radius: 1.4rem !important;
+		}
+		:global(html body) .lf-kw :global(.seg .seg-teil) {
+			height: 2.5rem !important;
+			padding: 0 0.5rem !important;
+		}
 	}
 </style>

@@ -122,3 +122,12 @@ begin
 end $$;
 create trigger leitfaden_durchlaeufe_benachrichtigen after update of status on app.leitfaden_durchlaeufe
 	for each row execute function app.benachrichtige_leitfaden();
+
+-- Wird ein Leitfaden gelöscht (z. B. mit seinem Auftrag), verschwinden auch seine Hinweise (der Link führte ins Leere).
+create function app.leitfaden_benachrichtigungen_aufraeumen() returns trigger language plpgsql set search_path = app, pg_temp as $$
+begin
+	delete from app.benachrichtigungen where betrieb_id = old.betrieb_id and schluessel = 'leitfaden:' || old.id;
+	return old;
+end $$;
+create trigger leitfaden_durchlaeufe_aufraeumen after delete on app.leitfaden_durchlaeufe
+	for each row execute function app.leitfaden_benachrichtigungen_aufraeumen();

@@ -119,6 +119,15 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 			const gewaehlt = url.searchParams.get('person');
 			const person = gewaehlt && personen.some((p) => p.id === gewaehlt) ? gewaehlt : nutzer.id;
 			plan = await tagesplan(k, nutzer, person, zeitraumTage('heute', berlinTag(jetzt)), { jetzt });
+			// Leitfaden beim Termin (Jamil msgs 4302/4304, 4340) und Kontaktweg (4337) direkt an den Terminen des Tagesplans
+			const lfPlan = await leitfaedenFuerTermine(k, nutzer, plan.termine.map((t) => t.einsatzId).filter((x): x is string => !!x));
+			plan = {
+				...plan,
+				termine: plan.termine.map((t) => {
+					const l = t.einsatzId ? lfPlan.get(t.einsatzId) : undefined;
+					return l ? { ...t, leitfaden: { status: l.status, erledigt: l.fortschritt.erledigt, gesamt: l.fortschritt.gesamt, name: l.name } } : t;
+				})
+			};
 		}
 	}
 	return {

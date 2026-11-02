@@ -131,42 +131,50 @@ export type SendeErgebnis = {
 
 let laeuft: Promise<SendeErgebnis> | null = null;
 
-/** Schickt den Ausgang der Reihe nach. Läuft schon ein Senden, wartet der Aufruf darauf (nie doppelt parallel). */
+/**
+ * Schickt den Ausgang der Reihe nach. Läuft schon ein Senden, bekommt der Aufruf dasselbe Ergebnis (nie doppelt
+ * parallel). Das Zurücksetzen läuft in `finally` NACH der Zuweisung (sonst bliebe ein sofort fertiges Senden hängen).
+ */
 export function senden(holen: typeof fetch = fetch): Promise<SendeErgebnis> {
 	if (laeuft) return laeuft;
-	laeuft = (async () => {
-		const ergebnis: SendeErgebnis = { gesendet: 0, offline: false, staende: new Map(), fehler: [] };
+	const p: Promise<SendeErgebnis> = sendeAlles(holen).finally(() => {
+		if (laeuft === p) laeuft = null;
+	});
+	laeuft = p;
+	return p;
+}
+
+async function sendeAlles(holen: typeof fetch): Promise<SendeErgebnis> {
+	const ergebnis: SendeErgebnis = { gesendet: 0, offline: false, staende: new Map(), fehler: [] };
+	// Gerät meldet „kein Netz“: gar nicht erst versuchen (sonst hängt die Anfrage je nach Browser lange)
+	if (typeof navigator !== 'undefined' && navigator.onLine === false && lies().warteschlange.length > 0) return { ...ergebnis, offline: true };
+	for (;;) {
+		const op = lies().warteschlange[0];
+		if (!op) break;
+		let r: Response;
 		try {
-			for (;;) {
-				const op = lies().warteschlange[0];
-				if (!op) break;
-				let r: Response;
-				try {
-					const { url, init } = anfrage(op);
-					r = await holen(url, init);
-				} catch {
-					ergebnis.offline = true;
-					break;
-				}
-				if (r.ok) {
-					ergebnis.staende.set(op.einsatzId, await r.json().catch(() => null));
-					entferne(op.opId);
-					ergebnis.gesendet++;
-					continue;
-				}
-				// Nicht angemeldet, Server überlastet/kaputt: später nochmal (nichts verwerfen)
-				if (r.status === 401 || r.status === 408 || r.status === 429 || r.status >= 500) {
-					ergebnis.offline = true;
-					break;
-				}
-				const meldung = ((await r.json().catch(() => null)) as { fehler?: string } | null)?.fehler ?? `Fehler ${r.status}`;
-				entferne(op.opId, meldung);
-				ergebnis.fehler.push({ op, meldung });
-			}
-		} finally {
-			laeuft = null;
+			const { url, init } = anfrage(op);
+			// Funkloch: nach 30 s aufgeben und später nochmal (die Eingabe bleibt im Ausgang)
+			const abbruch = typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(30_000) : undefined;
+			r = await holen(url, { ...init, signal: abbruch });
+		} catch {
+			ergebnis.offline = true;
+			break;
 		}
-		return ergebnis;
-	})();
-	return laeuft;
+		if (r.ok) {
+			ergebnis.staende.set(op.einsatzId, await r.json().catch(() => null));
+			entferne(op.opId);
+			ergebnis.gesendet++;
+			continue;
+		}
+		// Nicht angemeldet, Server überlastet/kaputt: später nochmal (nichts verwerfen)
+		if (r.status === 401 || r.status === 408 || r.status === 429 || r.status >= 500) {
+			ergebnis.offline = true;
+			break;
+		}
+		const meldung = ((await r.json().catch(() => null)) as { fehler?: string } | null)?.fehler ?? `Fehler ${r.status}`;
+		entferne(op.opId, meldung);
+		ergebnis.fehler.push({ op, meldung });
+	}
+	return ergebnis;
 }
