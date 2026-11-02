@@ -27,11 +27,17 @@
 	.kw-hilfe {
 		margin: 0.35rem 0 0;
 	}
-	/* Handy: vier Segmente passen ohne Querscrollen – weniger Innenabstand */
+	/* Handy: vier Segmente als 2 × 2-Raster – alles sichtbar, kein Querscrollen im Umschalter */
 	@media (max-width: 480px) {
+		:global(html body) .kw-wahl :global(.seg) {
+			display: grid !important;
+			grid-template-columns: 1fr 1fr;
+			height: auto !important;
+			border-radius: 1.4rem !important;
+		}
 		:global(html body) .kw-wahl :global(.seg .seg-teil) {
-			padding: 0 0.4rem !important;
-			gap: 0.25rem;
+			height: 2.5rem !important;
+			padding: 0 0.5rem !important;
 		}
 	}
 </style>
