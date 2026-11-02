@@ -1,3 +1,4 @@
+import type { Kontaktweg } from '../kontaktweg';
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { anzeigeName, likeMuster, sucheWoerter, textFeld, UUID } from './kunden';
@@ -46,6 +47,8 @@ export type Auftrag = {
 	einmalKunde: EinmalKunde | null;
 	/** Telefon für „Anrufen“: Kunde bzw. Einmal-Kunde (Objekte haben keine eigene Nummer). */
 	telefon: string | null;
+	/** Bevorzugter Kontaktweg des Kunden (Jamil msgs 4289/4291); null ohne Kunde oder ohne Angabe. */
+	kontaktweg: Kontaktweg | null;
 	objektId: string | null;
 	objektBezeichnung: string | null;
 	/** Anlage am Objekt (z. B. Wärmepumpe), für die der Auftrag ist – optional. */
@@ -253,7 +256,7 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anla
 	to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab, a.angelegt, a.geaendert,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
-	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, k.telefon as kunde_telefon,
+	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, k.telefon as kunde_telefon, k.bevorzugter_kontakt as kunde_kontaktweg,
 	a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort,
 	(select coalesce(json_agg(json_build_object('id', b.id, 'name', b.name) order by public.unaccent(lower(b.name)), b.id), '[]')
 		from app.auftrag_zustaendige z join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
@@ -313,6 +316,7 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 			? { name: z.einmal_name, telefon: z.einmal_telefon, email: z.einmal_email, strasse: z.einmal_strasse, plz: z.einmal_plz, ort: z.einmal_ort }
 			: null,
 		telefon: z.kunde_telefon ?? z.einmal_telefon ?? null,
+		kontaktweg: z.kunde_kontaktweg ?? null,
 		objektId: z.objekt_id,
 		objektBezeichnung: z.objekt_bezeichnung ?? null,
 		anlageId: z.anlage_id ?? null,

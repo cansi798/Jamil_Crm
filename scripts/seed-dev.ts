@@ -58,6 +58,8 @@ type Kunde = {
 	plz?: string;
 	ort?: string;
 	notiz?: string;
+	/** Bevorzugter Kontaktweg (Migration 115) – Beispielwerte, ein Kunde bleibt ohne Angabe */
+	bevorzugter_kontakt?: 'email' | 'chat' | 'telefon';
 };
 
 const KUNDEN: Kunde[] = [
@@ -69,7 +71,8 @@ const KUNDEN: Kunde[] = [
 		telefon: '089 1234567',
 		strasse: 'Hauptstraße 5',
 		plz: '80331',
-		ort: 'München'
+		ort: 'München',
+		bevorzugter_kontakt: 'telefon'
 	},
 	{
 		art: 'privat',
@@ -80,7 +83,8 @@ const KUNDEN: Kunde[] = [
 		strasse: 'Königsweg 12',
 		plz: '90402',
 		ort: 'Nürnberg',
-		notiz: 'Schlüssel liegt bei der Nachbarin (Erdgeschoss links).'
+		notiz: 'Schlüssel liegt bei der Nachbarin (Erdgeschoss links).',
+		bevorzugter_kontakt: 'email'
 	},
 	{
 		art: 'firma',
@@ -90,7 +94,8 @@ const KUNDEN: Kunde[] = [
 		telefon: '0221 987654',
 		strasse: 'Domstraße 3',
 		plz: '50668',
-		ort: 'Köln'
+		ort: 'Köln',
+		bevorzugter_kontakt: 'chat'
 	},
 	{
 		art: 'firma',
@@ -108,7 +113,8 @@ const KUNDEN: Kunde[] = [
 		telefon: '0451 445566',
 		strasse: 'Fischergrube 21',
 		plz: '23552',
-		ort: 'Lübeck'
+		ort: 'Lübeck',
+		bevorzugter_kontakt: 'telefon'
 	}
 ];
 
@@ -674,16 +680,23 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			let neueKunden = 0;
 			for (const k of KUNDEN) {
 				const [da] = await tx`
-					select 1 from app.kunden
+					select id, bevorzugter_kontakt from app.kunden
 					where betrieb_id = ${betrieb.id} and art = ${k.art}
 						and coalesce(firma, '') = ${k.firma ?? ''} and coalesce(nachname, '') = ${k.nachname ?? ''}
 						and coalesce(vorname, '') = ${k.vorname ?? ''}`;
-				if (da) continue;
+				if (da) {
+					// ältere Entwicklungsdaten: Beispiel-Kontaktweg nachtragen, eine eigene Angabe nie überschreiben
+					if (k.bevorzugter_kontakt && da.bevorzugter_kontakt === null) {
+						await tx`update app.kunden set bevorzugter_kontakt = ${k.bevorzugter_kontakt} where id = ${da.id}`;
+					}
+					continue;
+				}
 				await tx`
-					insert into app.kunden (betrieb_id, art, firma, anrede, vorname, nachname, email, telefon, strasse, plz, ort, notiz)
+					insert into app.kunden (betrieb_id, art, firma, anrede, vorname, nachname, email, telefon, strasse, plz, ort, notiz,
+						bevorzugter_kontakt)
 					values (${betrieb.id}, ${k.art}, ${k.firma ?? null}, ${k.anrede ?? null}, ${k.vorname ?? null},
 						${k.nachname ?? null}, ${k.email ?? null}, ${k.telefon ?? null}, ${k.strasse ?? null},
-						${k.plz ?? null}, ${k.ort ?? null}, ${k.notiz ?? null})`;
+						${k.plz ?? null}, ${k.ort ?? null}, ${k.notiz ?? null}, ${k.bevorzugter_kontakt ?? null})`;
 				neueKunden++;
 			}
 			const planung = await sichereBeispielplanung(tx, betrieb.id);

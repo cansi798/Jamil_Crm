@@ -8,6 +8,8 @@
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import KundenHinweise from '$lib/components/KundenHinweise.svelte';
+	import KontaktwegChip from '$lib/components/KontaktwegChip.svelte';
+	import { KONTAKTWEGE, KONTAKTWEG_NAMEN } from '$lib/kontaktweg';
 
 	let { data }: { data: PageData } = $props();
 
@@ -20,6 +22,7 @@
 		const g = o.gruppe === undefined ? data.gruppe : o.gruppe;
 		if (g) p.set('gruppe', g);
 		if (data.sortierung !== 'name') p.set('sortierung', data.sortierung);
+		if (data.kontakt) p.set('kontakt', data.kontakt);
 		const q = p.toString();
 		return q ? `/kunden?${q}` : '/kunden';
 	};
@@ -67,9 +70,18 @@
 						{#each data.sortierungen as s (s.wert)}<option value={s.wert} selected={data.sortierung === s.wert}>{s.text}</option>{/each}
 					</Auswahl>
 				</label>
-				{#if data.zeitraum !== 'monat'}<input type="hidden" name="zeitraum" value={data.zeitraum} />{/if}
-				{#if data.gruppe}<input type="hidden" name="gruppe" value={data.gruppe} />{/if}
 			{/if}
+			<!-- Filter „Bevorzugter Kontaktweg“ (Jamil msgs 4289/4291) -->
+			<label class="kl-sort">
+				<span class="kl-sort-text">Kontaktweg</span>
+				<Auswahl name="kontakt" value={data.kontakt ?? ''} onchange={(ev) => ev.currentTarget.form?.requestSubmit()} data-testid="kontaktweg-filter">
+					<option value="" selected={!data.kontakt}>Alle</option>
+					{#each KONTAKTWEGE as w (w)}<option value={w} selected={data.kontakt === w}>{KONTAKTWEG_NAMEN[w]}</option>{/each}
+					<option value="ohne" selected={data.kontakt === 'ohne'}>Keine Angabe</option>
+				</Auswahl>
+			</label>
+			{#if data.zeitraum !== 'monat'}<input type="hidden" name="zeitraum" value={data.zeitraum} />{/if}
+			{#if data.gruppe}<input type="hidden" name="gruppe" value={data.gruppe} />{/if}
 		{/snippet}
 		{#snippet rechts()}
 			<span class="kd-info">{data.kunden.length} {data.kunden.length === 1 ? 'Kunde' : 'Kunden'}</span>
@@ -89,12 +101,13 @@
 					<Avatar name={kunde.name} groesse={34} />
 					<strong>{kunde.name}</strong>
 					{#if zeile(kunde)}<span class="kd-info">{zeile(kunde)}</span>{/if}
+					{#if kunde.bevorzugter_kontakt}<span class="ah kl-kontakt"><KontaktwegChip weg={kunde.bevorzugter_kontakt} /></span>{/if}
 					<KundenHinweise info={kunde.info} />
 				</a>
 			</li>
 		{:else}
 			<li class="kd-leer">
-				<span>{data.suche ? 'Keine Kunden gefunden. Anders schreiben oder nur einen Teil des Namens suchen.' : 'Noch keine Kunden angelegt.'}</span>
+				<span>{data.suche || data.kontakt ? 'Keine Kunden gefunden. Anders schreiben oder nur einen Teil des Namens suchen.' : 'Noch keine Kunden angelegt.'}</span>
 				{#if data.darfBearbeiten}<a href="/kunden/neu" class="kd-knopf hell">+ Kunde anlegen</a>{/if}
 			</li>
 		{/each}
@@ -111,6 +124,11 @@
 		align-items: center;
 		gap: 0.5rem;
 		font-size: var(--ui-schrift-s);
+	}
+	/* Kontaktweg-Abzeichen in der Textspalte wie die übrigen Abzeichen */
+	.kl-kontakt {
+		grid-column: 2;
+		margin-top: 0.15rem;
 	}
 	.kl-sort-text {
 		color: var(--ui-text-leise);

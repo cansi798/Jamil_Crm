@@ -7,6 +7,7 @@
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
+	import KontaktwegChip from '$lib/components/KontaktwegChip.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
@@ -104,16 +105,18 @@
 
 	<Abschnitt titel="Kontakt">
 		<dl class="kd-daten ka-kontakt">
+			<!-- Bevorzugter Kontaktweg (Jamil msgs 4289/4291) – als Abzeichen, beim passenden Feld zusätzlich „bevorzugt“ -->
+			<div data-testid="kontaktweg"><dt>Bevorzugter Kontaktweg</dt><dd><KontaktwegChip weg={k.bevorzugter_kontakt} kurz leer /></dd></div>
 			{#if k.art === 'firma' && ansprechpartner}
 				<div><dt>Ansprechpartner</dt><dd>{ansprechpartner}</dd></div>
 			{:else if k.art === 'privat' && k.anrede}
 				<div><dt>Anrede</dt><dd>{k.anrede}</dd></div>
 			{/if}
 			{#if k.telefon}
-				<div><dt>Telefon</dt><dd><a href={`tel:${k.telefon.replace(/[^0-9+]/g, '')}`}>{k.telefon}</a></dd></div>
+				<div><dt>Telefon</dt><dd><a href={`tel:${k.telefon.replace(/[^0-9+]/g, '')}`}>{k.telefon}</a>{#if k.bevorzugter_kontakt === 'telefon'} <span class="ka-bevorzugt">bevorzugt</span>{/if}</dd></div>
 			{/if}
 			{#if k.email}
-				<div><dt>E-Mail</dt><dd><a href={`mailto:${k.email}`}>{k.email}</a></dd></div>
+				<div><dt>E-Mail</dt><dd><a href={`mailto:${k.email}`}>{k.email}</a>{#if k.bevorzugter_kontakt === 'email'} <span class="ka-bevorzugt">bevorzugt</span>{/if}</dd></div>
 			{/if}
 			{#if adresse}
 				<div><dt>Adresse</dt><dd>{adresse}</dd></div>
@@ -525,6 +528,18 @@
 	}
 	.ka-breit {
 		grid-column: 1 / -1;
+	}
+	.ka-bevorzugt {
+		display: inline-block;
+		margin-left: 0.35rem;
+		padding: 0 0.4rem;
+		border-radius: 0.6rem;
+		background: #e8f1fb;
+		color: #0f4c81;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		line-height: 1.1rem;
+		vertical-align: middle;
 	}
 	.ka-notizen li,
 	.ka-dokumente li {

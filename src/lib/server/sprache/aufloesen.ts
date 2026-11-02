@@ -1,3 +1,4 @@
+import { istKontaktweg, KONTAKTWEG_NAMEN } from '../../kontaktweg';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { mitBetrieb, type Kontext } from '../db';
 import { ApiFehler } from '../fehler';
@@ -244,6 +245,7 @@ async function kundeAnlegen(k: Kontext, d: Extract<KiAktion, { aktion: 'kunde_an
 	if (adresse) bau.zeilen.push({ label: 'Adresse', wert: adresse });
 	if (w.telefon) bau.zeilen.push({ label: 'Telefon', wert: w.telefon });
 	if (w.email) bau.zeilen.push({ label: 'E-Mail', wert: w.email });
+	if (istKontaktweg(w.bevorzugter_kontakt)) bau.zeilen.push({ label: 'Bevorzugter Kontaktweg', wert: KONTAKTWEG_NAMEN[w.bevorzugter_kontakt] });
 	const suchname = d.art === 'firma' ? d.firma : d.nachname;
 	if (suchname) {
 		const vorhanden = (await findeKunden(k, suchname)).treffer;

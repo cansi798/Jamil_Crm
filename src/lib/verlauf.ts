@@ -1,4 +1,5 @@
 import { STATUS_NAMEN } from './auftrag-status';
+import { KONTAKTWEG_NAMEN } from './kontaktweg';
 
 /**
  * Aufbereitung von Einträgen des Änderungsprotokolls für die Anzeige („Verlauf“). Reine Funktionen ohne Serverbezug.
@@ -37,6 +38,7 @@ const FELDNAMEN: Record<string, string> = {
 	plz: 'PLZ',
 	ort: 'Ort',
 	notiz: 'Notiz',
+	bevorzugter_kontakt: 'Bevorzugter Kontaktweg',
 	bezeichnung: 'Bezeichnung',
 	titel: 'Titel',
 	status: 'Status',
@@ -46,7 +48,8 @@ const FELDNAMEN: Record<string, string> = {
 
 const WERTNAMEN: Record<string, Record<string, string>> = {
 	art: { privat: 'Privatkunde', firma: 'Firmenkunde' },
-	status: STATUS_NAMEN
+	status: STATUS_NAMEN,
+	bevorzugter_kontakt: KONTAKTWEG_NAMEN
 };
 
 /** Zusatz hinter dem Namen je Herkunft (Sprache, KI, Handy-Abgleich per CalDAV). */

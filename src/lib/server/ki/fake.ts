@@ -664,6 +664,14 @@ function kunde(t: string): { aktion: string; daten: Record<string, unknown> } {
 		daten.telefon = tel[1].trim();
 		rest = rest.replace(tel[0], ' ');
 	}
+	// Bevorzugter Kontaktweg (Jamil msgs 4289/4291): „bevorzugt per WhatsApp“, „möchte lieber angerufen werden“, „Kontakt per E-Mail“
+	const weg = /\b(?:bevorzugt(?:er\s+kontaktweg)?|kontakt(?:weg)?|am\s+liebsten|lieber|möchte|will)\b[^,.]*?\b(e-?mail|mail|chat|whatsapp|nachrichten?|telefonisch|telefon|anrufen|anruf|angerufen)\b(?:\s+werden)?/i.exec(rest);
+	if (weg) {
+		const w = weg[1].toLowerCase();
+		daten.bevorzugter_kontakt = /mail/.test(w) ? 'email' : /chat|whatsapp|nachricht/.test(w) ? 'chat' : 'telefon';
+		// „Leg Kunde Brandt an, möchte lieber angerufen werden“: das „an“ steht jetzt am Ende
+		rest = rest.replace(weg[0], ' ').replace(/\s+an\s*[,.!]?\s*$/i, '');
+	}
 	const strasse = /\b([A-ZÄÖÜ][\wäöüß-]*(?:straße|strasse|str\.|weg|allee|platz|ring|damm|gasse|chaussee))\s+(\d+\s?[a-z]?)\b/i.exec(rest);
 	if (strasse) {
 		daten.strasse = `${strasse[1]} ${strasse[2]}`;

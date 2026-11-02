@@ -8,12 +8,14 @@ import { istKundenGruppe, kundenIdsFuer, kundenKennzahlen, siehtKennzahlen, type
 import { istZeitraumArt, zeitraum } from '$lib/kennzahlen';
 import { berlinTag } from '$lib/zeit';
 import { kundenZeilenInfo } from '$lib/server/kunden-zeilen';
+import { kontaktwegFilter } from '$lib/kontaktweg';
 import { erlaubteSortierungen, sortierungAus, type KundenZeilenRechte } from '$lib/kunden-zeilen';
 
 /**
  * Kundenliste mit Suche (`?suche=`): höchstens 50 Treffer, nach Name sortiert. Zu lange Suche wird gekürzt (R19).
  * Kennzahl-Kacheln (Jamil msg 2799, nur mit „Alle Aufträge ansehen“): Zeitraum `?zeitraum=`, Klick auf eine Kachel
  * filtert die Liste (`?gruppe=aktiv|angenommen|abgelehnt|abgelaufen`).
+ * Filter „Bevorzugter Kontaktweg“ (Jamil msgs 4289/4291): `?kontakt=email|chat|telefon|ohne` – für alle mit Leserecht.
  */
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const k = await seitenZugriff(locals, 'kunden', 'kunden.lesen');
@@ -35,19 +37,21 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		portal: alleAuftraege && module.includes('kundenportal') && hatRecht(nutzer, 'kundenportal.verwalten')
 	};
 	const sortierung = sortierungAus(url.searchParams.get('sortierung'), rechte);
+	const kontakt = kontaktwegFilter(url.searchParams.get('kontakt'));
 	const [kennzahlen, ids] = await alsSeitenFehler(() =>
 		Promise.all([
 			mitKennzahlen ? kundenKennzahlen(k, sicht, z, { angebote }) : Promise.resolve(null as KundenKennzahlen | null),
 			gruppe ? kundenIdsFuer(k, sicht, z, gruppe) : Promise.resolve(null)
 		])
 	);
-	const kunden = await alsSeitenFehler(() => listeKunden(k, suche, { sortierung, nurIds: ids ? [...ids] : null }));
+	const kunden = await alsSeitenFehler(() => listeKunden(k, suche, { sortierung, nurIds: ids ? [...ids] : null, kontaktweg: kontakt }));
 	const info = await alsSeitenFehler(() => kundenZeilenInfo(k, kunden.map((x) => x.id), rechte));
 	return {
 		suche,
 		kunden: kunden.map((x) => ({ ...x, info: info.get(x.id) ?? null })),
 		rechte,
 		sortierung,
+		kontakt,
 		sortierungen: erlaubteSortierungen(rechte).map(({ wert, text }) => ({ wert, text })),
 		maxTreffer: MAX_TREFFER,
 		darfBearbeiten: hatRecht(nutzer, 'kunden.bearbeiten'),

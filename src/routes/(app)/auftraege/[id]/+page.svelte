@@ -19,6 +19,7 @@
 	import AuftragUnterlagen from '$lib/components/AuftragUnterlagen.svelte';
 	import { anzeigeDateiname } from '$lib/dateiname';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
+	import KontaktwegChip from '$lib/components/KontaktwegChip.svelte';
 	import AuftragPartner from '$lib/components/AuftragPartner.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
@@ -568,6 +569,7 @@
 						<dd>
 								{#if a.kundeArt === 'kunde'}
 									{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
+									{#if a.kontaktweg}<span class="af-kontaktweg"><KontaktwegChip weg={a.kontaktweg} /></span>{/if}
 									{#if data.portal && a.kundeId && !data.portal.kundeLinkUrl}
 										<!-- Kein (öffnebarer) Portal-Link (msg 3050): zur Verwaltung beim Kunden – hier wird nichts erzeugt -->
 										<span class="af-portal-kurz" data-testid="kunde-portal">
@@ -1323,4 +1325,9 @@
 	.af-portal-ohne { font-weight: 400; }
 	#auftragsbestaetigung { display: grid; gap: var(--ui-a2); margin-top: var(--ui-a2); }
 	#auftragsbestaetigung > p { margin: 0; }
+	/* Bevorzugter Kontaktweg des Kunden (Jamil msgs 4289/4291) unter dem Namen */
+	.af-kontaktweg {
+		display: flex;
+		margin-top: 0.3rem;
+	}
 </style>

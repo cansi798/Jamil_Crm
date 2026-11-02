@@ -48,6 +48,25 @@ describe('FakeKi (regelbasiert)', () => {
 		expect(await ki.aktionAusText('Wie wird das Wetter morgen?', kontext)).toEqual({ aktion: 'unbekannt', daten: {} });
 	});
 
+	it('Kunde mit bevorzugtem Kontaktweg (Jamil msgs 4289/4291)', async () => {
+		expect(await ki.aktionAusText('Neuer Kunde Eva Schulz aus Hamburg, bevorzugt per WhatsApp', kontext)).toEqual({
+			aktion: 'kunde_anlegen',
+			daten: { art: 'privat', vorname: 'Eva', nachname: 'Schulz', ort: 'Hamburg', bevorzugter_kontakt: 'chat' }
+		});
+		expect((await ki.aktionAusText('Lege Kunde Herr Peter Brandt an, möchte lieber angerufen werden', kontext)).daten).toMatchObject({
+			anrede: 'Herr',
+			vorname: 'Peter',
+			nachname: 'Brandt',
+			bevorzugter_kontakt: 'telefon'
+		});
+		expect((await ki.aktionAusText('Neuer Kunde Firma Holzbau Nord GmbH, Kontakt per E-Mail', kontext)).daten).toMatchObject({
+			art: 'firma',
+			firma: 'Holzbau Nord GmbH',
+			bevorzugter_kontakt: 'email'
+		});
+		expect((await ki.aktionAusText('Neuer Kunde Eva Schulz aus Hamburg', kontext)).daten).not.toHaveProperty('bevorzugter_kontakt');
+	});
+
 	it('Zeiten: Uhrzeiten und Tage', () => {
 		expect(findeUhrzeiten('um halb neun').map((u) => u.uhrzeit)).toEqual(['08:30']);
 		expect(findeUhrzeiten('um 14:30 Uhr').map((u) => u.uhrzeit)).toEqual(['14:30']);

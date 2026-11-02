@@ -1,5 +1,6 @@
 import { mitBetrieb, type Kontext } from './db';
 import { ApiFehler } from './fehler';
+import { istKontaktweg, type Kontaktweg, type KontaktwegFilter } from '../kontaktweg';
 
 /**
  * Fachlogik für Kunden und Objekte, gemeinsam genutzt von der API (`/api/kunden`) und den Seiten unter `/kunden`.
@@ -23,6 +24,8 @@ export type Kunde = {
 	plz: string | null;
 	ort: string | null;
 	notiz: string | null;
+	/** Bevorzugter Kommunikationsweg (Jamil msgs 4289/4291); null = keine Angabe. */
+	bevorzugter_kontakt: Kontaktweg | null;
 	angelegt: string;
 	geaendert: string;
 	/** Anzeigename: Firmenname bzw. „Vorname Nachname“. */
@@ -66,10 +69,10 @@ const OBJEKT_TEXTE = {
 type KundeFeld = keyof typeof KUNDE_TEXTE;
 type ObjektFeld = keyof typeof OBJEKT_TEXTE;
 
-export type KundeWerte = { art: KundenArt } & Record<KundeFeld, string | null>;
+export type KundeWerte = { art: KundenArt; bevorzugter_kontakt: Kontaktweg | null } & Record<KundeFeld, string | null>;
 export type ObjektWerte = Record<ObjektFeld, string | null>;
 
-export const KUNDE_FELDER = ['art', ...Object.keys(KUNDE_TEXTE)] as (keyof KundeWerte)[];
+export const KUNDE_FELDER = ['art', ...Object.keys(KUNDE_TEXTE), 'bevorzugter_kontakt'] as (keyof KundeWerte)[];
 export const OBJEKT_FELDER = Object.keys(OBJEKT_TEXTE) as ObjektFeld[];
 
 export const SUCHE_MAX_ZEICHEN = 100;
@@ -105,6 +108,15 @@ export function textFeld(wert: unknown, beschriftung: string, max: number): stri
 	return text;
 }
 
+/** Bevorzugter Kontaktweg: fehlt/leer → null (keine Angabe), sonst genau „email“, „chat“ oder „telefon“. */
+function kontaktwegFeld(wert: unknown): Kontaktweg | null {
+	if (wert === undefined || wert === null || wert === '') return null;
+	if (!istKontaktweg(wert)) {
+		throw new ApiFehler(400, 'Bevorzugter Kontaktweg: Bitte „E-Mail“, „Chat“, „Telefon“ oder „Keine Angabe“ wählen.');
+	}
+	return wert;
+}
+
 /** Anzeigename eines Kunden. */
 export function anzeigeName(k: Pick<Kunde, 'art' | 'firma' | 'vorname' | 'nachname'>): string {
 	if (k.art === 'firma') return k.firma ?? '';
@@ -128,6 +140,7 @@ export function pruefeKundeEingabe(eingabe: Record<string, unknown>): KundeWerte
 	if (werte.email !== null && !EMAIL.test(werte.email)) {
 		throw new ApiFehler(400, 'Die E-Mail-Adresse ist ungültig.');
 	}
+	werte.bevorzugter_kontakt = kontaktwegFeld(eingabe.bevorzugter_kontakt);
 	if (art === 'privat') {
 		werte.firma = null;
 		if (werte.nachname === null) throw new ApiFehler(400, 'Bei Privatkunden ist der Nachname erforderlich.');
@@ -162,7 +175,7 @@ export function sucheWoerter(suche: string | null | undefined): string[] {
 }
 
 const SPALTEN_KUNDE = `id, art, firma, anrede, vorname, nachname, email::text as email, telefon, strasse, plz, ort, notiz,
-	angelegt, geaendert`;
+	bevorzugter_kontakt, angelegt, geaendert`;
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
 
@@ -180,6 +193,7 @@ function zuKunde(z: Record<string, any>): Kunde {
 		plz: z.plz,
 		ort: z.ort,
 		notiz: z.notiz,
+		bevorzugter_kontakt: z.bevorzugter_kontakt ?? null,
 		angelegt: iso(z.angelegt),
 		geaendert: iso(z.geaendert)
 	};
@@ -222,6 +236,8 @@ export type KundenListeOptionen = {
 	sortierung?: string;
 	/** nur diese Kunden (Filter der Kennzahl-Kacheln) – vor der Begrenzung auf 50, damit keine Treffer verloren gehen */
 	nurIds?: string[] | null;
+	/** nur Kunden mit diesem bevorzugten Kontaktweg bzw. ohne Angabe („ohne“) – Filter `?kontakt=` */
+	kontaktweg?: KontaktwegFilter | null;
 };
 
 export function listeKunden(k: Kontext, suche?: string | null, o: KundenListeOptionen = {}): Promise<Kunde[]> {
@@ -250,6 +266,7 @@ export function listeKunden(k: Kontext, suche?: string | null, o: KundenListeOpt
 					)
 				)
 				${o.nurIds ? tx`and id = any(${o.nurIds}::uuid[])` : tx``}
+				${o.kontaktweg === 'ohne' ? tx`and bevorzugter_kontakt is null` : o.kontaktweg ? tx`and bevorzugter_kontakt = ${o.kontaktweg}` : tx``}
 			order by ${tx.unsafe(sortierung)} public.unaccent(lower(case when art = 'firma' then firma else nachname end)),
 				public.unaccent(lower(coalesce(vorname, ''))), id
 			limit ${MAX_TREFFER}`;
@@ -271,9 +288,10 @@ export function legeKundeAn(k: Kontext, eingabe: Record<string, unknown>): Promi
 	const w = pruefeKundeEingabe(eingabe);
 	return mitBetrieb(k, async (tx) => {
 		const [z] = await tx`
-			insert into app.kunden (betrieb_id, art, firma, anrede, vorname, nachname, email, telefon, strasse, plz, ort, notiz)
+			insert into app.kunden (betrieb_id, art, firma, anrede, vorname, nachname, email, telefon, strasse, plz, ort, notiz,
+				bevorzugter_kontakt)
 			values (${k.betriebId}, ${w.art}, ${w.firma}, ${w.anrede}, ${w.vorname}, ${w.nachname}, ${w.email},
-				${w.telefon}, ${w.strasse}, ${w.plz}, ${w.ort}, ${w.notiz})
+				${w.telefon}, ${w.strasse}, ${w.plz}, ${w.ort}, ${w.notiz}, ${w.bevorzugter_kontakt})
 			returning ${tx.unsafe(SPALTEN_KUNDE)}`;
 		return zuKunde(z);
 	});
@@ -292,7 +310,7 @@ export function aendereKunde(k: Kontext, id: string, eingabe: Record<string, unk
 		const [z] = await tx`
 			update app.kunden set art = ${w.art}, firma = ${w.firma}, anrede = ${w.anrede}, vorname = ${w.vorname},
 				nachname = ${w.nachname}, email = ${w.email}, telefon = ${w.telefon}, strasse = ${w.strasse},
-				plz = ${w.plz}, ort = ${w.ort}, notiz = ${w.notiz}
+				plz = ${w.plz}, ort = ${w.ort}, notiz = ${w.notiz}, bevorzugter_kontakt = ${w.bevorzugter_kontakt}
 			where id = ${id} and betrieb_id = ${k.betriebId}
 			returning ${tx.unsafe(SPALTEN_KUNDE)}`;
 		return zuKunde(z);

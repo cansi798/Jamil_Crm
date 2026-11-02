@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Segmente from '$lib/components/ui/Segmente.svelte';
+	import KontaktwegWahl from '$lib/components/KontaktwegWahl.svelte';
 	import { enhance } from '$app/forms';
 
 	/** Formular für Kunden (Neu und Bearbeiten). Die Seite liefert Werte und Fehler aus `load` bzw. der Aktion. */
@@ -75,6 +76,8 @@
 		E-Mail
 		<input type="email" name="email" maxlength="200" value={werte.email ?? ''} autocomplete="email" />
 	</label>
+
+	<KontaktwegWahl wert={werte.bevorzugter_kontakt ?? ''} />
 
 	<label>
 		Straße und Hausnummer

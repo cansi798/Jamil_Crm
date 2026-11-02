@@ -222,6 +222,16 @@ describe('seed-dev', () => {
 		expect(kunden.some((k) => /[äöüÄÖÜß]/.test(k.name))).toBe(true);
 	});
 
+	it('Beispielkunden mit bevorzugtem Kontaktweg (E-Mail, Chat, Telefon) und einer ohne Angabe', async () => {
+		const z = await sql`select bevorzugter_kontakt as w, count(*)::int as n from app.kunden group by 1 order by 1 nulls last`;
+		expect(z).toEqual([
+			{ w: 'chat', n: 1 },
+			{ w: 'email', n: 1 },
+			{ w: 'telefon', n: 2 },
+			{ w: null, n: 1 }
+		]);
+	});
+
 	describe('läuft nur in der Entwicklungs-Sandbox', () => {
 		it('pruefeSandbox: NODE_ENV=production oder fremde Datenbank → Meldung, sonst null', () => {
 			expect(pruefeSandbox({ PGDATABASE: 'crm' }, [])).toBeNull();

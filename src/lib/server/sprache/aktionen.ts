@@ -94,6 +94,8 @@ export type KundeDaten = {
 	strasse?: string;
 	plz?: string;
 	ort?: string;
+	/** Bevorzugter Kontaktweg (Jamil msgs 4289/4291) – nur wenn gesagt */
+	bevorzugter_kontakt?: 'email' | 'chat' | 'telefon';
 };
 export type AuftragDaten = {
 	titel: string;
@@ -267,7 +269,12 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 			email: text(200, 'E-Mail-Adresse'),
 			strasse: text(200, 'Straße und Hausnummer'),
 			plz: text(20, 'Postleitzahl'),
-			ort: text(200, 'Ort')
+			ort: text(200, 'Ort'),
+			bevorzugter_kontakt: {
+				type: 'string',
+				enum: ['email', 'chat', 'telefon'],
+				description: 'Wie der Kunde am liebsten erreicht werden will (E-Mail, Chat/WhatsApp/Nachricht, Telefon/Anruf) – nur wenn genannt'
+			}
 		},
 		required: ['art'],
 		additionalProperties: false
