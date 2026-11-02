@@ -21,6 +21,7 @@
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import KontaktwegChip from '$lib/components/KontaktwegChip.svelte';
 	import { KONTAKTWEG_OPTIONEN } from '$lib/kontaktweg';
+	import { STATUS_NAMEN as LF_STATUS, kundenWert, kundenWertText, type AufgabeWert } from '$lib/leitfaden';
 	import AuftragPartner from '$lib/components/AuftragPartner.svelte';
 	import QuelleChip from '$lib/components/ui/QuelleChip.svelte';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
@@ -387,6 +388,12 @@
 									· {e.benutzerName}
 								</span>
 								{#if e.notiz}<span class="kd-info">{e.notiz}</span>{/if}
+								{#if data.leitfaeden.find((l) => l.einsatzId === e.id)}
+									{@const l = data.leitfaeden.find((x) => x.einsatzId === e.id)!}
+									<a href="#leitfaden" class={`ah-chip ${l.status === 'abgeschlossen' ? 'gut' : l.status === 'mit_begruendung' ? 'warnung' : 'leise'}`} data-testid="termin-leitfaden">
+										Leitfaden: {l.status === 'offen' ? `${l.fortschritt.erledigt}/${l.fortschritt.gesamt}` : LF_STATUS[l.status]}
+									</a>
+								{/if}
 							</li>
 						{:else}
 							<li class="kd-leer">Noch keine Termine geplant.</li>
@@ -394,6 +401,49 @@
 					</ul>
 				</Karte>
 			</div>
+
+			{#if data.leitfaeden.length > 0}
+				<!-- Leitfaden beim Termin (Jamil msgs 4302/4304, 4340): nur lesen – eingetragen wird auf der EINEN Fläche -->
+				<div class="af-k k-leitfaden" id="leitfaden" data-testid="auftrag-leitfaden">
+					<Karte>
+						{#snippet titel()}Leitfaden{/snippet}
+						{#each data.leitfaeden as l (l.id)}
+							<div class="af-lf">
+								<p class="af-lf-kopf">
+									<strong>{l.name}</strong>
+									<span class={`ah-chip ${l.status === 'abgeschlossen' ? 'gut' : l.status === 'mit_begruendung' ? 'warnung' : 'leise'}`}>
+										{l.status === 'offen' ? `offen · ${l.fortschritt.erledigt}/${l.fortschritt.gesamt}` : LF_STATUS[l.status]}
+									</span>
+								</p>
+								<p class="kd-info">
+									{l.terminBeginn ? `Termin ${tagKurz(berlinTag(new Date(l.terminBeginn)))} ${berlinUhrzeit(new Date(l.terminBeginn))}` : 'Termin gelöscht'}{l.benutzerName ? ` · ${l.benutzerName}` : ''}{l.abgeschlossenAm ? ` · abgeschlossen ${tagKurz(berlinTag(new Date(l.abgeschlossenAm)))}${l.abgeschlossenVon ? ` von ${l.abgeschlossenVon}` : ''}` : ''}
+								</p>
+								{#if l.begruendung}<p class="af-lf-grund" data-testid="leitfaden-begruendung">Begründung: {l.begruendung}</p>{/if}
+								{#if l.status === 'offen' && l.fehlend.length > 0}<p class="kd-info">Pflicht noch offen: {l.schritte.filter((s) => l.fehlend.includes(s.id)).map((s) => s.titel).join(', ')}</p>{/if}
+								<details class="af-lf-details">
+									<summary>Antworten ansehen</summary>
+									<ul class="af-lf-liste">
+										{#each l.schritte.filter((s) => s.typ !== 'hinweis') as s (s.id)}
+											{@const w = l.antworten[s.id]?.wert}
+											<li>
+												<span>{s.titel}</span>
+												<strong>
+													{#if s.typ === 'kundendaten'}{kundenWertText(s.feld!, kundenWert(s.feld!, l.kunde))}
+													{:else if s.typ === 'abhaken'}{w === true ? 'erledigt' : '–'}
+													{:else if s.typ === 'foto'}{Array.isArray(w) ? w.length : 0} Foto(s)
+													{:else if s.typ === 'aufgabe'}{w ? ((w as AufgabeWert).anlegen ? `anlegen: ${(w as AufgabeWert).titel}` : 'nicht nötig') : '–'}
+													{:else}{typeof w === 'string' && w ? w : '–'}{/if}
+												</strong>
+											</li>
+										{/each}
+									</ul>
+								</details>
+								{#if l.einsatzId && l.status === 'offen' && data.darfTermine}<a class="kd-knopf hell klein" href={`/leitfaden/${l.einsatzId}`}>Leitfaden öffnen</a>{/if}
+							</div>
+						{/each}
+					</Karte>
+				</div>
+			{/if}
 
 			{#if data.material}
 				<div class="af-k k-material" id="material">
@@ -973,6 +1023,7 @@
 	.k-mitarbeiter { order: 3; }
 	.k-todos { order: 4; }
 	.k-termine { order: 5; }
+	.k-leitfaden { order: 5; }
 	.k-material { order: 6; }
 	.k-nachkalk { order: 7; }
 	.k-protokolle { order: 8; }
@@ -1354,4 +1405,13 @@
 		gap: 0.35rem;
 		font-size: var(--ui-schrift-s);
 	}
+	.af-lf { display: grid; gap: 0.35rem; padding-bottom: 0.6rem; }
+	.af-lf + .af-lf { border-top: 1px solid var(--ui-rand); padding-top: 0.6rem; }
+	.af-lf p { margin: 0; }
+	.af-lf-kopf { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; justify-content: space-between; }
+	.af-lf-grund { padding: 0.35rem 0.55rem; border-radius: var(--ui-radius); background: #fff4ce; color: #6b4f00; font-size: var(--ui-schrift-s); }
+	.af-lf-liste { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.3rem; font-size: var(--ui-schrift-s); }
+	.af-lf-liste li { display: grid; gap: 0.1rem; }
+	.af-lf-liste span { color: var(--ui-text-leise); }
+	.af-lf-liste strong { font-weight: 600; overflow-wrap: anywhere; white-space: pre-line; }
 </style>

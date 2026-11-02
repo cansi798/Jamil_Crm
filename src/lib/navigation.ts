@@ -90,6 +90,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 			// Online-Buchung (Wunsch Jamil msgs 2684/2686): Buchungen, Arbeitszeiten, Datenschutz/Einbetten
 			g.anfrage.push({ name: 'Online-Buchung', href: '/einstellungen/online-buchung', symbol: 'plantafel' });
 		}
+		// Leitfaden beim Termin (Jamil msgs 4302/4304, 4340): erster Termin beim Kunden gehört zur Anfrage
+		if (hat('einstellungen') && module.includes('plantafel')) g.anfrage.push({ name: 'Leitfaden beim Termin', href: '/einstellungen/leitfaden', symbol: 'todos' });
 		// 2. Angebot: Katalog, Kalkulation, Nachfassen
 		if (module.includes('katalog') && (hat('katalog.bearbeiten') || hat('angebote.bearbeiten'))) {
 			g.angebot.push({ name: 'Katalog', href: '/katalog', symbol: 'katalog' });

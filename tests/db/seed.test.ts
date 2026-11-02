@@ -222,6 +222,11 @@ describe('seed-dev', () => {
 		expect(kunden.some((k) => /[äöüÄÖÜß]/.test(k.name))).toBe(true);
 	});
 
+	it('Leitfaden beim Termin: Bauwelt hat ihn eingeschaltet (Besichtigung, Startvorlage)', async () => {
+		const [l] = await sql`select aktiv, arten, jsonb_array_length(schritte) as n from app.leitfaden_vorlagen`;
+		expect(l).toEqual({ aktiv: true, arten: ['besichtigung'], n: 10 });
+	});
+
 	it('Beispielkunden mit bevorzugtem Kontaktweg (E-Mail, Chat, Telefon) und einer ohne Angabe', async () => {
 		const z = await sql`select bevorzugter_kontakt as w, count(*)::int as n from app.kunden group by 1 order by 1 nulls last`;
 		expect(z).toEqual([

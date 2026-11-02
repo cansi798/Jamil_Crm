@@ -53,7 +53,7 @@ const WERTNAMEN: Record<string, Record<string, string>> = {
 };
 
 /** Zusatz hinter dem Namen je Herkunft (Sprache, KI, Handy-Abgleich per CalDAV). */
-const QUELLEN: Record<string, string> = { sprache: ' (per Sprache)', ki: ' (KI-Entwurf)', caldav: ' (per Handy)' };
+const QUELLEN: Record<string, string> = { sprache: ' (per Sprache)', ki: ' (KI-Entwurf)', caldav: ' (per Handy)', leitfaden: ' (per Leitfaden)' };
 
 const TITEL = { angelegt: 'Angelegt', geaendert: 'Geändert', geloescht: 'Gelöscht' } as const;
 

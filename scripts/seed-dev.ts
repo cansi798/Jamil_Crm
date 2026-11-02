@@ -7,6 +7,7 @@ import { ladeEnv, urlAusUmgebung } from './migrate';
 import { hashePasswort, pruefePasswort } from '../src/lib/server/auth/passwort';
 import { VORLAGEN, VORLAGEN_NAMEN, type Vorlage } from '../src/lib/server/rechte';
 import { STARTVORLAGEN } from '../src/lib/protokoll-startvorlagen';
+import { STARTVORLAGE as LEITFADEN_START } from '../src/lib/leitfaden';
 import { totpUri } from '../src/lib/server/auth/totp';
 import { berlinTag, berlinZeitpunkt, tagPlus, wocheVon } from '../src/lib/zeit';
 import { GUELTIG_TAGE, STANDARD_EINLEITUNG, STANDARD_SCHLUSS } from '../src/lib/server/angebote';
@@ -704,6 +705,11 @@ export async function seedDev(url: string, opts: { datei?: string } = {}): Promi
 			const neueVorlagen = await sichereVorlagen(tx, betrieb.id);
 			const neueAngebotsVorlagen = await sichereAngebotsVorlagen(tx, betrieb.id);
 			const neueProtokollVorlagen = await sichereProtokollVorlagen(tx, betrieb.id);
+			// Leitfaden beim Termin (Jamil msgs 4302/4304, 4340): eingeschaltet mit der Startvorlage – nur wenn noch keiner da ist
+			await tx`
+				insert into app.leitfaden_vorlagen (betrieb_id, aktiv, name, arten, schritte)
+				values (${betrieb.id}, true, 'Leitfaden Besichtigung', ${['besichtigung']}, ${tx.json(LEITFADEN_START as never)})
+				on conflict (betrieb_id) do nothing`;
 			return { neueBenutzer, neueKunden, ...planung, ...angebote, neueVorlagen, neueAngebotsVorlagen, neueProtokollVorlagen };
 		});
 	} finally {

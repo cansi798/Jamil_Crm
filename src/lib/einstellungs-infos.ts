@@ -19,6 +19,35 @@ export type Info = {
 };
 
 export const INFOS: Record<string, Info> = {
+	// ——— Leitfaden beim Termin (Jamil msgs 4302/4304, 4340) ———
+	'leitfaden.seite': {
+		titel: 'Leitfaden beim Termin',
+		was: 'Beim Termin (z. B. Besichtigung) bekommt die eingeteilte Person eine Schritt-für-Schritt-Liste auf EINER Seite. Ihre Eingaben landen von selbst in Kundenakte, Dokumenten, Aufgaben und Notizen des Auftrags.',
+		wirkt: 'Alle Termine Ihrer Firma, deren Art bzw. Terminart unten angehakt ist. Laufende Leitfäden behalten ihre Schritte.',
+		standard: 'Ausgeschaltet; ab Werk ist eine Vorlage für die Besichtigung vorbereitet (E-Mail, Kontaktweg, Fragen, Fotos, Aufgabe „Angebot erstellen“).',
+		beispiel: 'Murat hat um 10 Uhr eine Besichtigung: Auf der Startseite steht „Leitfaden starten“, er fragt die E-Mail ab, macht Fotos und schließt ab.'
+	},
+	'leitfaden.aktiv': {
+		titel: 'Leitfaden ein/aus',
+		was: 'Schaltet den Leitfaden für alle passenden Termine ein oder aus.',
+		wirkt: 'Neue und heutige Termine. Bereits ausgefüllte Leitfäden bleiben am Auftrag sichtbar.',
+		standard: 'Aus.',
+		beispiel: 'Sie schalten ihn ein – ab sofort erscheint bei jeder Besichtigung der Knopf „Leitfaden starten“.'
+	},
+	'leitfaden.gilt_fuer': {
+		titel: 'Bei welchen Terminen?',
+		was: 'Legt fest, bei welchen Termin-Arten (Besichtigung, Montage, Wartung) bzw. Terminarten aus Ihrer Liste der Leitfaden erscheint.',
+		wirkt: 'Alle Termine mit Auftrag; eigene Termine ohne Auftrag bekommen keinen Leitfaden.',
+		standard: 'Besichtigung.',
+		beispiel: 'Sie haken zusätzlich die Terminart „Aufmaß“ an – dann erscheint er auch dort.'
+	},
+	'leitfaden.schritte': {
+		titel: 'Schritte des Leitfadens',
+		was: 'Was vor Ort zu tun ist: Hinweise, Fragen, Kundendaten prüfen/ergänzen, Abhaken, Fotos, Aufgabe anlegen, Notiz. Pflichtschritte müssen erledigt sein – sonst geht Abschließen nur mit Begründung und das Büro bekommt einen Hinweis.',
+		wirkt: 'Neue Leitfäden. Wer gerade einen Leitfaden ausfüllt, behält die bisherigen Schritte.',
+		standard: 'Startvorlage „Besichtigung“ mit 10 Schritten.',
+		beispiel: 'Sie fügen die Frage „Gibt es Haustiere?“ hinzu und machen „Fotos“ zur Pflicht.'
+	},
 	// ——— Kundenportal & Auftragsbestätigung ———
 	'portal.seite': {
 		titel: 'Kundenportal & Auftragsbestätigung',

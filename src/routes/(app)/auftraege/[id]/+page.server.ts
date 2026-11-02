@@ -23,6 +23,7 @@ import { listeQuellen } from '$lib/server/quellen';
 import { verlaufZeile } from '$lib/verlauf';
 import { ausTagUndUhrzeit, berlinTag, istTag } from '$lib/zeit';
 import { aendereKunde, holeKunde } from '$lib/server/kunden';
+import { leitfaedenZumAuftrag } from '$lib/server/leitfaden';
 import { listeKundenNotizen } from '$lib/server/kundenakte';
 import { mitarbeiterAus, todoAktionen } from '$lib/server/todo-aktionen';
 import { auftragUnterlagen, dokumentHochladen, notizHinzufuegen, unterlageLoeschen } from '$lib/server/auftrag-unterlagen';
@@ -163,6 +164,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			verlaufGekuerzt: protokoll.naechsteVor !== null,
 			darfBearbeiten,
 			darfTermine,
+			// Leitfaden beim Termin (Jamil msgs 4302/4304, 4340) – nur lesen
+			leitfaeden: (await hatModul(k.betriebId, 'plantafel')) ? await leitfaedenZumAuftrag(k, auftrag.id) : [],
 			// Objekte des Kunden für die Auswahl direkt im Auftrag
 			objekte: darfBearbeiten && auftrag.kundeId ? (await ladeKundenAuswahl(k, auftrag.kundeId)).objekte : [],
 			// Anlagen des Objekts für die Auswahl „Anlage“ (Wunsch Jamil, msg 2505)

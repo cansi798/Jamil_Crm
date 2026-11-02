@@ -9,6 +9,7 @@ import { dieserMonat, ladeAuslastung } from '$lib/server/auslastung';
 import { gewinnSatz } from '$lib/auslastung';
 import { laufend } from '$lib/server/zeiterfassung';
 import { linksZuAuftraegen } from '$lib/server/auftrag-links';
+import { leitfaedenFuerTermine } from '$lib/server/leitfaden';
 import { sichtVon } from '$lib/server/auftraege';
 import { ohneAusgeschalteteKacheln, siehtKennzahlen } from '$lib/server/kennzahlen';
 import { startCockpit, type StartCockpit } from '$lib/server/start-cockpit';
@@ -64,6 +65,14 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 			const ids = [...new Set(heute.map((e) => e.auftragId).filter((x): x is string => !!x))];
 			const links = await linksZuAuftraegen(k, sichtVon(nutzer), ids);
 			heute = heute.map((e) => ({ ...e, links: e.auftragId ? (links.get(e.auftragId) ?? []).map(({ titel, url, domain }) => ({ titel, url, domain })) : [] }));
+			// Leitfaden beim Termin (Jamil msgs 4302/4304, 4340): Stand je Termin – auch für die Offline-Kopie (4b)
+			const lf = await leitfaedenFuerTermine(k, nutzer, heute.map((e) => e.id));
+			heute = heute.map((e) => {
+				const l = lf.get(e.id);
+				return l
+					? { ...e, leitfaden: { name: l.name, schritte: l.schritte, antworten: l.antworten, kunde: l.kunde, status: l.status, begruendung: l.begruendung, erledigt: l.fortschritt.erledigt, gesamt: l.fortschritt.gesamt } }
+					: e;
+			});
 		}
 		// Kachel „Diesen Monat: X € Gewinn verplant, Y Stunden frei“ (Wunsch Jamil msg 2476, Punkt 5) – nur „Preise sehen“
 		if (brauche.has('monat') && module.includes('plantafel') && hatRecht(nutzer, 'preise.sehen')) {

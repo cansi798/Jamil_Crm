@@ -17,7 +17,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		// Einstellungen nach dem Weg des Kunden (Jamil msg 3423): Anfrage → Angebot → Auftrag; „Leistungen für Bestandskunden“ steht
 		// seit msg 3534 in „Kundenportal & Auftragsbestätigung“ (Gruppe „Abschluss & danach“ ohne Einträge → nicht im Menü)
 		expect(gruppen(nav)).toEqual({
-			Anfrage: ['Auftragsquellen', 'Terminarten', 'Online-Buchung'],
+			Anfrage: ['Auftragsquellen', 'Terminarten', 'Online-Buchung', 'Leitfaden beim Termin'],
 			Angebot: ['Katalog', 'Kalkulation', 'Nachfassen'],
 			Auftrag: ['Kundenportal & Auftragsbestätigung'],
 			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll- & Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],

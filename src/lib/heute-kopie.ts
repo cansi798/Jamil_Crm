@@ -1,5 +1,6 @@
 import { berlinTag } from './zeit';
 import { istKontaktweg } from './kontaktweg';
+import { pruefeSchritte, STATUS, type Antworten, type LeitfadenKunde, type LeitfadenStatus, type Schritt } from './leitfaden';
 
 /**
  * Offline-Kopie von „Meine Einsätze heute“ (Pflichtenheft Abschnitt 2: Termine des Tages bleiben bei schlechtem Netz
@@ -31,8 +32,21 @@ export type HeuteEinsatz = {
 	/** Kunde aus der Kundendatenbank und sein bevorzugter Kontaktweg (Jamil msg 4337) – kein Geheimnis, darf offline mit. */
 	kundeImBestand?: boolean;
 	kontaktweg?: 'email' | 'chat' | 'telefon' | null;
+	/** Leitfaden zum Termin (Jamil msg 4340, 4b): Schritte, Antworten, Kundendaten – damit er auch offline geht. */
+	leitfaden?: HeuteLeitfaden | null;
 	/** Links am Auftrag (Jamil msg 2850) – nur Titel, Adresse, Domain. */
 	links?: { titel: string; url: string; domain: string }[] | null;
+};
+
+export type HeuteLeitfaden = {
+	name: string;
+	schritte: Schritt[];
+	antworten: Antworten;
+	kunde: LeitfadenKunde | null;
+	status: LeitfadenStatus;
+	begruendung: string | null;
+	erledigt: number;
+	gesamt: number;
 };
 
 export type HeuteKopie = { benutzerId: string; tag: string; stand: string; einsaetze: HeuteEinsatz[] };
@@ -47,12 +61,36 @@ function speicher(): Storage | null {
 	}
 }
 
+const kurz = (w: unknown, max: number) => (typeof w === 'string' ? w.slice(0, max) : null);
+
+/** Leitfaden für die Kopie: nur geprüfte Schritte, Antworten als Objekt, Kundendaten als Text – sonst weg. */
+function bereinigeLeitfaden(l: HeuteLeitfaden): HeuteLeitfaden | null {
+	try {
+		const k = l.kunde;
+		return {
+			name: kurz(l.name, 100) ?? 'Leitfaden',
+			schritte: pruefeSchritte(l.schritte),
+			antworten: l.antworten && typeof l.antworten === 'object' && !Array.isArray(l.antworten) ? l.antworten : {},
+			kunde: k
+				? { email: kurz(k.email, 200), telefon: kurz(k.telefon, 50), bevorzugter_kontakt: istKontaktweg(k.bevorzugter_kontakt) ? k.bevorzugter_kontakt : null, strasse: kurz(k.strasse, 200), plz: kurz(k.plz, 20), ort: kurz(k.ort, 200) }
+				: null,
+			status: (STATUS as readonly string[]).includes(l.status) ? l.status : 'offen',
+			begruendung: kurz(l.begruendung, 1000),
+			erledigt: Number(l.erledigt) || 0,
+			gesamt: Number(l.gesamt) || 0
+		};
+	} catch {
+		return null;
+	}
+}
+
 /** Nur die erlaubten Felder übernehmen (Positivliste). */
 function bereinige(e: HeuteEinsatz): HeuteEinsatz {
 	const sauber: Record<string, unknown> = {};
 	for (const f of FELDER) sauber[f] = e[f] ?? null;
 	sauber.kundeImBestand = e.kundeImBestand === true;
 	sauber.kontaktweg = istKontaktweg(e.kontaktweg) ? e.kontaktweg : null;
+	if (e.leitfaden) sauber.leitfaden = bereinigeLeitfaden(e.leitfaden);
 	// Links nur, wenn vorhanden: Titel, Adresse (nur http/https), Domain – nichts sonst
 	if (Array.isArray(e.links)) {
 		sauber.links = e.links

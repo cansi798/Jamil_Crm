@@ -42,6 +42,18 @@ export type Funktion = {
 
 export const FUNKTIONEN: Funktion[] = [
 	{
+		id: 'leitfaden',
+		schritt: 'anfrage',
+		name: 'Leitfaden beim Termin',
+		was: 'Die eingeteilte Person bekommt beim Termin automatisch einen Leitfaden auf EINER Seite; Eingaben landen von selbst in Kundenakte, Dokumenten, Aufgaben und Notizen. Fehlen Pflichtschritte, geht Abschließen nur mit Begründung und das Büro bekommt einen Hinweis. Funktioniert auch ohne Netz (wird nachgeschickt).',
+		wann: 'Am Tag des Termins, wenn seine Art bzw. Terminart in den Einstellungen angehakt ist (ab Werk: Besichtigung).',
+		href: '/einstellungen/leitfaden',
+		info: 'leitfaden.seite',
+		zustand: 'keiner',
+		modul: 'plantafel',
+		recht: 'einstellungen'
+	},
+	{
 		id: 'benachrichtigungen',
 		schritt: 'auftrag',
 		name: 'Benachrichtigungen, wenn einen etwas betrifft',

@@ -3,6 +3,9 @@
 	import type { HeuteEinsatz } from '$lib/heute-kopie';
 	import KontaktwegChip from '$lib/components/KontaktwegChip.svelte';
 	import { istKontaktweg } from '$lib/kontaktweg';
+	import LeitfadenFlaeche from '$lib/components/LeitfadenFlaeche.svelte';
+	import { STATUS_NAMEN } from '$lib/leitfaden';
+	import { wartend } from '$lib/leitfaden-ausgang';
 
 	/**
 	 * „Meine Einsätze heute“ als Karten: Uhrzeit, Kunde, Adresse (öffnet Google Maps in neuem Tab) und Auftrag.
@@ -12,6 +15,9 @@
 
 	// Nur http(s) – auch aus der Kopie auf dem Gerät
 	const sichereLinks = (l: HeuteEinsatz['links']) => (Array.isArray(l) ? l.filter((x) => typeof x?.url === 'string' && /^https?:\/\//i.test(x.url)).slice(0, 10) : []);
+	// Offline: Leitfaden direkt hier öffnen (Kopie vom Gerät, Eingaben gehen später raus – Jamil msg 4340, 4b)
+	let offenerLeitfaden = $state<string | null>(null);
+	const wartet = (id: string) => (typeof window === 'undefined' ? 0 : wartend(id).length);
 	const karte = (ort: string) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ort)}`;
 </script>
 
@@ -31,6 +37,27 @@
 			{#if e.kundeImBestand}
 				<!-- Bevorzugter Kontaktweg des Kunden (Jamil msg 4337) -->
 				<span class="heute-kontakt" data-testid="heute-kontaktweg">Kontaktweg: {#if istKontaktweg(e.kontaktweg)}<KontaktwegChip weg={e.kontaktweg} kurz />{:else}keine Angabe{/if}</span>
+			{/if}
+			{#if e.leitfaden}
+				<!-- Leitfaden beim Termin (Jamil msgs 4302/4304) -->
+				<div class="heute-leitfaden" data-testid="heute-leitfaden">
+					{#if e.leitfaden.status !== 'offen'}
+						<span class="ah-chip gut">✓ {e.leitfaden.name}: {STATUS_NAMEN[e.leitfaden.status]}</span>
+					{:else if offline}
+						<button type="button" class="kd-knopf" onclick={() => (offenerLeitfaden = offenerLeitfaden === e.id ? null : e.id)}>
+							{offenerLeitfaden === e.id ? 'Leitfaden schließen' : `Leitfaden ${e.leitfaden.erledigt > 0 ? 'fortsetzen' : 'starten'} · ${e.leitfaden.erledigt}/${e.leitfaden.gesamt}`}
+						</button>
+					{:else}
+						<a class="kd-knopf" href={`/leitfaden/${e.id}`}>Leitfaden {e.leitfaden.erledigt > 0 ? 'fortsetzen' : 'starten'} · {e.leitfaden.erledigt}/{e.leitfaden.gesamt}</a>
+					{/if}
+					{#if wartet(e.id) > 0}<span class="ah-chip warnung">{wartet(e.id)} Eingabe(n) warten auf Netz</span>{/if}
+				</div>
+				{#if offline && offenerLeitfaden === e.id}
+					<LeitfadenFlaeche
+						offline
+						stand={{ einsatzId: e.id, name: e.leitfaden.name, kundeName: e.kundeName, auftragNummer: e.auftragNummer, auftragTitel: e.auftragTitel, terminBeginn: e.beginn, schritte: e.leitfaden.schritte, antworten: e.leitfaden.antworten, kunde: e.leitfaden.kunde, status: e.leitfaden.status, begruendung: e.leitfaden.begruendung }}
+					/>
+				{/if}
 			{/if}
 			{#if e.notiz}<span class="heute-notiz">{e.notiz}</span>{/if}
 			{#each sichereLinks(e.links) as l (l.url)}
@@ -58,6 +85,13 @@
 		border-left: 5px solid var(--primaer);
 		border-radius: 0.5rem;
 		background: var(--flaeche);
+	}
+	.heute-leitfaden {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		align-items: center;
+		margin-top: 0.25rem;
 	}
 	.heute-kontakt {
 		display: inline-flex;

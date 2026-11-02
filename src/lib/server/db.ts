@@ -197,9 +197,9 @@ export async function alsOeffentlich<T>(betriebId: string, quelle: 'online-buchu
 
 /**
  * Erlaubte Herkunftsangaben fürs Änderungsprotokoll (`app.aenderungen.quelle`): Oberfläche, Sprachsteuerung, KI-Entwurf,
- * Handy-Abgleich (CalDAV).
+ * Handy-Abgleich (CalDAV), Leitfaden beim Termin.
  */
-export type Quelle = 'oberflaeche' | 'sprache' | 'ki' | 'caldav';
+export type Quelle = 'oberflaeche' | 'sprache' | 'ki' | 'caldav' | 'leitfaden';
 
 /**
  * Führt `fn` in EINER Transaktion als `crm_app` aus; alle `mitBetrieb`-Aufrufe für denselben Kontext darin teilen
