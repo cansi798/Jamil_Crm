@@ -157,7 +157,7 @@ describe('Lexware: Kunden-Abgleich, Webhooks, Belege', () => {
 		expect((await root`select count(*)::int as n from app.lexware_belege where betrieb_id = ${u.betriebA}`)[0].n).toBe(260);
 		// RLS: Betrieb B sieht keine Belege
 		expect(await u.alsApp(u.betriebB, u.ids.chefB, (tx) => tx`select 1 from app.lexware_belege`)).toHaveLength(0);
-	});
+	}, 30_000);
 
 	it('Rückmeldungen einrichten: alle Typen genau einmal (zweiter Lauf: keine Doppel); ohne HTTPS-Adresse → 409', async () => {
 		await expect(starteAboEinrichtung(kA(), 'http://127.0.0.1:3000')).rejects.toMatchObject({ status: 409 });

@@ -706,7 +706,7 @@ describe('Kunden und Objekte', () => {
 			expect(z[1].benutzer_id).toBe(chefAId);
 		});
 
-		it('jede Spalte ist protokolliert oder ausdrücklich ausgeschlossen (nur "geaendert" ist ausgeschlossen)', async () => {
+		it('jede Spalte ist protokolliert oder ausdrücklich ausgeschlossen (nur "geaendert" – bei Kunden zusätzlich der technische Lexware-Abgleichstand, Migration 120)', async () => {
 			const k = await seedKunde(betriebA);
 			const o = await seedObjekt(betriebA, k);
 			for (const [tabelle, id] of [
@@ -720,7 +720,8 @@ describe('Kunden und Objekte', () => {
 					select nachher from app.aenderungen where tabelle = ${tabelle} and datensatz_id = ${id} and aktion = 'angelegt'`;
 				const protokolliert = Object.keys(e.nachher);
 				for (const s of spalten) {
-					expect(protokolliert.includes(s) !== ['geaendert'].includes(s), `${tabelle}.${s}`).toBe(true);
+					const ausgeschlossen = tabelle === 'kunden' ? ['geaendert', 'lexware_version', 'lexware_stand'] : ['geaendert'];
+					expect(protokolliert.includes(s) !== ausgeschlossen.includes(s), `${tabelle}.${s}`).toBe(true);
 				}
 			}
 		});

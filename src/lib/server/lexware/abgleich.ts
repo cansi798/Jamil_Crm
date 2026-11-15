@@ -81,23 +81,26 @@ export const belegeAbgleichen: Handler = {
 			const r = await c.get<{ content: Eintrag[]; last: boolean }>(
 				`/v1/voucherlist?voucherType=${BELEG_TYPEN}&voucherStatus=any&size=250&page=${seite}${seit ? `&updatedDateFrom=${seit}` : ''}`
 			);
-			for (const b of r.content) {
-				if (!UUIDX.test(b.id ?? '')) continue;
-				gelesen++;
-				const kontakt = b.contactId && UUIDX.test(b.contactId) ? b.contactId : null;
-				await mitBetrieb(k, (tx) => tx`
-					insert into app.lexware_belege (betrieb_id, lexware_id, typ, nummer, status, datum, faellig, brutto_cent, offen_cent, waehrung,
-						kontakt_id, kontakt_name, kunde_id, archiviert, geaendert_lexware, veraltet, stand)
-					values (${k.betriebId}, ${b.id}, ${String(b.voucherType).slice(0, 40)}, ${b.voucherNumber ? String(b.voucherNumber).slice(0, 100) : null},
-						${String(b.voucherStatus).slice(0, 40)}, ${datum(b.voucherDate)}, ${datum(b.dueDate)}, ${cent(b.totalAmount)}, ${cent(b.openAmount)},
-						${b.currency ? String(b.currency).slice(0, 3) : null}, ${kontakt}, ${b.contactName ? String(b.contactName).slice(0, 300) : null},
-						(select id from app.kunden where betrieb_id = ${k.betriebId} and lexware_id = ${kontakt}), ${b.archived === true},
-						${b.updatedDate ?? null}, false, now())
-					on conflict (betrieb_id, lexware_id) do update set typ = excluded.typ, nummer = excluded.nummer, status = excluded.status,
-						datum = excluded.datum, faellig = excluded.faellig, brutto_cent = excluded.brutto_cent, offen_cent = excluded.offen_cent,
-						waehrung = excluded.waehrung, kontakt_id = excluded.kontakt_id, kontakt_name = excluded.kontakt_name, kunde_id = excluded.kunde_id,
-						archiviert = excluded.archiviert, geaendert_lexware = excluded.geaendert_lexware, veraltet = false, stand = now()`);
-			}
+			// eine Transaktion je Seite (bis 250 Belege) statt einer je Beleg
+			await mitBetrieb(k, async (tx) => {
+				for (const b of r.content) {
+					if (!UUIDX.test(b.id ?? '')) continue;
+					gelesen++;
+					const kontakt = b.contactId && UUIDX.test(b.contactId) ? b.contactId : null;
+					await tx`
+						insert into app.lexware_belege (betrieb_id, lexware_id, typ, nummer, status, datum, faellig, brutto_cent, offen_cent, waehrung,
+							kontakt_id, kontakt_name, kunde_id, archiviert, geaendert_lexware, veraltet, stand)
+						values (${k.betriebId}, ${b.id}, ${String(b.voucherType).slice(0, 40)}, ${b.voucherNumber ? String(b.voucherNumber).slice(0, 100) : null},
+							${String(b.voucherStatus).slice(0, 40)}, ${datum(b.voucherDate)}, ${datum(b.dueDate)}, ${cent(b.totalAmount)}, ${cent(b.openAmount)},
+							${b.currency ? String(b.currency).slice(0, 3) : null}, ${kontakt}, ${b.contactName ? String(b.contactName).slice(0, 300) : null},
+							(select id from app.kunden where betrieb_id = ${k.betriebId} and lexware_id = ${kontakt}), ${b.archived === true},
+							${b.updatedDate ?? null}, false, now())
+						on conflict (betrieb_id, lexware_id) do update set typ = excluded.typ, nummer = excluded.nummer, status = excluded.status,
+							datum = excluded.datum, faellig = excluded.faellig, brutto_cent = excluded.brutto_cent, offen_cent = excluded.offen_cent,
+							waehrung = excluded.waehrung, kontakt_id = excluded.kontakt_id, kontakt_name = excluded.kontakt_name, kunde_id = excluded.kunde_id,
+							archiviert = excluded.archiviert, geaendert_lexware = excluded.geaendert_lexware, veraltet = false, stand = now()`;
+				}
+			});
 			if (r.last || r.content.length === 0) break;
 		}
 		await mitBetrieb(k, (tx) => tx`update app.lexware_konfig set letzter_abgleich = now() where betrieb_id = ${k.betriebId}`);
