@@ -12,6 +12,7 @@ import { zustaendig } from './auftragsbestaetigung';
 import { melde } from './ereignisse';
 import { agbFassung, AP_AUSBLENDEN_SQL, freigabeSql, holeAgbPdf, IM_PORTAL_SQL, TOKEN_MUSTER, tokenHash } from './kundenportal';
 import { UUID } from './kunden';
+import { loeseTerminWahl, uebernimmTerminWahl } from './terminvorschlaege';
 import { nurVorname } from '../buchung';
 import type { AuftragStatus } from '../auftrag-status';
 import { summen, istMwstSatz } from '../geld';
@@ -77,7 +78,18 @@ export type PortalPerson = { name: string; figur: Figur };
 export type PortalTermin = { tag: string; von: string; bis: string; art: string; mitarbeiter: string[] };
 /** Arbeitsschritt fürs Portal: Aufgabe des Auftrags mit Lautstärke/Schmutz (1 gering … 3 hoch) – ohne Beschreibung. */
 export type PortalSchritt = { titel: string; erledigt: boolean; tag: string | null; vonTag: string | null; laerm: number | null; schmutz: number | null };
-export type PortalAngebot = { id: string; nummer: string; datum: string; gueltigBis: string; status: string; bruttoCent: number; annehmbar: boolean; entscheidung: { art: string; name: string; zeit: string } | null };
+export type PortalAngebot = {
+	id: string;
+	nummer: string;
+	datum: string;
+	gueltigBis: string;
+	status: string;
+	bruttoCent: number;
+	annehmbar: boolean;
+	entscheidung: { art: string; name: string; zeit: string; termin: string | null } | null;
+	/** Drei Terminvorschläge für den Baubeginn (Wahl bei der Annahme Pflicht, wenn vorhanden) */
+	termine: { id: string; pos: number; beginn: string; hinweis: string | null }[];
+};
 export type PortalAuftrag = {
 	id: string;
 	nummer: string;
@@ -214,8 +226,10 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 					an.status, an.mwst_satz,
 					(select coalesce(json_agg(json_build_object('menge', p.menge, 'einzelpreisCent', p.einzelpreis_cent)), '[]') from app.angebot_positionen p
 						where p.angebot_id = an.id and p.betrieb_id = an.betrieb_id) as positionen,
-					(select json_build_object('art', d.entscheidung, 'name', d.name, 'zeit', d.zeit) from app.angebot_entscheidungen d
-						where d.angebot_id = an.id and d.betrieb_id = an.betrieb_id order by d.zeit desc limit 1) as entscheidung
+					(select json_build_object('art', d.entscheidung, 'name', d.name, 'zeit', d.zeit, 'termin', d.termin_beginn) from app.angebot_entscheidungen d
+						where d.angebot_id = an.id and d.betrieb_id = an.betrieb_id order by d.zeit desc limit 1) as entscheidung,
+					(select coalesce(json_agg(json_build_object('id', t.id, 'pos', t.pos, 'beginn', t.beginn, 'hinweis', t.hinweis) order by t.pos), '[]')
+						from app.angebot_terminvorschlaege t where t.angebot_id = an.id and t.betrieb_id = an.betrieb_id) as termine
 				from app.angebote an
 				where an.betrieb_id = ${p.betriebId} and an.auftrag_id = ${id} and an.id = any(${angebotIds}::uuid[]) and an.status <> 'entwurf'
 				order by an.angelegt`
@@ -295,7 +309,10 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 					status: x.status,
 					bruttoCent: s.bruttoCent,
 					annehmbar: x.status === 'versendet' && a.f_annahme && x.gueltig_bis >= heute,
-					entscheidung: ent ? { art: ent.art, name: ent.name, zeit: new Date(ent.zeit).toISOString() } : null
+					entscheidung: ent ? { art: ent.art, name: ent.name, zeit: new Date(ent.zeit).toISOString(), termin: ent.termin ?? null } : null,
+					termine: ((typeof x.termine === 'string' ? JSON.parse(x.termine) : x.termine) as { id: string; pos: number; beginn: string; hinweis: string | null }[])
+						.filter((t) => t.beginn > heute)
+						.map((t) => ({ id: t.id, pos: t.pos, beginn: String(t.beginn).slice(0, 10), hinweis: t.hinweis }))
 				};
 			}),
 			dateien: dateien.map((d) => ({
@@ -403,7 +420,14 @@ export async function portalDokument(token: unknown, art: unknown, id: unknown, 
 		} else if (art === 'angebot') {
 			const [daten, profil, logo] = await Promise.all([ladePdfDaten(k, id), holeProfil(k), holeLogo(k)]);
 			if (daten.angebot.auftragId !== treffer.auftrag_id || daten.angebot.status === 'entwurf') throw new ApiFehler(404, 'Dokument nicht gefunden.');
-			datei = { name: `Angebot_${daten.angebot.nummer}.pdf`, typ: 'application/pdf', bytes: await angebotPdf({ profil, logo, angebot: daten.angebot, kunde: daten.kunde, objekt: daten.objekt }) };
+			if (daten.angebot.belegQuelle === 'lexware') {
+				// Lexware-Betrieb: an Kunden geht nur das PDF aus Lexware (Plan Phase 2)
+				const [z] = daten.angebot.lexware?.id
+					? await mitBetrieb(k, (tx) => tx`select name, pdf from app.lexware_dateien where betrieb_id = ${p.betriebId} and lexware_id = ${daten.angebot.lexware!.id}`)
+					: [];
+				if (!z) throw new ApiFehler(404, 'Das Angebot wird gerade vorbereitet – bitte später noch einmal öffnen.');
+				datei = { name: z.name, typ: 'application/pdf', bytes: new Uint8Array(z.pdf) };
+			} else datei = { name: `Angebot_${daten.angebot.nummer}.pdf`, typ: 'application/pdf', bytes: await angebotPdf({ profil, logo, angebot: daten.angebot, kunde: daten.kunde, objekt: daten.objekt }) };
 		} else {
 			const [z] = await mitBetrieb(k, (tx) => tx`select name, typ, inhalt from app.dateien where id = ${id} and auftrag_id = ${treffer.auftrag_id} and betrieb_id = ${p.betriebId}`);
 			if (!z) throw new ApiFehler(404, 'Dokument nicht gefunden.');
@@ -416,7 +440,7 @@ export async function portalDokument(token: unknown, art: unknown, id: unknown, 
 	});
 }
 
-export type Entscheidung = { entscheidung: unknown; name?: unknown; agb: unknown; grund?: unknown };
+export type Entscheidung = { entscheidung: unknown; name?: unknown; agb: unknown; grund?: unknown; termin?: unknown; terminWunsch?: unknown };
 
 /**
  * Angebot annehmen oder ablehnen (Kunde, ohne Anmeldung). Annehmen: Name + Häkchen „AGB gelesen“ (Pflicht) nach einem
@@ -462,23 +486,28 @@ export async function entscheide(token: unknown, angebotId: unknown, e: Entschei
 			if (nach === 'angenommen' && berlinTag(new Date()) > new Date(an.gueltig_bis).toISOString().slice(0, 10)) {
 				throw new ApiFehler(409, 'Das Angebot ist abgelaufen – bitte melden Sie sich bei uns.');
 			}
+			// Drei Terminvorschläge: bei der Annahme muss der Kunde einen wählen (oder „keiner passt“)
+			const wahl = nach === 'angenommen' ? await loeseTerminWahl(tx, k, an.id, e.termin, e.terminWunsch, true) : null;
 			await tx`update app.angebote set status = ${nach} where id = ${an.id} and betrieb_id = ${p.betriebId}`;
 			if (nach === 'angenommen' && an.auftrag_status === 'angebot') {
 				await tx`update app.auftraege set status = 'beauftragt' where id = ${an.auftrag_id} and betrieb_id = ${p.betriebId} and status = 'angebot'`;
 			}
 			await tx`
-				insert into app.angebot_entscheidungen (betrieb_id, angebot_id, link_id, entscheidung, name, grund, agb_bestaetigt, agb_url, token_hash, ip_hash, agb_pdf_hash, agb_pdf_stand)
+				insert into app.angebot_entscheidungen (betrieb_id, angebot_id, link_id, entscheidung, name, grund, agb_bestaetigt, agb_url, token_hash, ip_hash, agb_pdf_hash, agb_pdf_stand,
+					termin_vorschlag_id, termin_beginn, termin_wunsch_text)
 				values (${p.betriebId}, ${an.id}, ${p.linkId}, ${nach}, ${name}, ${grund}, ${agb}, ${an.agb_url}, ${p.hash}, ${ipHash(ip)},
-					${nach === 'angenommen' ? an.agb_pdf_hash : null}, ${nach === 'angenommen' ? an.agb_pdf_hochgeladen : null})`;
+					${nach === 'angenommen' ? an.agb_pdf_hash : null}, ${nach === 'angenommen' ? an.agb_pdf_hochgeladen : null},
+					${wahl?.vorschlagId ?? null}, ${wahl?.beginn ?? null}, ${wahl?.wunsch ?? null})`;
+			const terminText = wahl ? await uebernimmTerminWahl(tx, k, { auftragId: an.auftrag_id, angebotNummer: an.nummer, wahl, benutzerId: null }) : null;
 			// Nachweis im Verlauf: welche AGB-Fassung bestätigt wurde (msg 3030)
 			const agbText = an.agb_pdf_hash ? `AGB bestätigt, ${agbFassung(an.agb_pdf_hash, an.agb_pdf_hochgeladen)}` : 'AGB bestätigt';
-			const text = nach === 'angenommen' ? `Angebot ${an.nummer} von ${name} online angenommen (${agbText})` : `Angebot ${an.nummer} von ${name} online abgelehnt${grund ? `: ${grund}` : ''}`;
+			const text = nach === 'angenommen' ? `Angebot ${an.nummer} von ${name} online angenommen (${agbText})${terminText ? ` – ${terminText}` : ''}` : `Angebot ${an.nummer} von ${name} online abgelehnt${grund ? `: ${grund}` : ''}`;
 			await tx`insert into app.portal_ereignisse (betrieb_id, link_id, auftrag_id, art, text, ip_hash)
 				values (${p.betriebId}, ${p.linkId}, ${an.auftrag_id}, ${nach}, ${text.slice(0, 300)}, ${ipHash(ip)})`;
-			return { an, text };
+			return { an, text, wahl };
 		});
 		const hinweise = nach === 'angenommen'
-			? await melde('angebotAngenommen', { betriebId: p.betriebId, benutzerId: null, angebotId: vorgang.an.id, auftragId: vorgang.an.auftrag_id, quelle: 'kundenportal' })
+			? await melde('angebotAngenommen', { betriebId: p.betriebId, benutzerId: null, angebotId: vorgang.an.id, auftragId: vorgang.an.auftrag_id, quelle: 'kundenportal', termin: vorgang.wahl?.beginn ?? null, terminWunsch: vorgang.wahl?.wunsch ?? null })
 			: [];
 		// Glocke + Aufgabe, wenn nicht schon die Auftragsbestätigung eines angelegt hat (Ablehnung immer)
 		if (!hinweise.some((h) => h.startsWith('Auftragsbestätigung'))) {

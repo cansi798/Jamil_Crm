@@ -72,7 +72,12 @@ function angebot(positionen: AngebotPosition[], mwstSatz: 0 | 7 | 19 = 19): Ange
 		vorgaengerId: null,
 		warnungen: [],
 		angelegt: '2026-10-17T08:00:00.000Z',
-		geaendert: '2026-10-17T08:00:00.000Z'
+		geaendert: '2026-10-17T08:00:00.000Z',
+		belegQuelle: 'crm',
+		altbeleg: false,
+		lexware: null,
+		terminvorschlaege: [],
+		versendetAm: null
 	};
 }
 

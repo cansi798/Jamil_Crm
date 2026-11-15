@@ -11,6 +11,7 @@ import { istEinheit, EINHEITEN } from '../katalog-werte';
 import { istTag } from '../zeit';
 import { ladeVorlagePositionen, pruefeVorlageId } from './angebot-vorlagen';
 import { minutenFeld } from './katalog';
+import { ersetzeTermine, ladeTermine, loeseTerminWahl, pruefeTermine, uebernimmTerminWahl, type Terminvorschlag } from './terminvorschlaege';
 
 /**
  * Angebote zu Aufträgen (Modul `angebote`). Jeder Zugriff verlangt `angebote.bearbeiten` UND `preise.sehen` – ein
@@ -43,6 +44,21 @@ export type AngebotPosition = {
 
 export type AngebotWarnung = 'preis_fehlt';
 
+/** Anzeige eines Lexware-Entwurfs, der noch keine Nummer hat (Nummer und PDF vergibt Lexware beim Versand). */
+export const ENTWURF_OHNE_NUMMER = 'Entwurf (noch ohne Nummer)';
+export const ALTBELEG_TEXT = 'Altbeleg (CRM-Nummer) – nur lesbar, seit Lexware die Belege führt. Bitte „Als neue Version bearbeiten“: Daraus wird ein Lexware-Angebot.';
+
+/** Lexware-Stand eines Angebots (Plan Phase 2): null bei CRM-Belegen. */
+export type AngebotLexware = {
+	id: string | null;
+	nummer: string | null;
+	/** Status in Lexware (draft/open/accepted/rejected/voided), gespiegelt */
+	status: string | null;
+	/** wartet → festgeschrieben → pdf → gesendet | fehler */
+	phase: 'wartet' | 'festgeschrieben' | 'pdf' | 'gesendet' | 'fehler' | null;
+	fehler: string | null;
+};
+
 export type Angebot = {
 	id: string;
 	nummer: string;
@@ -68,6 +84,14 @@ export type Angebot = {
 	warnungen: AngebotWarnung[];
 	angelegt: string;
 	geaendert: string;
+	/** Woher Nummer und PDF kommen: CRM (AN-…) oder Lexware */
+	belegQuelle: 'crm' | 'lexware';
+	/** CRM-Beleg eines Betriebs, dessen Belege inzwischen Lexware führt – nur lesbar */
+	altbeleg: boolean;
+	lexware: AngebotLexware | null;
+	/** Bis zu drei Baubeginn-Termine (in Listen leer) */
+	terminvorschlaege: Terminvorschlag[];
+	versendetAm: string | null;
 };
 
 /** Für Listen: Kopf mit Summen, ohne Positionen. */
@@ -134,7 +158,8 @@ async function mitSchutz<T>(fn: () => Promise<T>): Promise<T> {
 const KOPF = `an.id, an.nummer, an.auftrag_id, an.status, to_char(an.datum, 'YYYY-MM-DD') as datum,
 	to_char(an.gueltig_bis, 'YYYY-MM-DD') as gueltig_bis, an.mwst_satz, an.einleitung, an.schluss, an.vorgaenger_id,
 	an.angelegt, an.geaendert, a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.objekt_id,
-	coalesce(a.kunde_id, an.kunde_id) as kunde_id,
+	coalesce(a.kunde_id, an.kunde_id) as kunde_id, an.beleg_quelle, an.lexware_id, an.lexware_nummer, an.lexware_status,
+	an.lexware_phase, an.lexware_fehler, an.versendet_am, app.lexware_beleg_modus(an.betrieb_id) as lexware_modus,
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort`;
 
@@ -171,11 +196,11 @@ function zuPosition(z: Record<string, any>): AngebotPosition {
 	};
 }
 
-function zuAngebot(z: Record<string, any>, positionen: AngebotPosition[]): Angebot {
+function zuAngebot(z: Record<string, any>, positionen: AngebotPosition[], termine: Terminvorschlag[] = []): Angebot {
 	const mwstSatz = Number(z.mwst_satz) as MwstSatz;
 	return {
 		id: z.id,
-		nummer: z.nummer,
+		nummer: z.nummer ?? ENTWURF_OHNE_NUMMER,
 		auftragId: z.auftrag_id,
 		auftragNummer: z.auftrag_nummer,
 		auftragTitel: z.auftrag_titel,
@@ -193,7 +218,15 @@ function zuAngebot(z: Record<string, any>, positionen: AngebotPosition[]): Angeb
 		vorgaengerId: z.vorgaenger_id,
 		warnungen: positionen.some((p) => p.einzelpreisCent === 0) ? ['preis_fehlt'] : [],
 		angelegt: new Date(z.angelegt).toISOString(),
-		geaendert: new Date(z.geaendert).toISOString()
+		geaendert: new Date(z.geaendert).toISOString(),
+		belegQuelle: z.beleg_quelle,
+		altbeleg: z.beleg_quelle === 'crm' && z.lexware_modus === true,
+		lexware:
+			z.beleg_quelle === 'lexware'
+				? { id: z.lexware_id, nummer: z.lexware_nummer, status: z.lexware_status, phase: z.lexware_phase, fehler: z.lexware_fehler }
+				: null,
+		terminvorschlaege: termine,
+		versendetAm: z.versendet_am ? new Date(z.versendet_am).toISOString() : null
 	};
 }
 
@@ -215,7 +248,7 @@ async function ladeEines(tx: TransactionSql, k: Kontext, id: string, sicht: Sich
 		where an.id = ${id} and an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, sicht)}`;
 	if (!z) throw nichtGefunden();
 	const pos = await ladePositionen(tx, k, [id]);
-	return zuAngebot(z, pos.get(id) ?? []);
+	return zuAngebot(z, pos.get(id) ?? [], await ladeTermine(tx, k, id));
 }
 
 /** `ohneAuftrag`: nur noch nicht zugeordnete Angebote; `kundeId`: Kunde des Auftrags bzw. des Angebots. */
@@ -232,7 +265,7 @@ export async function listeAngebote(k: Kontext, filter: AngebotFilter = {}, zg: 
 		const z = await tx`
 			select ${tx.unsafe(KOPF)} from ${von(tx)}
 			where an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, zg.sicht)}
-				${suche ? tx`and (an.nummer ilike ${suche} or a.nummer ilike ${suche} or a.titel ilike ${suche} or k.firma ilike ${suche}
+				${suche ? tx`and (an.nummer ilike ${suche} or an.lexware_nummer ilike ${suche} or a.nummer ilike ${suche} or a.titel ilike ${suche} or k.firma ilike ${suche}
 					or k.nachname ilike ${suche} or k.vorname ilike ${suche} or a.einmal_name ilike ${suche})` : tx``}
 				${filter.auftragId ? tx`and an.auftrag_id = ${filter.auftragId}` : tx``}
 				${filter.ohneAuftrag ? tx`and an.auftrag_id is null` : tx``}
@@ -446,16 +479,37 @@ async function uebernimmKatalogArbeit(tx: TransactionSql, k: Kontext, aid: strin
 			and kp.betrieb_id = ap.betrieb_id and (ap.arbeit_minuten is null or ap.material_cent is null)`;
 }
 
-/** Sperrt den Kopf und prüft „Entwurf“ (sonst 409); unbekannt/fremd → 404. */
-async function sperreEntwurf(tx: TransactionSql, k: Kontext, id: string, sicht: Sicht): Promise<Record<string, any>> {
+/**
+ * Sperrt den Kopf und prüft „Entwurf“ (sonst 409); unbekannt/fremd → 404. Altbelege (CRM-Nummer in einem
+ * Lexware-Betrieb) sind nur lesbar – außer zum Löschen eines Entwurfs (`altbelegErlaubt`).
+ */
+async function sperreEntwurf(tx: TransactionSql, k: Kontext, id: string, sicht: Sicht, altbelegErlaubt = false): Promise<Record<string, any>> {
 	const [z] = await tx`
 		select an.id, an.status, to_char(an.datum, 'YYYY-MM-DD') as datum, to_char(an.gueltig_bis, 'YYYY-MM-DD') as gueltig_bis,
-			an.mwst_satz, an.einleitung, an.schluss
+			an.mwst_satz, an.einleitung, an.schluss, an.beleg_quelle, app.lexware_beleg_modus(an.betrieb_id) as lexware_modus
 		from app.angebote an left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
 		where an.id = ${id} and an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, sicht)} for update of an`;
 	if (!z) throw nichtGefunden();
 	if (z.status !== 'entwurf') throw nichtAenderbar();
+	if (!altbelegErlaubt && z.beleg_quelle === 'crm' && z.lexware_modus) throw new ApiFehler(409, ALTBELEG_TEXT);
 	return z;
+}
+
+/**
+ * Drei Terminvorschläge für den Baubeginn setzen (ersetzt die Liste; leer = keine) – nur im Entwurf. Tage ab morgen,
+ * höchstens drei, Hinweis ≤ 200 Zeichen.
+ */
+export async function setzeTerminvorschlaege(k: Kontext, id: string, eingabe: unknown, zg: AngebotZugriff = voll(k)): Promise<Angebot> {
+	const aid = pruefeAngebotId(id);
+	const liste = pruefeTermine(eingabe);
+	return mitSchutz(() =>
+		mitBetrieb(k, async (tx) => {
+			await sperreEntwurf(tx, k, aid, zg.sicht);
+			await ersetzeTermine(tx, k, aid, liste);
+			await tx`update app.angebote set status = status where id = ${aid} and betrieb_id = ${k.betriebId}`;
+			return ladeEines(tx, k, aid, zg.sicht);
+		})
+	);
 }
 
 function leseMwst(w: unknown): MwstSatz {
@@ -680,19 +734,24 @@ async function positionenErsetzen(tx: TransactionSql, k: Kontext, aid: string, e
  * Statuswechsel (siehe `erlaubterAngebotWechsel`, sonst 409) samt Kopplung an den Auftrag – die nur mit
  * `auftraege.bearbeiten`; ohne das Recht bleibt der Auftrag stehen und die Antwort trägt `hinweis`.
  */
+export type TerminAngabe = { termin?: unknown; wunsch?: unknown };
+
 export async function setzeAngebotStatus(
 	k: Kontext,
 	id: string,
 	nach: unknown,
 	zg: AngebotZugriff = voll(k),
-	quelle: 'oberflaeche' | 'sprache' = 'oberflaeche'
+	quelle: 'oberflaeche' | 'sprache' = 'oberflaeche',
+	terminAngabe: TerminAngabe = {}
 ): Promise<Angebot & { hinweis?: string }> {
 	const aid = pruefeAngebotId(id);
 	if (!istAngebotStatus(nach)) throw new ApiFehler(400, 'Unbekannter Status.');
-	let neuAngenommen: { auftragId: string | null } | null = null;
-	const ergebnis: Angebot & { hinweis?: string } = await mitBetrieb(k, async (tx) => {
+	let neuAngenommen: { auftragId: string | null; termin: string | null; terminWunsch: string | null } | null = null;
+	let lexwareAnstossen = false;
+	const ergebnis: Angebot & { hinweis?: string } = await mitSchutz(() => mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
-			select an.status, an.auftrag_id, a.status as auftrag_status,
+			select an.status, an.auftrag_id, an.nummer, a.status as auftrag_status, an.beleg_quelle, an.lexware_id,
+				app.lexware_beleg_modus(an.betrieb_id) as lexware_modus,
 				(select count(*)::int from app.angebot_positionen p where p.angebot_id = an.id and p.betrieb_id = an.betrieb_id) as anzahl
 			from app.angebote an left join app.auftraege a on a.id = an.auftrag_id and a.betrieb_id = an.betrieb_id
 			where an.id = ${aid} and an.betrieb_id = ${k.betriebId} and ${angebotSichtbar(tx, zg.sicht)} for update of an`;
@@ -701,20 +760,47 @@ export async function setzeAngebotStatus(
 		if (nach === 'versendet' && alt.anzahl === 0) {
 			throw new ApiFehler(409, 'Ein Angebot ohne Positionen kann nicht versendet werden.');
 		}
-		await tx`update app.angebote set status = ${nach} where id = ${aid} and betrieb_id = ${k.betriebId}`;
-		if (nach === 'angenommen' && alt.status !== 'angenommen') neuAngenommen = { auftragId: alt.auftrag_id };
-		// Kundenportal (msg 2793): versendetes Angebot erscheint im Portal des Kunden, wenn er einen gültigen Link hat und
-		// der Auftrag im Portal steht (Einstellung des Kunden, sonst Regel der Firma); der Aufrufer sieht das Angebot (angebotSichtbar oben)
-		if (nach === 'versendet' && alt.auftrag_id) {
-			const { IM_PORTAL_SQL } = await import('./kundenportal');
-			await tx`
-				insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id)
-				select ${k.betriebId}, a.id, 'angebot', ${aid} from app.auftraege a
-				where a.id = ${alt.auftrag_id} and a.betrieb_id = ${k.betriebId} and ${tx.unsafe(IM_PORTAL_SQL)} and exists (
-					select 1 from app.portal_links l where l.kunde_id = a.kunde_id and l.betrieb_id = a.betrieb_id
-						and l.widerrufen_am is null and (l.laeuft_ab is null or l.laeuft_ab > now()))
-				on conflict do nothing`;
+		const lexware = alt.beleg_quelle === 'lexware';
+		if (nach === 'versendet' && !lexware && alt.lexware_modus) throw new ApiFehler(409, ALTBELEG_TEXT);
+		if (lexware && nach === 'entwurf') {
+			// „Versand zurücknehmen“ geht nur, solange Lexware noch nichts angelegt hat
+			if (alt.lexware_id) throw new ApiFehler(409, 'Das Angebot ist in Lexware festgeschrieben und nicht mehr änderbar – bitte „Als neue Version bearbeiten“.');
+			const jobs = await tx`
+				select id, status from app.lexware_auftraege
+				where betrieb_id = ${k.betriebId} and art = 'angebot_festschreiben' and nutzlast ->> 'angebotId' = ${aid}
+					and status not in ('erledigt', 'abgebrochen') for update`;
+			if (jobs.some((j) => j.status === 'laeuft' || j.status === 'ungewiss'))
+				throw new ApiFehler(409, 'Das Angebot wird gerade in Lexware angelegt – bitte kurz warten und neu laden.');
+			for (const j of jobs)
+				await tx`update app.lexware_auftraege set status = 'abgebrochen', erledigt_am = now(), letzter_fehler = 'Versand zurückgenommen'
+					where id = ${j.id} and betrieb_id = ${k.betriebId}`;
+			await tx`update app.angebote set lexware_phase = null, lexware_fehler = null where id = ${aid} and betrieb_id = ${k.betriebId}`;
 		}
+		// Annahme mit Terminwahl (Büro/Sprache: freiwillig; Portal: Pflicht, siehe kundenportal-oeffentlich.ts)
+		const wahl = nach === 'angenommen' ? await loeseTerminWahl(tx, k, aid, terminAngabe.termin, terminAngabe.wunsch, false) : null;
+		await tx`update app.angebote set status = ${nach} where id = ${aid} and betrieb_id = ${k.betriebId}`;
+		const hinweise: string[] = [];
+		if (nach === 'angenommen' && alt.status !== 'angenommen') {
+			neuAngenommen = { auftragId: alt.auftrag_id, termin: wahl?.beginn ?? null, terminWunsch: wahl?.wunsch ?? null };
+			if (wahl) hinweise.push(await uebernimmTerminWahl(tx, k, { auftragId: alt.auftrag_id, angebotNummer: alt.nummer ?? ENTWURF_OHNE_NUMMER, wahl, benutzerId: k.benutzerId }));
+		}
+		if (lexware && nach === 'versendet') {
+			// Lexware (Plan Phase 2): genau ein festgeschriebener Beleg je Version – über die Warteschlange; PDF, Portal und
+			// Mail folgen, sobald Lexware Nummer und PDF hat (angebot_versand)
+			const [n] = await tx`select count(*)::int as n from app.lexware_auftraege where betrieb_id = ${k.betriebId} and art = 'angebot_festschreiben' and nutzlast ->> 'angebotId' = ${aid}`;
+			const von = /^[0-9a-f-]{36}$/i.test(k.benutzerId) ? k.benutzerId : null;
+			await tx`
+				insert into app.lexware_auftraege (betrieb_id, art, nutzlast, idempotenz, von_benutzer)
+				values (${k.betriebId}, 'angebot_festschreiben', ${tx.json({ angebotId: aid, seit: new Date().toISOString() })}, ${`angebot_festschreiben:${aid}:${n.n + 1}`}, ${von})
+				on conflict (betrieb_id, idempotenz) do nothing`;
+			await tx`update app.angebote set lexware_phase = 'wartet', lexware_fehler = null where id = ${aid} and betrieb_id = ${k.betriebId}`;
+			hinweise.push('Das Angebot wird in Lexware festgeschrieben – Nummer und PDF kommen gleich, danach geht die Mail an den Kunden.');
+			lexwareAnstossen = true;
+		}
+		// Kundenportal (msg 2793): versendetes Angebot erscheint im Portal des Kunden, wenn er einen gültigen Link hat und
+		// der Auftrag im Portal steht (Einstellung des Kunden, sonst Regel der Firma); der Aufrufer sieht das Angebot (angebotSichtbar oben).
+		// Lexware-Angebote erst mit dem Lexware-PDF (angebot_versand → gibAngebotImPortalFrei).
+		if (nach === 'versendet' && alt.auftrag_id && !lexware) await gibAngebotImPortalFrei(tx, k, aid, alt.auftrag_id);
 		const schritt = KOPPLUNG[nach];
 		let hinweis: string | undefined;
 		if (schritt && alt.auftrag_id !== null && alt.auftrag_status === schritt[0]) {
@@ -727,15 +813,30 @@ export async function setzeAngebotStatus(
 			}
 		}
 		const angebot = await ladeEines(tx, k, aid, zg.sicht);
-		return hinweis ? { ...angebot, hinweis } : angebot;
-	});
-	// Das CRM ist die Quelle der Wahrheit (Jamil msg 2778): Annahme melden → Auftragsbestätigung, später Lexware
+		const alle = [hinweis, ...hinweise].filter(Boolean).join(' ');
+		return alle ? { ...angebot, hinweis: alle } : angebot;
+	}));
+	if (lexwareAnstossen) (await import('./lexware/anstoss')).stosseLexwareAn(k);
+	// Das CRM ist die Quelle der Wahrheit (Jamil msg 2778): Annahme melden → Auftragsbestätigung (bei Lexware-Betrieben in Lexware)
 	if (neuAngenommen) {
+		const na = neuAngenommen as { auftragId: string | null; termin: string | null; terminWunsch: string | null };
 		const { melde } = await import('./ereignisse');
-		const hinweise = await melde('angebotAngenommen', { betriebId: k.betriebId, benutzerId: k.benutzerId, angebotId: aid, auftragId: (neuAngenommen as { auftragId: string | null }).auftragId, quelle });
+		const hinweise = await melde('angebotAngenommen', { betriebId: k.betriebId, benutzerId: k.benutzerId, angebotId: aid, auftragId: na.auftragId, quelle, termin: na.termin, terminWunsch: na.terminWunsch });
 		if (hinweise.length > 0) return { ...ergebnis, hinweis: [ergebnis.hinweis, ...hinweise].filter(Boolean).join(' ') };
 	}
 	return ergebnis;
+}
+
+/** Versendetes Angebot im Kundenportal freigeben (gültiger Link + Auftrag im Portal), in der laufenden Transaktion. */
+export async function gibAngebotImPortalFrei(tx: TransactionSql, k: Kontext, angebotId: string, auftragId: string): Promise<void> {
+	const { IM_PORTAL_SQL } = await import('./kundenportal');
+	await tx`
+		insert into app.portal_dokumente (betrieb_id, auftrag_id, art, ref_id)
+		select ${k.betriebId}, a.id, 'angebot', ${angebotId} from app.auftraege a
+		where a.id = ${auftragId} and a.betrieb_id = ${k.betriebId} and ${tx.unsafe(IM_PORTAL_SQL)} and exists (
+			select 1 from app.portal_links l where l.kunde_id = a.kunde_id and l.betrieb_id = a.betrieb_id
+				and l.widerrufen_am is null and (l.laeuft_ab is null or l.laeuft_ab > now()))
+		on conflict do nothing`;
 }
 
 /** „Als neue Version bearbeiten“: kopiert Kopf und Positionen in einen neuen Entwurf (Vorgänger = dieses Angebot). */
@@ -759,6 +860,12 @@ export async function neueVersion(k: Kontext, id: string, zg: AngebotZugriff = v
 			select betrieb_id, ${neu.id}, pos, katalog_position_id, bezeichnung, beschreibung, menge, einheit, einzelpreis_cent,
 				arbeit_minuten, material_cent
 			from app.angebot_positionen where angebot_id = ${aid} and betrieb_id = ${k.betriebId}`;
+		// Terminvorschläge mitnehmen, soweit sie noch in der Zukunft liegen
+		await tx`
+			insert into app.angebot_terminvorschlaege (betrieb_id, angebot_id, pos, beginn, hinweis)
+			select betrieb_id, ${neu.id}, row_number() over (order by pos)::smallint, beginn, hinweis
+			from app.angebot_terminvorschlaege
+			where angebot_id = ${aid} and betrieb_id = ${k.betriebId} and beginn > (now() at time zone 'Europe/Berlin')::date`;
 		return ladeEines(tx, k, neu.id, zg.sicht);
 	});
 }
@@ -819,7 +926,7 @@ export async function loescheAngebot(k: Kontext, id: string, zg: AngebotZugriff 
 	const aid = pruefeAngebotId(id);
 	return mitSchutz(() =>
 		mitBetrieb(k, async (tx) => {
-			await sperreEntwurf(tx, k, aid, zg.sicht);
+			await sperreEntwurf(tx, k, aid, zg.sicht, true);
 			await tx`delete from app.angebote where id = ${aid} and betrieb_id = ${k.betriebId}`;
 		})
 	);

@@ -10,6 +10,7 @@ import { UUID } from './kunden';
 import { sichtbar, type Sicht } from './auftraege';
 import { berlinTag } from '../zeit';
 import type { AngebotAngenommen } from './ereignisse';
+import { tagMitWochentag } from './lexware/belege';
 
 /**
  * Auftragsbestätigung (Jamil msg 2778): Sobald ein Angebot „angenommen“ ist – egal ob im Kundenportal, von Hand im
@@ -95,14 +96,28 @@ export async function beiAngebotAngenommen(e: AngebotAngenommen): Promise<string
 	const k: Kontext = { betriebId: e.betriebId, benutzerId: e.benutzerId ?? OEFFENTLICH };
 	const vorab = await mitBetrieb(k, async (tx) => {
 		const [da] = await tx`select nummer from app.auftragsbestaetigungen where betrieb_id = ${k.betriebId} and angebot_id = ${e.angebotId}`;
-		if (da) return { weiter: false as const };
-		return { weiter: await abAutomatisch(tx, k, e.auftragId) };
+		if (da) return { weiter: false as const, lexware: false };
+		const [m] = await tx`select app.lexware_beleg_modus(${k.betriebId}::uuid) as an`;
+		return { weiter: await abAutomatisch(tx, k, e.auftragId), lexware: m.an === true };
 	});
 	if (!vorab.weiter) return;
+	// Lexware-Betrieb (Plan Phase 2): AB in Lexware aus dem Angebot – über die Warteschlange (fällt Lexware aus, ist die
+	// Annahme trotzdem gespeichert und die AB kommt nach). Nummer, PDF und Mail folgen in ab_versand.
+	if (vorab.lexware) {
+		const { stelleEin } = await import('./lexware/warteschlange');
+		await stelleEin(k, {
+			art: 'ab_anlegen',
+			nutzlast: { angebotId: e.angebotId, auftragId: e.auftragId, quelle: e.quelle, benutzerId: e.benutzerId, termin: e.termin ?? null, terminWunsch: e.terminWunsch ?? null, seit: new Date().toISOString() },
+			idempotenz: `ab_anlegen:${e.angebotId}`
+		});
+		(await import('./lexware/anstoss')).stosseLexwareAn(k);
+		return 'Lexware: Die Auftragsbestätigung wird in Lexware angelegt und kommt danach per Mail (bzw. als Aufgabe „bereit zum Versand“).';
+	}
 	const [daten, profil, logo] = await Promise.all([ladePdfDaten(k, e.angebotId), holeProfil(k), holeLogo(k)]);
 	return mitBetrieb(k, async (tx) => {
 		const nummer = await naechsteNummer(tx, k);
 		const heute = berlinTag(new Date());
+		const termin = e.termin ? ` Baubeginn: ${tagMitWochentag(e.termin)} (von Ihnen gewählt).` : e.terminWunsch ? ` Ihr Terminwunsch: „${e.terminWunsch}“.` : '';
 		const pdf = await angebotPdf({
 			profil,
 			logo,
@@ -114,51 +129,64 @@ export async function beiAngebotAngenommen(e: AngebotAngenommen): Promise<string
 				nummer,
 				datum: heute,
 				angenommenAm: heute,
-				einleitung: `vielen Dank für Ihren Auftrag. Hiermit bestätigen wir die Annahme unseres Angebots ${daten.angebot.nummer} mit den folgenden Leistungen.`,
+				einleitung: `vielen Dank für Ihren Auftrag. Hiermit bestätigen wir die Annahme unseres Angebots ${daten.angebot.nummer} mit den folgenden Leistungen.${termin}`,
 				schluss: 'Wir melden uns zur Terminabstimmung. Bei Fragen erreichen Sie uns jederzeit.'
 			}
 		});
-		// Mail aus der Vorlage „Auftragsbestätigung“ (Bibliothek, Jamil msg 2789) – Standard des Betriebs
-		const { an, werte } = await mailWerte(tx, k, { angebotId: e.angebotId, auftragId: e.auftragId }, { preise: true });
-		const vorlage = await vorlageFuer(tx, k, 'auftragsbestaetigung');
-		const mail = baueMail(vorlage, { ...werte, 'ab.nummer': nummer }, await holeSignatur(k, tx));
-		const kd = { email: an };
-		const betreff = mail.betreff.slice(0, 300);
-		const text = mail.text.slice(0, 5000);
 		const [ab] = await tx`
-			insert into app.auftragsbestaetigungen (betrieb_id, angebot_id, auftrag_id, nummer, pdf, mail_an, mail_betreff, mail_text, ausloeser)
-			values (${k.betriebId}, ${e.angebotId}, ${e.auftragId}, ${nummer}, ${Buffer.from(pdf)}, ${kd?.email ?? null}, ${betreff}, ${text}, ${e.quelle})
+			insert into app.auftragsbestaetigungen (betrieb_id, angebot_id, auftrag_id, nummer, pdf, ausloeser)
+			values (${k.betriebId}, ${e.angebotId}, ${e.auftragId}, ${nummer}, ${Buffer.from(pdf)}, ${e.quelle})
 			returning id`;
-		const versand = await mailVersandFuer(k.betriebId);
-		if (versand.verbunden && kd?.email) {
-			const r = await sendeMail(
-				k,
-				{ an: kd.email, betreff, html: mail.html, text, anhaenge: [{ name: `${nummer}.pdf`, typ: 'application/pdf', bytes: pdf }] },
-				{ art: 'ab', bezugTyp: 'auftragsbestaetigung', bezugId: ab.id, versand }
-			).catch((err: Error) => ({ status: 'fehler' as const, fehler: err.message }));
-			if (r.status === 'gesendet') {
-				await tx`update app.auftragsbestaetigungen set versand_status = 'gesendet', versendet_am = now() where id = ${ab.id} and betrieb_id = ${k.betriebId}`;
-				return `Auftragsbestätigung ${nummer} erstellt und an ${kd.email} gesendet.`;
-			}
-			// Versand fehlgeschlagen (steht im Versandprotokoll): wie ohne Mailversand – Aufgabe + Glocke
-		}
-		// Noch kein Mailversand: Aufgabe + Glocke für den Zuständigen
-		const wer = await zustaendig(tx, k, e.benutzerId, e.auftragId);
-		const [t] = await tx`
-			insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig)
-			values (${k.betriebId}, ${e.auftragId}, ${`Auftragsbestätigung ${nummer} an den Kunden senden`}, ${'Bereit zum Versand: im Auftrag „PDF herunterladen“ oder „In Mailprogramm öffnen“ (PDF anhängen), danach „Als gesendet markieren“.'}, ${wer}, ${heute})
-			returning id`;
-		await tx`update app.auftragsbestaetigungen set todo_id = ${t.id} where id = ${ab.id} and betrieb_id = ${k.betriebId}`;
-		if (wer) {
-			const link = e.auftragId ? `/auftraege/${e.auftragId}#auftragsbestaetigung` : `/angebote/${e.angebotId}`;
-			const [er] = await tx`
-				insert into app.erinnerungen (betrieb_id, benutzer_id, todo_id, zeitpunkt, titel, text, link)
-				values (${k.betriebId}, ${wer}, ${t.id}, now(), ${`Angebot ${daten.angebot.nummer} angenommen`}, ${`Auftragsbestätigung ${nummer} ist bereit zum Versand.`}, ${link})
-				returning id`;
-			await tx`update app.erinnerungen set gesendet_am = now(), ergebnis = 'gesendet' where id = ${er.id} and betrieb_id = ${k.betriebId}`;
-		}
-		return `Auftragsbestätigung ${nummer} erstellt – bereit zum Versand.`;
+		return stelleAbZu(tx, k, { abId: ab.id, nummer, pdf, angebotId: e.angebotId, angebotNummer: daten.angebot.nummer, auftragId: e.auftragId, benutzerId: e.benutzerId });
 	});
+}
+
+/**
+ * Mail der Auftragsbestätigung aufbauen (Vorlage „Auftragsbestätigung“, Jamil msg 2789) und senden, wenn der
+ * Mailversand eingerichtet ist; sonst (oder bei Fehler) „bereit zum Versand“ mit Aufgabe und Glocke für den
+ * Zuständigen. Für CRM- und Lexware-ABs (PDF jeweils aus der Zeile). Liefert den Hinweis für die Oberfläche.
+ */
+export async function stelleAbZu(
+	tx: TransactionSql,
+	k: Kontext,
+	e: { abId: string; nummer: string; pdf: Uint8Array; angebotId: string; angebotNummer: string; auftragId: string | null; benutzerId: string | null; lexwareId?: string | null }
+): Promise<string> {
+	const heute = berlinTag(new Date());
+	const { an, werte } = await mailWerte(tx, k, { angebotId: e.angebotId, auftragId: e.auftragId }, { preise: true });
+	const vorlage = await vorlageFuer(tx, k, 'auftragsbestaetigung');
+	const mail = baueMail(vorlage, { ...werte, 'ab.nummer': e.nummer }, await holeSignatur(k, tx));
+	const betreff = mail.betreff.slice(0, 300);
+	const text = mail.text.slice(0, 5000);
+	await tx`update app.auftragsbestaetigungen set mail_an = ${an ?? null}, mail_betreff = ${betreff}, mail_text = ${text} where id = ${e.abId} and betrieb_id = ${k.betriebId}`;
+	const versand = await mailVersandFuer(k.betriebId);
+	if (versand.verbunden && an) {
+		const datei = `Auftragsbestaetigung_${e.nummer.replace(/[^A-Za-z0-9-]/g, '_')}.pdf`;
+		const r = await sendeMail(
+			k,
+			{ an, betreff, html: mail.html, text, anhaenge: [{ name: datei, typ: 'application/pdf', bytes: e.pdf }] },
+			{ art: 'ab', bezugTyp: 'auftragsbestaetigung', bezugId: e.abId, lexwareId: e.lexwareId ?? null, versand }
+		).catch((err: Error) => ({ status: 'fehler' as const, fehler: err.message }));
+		if (r.status === 'gesendet') {
+			await tx`update app.auftragsbestaetigungen set versand_status = 'gesendet', versendet_am = now() where id = ${e.abId} and betrieb_id = ${k.betriebId}`;
+			return `Auftragsbestätigung ${e.nummer} erstellt und an ${an} gesendet.`;
+		}
+		// Versand fehlgeschlagen (steht im Versandprotokoll): wie ohne Mailversand – Aufgabe + Glocke
+	}
+	const wer = await zustaendig(tx, k, e.benutzerId, e.auftragId);
+	const [t] = await tx`
+		insert into app.todos (betrieb_id, auftrag_id, titel, beschreibung, zustaendig_id, faellig)
+		values (${k.betriebId}, ${e.auftragId}, ${`Auftragsbestätigung ${e.nummer} an den Kunden senden`}, ${'Bereit zum Versand: im Auftrag „PDF herunterladen“ oder „In Mailprogramm öffnen“ (PDF anhängen), danach „Als gesendet markieren“.'}, ${wer}, ${heute})
+		returning id`;
+	await tx`update app.auftragsbestaetigungen set todo_id = ${t.id} where id = ${e.abId} and betrieb_id = ${k.betriebId}`;
+	if (wer) {
+		const link = e.auftragId ? `/auftraege/${e.auftragId}#auftragsbestaetigung` : `/angebote/${e.angebotId}`;
+		const [er] = await tx`
+			insert into app.erinnerungen (betrieb_id, benutzer_id, todo_id, zeitpunkt, titel, text, link)
+			values (${k.betriebId}, ${wer}, ${t.id}, now(), ${`Angebot ${e.angebotNummer} angenommen`}, ${`Auftragsbestätigung ${e.nummer} ist bereit zum Versand.`}, ${link})
+			returning id`;
+		await tx`update app.erinnerungen set gesendet_am = now(), ergebnis = 'gesendet' where id = ${er.id} and betrieb_id = ${k.betriebId}`;
+	}
+	return `Auftragsbestätigung ${e.nummer} erstellt – bereit zum Versand.`;
 }
 
 export async function listeAuftragsbestaetigungen(k: Kontext, auftragId: string): Promise<Auftragsbestaetigung[]> {

@@ -336,7 +336,7 @@ export async function pruefeNachfassen(k: Kontext, heute = berlinTag(new Date())
 				update app.todos t set erledigt_am = now()
 				from app.nachfass_laeufe l join app.angebote an on an.id = l.angebot_id and an.betrieb_id = l.betrieb_id
 				where t.nachfass_id = l.id and t.betrieb_id = ${k.betriebId} and t.erledigt_am is null
-					and an.status in ('angenommen', 'abgelehnt')`;
+					and (an.status in ('angenommen', 'abgelehnt') or an.lexware_status in ('accepted', 'rejected', 'voided'))`;
 			if (stufen.length === 0) return [];
 			return tx`
 				select an.id, to_char(an.versendet_am at time zone 'Europe/Berlin', 'YYYY-MM-DD') as versendet_tag,
@@ -348,6 +348,9 @@ export async function pruefeNachfassen(k: Kontext, heute = berlinTag(new Date())
 				left join app.kunden k on k.id = coalesce(an.kunde_id, a.kunde_id) and k.betrieb_id = an.betrieb_id
 				where an.betrieb_id = ${k.betriebId} and an.status = 'versendet' and not an.nachfassen_pausiert
 					and an.versendet_am is not null and not coalesce(k.kein_nachfassen, false)
+					-- Lexware-Angebote (Plan Phase 2): Versanddatum erst nach Festschreiben + Versand; Stopp, wenn Lexware
+					-- „angenommen/abgelehnt“ meldet (Belegspiegel, z. B. von Hand in Lexware gesetzt)
+					and (an.lexware_status is null or an.lexware_status not in ('accepted', 'rejected', 'voided'))
 				order by an.versendet_am`;
 		}),
 		holeSignatur(k),

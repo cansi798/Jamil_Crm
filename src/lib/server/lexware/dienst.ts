@@ -5,6 +5,7 @@ import { arbeiteAb, type HandlerTabelle } from './warteschlange';
 import { kontaktAktualisieren, kontaktAnlegen, kontakteAbgleichen } from './kontakte';
 import { abosEinrichten, belegeAbgleichen, naechtlicherAbgleich } from './abgleich';
 import { verarbeiteEreignisse } from './ereignis';
+import { abAnlegen, abVersand, angebotFestschreiben, angebotVersand } from './angebote';
 
 /**
  * Hintergrund-Dienst für Lexware (jede Minute, wie Erinnerungen; aus mit CRM_LEXWARE_DIENST=aus, in Tests nie):
@@ -18,7 +19,11 @@ export const HANDLER: HandlerTabelle = {
 	kontakt_aktualisieren: kontaktAktualisieren,
 	kontakte_abgleichen: kontakteAbgleichen,
 	belege_abgleichen: belegeAbgleichen,
-	abos_einrichten: abosEinrichten
+	abos_einrichten: abosEinrichten,
+	angebot_festschreiben: angebotFestschreiben,
+	angebot_versand: angebotVersand,
+	ab_anlegen: abAnlegen,
+	ab_versand: abVersand
 };
 
 /** Ein Durchlauf für einen Betrieb (auch „Jetzt ausführen“ auf der Einstellungsseite). */

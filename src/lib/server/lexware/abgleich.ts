@@ -99,6 +99,11 @@ export const belegeAbgleichen: Handler = {
 							datum = excluded.datum, faellig = excluded.faellig, brutto_cent = excluded.brutto_cent, offen_cent = excluded.offen_cent,
 							waehrung = excluded.waehrung, kontakt_id = excluded.kontakt_id, kontakt_name = excluded.kontakt_name, kunde_id = excluded.kunde_id,
 							archiviert = excluded.archiviert, geaendert_lexware = excluded.geaendert_lexware, veraltet = false, stand = now()`;
+					// Angebot im CRM: Status aus Lexware spiegeln (z. B. in Lexware „angenommen“ markiert → Nachfassen stoppt)
+					const st = String(b.voucherStatus);
+					if (b.voucherType === 'quotation' && ['draft', 'open', 'accepted', 'rejected', 'voided'].includes(st))
+						await tx`update app.angebote set lexware_status = ${st}, lexware_stand = now()
+							where betrieb_id = ${k.betriebId} and lexware_id = ${b.id} and lexware_status is distinct from ${st}`;
 				}
 			});
 			if (r.last || r.content.length === 0) break;

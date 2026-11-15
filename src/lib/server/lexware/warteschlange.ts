@@ -17,7 +17,17 @@ import { LexwareFehler, type LexwareClient } from './client';
  *   * 401 → pruefen, Verbindung „Schlüssel ungültig“, Aufgabe für den Chef; andere 4xx → pruefen + Aufgabe.
  */
 
-export type LexwareArt = 'kontakt_anlegen' | 'kontakt_aktualisieren' | 'kontakte_abgleichen' | 'belege_abgleichen' | 'abos_einrichten';
+export type LexwareArt =
+	| 'kontakt_anlegen'
+	| 'kontakt_aktualisieren'
+	| 'kontakte_abgleichen'
+	| 'belege_abgleichen'
+	| 'abos_einrichten'
+	// Phase 2: Angebot festschreiben → PDF/Versand; Annahme → Auftragsbestätigung → PDF/Versand
+	| 'angebot_festschreiben'
+	| 'angebot_versand'
+	| 'ab_anlegen'
+	| 'ab_versand';
 
 export type HandlerErgebnis = { lexwareId?: string | null; ergebnis?: Record<string, unknown> | null };
 export type Handler = {
@@ -28,6 +38,8 @@ export type Handler = {
 	vorhanden?(c: LexwareClient, nutzlast: any, k: Kontext): Promise<string | null>;
 	/** Nach Erfolg (z. B. Lexware-ID am Kunden merken). */
 	nachher?(k: Kontext, nutzlast: any, r: HandlerErgebnis): Promise<void>;
+	/** Endgültig gescheitert (Status „pruefen“): z. B. am Angebot „Fehler“ anzeigen. */
+	beiFehler?(k: Kontext, nutzlast: any, text: string): Promise<void>;
 };
 export type HandlerTabelle = Partial<Record<LexwareArt, Handler>>;
 
@@ -97,7 +109,11 @@ const ART_NAME: Record<LexwareArt, string> = {
 	kontakt_aktualisieren: 'Kunde in Lexware aktualisieren',
 	kontakte_abgleichen: 'Kunden mit Lexware abgleichen',
 	belege_abgleichen: 'Belege aus Lexware abgleichen',
-	abos_einrichten: 'Rückmeldungen von Lexware einrichten'
+	abos_einrichten: 'Rückmeldungen von Lexware einrichten',
+	angebot_festschreiben: 'Angebot in Lexware festschreiben',
+	angebot_versand: 'Angebot-PDF aus Lexware holen und senden',
+	ab_anlegen: 'Auftragsbestätigung in Lexware anlegen',
+	ab_versand: 'Auftragsbestätigung-PDF aus Lexware holen und senden'
 };
 
 async function fehlgeschlagen(k: Kontext, g: Geholt, h: Handler, e: unknown) {
@@ -116,6 +132,7 @@ async function fehlgeschlagen(k: Kontext, g: Geholt, h: Handler, e: unknown) {
 	await mitBetrieb(k, (tx) => tx`
 		update app.lexware_auftraege set status = 'pruefen', gesperrt_bis = null, letzter_fehler = ${text}
 		where id = ${g.id} and betrieb_id = ${k.betriebId}`);
+	await h.beiFehler?.(k, g.nutzlast, text).catch((err) => console.error('Lexware-Warteschlange (beiFehler):', (err as Error).message));
 	if (lf?.art === 'schluessel') {
 		await mitBetrieb(k, (tx) => tx`update app.lexware_konfig set status = 'schluessel_ungueltig', letzter_fehler = ${text} where betrieb_id = ${k.betriebId}`);
 		await meldeProblem(k, 'Lexware-Schlüssel erneuern', 'Lexware lehnt den API-Schlüssel ab (abgelaufen oder widerrufen). Bitte in Lexware einen neuen Schlüssel anlegen und unter Einstellungen → Lexware verbinden eintragen.');

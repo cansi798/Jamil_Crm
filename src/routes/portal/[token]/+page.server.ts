@@ -35,7 +35,9 @@ export const actions: Actions = {
 			const r = await entscheide(event.params.token, angebotId, {
 				entscheidung: f.get('entscheidung'),
 				agb: f.get('agb'),
-				grund: f.get('grund')
+				grund: f.get('grund'),
+				termin: f.get('termin'),
+				terminWunsch: f.get('terminWunsch')
 			}, ipVon(event));
 			return { erledigt: r.status, angebotId };
 		} catch (e) {

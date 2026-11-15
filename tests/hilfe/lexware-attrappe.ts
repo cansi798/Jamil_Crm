@@ -16,6 +16,14 @@ import type { AddressInfo } from 'node:net';
  * - Event-Subscriptions POST/GET/DELETE /v1/event-subscriptions: POST {eventType, callbackUrl} → 201
  *   {id, resourceUri, createdDate, updatedDate, version}; doppelt → 409; Liste {content: [{subscriptionId,
  *   organizationId, createdDate, eventType, callbackUrl}]}; DELETE → 204
+ * - Angebote POST /v1/quotations[?finalize=true] (Pflicht voucherDate, expirationDate, address, lineItems, totalPrice,
+ *   taxConditions; Antwort {id, resourceUri, createdDate, updatedDate, version}), GET /v1/quotations/{id} (mit voucherNumber,
+ *   voucherStatus draft|open|accepted|rejected), GET /v1/quotations/{id}/file (nur PDF: Accept *\/* oder application/pdf,
+ *   sonst 406; Entwurf → 409; Content-Disposition mit Dateinamen). Kein PUT, kein DELETE, Status per API nicht änderbar.
+ * - Auftragsbestätigungen POST /v1/order-confirmations[?precedingSalesVoucherId={id}][&finalize=true] (zusätzlich Pflicht
+ *   shippingConditions; ungültiges Weiterführen → 406, z. B. Angebot als Entwurf/abgelehnt oder mit Alternativ-/
+ *   Bedarfspositionen), GET /v1/order-confirmations/{id}, …/file (Entwurf → 409). Ob Lexware das Angebot beim
+ *   Weiterführen auf „accepted“ setzt, ist in der Doku offen (Plan T0) – Schalter `abSetztAngenommen` (Standard aus).
  * - Fehler: „regular format“ {timestamp, status, error, path, traceId, message}; Kontakte „legacy“ {IssueList: […]}
  * - Ratenlimit: 429; Retry-After optional
  *
@@ -52,6 +60,10 @@ export type Attrappe = {
 	belege: Beleg[];
 	abos: { subscriptionId: string; organizationId: string; createdDate: string; eventType: string; callbackUrl: string }[];
 	profil: Record<string, unknown>;
+	/** Verkaufsbelege (Angebote, Auftragsbestätigungen) mit allen Feldern */
+	verkaufsbelege: Map<string, Record<string, any>>;
+	/** Setzt Lexware beim Weiterführen zur AB das Angebot auf „accepted“? (Doku offen, Plan T0) */
+	abSetztAngenommen: boolean;
 	stoerung: (...s: Stoerung[]) => void;
 	/** Alle noch offenen Störungen verwerfen */
 	ruhe: () => void;
@@ -94,6 +106,8 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 		belege: [],
 		abos: [],
 		profil: {},
+		verkaufsbelege: new Map(),
+		abSetztAngenommen: false,
 		stoerungen: [],
 		stoerung: (...s) => void a.stoerungen.push(...s),
 		ruhe: () => void (a.stoerungen.length = 0),
@@ -102,6 +116,7 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 			a.kontakte.clear();
 			a.belege.length = 0;
 			a.abos.length = 0;
+			a.verkaufsbelege.clear();
 			a.stoerungen.length = 0;
 		}
 	};
@@ -206,6 +221,83 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 			a.abos.splice(j, 1);
 			return antworte(204);
 		}
+		// ——— Verkaufsbelege: Angebote und Auftragsbestätigungen ———
+		const ART: Record<string, { typ: string; praefix: string; pflicht: string[] }> = {
+			quotations: { typ: 'quotation', praefix: 'AG', pflicht: ['voucherDate', 'expirationDate', 'address', 'lineItems', 'totalPrice', 'taxConditions'] },
+			'order-confirmations': { typ: 'orderconfirmation', praefix: 'AB', pflicht: ['voucherDate', 'address', 'lineItems', 'totalPrice', 'taxConditions', 'shippingConditions'] }
+		};
+		const vk = /^\/v1\/(quotations|order-confirmations)(?:\/([0-9a-f-]{36})(\/file)?)?$/.exec(pfad);
+		if (vk) {
+			const art = ART[vk[1]];
+			if (!vk[2] && req.method === 'POST') {
+				const fehlt = art.pflicht.filter((f) => body?.[f] === undefined || body?.[f] === null);
+				if (fehlt.length > 0 || !Array.isArray(body.lineItems) || body.lineItems.length === 0 || body.lineItems.length > 300)
+					return fehler(res, 406, pfad, `Validation failed: ${fehlt.join(', ') || 'lineItems'}`);
+				const kontaktId = body.address?.contactId;
+				if (kontaktId && !a.kontakte.has(kontaktId)) return fehler(res, 406, pfad, 'Validation failed: address.contactId');
+				if (!kontaktId && (!body.address?.name || !body.address?.countryCode)) return fehler(res, 406, pfad, 'Validation failed: address.name');
+				const vorId = url.searchParams.get('precedingSalesVoucherId');
+				let vor: Record<string, any> | undefined;
+				if (vorId) {
+					vor = a.verkaufsbelege.get(vorId);
+					if (!vor) return fehler(res, 404, pfad, 'Not Found: precedingSalesVoucherId');
+					const alternativ = (vor.lineItems ?? []).some((p: any) => p.optional || p.alternative);
+					if (vor.voucherStatus === 'draft' || vor.voucherStatus === 'rejected' || alternativ) return fehler(res, 406, pfad, 'Invalid pursue action');
+				}
+				const fertig = url.searchParams.get('finalize') === 'true';
+				const id = randomUUID();
+				const t = jetzt();
+				const nr = [...a.verkaufsbelege.values()].filter((x) => x.voucherType === art.typ && x.voucherNumber).length + 1;
+				// Summen je Steuersatz: Zeilen auf Cent, Steuer je Satz auf die Summe
+				let netto = 0;
+				const jeSatz = new Map<number, number>();
+				for (const p of body.lineItems) {
+					if (p.type === 'text') continue;
+					const n = Math.round(Number(p.quantity) * Number(p.unitPrice?.netAmount ?? 0) * 100);
+					netto += n;
+					const satz = Number(p.unitPrice?.taxRatePercentage ?? 0);
+					jeSatz.set(satz, (jeSatz.get(satz) ?? 0) + n);
+				}
+				let steuer = 0;
+				for (const [satz, n] of jeSatz) steuer += Math.round((n * satz) / 100);
+				const beleg = {
+					...body,
+					id,
+					organizationId: a.organisationId,
+					createdDate: t,
+					updatedDate: t,
+					version: 1,
+					voucherType: art.typ,
+					voucherStatus: fertig ? 'open' : 'draft',
+					voucherNumber: fertig ? `${art.praefix}${String(nr).padStart(4, '0')}` : null,
+					totalPrice: { ...body.totalPrice, totalNetAmount: netto / 100, totalGrossAmount: (netto + steuer) / 100, totalTaxAmount: steuer / 100 },
+					relatedVouchers: vor ? [{ id: vorId, voucherNumber: vor.voucherNumber, voucherType: vor.voucherType }] : []
+				};
+				a.verkaufsbelege.set(id, beleg);
+				a.belege.push(
+					beleg_({ id, voucherType: art.typ, voucherStatus: beleg.voucherStatus, voucherNumber: beleg.voucherNumber, voucherDate: body.voucherDate, createdDate: t, updatedDate: t,
+						dueDate: null, contactId: kontaktId ?? null, contactName: body.address?.name ?? 'Kontakt', totalAmount: (netto + steuer) / 100, openAmount: 0 })
+				);
+				if (vor && a.abSetztAngenommen && vor.voucherType === 'quotation') {
+					vor.voucherStatus = 'accepted';
+					const z = a.belege.find((x) => x.id === vorId);
+					if (z) z.voucherStatus = 'accepted';
+				}
+				return antworte(201, { id, resourceUri: `https://api.lexware.io/v1/${vk[1]}/${id}`, createdDate: t, updatedDate: t, version: 1 });
+			}
+			if (vk[2] && req.method === 'GET') {
+				const b = a.verkaufsbelege.get(vk[2]);
+				if (!b || b.voucherType !== art.typ) return fehler(res, 404, pfad, 'Not Found');
+				if (!vk[3]) return antworte(200, b);
+				const acc = (req.headers.accept as string) ?? '*/*';
+				if (!/(\*\/\*|application\/pdf)/.test(acc)) return fehler(res, 406, pfad, 'Not Acceptable');
+				if (b.voucherStatus === 'draft') return fehler(res, 409, pfad, 'Conflict: draft has no document');
+				const pdf = Buffer.from(`%PDF-1.4\n% Attrappe ${b.voucherType} ${b.voucherNumber}\n%%EOF\n`);
+				res.writeHead(200, { 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${b.voucherType}_${b.voucherNumber}.pdf"` });
+				return res.end(pdf);
+			}
+			return fehler(res, 405, pfad, 'Method Not Allowed');
+		}
 		return fehler(res, 404, pfad, 'Not Found');
 	});
 	await new Promise<void>((ok) => server.listen(port, '127.0.0.1', ok));
@@ -215,6 +307,8 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 		stop: () => new Promise<void>((ok) => (server.closeAllConnections(), server.close(() => ok())))
 	}) as Attrappe;
 }
+
+const beleg_ = (t: Partial<Beleg>) => beleg(t);
 
 /** Beleg für die Belegliste der Attrappe. */
 export function beleg(teil: Partial<Beleg> = {}): Beleg {

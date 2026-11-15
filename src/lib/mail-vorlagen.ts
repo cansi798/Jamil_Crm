@@ -7,12 +7,13 @@
  */
 import { BEISPIEL_WERTE } from './nachfassen';
 
-export const MAIL_ZWECKE = ['allgemein', 'nachfassen_angebot', 'zahlungserinnerung', 'auftragsbestaetigung', 'buchungsbestaetigung', 'portal_link', 'bewertung'] as const;
+export const MAIL_ZWECKE = ['allgemein', 'angebot', 'nachfassen_angebot', 'zahlungserinnerung', 'auftragsbestaetigung', 'buchungsbestaetigung', 'portal_link', 'bewertung'] as const;
 export type MailZweck = (typeof MAIL_ZWECKE)[number];
 export const istMailZweck = (w: unknown): w is MailZweck => typeof w === 'string' && (MAIL_ZWECKE as readonly string[]).includes(w);
 
 export const ZWECK_NAMEN: Record<MailZweck, string> = {
 	allgemein: 'Allgemein (Mail an Kunden)',
+	angebot: 'Angebot senden',
 	nachfassen_angebot: 'Nachfassen Angebot',
 	zahlungserinnerung: 'Zahlungserinnerung / Mahnung',
 	auftragsbestaetigung: 'Auftragsbestätigung',
@@ -24,6 +25,7 @@ export const ZWECK_NAMEN: Record<MailZweck, string> = {
 /** Wo die Vorlage benutzt wird (Hinweis im Editor). */
 export const ZWECK_HINWEIS: Record<MailZweck, string> = {
 	allgemein: '„Mail an Kunden“ am Kunden, Auftrag und Angebot.',
+	angebot: 'Mail mit dem Angebot (PDF aus Lexware) beim Versenden – nur Betriebe mit Lexware-Verbindung.',
 	nachfassen_angebot: 'Nachfass-Stufen für Angebote (Einstellungen → Nachfassen).',
 	zahlungserinnerung: 'Nachfass-Stufen für Rechnungen (sobald es Rechnungen gibt).',
 	auftragsbestaetigung: 'Mail zur Auftragsbestätigung nach Annahme eines Angebots.',
@@ -64,6 +66,7 @@ const ANGEBOT = ['angebot.nummer', 'angebot.datum', 'angebot.gueltig_bis', 'betr
 /** Erlaubte Platzhalter je Zweck (andere werden im Editor als unbekannt markiert). */
 export const PLATZHALTER_JE_ZWECK: Record<MailZweck, readonly string[]> = {
 	allgemein: [...GEMEINSAM, ...ANGEBOT],
+	angebot: [...GEMEINSAM, ...ANGEBOT],
 	nachfassen_angebot: [...GEMEINSAM, ...ANGEBOT, 'faellig_am', 'tage'],
 	zahlungserinnerung: [...GEMEINSAM, ...ANGEBOT, 'faellig_am', 'tage'],
 	auftragsbestaetigung: [...GEMEINSAM, ...ANGEBOT, 'ab.nummer'],
@@ -106,6 +109,13 @@ export const STANDARD_MAIL_VORLAGEN: Record<MailZweck, StandardVorlage> = {
 		name: 'Kurze Nachricht an den Kunden',
 		betreff: 'Ihr Auftrag {{auftrag.titel}}',
 		html: `<p>{{kunde.anrede}},</p><p>…</p>${gruss}`
+	},
+	angebot: {
+		name: 'Angebot senden',
+		betreff: 'Ihr Angebot {{angebot.nummer}} – {{auftrag.titel}}',
+		html:
+			'<p>{{kunde.anrede}},</p><p>vielen Dank für Ihre Anfrage. Anbei erhalten Sie unser Angebot {{angebot.nummer}} über {{betrag}}, gültig bis {{angebot.gueltig_bis}}. ' +
+			`Bei Fragen erreichen Sie uns jederzeit – wir freuen uns auf Ihren Auftrag.</p>${gruss}`
 	},
 	nachfassen_angebot: {
 		name: 'Angebot – freundlich nachfragen',

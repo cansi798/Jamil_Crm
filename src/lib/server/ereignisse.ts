@@ -15,6 +15,9 @@ export type AngebotAngenommen = {
 	angebotId: string;
 	auftragId: string | null;
 	quelle: 'oberflaeche' | 'sprache' | 'kundenportal';
+	/** Gewählter Baubeginn (Terminvorschlag) bzw. Wunsch bei „keiner passt“ – für den Text der Auftragsbestätigung */
+	termin?: string | null;
+	terminWunsch?: string | null;
 };
 
 type Ereignisse = { angebotAngenommen: AngebotAngenommen };

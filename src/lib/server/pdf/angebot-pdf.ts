@@ -31,6 +31,11 @@ export type AngebotPdfDaten = {
 	 * eigene Nummer, Datum der Annahme und eigener Einleitungs-/Schlusstext.
 	 */
 	als?: { titel: string; nummer: string; datum: string; angenommenAm: string; einleitung: string; schluss: string };
+	/**
+	 * Lexware-Betrieb (Plan Phase 2): Das CRM-PDF ist nur eine interne Vorschau mit Wasserzeichen „Vorschau – kein Beleg“
+	 * – an Kunden und ins Portal gehen nur PDFs aus Lexware.
+	 */
+	wasserzeichen?: string;
 };
 
 /**
@@ -371,6 +376,14 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 		});
 		if (profil.fusszeile) {
 			zeile(profil.fusszeile.replace(/\s+/g, ' '), LINKS, FUSS_Y + mm(2) + 5 * zh + mm(0.5), BREITE);
+		}
+		if (daten.wasserzeichen) {
+			doc.save();
+			doc.rotate(-35, { origin: [mm(105), mm(148)] });
+			doc.font('fett').fontSize(46).fillColor('#c0392b').fillOpacity(0.18);
+			doc.text(daten.wasserzeichen, mm(5), mm(140), { width: mm(200), align: 'center', lineBreak: false });
+			doc.restore();
+			doc.fillOpacity(1);
 		}
 	}
 

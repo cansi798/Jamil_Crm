@@ -214,7 +214,7 @@ describe('Kundenportal', () => {
 		ab();
 		expect(r.status).toBe('angenommen');
 		expect(r.hinweise[0]).toMatch(/^Auftragsbestätigung AB-\d{4}-0001 erstellt – bereit zum Versand/);
-		expect(gemeldet).toEqual([{ betriebId: u.betriebA, benutzerId: null, angebotId: an.id, auftragId: u.auftragA, quelle: 'kundenportal' }]);
+		expect(gemeldet).toEqual([{ betriebId: u.betriebA, benutzerId: null, angebotId: an.id, auftragId: u.auftragA, quelle: 'kundenportal', termin: null, terminWunsch: null }]);
 		const [st] = await root`select an.status, a.status as auftrag from app.angebote an join app.auftraege a on a.id = an.auftrag_id where an.id = ${an.id}`;
 		expect(st).toEqual({ status: 'angenommen', auftrag: 'beauftragt' });
 		const [ent] = await root`select name, agb_bestaetigt, agb_url, token_hash, ip_hash from app.angebot_entscheidungen where angebot_id = ${an.id}`;

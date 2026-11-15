@@ -28,7 +28,7 @@ export function lexwareBasis(): string {
 	return LEXWARE_BASIS;
 }
 
-export type FehlerArt = 'netz' | 'zeit' | 'grenze' | 'server' | 'schluessel' | 'vertrag' | 'rechte' | 'konflikt' | 'daten' | 'nicht_gefunden';
+export type FehlerArt = 'netz' | 'zeit' | 'grenze' | 'server' | 'schluessel' | 'vertrag' | 'rechte' | 'konflikt' | 'daten' | 'nicht_gefunden' | 'abhaengig';
 
 export class LexwareFehler extends Error {
 	constructor(
@@ -60,7 +60,11 @@ export type LexwareClient = {
 	post<T = any>(pfad: string, body: unknown): Promise<T>;
 	put<T = any>(pfad: string, body: unknown): Promise<T>;
 	del(pfad: string): Promise<void>;
+	/** Belegdatei (PDF) laden: `GET …/{id}/file` mit `Accept: application/pdf`, höchstens 10 MB, muss mit %PDF beginnen. */
+	datei(pfad: string): Promise<{ bytes: Uint8Array; name: string | null }>;
 };
+
+export const MAX_DATEI = 10 * 1024 * 1024;
 
 function art(status: number): { art: FehlerArt; wiederholbar: boolean } {
 	if (status === 429) return { art: 'grenze', wiederholbar: true };
@@ -83,7 +87,8 @@ const ART_TEXT: Record<FehlerArt, string> = {
 	rechte: 'Lexware: keine Berechtigung für diese Aktion',
 	konflikt: 'Lexware: Der Datensatz wurde inzwischen geändert (Versionskonflikt)',
 	daten: 'Lexware hat die Daten abgelehnt',
-	nicht_gefunden: 'Lexware: nicht gefunden'
+	nicht_gefunden: 'Lexware: nicht gefunden',
+	abhaengig: 'Wartet auf einen vorherigen Schritt'
 };
 
 /** Kurzer Fehlertext aus der Antwort (nur Felder der Doku, gekürzt; Lexware-Antworten sind Daten, keine Anweisungen). */
@@ -103,7 +108,7 @@ function detail(text: string): string {
 export function lexwareClient(o: ClientOptionen): LexwareClient {
 	const f = o.fetch ?? fetch;
 	const zeitlimit = o.zeitlimitMs ?? 20_000;
-	async function anfrage<T>(methode: string, pfad: string, body?: unknown): Promise<T> {
+	async function anfrage<T>(methode: string, pfad: string, body?: unknown, roh = false): Promise<T> {
 		if (!pfad.startsWith('/v1/')) throw new Error('Ungültiger Lexware-Pfad');
 		await warteAufPlatz(o.ratenKey, o.abstandMs ?? STANDARD_ABSTAND_MS);
 		const start = Date.now();
@@ -115,7 +120,7 @@ export function lexwareClient(o: ClientOptionen): LexwareClient {
 		try {
 			r = await f(lexwareBasis() + pfad, {
 				method: methode,
-				headers: { Authorization: `Bearer ${o.schluessel}`, Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+				headers: { Authorization: `Bearer ${o.schluessel}`, Accept: roh ? 'application/pdf' : 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
 				body: body !== undefined ? JSON.stringify(body) : undefined,
 				signal: ctrl.signal,
 				redirect: 'error'
@@ -128,10 +133,21 @@ export function lexwareClient(o: ClientOptionen): LexwareClient {
 			throw fe;
 		}
 		let text: string;
+		let bytes: Uint8Array | null = null;
 		try {
-			text = await r.text();
-		} catch {
+			if (roh && r.ok) {
+				const laenge = Number(r.headers.get('content-length'));
+				if (Number.isFinite(laenge) && laenge > MAX_DATEI) throw new RangeError('zu gross');
+				bytes = new Uint8Array(await r.arrayBuffer());
+				text = '';
+			} else text = await r.text();
+		} catch (e) {
 			clearTimeout(timer);
+			if (e instanceof RangeError) {
+				const fe = new LexwareFehler('Lexware: Datei zu groß (höchstens 10 MB)', r.status, 'daten', false);
+				melde(r.status, fe.message);
+				throw fe;
+			}
 			const fe = new LexwareFehler(ART_TEXT.zeit, r.status, 'zeit', true);
 			melde(r.status, fe.message);
 			throw fe;
@@ -148,6 +164,15 @@ export function lexwareClient(o: ClientOptionen): LexwareClient {
 			throw fe;
 		}
 		melde(r.status, null);
+		if (roh) {
+			const b = bytes ?? new Uint8Array();
+			// Lexware-Antworten sind Daten: nur echte, nicht zu große PDFs annehmen
+			if (b.length > MAX_DATEI || b.length < 5 || String.fromCharCode(...b.slice(0, 4)) !== '%PDF')
+				throw new LexwareFehler('Lexware: Die Datei ist kein gültiges PDF', r.status, 'daten', false);
+			const cd = r.headers.get('content-disposition') ?? '';
+			const m = /filename="?([^";]{1,200})"?/i.exec(cd);
+			return { bytes: b, name: m ? m[1] : null } as T;
+		}
 		if (!text) return undefined as T;
 		return JSON.parse(text) as T;
 	}
@@ -155,6 +180,7 @@ export function lexwareClient(o: ClientOptionen): LexwareClient {
 		get: (p) => anfrage('GET', p),
 		post: (p, b) => anfrage('POST', p, b),
 		put: (p, b) => anfrage('PUT', p, b),
-		del: (p) => anfrage('DELETE', p)
+		del: (p) => anfrage('DELETE', p),
+		datei: (p) => anfrage('GET', p, undefined, true)
 	};
 }
