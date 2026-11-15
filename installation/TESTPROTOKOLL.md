@@ -118,6 +118,14 @@ Migration 114 auf einer Kopie der Vorschau-Datenbank geprüft: angewendet, zweit
 Nachrichten beim Einspielen (die Trigger greifen erst bei neuen Änderungen); Kopie gelöscht. Probe-Installation weiterhin
 nicht möglich (Docker-Adressbereiche belegt) – nachholen, sobald Netze frei sind.
 
+## Probelauf 15.11.2026 (Lexware Phase 1 + Mailversand, Migrationen 118–120)
+
+Paket mit den Migrationen 118–120, neuer Abhängigkeit `nodemailer` 10.2.1 und den Variablen `CRM_GEHEIMNIS_SCHLUESSEL`,
+`CRM_LEXWARE_DIENST`, `CRM_MAILVERSAND`, unbeaufsichtigt installiert (Projekt `crm-lxtest`, App-Port 18320, ohne
+Profile): `2-installieren.sh` hat `CRM_GEHEIMNIS_SCHLUESSEL` (48 Zeichen) erzeugt, alle Migrationen bis 120 angewendet,
+`nodemailer` im Image vorhanden, `/api/gesundheit` ok, Webhook `/api/lexware/ereignis` HEAD 200 / POST ohne Signatur 401,
+Sicherung + Wiederherstellung ok, `9-deinstallieren.sh --ja` hat alles entfernt. Vorschau-Container unberührt.
+
 ## So wiederholen (für Entwickler)
 
 ```sh
