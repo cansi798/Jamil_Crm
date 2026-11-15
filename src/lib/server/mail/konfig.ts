@@ -1,6 +1,7 @@
 import { ApiFehler } from '../fehler';
 import { mitBetrieb, type Kontext } from '../db';
 import { hinweis, verschluessele } from '../geheimnis';
+import { pruefeSmtpHost, SMTP_PORTS, type Aufloeser } from '../netz-schutz';
 import { hatAttrappe, mailVersandErlaubt, sendeMail, smtpOhneSchalter, type MailErgebnis } from './versand';
 
 /**
@@ -61,11 +62,13 @@ export async function ladeMailEinstellungen(k: Kontext): Promise<MailEinstellung
 	};
 }
 
-export async function speichereMailEinstellungen(k: Kontext, e: Record<string, unknown>): Promise<void> {
+export async function speichereMailEinstellungen(k: Kontext, e: Record<string, unknown>, aufloeser?: Aufloeser): Promise<void> {
 	const host = text(e.host, 253);
 	if (host && !HOST.test(host)) throw new ApiFehler(400, 'Server: Bitte einen gültigen Servernamen eingeben (z. B. smtp.ionos.de).');
 	const portRoh = e.port === '' || e.port === null || e.port === undefined ? null : Number(e.port);
-	if (portRoh !== null && (!Number.isInteger(portRoh) || portRoh < 1 || portRoh > 65535)) throw new ApiFehler(400, 'Port: Bitte eine Zahl von 1 bis 65535 (meist 587 oder 465).');
+	if (portRoh !== null && !(SMTP_PORTS as readonly number[]).includes(portRoh)) throw new ApiFehler(400, 'Port: erlaubt sind 587 (empfohlen), 465, 25 oder 2525.');
+	// SSRF-Schutz schon beim Speichern (und noch einmal vor jeder Mail): nur öffentliche Mailserver
+	if (host) await pruefeSmtpHost(host, portRoh ?? 587, aufloeser);
 	const sicherheit = (e.sicherheit ?? 'starttls') as Sicherheit;
 	if (!['starttls', 'ssl', 'keine'].includes(sicherheit)) throw new ApiFehler(400, 'Verschlüsselung: Bitte eine Auswahl treffen.');
 	const benutzer = text(e.benutzer, 254);

@@ -1,0 +1,236 @@
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
+
+/**
+ * Nachgebauter Lexware-Server für Tests (KEIN echter Zugang zu Lexware). Antwortformate nach der offiziellen Doku
+ * https://developers.lexware.io/docs/ (gelesen 15.11.2026):
+ * - Profil GET /v1/profile: organizationId, companyName, created{…}, connectionId, features, businessFeatures,
+ *   subscriptionStatus, taxType, smallBusiness
+ * - Kontakte GET/POST/PUT /v1/contacts: POST/PUT-Antwort {id, resourceUri, createdDate, updatedDate, version};
+ *   Liste paginiert {content, first, last, totalPages, totalElements, numberOfElements, size, number, sort};
+ *   Filter email/name (≥ 3 Zeichen, enthält, ohne Groß/Klein), number, customer, vendor; PUT mit veralteter version → 409
+ * - Belegliste GET /v1/voucherlist?voucherType=…&voucherStatus=…: Einträge {id, voucherType, voucherStatus, voucherNumber,
+ *   voucherDate, createdDate, updatedDate, dueDate, contactId, contactName, totalAmount, openAmount, currency, archived},
+ *   size höchstens 250
+ * - Event-Subscriptions POST/GET/DELETE /v1/event-subscriptions: POST {eventType, callbackUrl} → 201
+ *   {id, resourceUri, createdDate, updatedDate, version}; doppelt → 409; Liste {content: [{subscriptionId,
+ *   organizationId, createdDate, eventType, callbackUrl}]}; DELETE → 204
+ * - Fehler: „regular format“ {timestamp, status, error, path, traceId, message}; Kontakte „legacy“ {IssueList: […]}
+ * - Ratenlimit: 429; Retry-After optional
+ *
+ * Störungen (`stoerung(...)`) gelten für die nächsten Anfragen der Reihe nach: Status mit Fehlertext, Verzögerung
+ * (für Zeitüberschreitung) und optional „trotzdem ausführen“ (Anfrage kommt an, Antwort geht verloren).
+ */
+
+export type Stoerung = { status?: number; retryAfter?: number; verzoegerungMs?: number; trotzdemAusfuehren?: boolean; nurPfad?: RegExp };
+export type Anfrage = { methode: string; pfad: string; query: URLSearchParams; body: any; auth: string | null };
+export type Kontakt = Record<string, any> & { id: string; version: number };
+export type Beleg = {
+	id: string;
+	voucherType: string;
+	voucherStatus: string;
+	voucherNumber: string | null;
+	voucherDate: string;
+	createdDate: string;
+	updatedDate: string;
+	dueDate: string | null;
+	contactId: string | null;
+	contactName: string;
+	totalAmount: number;
+	openAmount: number;
+	currency: string;
+	archived: boolean;
+};
+
+export type Attrappe = {
+	url: string;
+	schluessel: string;
+	organisationId: string;
+	anfragen: Anfrage[];
+	kontakte: Map<string, Kontakt>;
+	belege: Beleg[];
+	abos: { subscriptionId: string; organizationId: string; createdDate: string; eventType: string; callbackUrl: string }[];
+	profil: Record<string, unknown>;
+	stoerung: (...s: Stoerung[]) => void;
+	zuruecksetzen: () => void;
+	stop: () => Promise<void>;
+};
+
+const jetzt = () => new Date().toISOString().replace('Z', '+00:00');
+
+function fehler(res: ServerResponse, status: number, pfad: string, nachricht: string, retryAfter?: number) {
+	const k: Record<string, string> = { 'content-type': 'application/json' };
+	if (retryAfter !== undefined) k['retry-after'] = String(retryAfter);
+	res.writeHead(status, k);
+	res.end(JSON.stringify({ timestamp: jetzt(), status, error: nachricht, path: pfad, traceId: randomUUID().slice(0, 16), message: nachricht }));
+}
+function json(res: ServerResponse, status: number, daten: unknown) {
+	res.writeHead(status, { 'content-type': 'application/json' });
+	res.end(JSON.stringify(daten));
+}
+function seite<T>(alle: T[], q: URLSearchParams) {
+	const size = Math.min(Number(q.get('size') ?? 25), 250);
+	const number = Number(q.get('page') ?? 0);
+	const content = alle.slice(number * size, number * size + size);
+	const totalPages = Math.max(1, Math.ceil(alle.length / size));
+	return { content, first: number === 0, last: number >= totalPages - 1, totalPages, totalElements: alle.length, numberOfElements: content.length, size, number, sort: [] };
+}
+const lies = (req: IncomingMessage) =>
+	new Promise<string>((ok) => {
+		let s = '';
+		req.on('data', (d) => (s += d));
+		req.on('end', () => ok(s));
+	});
+
+export async function starteAttrappe(): Promise<Attrappe> {
+	const a: Omit<Attrappe, 'url' | 'stop'> & { stoerungen: Stoerung[] } = {
+		schluessel: 'gueltiger-testschluessel-0001',
+		organisationId: randomUUID(),
+		anfragen: [],
+		kontakte: new Map(),
+		belege: [],
+		abos: [],
+		profil: {},
+		stoerungen: [],
+		stoerung: (...s) => void a.stoerungen.push(...s),
+		zuruecksetzen: () => {
+			a.anfragen.length = 0;
+			a.kontakte.clear();
+			a.belege.length = 0;
+			a.abos.length = 0;
+			a.stoerungen.length = 0;
+		}
+	};
+	a.profil = {
+		organizationId: a.organisationId,
+		companyName: 'Bauwelt Testfirma GmbH',
+		created: { userId: randomUUID(), userName: 'Jamil Test', userEmail: 'jamil@beispiel.test', date: '2024-01-01T10:00:00.000+01:00' },
+		connectionId: randomUUID(),
+		features: ['cashbox'],
+		businessFeatures: ['INVOICING', 'INVOICING_PRO', 'BOOKKEEPING'],
+		subscriptionStatus: 'active',
+		taxType: 'net',
+		smallBusiness: false
+	};
+
+	const server = createServer(async (req, res) => {
+		const url = new URL(req.url ?? '/', 'http://attrappe');
+		const roh = await lies(req);
+		const body = roh ? JSON.parse(roh) : null;
+		const pfad = url.pathname;
+		a.anfragen.push({ methode: req.method ?? 'GET', pfad, query: url.searchParams, body, auth: (req.headers.authorization as string) ?? null });
+		const i = a.stoerungen.findIndex((s) => !s.nurPfad || s.nurPfad.test(pfad));
+		const st = i >= 0 ? a.stoerungen.splice(i, 1)[0] : null;
+		if (st?.verzoegerungMs && !st.trotzdemAusfuehren) await new Promise((r) => setTimeout(r, st.verzoegerungMs));
+		if (st?.status) return fehler(res, st.status, pfad, st.status === 429 ? 'Too Many Requests' : 'Fehler aus der Attrappe', st.retryAfter);
+		if (req.headers.authorization !== `Bearer ${a.schluessel}`) return fehler(res, 401, pfad, 'Unauthorized');
+		const antworte = async (status: number, daten?: unknown) => {
+			if (st?.verzoegerungMs) await new Promise((r) => setTimeout(r, st.verzoegerungMs));
+			if (res.destroyed) return;
+			if (daten === undefined) {
+				res.writeHead(status);
+				res.end();
+			} else json(res, status, daten);
+		};
+
+		if (pfad === '/v1/profile' && req.method === 'GET') return antworte(200, a.profil);
+
+		if (pfad === '/v1/contacts' && req.method === 'GET') {
+			const q = url.searchParams;
+			let liste = [...a.kontakte.values()];
+			const enth = (w: string | undefined, s: string) => !!w && w.toLowerCase().includes(s.toLowerCase());
+			const email = q.get('email');
+			const name = q.get('name');
+			if (email !== null) {
+				if (email.length < 3) return fehler(res, 400, pfad, 'email: min 3');
+				liste = liste.filter((k) => Object.values(k.emailAddresses ?? {}).flat().some((e) => enth(e as string, email)));
+			}
+			if (name !== null) {
+				if (name.length < 3) return fehler(res, 400, pfad, 'name: min 3');
+				liste = liste.filter((k) => enth(k.company?.name, name) || enth(`${k.person?.firstName ?? ''} ${k.person?.lastName ?? ''}`, name) || enth(k.person?.lastName, name));
+			}
+			if (q.get('customer') === 'true') liste = liste.filter((k) => !!k.roles?.customer);
+			return antworte(200, seite(liste, q));
+		}
+		if (pfad === '/v1/contacts' && req.method === 'POST') {
+			if (!body || !!body.person === !!body.company) return json(res, 400, { IssueList: [{ i18nKey: 'missing_entity', source: 'company.name', type: 'validation_failure', additionalData: null, args: null }] });
+			const id = randomUUID();
+			const t = jetzt();
+			a.kontakte.set(id, { ...body, id, organizationId: a.organisationId, version: 1, archived: false });
+			return antworte(200, { id, resourceUri: `https://api.lexware.io/v1/contacts/${id}`, createdDate: t, updatedDate: t, version: 1 });
+		}
+		const kontaktPfad = /^\/v1\/contacts\/([0-9a-f-]{36})$/.exec(pfad);
+		if (kontaktPfad) {
+			const k = a.kontakte.get(kontaktPfad[1]);
+			if (!k) return fehler(res, 404, pfad, 'Not Found');
+			if (req.method === 'GET') return antworte(200, k);
+			if (req.method === 'PUT') {
+				if (body?.version !== k.version) return fehler(res, 409, pfad, 'Conflict: version');
+				const neu = { ...body, id: k.id, organizationId: a.organisationId, version: k.version + 1, archived: false };
+				a.kontakte.set(k.id, neu);
+				const t = jetzt();
+				return antworte(200, { id: k.id, resourceUri: `https://api.lexware.io/v1/contacts/${k.id}`, createdDate: t, updatedDate: t, version: neu.version });
+			}
+		}
+
+		if (pfad === '/v1/voucherlist' && req.method === 'GET') {
+			const q = url.searchParams;
+			const typen = q.get('voucherType');
+			const status = q.get('voucherStatus');
+			if (!typen || !status) return fehler(res, 400, pfad, 'voucherType and voucherStatus required');
+			let liste = [...a.belege];
+			if (typen !== 'any') liste = liste.filter((b) => typen.split(',').includes(b.voucherType));
+			if (status !== 'any') liste = liste.filter((b) => status.split(',').includes(b.voucherStatus));
+			const ab = q.get('updatedDateFrom');
+			if (ab) liste = liste.filter((b) => b.updatedDate.slice(0, 10) >= ab);
+			return antworte(200, seite(liste, q));
+		}
+
+		if (pfad === '/v1/event-subscriptions' && req.method === 'POST') {
+			if (!body?.eventType || !body?.callbackUrl) return fehler(res, 406, pfad, 'Validation failed');
+			if (a.abos.some((x) => x.eventType === body.eventType && x.callbackUrl === body.callbackUrl)) return fehler(res, 409, pfad, 'Conflict');
+			const id = randomUUID();
+			const t = jetzt();
+			a.abos.push({ subscriptionId: id, organizationId: a.organisationId, createdDate: t, eventType: body.eventType, callbackUrl: body.callbackUrl });
+			return antworte(201, { id, resourceUri: `https://api.lexware.io/v1/event-subscriptions/${id}`, createdDate: t, updatedDate: t, version: 0 });
+		}
+		if (pfad === '/v1/event-subscriptions' && req.method === 'GET') return antworte(200, { content: a.abos });
+		const aboPfad = /^\/v1\/event-subscriptions\/([0-9a-f-]{36})$/.exec(pfad);
+		if (aboPfad && req.method === 'DELETE') {
+			const j = a.abos.findIndex((x) => x.subscriptionId === aboPfad[1]);
+			if (j < 0) return fehler(res, 404, pfad, 'Not Found');
+			a.abos.splice(j, 1);
+			return antworte(204);
+		}
+		return fehler(res, 404, pfad, 'Not Found');
+	});
+	await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
+	const port = (server.address() as AddressInfo).port;
+	return Object.assign(a, {
+		url: `http://127.0.0.1:${port}`,
+		stop: () => new Promise<void>((ok) => (server.closeAllConnections(), server.close(() => ok())))
+	}) as Attrappe;
+}
+
+/** Beleg für die Belegliste der Attrappe. */
+export function beleg(teil: Partial<Beleg> = {}): Beleg {
+	const t = '2026-11-14T10:00:00.000+01:00';
+	return {
+		id: randomUUID(),
+		voucherType: 'invoice',
+		voucherStatus: 'open',
+		voucherNumber: 'RE1001',
+		voucherDate: t,
+		createdDate: t,
+		updatedDate: t,
+		dueDate: '2026-11-28T00:00:00.000+01:00',
+		contactId: null,
+		contactName: 'Musterfrau, Erika',
+		totalAmount: 99.8,
+		openAmount: 74.8,
+		currency: 'EUR',
+		archived: false,
+		...teil
+	};
+}

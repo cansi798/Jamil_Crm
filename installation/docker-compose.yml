@@ -94,7 +94,6 @@ services:
       # Verschlüsselt Lexware-Schlüssel und Postfach-Passwort in der Datenbank (Erklärung in .env)
       CRM_GEHEIMNIS_SCHLUESSEL: ${CRM_GEHEIMNIS_SCHLUESSEL:-}
       CRM_LEXWARE_DIENST: ${CRM_LEXWARE_DIENST:-an}
-      CRM_LEXWARE_URL: ${CRM_LEXWARE_URL:-}
       CRM_MAILVERSAND: ${CRM_MAILVERSAND:-an}
       CRM_VAPID_OEFFENTLICH: ${CRM_VAPID_OEFFENTLICH:-}
       CRM_VAPID_PRIVAT: ${CRM_VAPID_PRIVAT:-}

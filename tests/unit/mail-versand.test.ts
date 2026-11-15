@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { smtpVersand, type SmtpKonfig } from '../../src/lib/server/mail/smtp';
-import { mailVersandErlaubt, sichererDateiname } from '../../src/lib/server/mail/versand';
+import { mailFehlerText, mailVersandErlaubt, sichererDateiname } from '../../src/lib/server/mail/versand';
+
+const oeffentlich = async () => [{ address: '212.227.15.183', family: 4 }];
 
 const cfg: SmtpKonfig = {
 	host: 'smtp.ionos.de',
@@ -26,11 +28,11 @@ function fabrik() {
 describe('SMTP-Versand (nodemailer)', () => {
 	it('STARTTLS: requireTLS, nicht secure, Anmeldung, keine Datei-/URL-Zugriffe', async () => {
 		const { f, aufrufe } = fabrik();
-		const v = smtpVersand(cfg, f);
+		const v = smtpVersand(cfg, f, oeffentlich);
 		expect(v.verbunden).toBe(true);
 		const r = await v.senden({ an: 'kunde@beispiel.test', betreff: 'Angebot', html: '<p>Hallo</p>', text: 'Hallo', anhaenge: [{ name: 'Angebot_AN-1.pdf', typ: 'application/pdf', bytes: new Uint8Array([1, 2]) }] });
 		expect(r).toEqual({ messageId: '<abc@test>' });
-		expect(aufrufe.optionen).toMatchObject({ host: 'smtp.ionos.de', port: 587, secure: false, requireTLS: true, auth: { user: 'buero@bauwelt-handwerk.de', pass: 'pw-geheim' }, disableFileAccess: true, disableUrlAccess: true });
+		expect(aufrufe.optionen).toMatchObject({ host: '212.227.15.183', tls: { servername: 'smtp.ionos.de' }, port: 587, secure: false, requireTLS: true, auth: { user: 'buero@bauwelt-handwerk.de', pass: 'pw-geheim' }, disableFileAccess: true, disableUrlAccess: true });
 		const m = aufrufe.mails[0];
 		expect(m.from).toEqual({ name: 'Bauwelt Handwerk', address: 'buero@bauwelt-handwerk.de' });
 		expect(m.to).toBe('kunde@beispiel.test');
@@ -40,12 +42,27 @@ describe('SMTP-Versand (nodemailer)', () => {
 		expect(Buffer.isBuffer(m.attachments[0].content)).toBe(true);
 	});
 
-	it('SSL (Port 465): secure; ohne Benutzer keine Anmeldung', () => {
+	it('SSL (Port 465): secure; ohne Benutzer keine Anmeldung', async () => {
 		const { f, aufrufe } = fabrik();
-		smtpVersand({ ...cfg, port: 465, sicherheit: 'ssl', benutzer: null, passwort: null }, f);
+		await smtpVersand({ ...cfg, port: 465, sicherheit: 'ssl', benutzer: null, passwort: null }, f, oeffentlich).senden({ an: 'a@b.de', betreff: 'x', html: '', text: '' });
 		expect(aufrufe.optionen.secure).toBe(true);
 		expect(aufrufe.optionen.requireTLS).toBe(false);
 		expect(aufrufe.optionen.auth).toBeUndefined();
+	});
+
+	it('SSRF: interner Server wird beim Senden abgelehnt (jede Mail prüft neu), kein Transport entsteht', async () => {
+		const { f, aufrufe } = fabrik();
+		const v = smtpVersand({ ...cfg, host: 'crm-db' }, f, async () => [{ address: '172.18.0.3', family: 4 }]);
+		await expect(v.senden({ an: 'a@b.de', betreff: 'x', html: '', text: '' })).rejects.toMatchObject({ status: 400 });
+		expect(aufrufe.optionen).toBeNull();
+		await expect(smtpVersand({ ...cfg, port: 5432 }, f, oeffentlich).senden({ an: 'a@b.de', betreff: 'x', html: '', text: '' })).rejects.toMatchObject({ status: 400 });
+	});
+
+	it('Fehlermeldungen an Nutzer sind allgemein (keine rohe Server-Antwort)', () => {
+		expect(mailFehlerText(Object.assign(new Error('Invalid login: 535 5.7.8 Error: authentication failed: geheim'), { code: 'EAUTH' }))).toBe('Anmeldung am Postfach fehlgeschlagen – Benutzername und Passwort prüfen.');
+		expect(mailFehlerText(Object.assign(new Error('connect ECONNREFUSED 1.2.3.4:587'), { code: 'ESOCKET' }))).toBe('Verbindung zum Mailserver fehlgeschlagen.');
+		expect(mailFehlerText(Object.assign(new Error('550 no such user'), { code: 'EENVELOPE' }))).toBe('Der Mailserver hat den Empfänger abgelehnt.');
+		expect(mailFehlerText(new Error('irgendwas internes 10.0.0.3'))).toBe('Versand fehlgeschlagen.');
 	});
 
 	it('Dateinamen für Anhänge sind ASCII-sicher (mit Endung)', () => {

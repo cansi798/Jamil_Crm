@@ -12,6 +12,7 @@ describe('Mailversand (SMTP je Betrieb, Versandprotokoll)', () => {
 	const kA = () => ({ betriebId: u.betriebA, benutzerId: u.ids.chefA });
 	const kB = () => ({ betriebId: u.betriebB, benutzerId: u.ids.chefB });
 	const mail: Mail = { an: 'kunde@beispiel.test', betreff: 'Hallo', html: '<p>Hallo</p>', text: 'Hallo', anhaenge: [{ name: 'Angebot Müller.pdf', typ: 'application/pdf', bytes: new Uint8Array([1, 2, 3]) }] };
+	const oeffentlich = async () => [{ address: '212.227.15.183', family: 4 }];
 	const eingabe = { aktiv: false, host: 'smtp.ionos.de', port: 587, sicherheit: 'starttls', benutzer: 'buero@bauwelt.test', passwort: 'Sehr-Geheim-123', absenderName: 'Bauwelt', absenderAdresse: 'buero@bauwelt.test', antwortAn: '', bcc: 'kopie@bauwelt.test' };
 
 	beforeAll(async () => {
@@ -41,14 +42,15 @@ describe('Mailversand (SMTP je Betrieb, Versandprotokoll)', () => {
 		expect(r.status).toBe('gesendet');
 		expect(gesendet[0].anhaenge![0].name).toBe('Angebot_Mueller.pdf');
 		expect((await root`select status, message_id, gesendet_am from app.mail_ausgang where id = ${r.id}`)[0]).toMatchObject({ status: 'gesendet', message_id: '<m1@test>' });
-		setzeMailVersand({ verbunden: true, senden: async () => { throw new Error('535 Authentication failed'); } });
+		setzeMailVersand({ verbunden: true, senden: async () => { throw Object.assign(new Error('535 Authentication failed for 10.0.0.3'), { code: 'EAUTH' }); } });
 		const f = await sendeMail(kA(), mail, { art: 'ab' });
-		expect(f).toMatchObject({ status: 'fehler', fehler: '535 Authentication failed' });
+		expect(f).toMatchObject({ status: 'fehler', fehler: 'Anmeldung am Postfach fehlgeschlagen – Benutzername und Passwort prüfen.' });
+		expect((await root`select fehler from app.mail_ausgang where id = ${f.id}`)[0].fehler).not.toContain('10.0.0.3');
 		await expect(sendeMail(kA(), { ...mail, an: 'kaputt' }, { art: 'ab' })).rejects.toMatchObject({ status: 400 });
 	});
 
 	it('Einstellungen: Passwort verschlüsselt, für crm_app nicht lesbar, nie zurückgegeben; RLS zwischen Betrieben', async () => {
-		await speichereMailEinstellungen(kA(), eingabe);
+		await speichereMailEinstellungen(kA(), eingabe, oeffentlich);
 		const e = await ladeMailEinstellungen(kA());
 		expect(e).toMatchObject({ host: 'smtp.ionos.de', port: 587, aktiv: false, passwortGesetzt: true, passwortHinweis: '…-123' });
 		expect(JSON.stringify(e)).not.toContain('Sehr-Geheim');
@@ -58,10 +60,10 @@ describe('Mailversand (SMTP je Betrieb, Versandprotokoll)', () => {
 		expect(await u.alsApp(u.betriebB, u.ids.chefB, (tx) => tx`select host from app.mail_konfig`)).toHaveLength(0);
 		expect((await ladeMailEinstellungen(kB())).host).toBeNull();
 		// leeres Passwortfeld beim Speichern = altes Passwort bleibt
-		await speichereMailEinstellungen(kA(), { ...eingabe, passwort: '', absenderName: 'Bauwelt Handwerk' });
+		await speichereMailEinstellungen(kA(), { ...eingabe, passwort: '', absenderName: 'Bauwelt Handwerk' }, oeffentlich);
 		expect((await ladeMailEinstellungen(kA())).passwortGesetzt).toBe(true);
 		// eingeschaltet, aber Vorschau/Testmodus-Sperre aus: SMTP-Versand mit entschlüsseltem Passwort
-		await speichereMailEinstellungen(kA(), { ...eingabe, passwort: '', aktiv: true });
+		await speichereMailEinstellungen(kA(), { ...eingabe, passwort: '', aktiv: true }, oeffentlich);
 		const vorher = process.env.CRM_MAILVERSAND;
 		process.env.CRM_MAILVERSAND = 'aus';
 		expect(await mailVersandFuer(u.betriebA)).toBe(KEIN_VERSAND);
@@ -76,10 +78,14 @@ describe('Mailversand (SMTP je Betrieb, Versandprotokoll)', () => {
 	});
 
 	it('Prüfung der Eingaben: einschalten nur vollständig, Adressen/Port gültig', async () => {
-		await expect(speichereMailEinstellungen(kB(), { ...eingabe, aktiv: true, host: '' })).rejects.toMatchObject({ status: 400 });
-		await expect(speichereMailEinstellungen(kB(), { ...eingabe, port: 70000 })).rejects.toMatchObject({ status: 400 });
-		await expect(speichereMailEinstellungen(kB(), { ...eingabe, absenderAdresse: 'kein-at' })).rejects.toMatchObject({ status: 400 });
-		await expect(speichereMailEinstellungen(kB(), { ...eingabe, host: 'smtp.x.de\r\nRCPT' })).rejects.toMatchObject({ status: 400 });
+		await expect(speichereMailEinstellungen(kB(), { ...eingabe, aktiv: true, host: '' }, oeffentlich)).rejects.toMatchObject({ status: 400 });
+		await expect(speichereMailEinstellungen(kB(), { ...eingabe, port: 5432 }, oeffentlich)).rejects.toMatchObject({ status: 400 });
+		await expect(speichereMailEinstellungen(kB(), { ...eingabe, absenderAdresse: 'kein-at' }, oeffentlich)).rejects.toMatchObject({ status: 400 });
+		// SSRF: interne Server (echte Auflösung im Docker-Netz bzw. IP direkt) werden abgelehnt
+		await expect(speichereMailEinstellungen(kB(), { ...eingabe, host: 'crm-db' })).rejects.toMatchObject({ status: 400 });
+		await expect(speichereMailEinstellungen(kB(), { ...eingabe, host: '127.0.0.1' })).rejects.toMatchObject({ status: 400 });
+		await expect(speichereMailEinstellungen(kB(), { ...eingabe, host: '169.254.169.254' })).rejects.toMatchObject({ status: 400 });
+		await expect(speichereMailEinstellungen(kB(), { ...eingabe, host: 'smtp.x.de\r\nRCPT' }, oeffentlich)).rejects.toMatchObject({ status: 400 });
 	});
 
 	it('Testmail und Status: Protokoll zeigt die Testmail, Status nennt Fehler der letzten 24 Stunden', async () => {

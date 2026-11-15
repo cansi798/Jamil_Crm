@@ -15,7 +15,8 @@
 - Migrationen ab **118** (geprüft 15.11.: höchste auf allen Zweigen 117): 118 Mailversand, 119 Lexware-Grundlage, 120 Kunden ↔ Lexware.
 - RLS mit `betrieb_id` überall; DB-Tests mit zwei Betrieben.
 - Geheimnisse nie im Klartext in DB, Log, Protokoll, Client oder Fehlermeldung; `Authorization` wird nie protokolliert.
-- Lexware-Basis-URL `https://api.lexware.io`, überschreibbar mit `CRM_LEXWARE_URL` (nur für Tests/Attrappe).
+- Lexware-Basis-URL fest `https://api.lexware.io` (nicht konfigurierbar, SSRF-Schutz); nur Tests setzen per Code bzw. im Testmodus `CRM_LEXWARE_URL=http://127.0.0.1:<port>` die Attrappe.
+- SMTP-Server nur öffentlich (alle DNS-Ergebnisse geprüft, Verbindung zur geprüften IP, Ports 25/465/587/2525), Fehlermeldungen allgemein (`netz-schutz.ts`, Sicherheitsbefund 15.11.).
 - Ratenlimit: höchstens 2 Anfragen/s je Schlüssel (Doku „Rate Limiting“); Standardabstand 667 ms.
 - Webhook: Antwort < 5 s, Signatur `X-Lxo-Signature` = base64(RSA-SHA512 über den JSON-Body), öffentlicher Schlüssel aus der Doku (`/webhookSignature/public/public_key.pub`).
 - Mail: Standard `KEIN_VERSAND`; echter Versand nur, wenn der Betrieb SMTP eingerichtet **und** eingeschaltet hat und `CRM_MAILVERSAND` nicht `aus` ist; im Testmodus (`CRM_TESTMODUS=1`) ist `CRM_MAILVERSAND` standardmäßig `aus`.

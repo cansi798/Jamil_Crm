@@ -124,7 +124,24 @@ export type MailMeta = {
 };
 export type MailErgebnis = { id: string; status: 'gesendet' | 'kein_versand' | 'fehler'; fehler?: string };
 
-const fehlerText = (e: unknown) => String((e as Error)?.message ?? e).replace(/\s+/g, ' ').slice(0, 500);
+/**
+ * Meldung für Nutzer und Versandprotokoll: allgemein, nie die rohe Antwort des Mailservers (kann interne Adressen oder
+ * Details enthalten). Die rohe Meldung steht nur im Server-Log. Eigene Prüfungen (ApiFehler, z. B. „Server nicht erlaubt“)
+ * bleiben im Wortlaut.
+ */
+export function mailFehlerText(e: unknown): string {
+	if (e instanceof ApiFehler) return e.message;
+	const code = String((e as { code?: string })?.code ?? '');
+	if (code === 'EAUTH' || code === 'ENOAUTH') return 'Anmeldung am Postfach fehlgeschlagen – Benutzername und Passwort prüfen.';
+	if (code === 'EENVELOPE') return 'Der Mailserver hat den Empfänger abgelehnt.';
+	if (code === 'EMESSAGE') return 'Der Mailserver hat die Mail abgelehnt.';
+	if (['ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS', 'ECONNREFUSED', 'ETLS', 'EPROTOCOL'].includes(code)) return 'Verbindung zum Mailserver fehlgeschlagen.';
+	return 'Versand fehlgeschlagen.';
+}
+const fehlerText = (e: unknown) => {
+	if (!(e instanceof ApiFehler)) console.error('Mailversand:', String((e as Error)?.message ?? e).slice(0, 500));
+	return mailFehlerText(e);
+};
 
 /**
  * Mail senden und protokollieren. Wirft nicht bei Versandfehlern (Ergebnis `fehler` mit Text), nur bei ungültigen Daten.
