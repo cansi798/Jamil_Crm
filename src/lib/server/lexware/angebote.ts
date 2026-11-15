@@ -30,10 +30,10 @@ import { meldeProblem, stelleEin, type Handler } from './warteschlange';
 
 /** Lexware-Oberfläche für Deeplinks (`{appbaseurl}/permalink/quotations/view/{id}`, Doku „Deeplinks“). */
 export const LEXWARE_APP = 'https://app.lexware.de';
-export const deeplink = (typ: 'quotations' | 'order-confirmations', id: string) => `${LEXWARE_APP}/permalink/${typ}/view/${id}`;
+export const deeplink = (typ: 'quotations' | 'order-confirmations' | 'invoices' | 'down-payment-invoices' | 'dunnings', id: string) => `${LEXWARE_APP}/permalink/${typ}/view/${id}`;
 
 const NUMMER = /^[\p{L}\p{N} ._/-]{1,40}$/u;
-const sicher = (s: string) => s.replace(/[^A-Za-z0-9-]/g, '_');
+export const sicher = (s: string) => s.replace(/[^A-Za-z0-9-]/g, '_');
 
 type Roh = Record<string, any>;
 
@@ -83,7 +83,7 @@ export async function belegEingabe(k: Kontext, angebotId: string): Promise<Beleg
 }
 
 /** Kunde vor dem Beleg in Lexware sicherstellen: verknüpft → ID; sonst erst suchen (Marke), dann anlegen. */
-async function sichereKontakt(c: LexwareClient, k: Kontext, kundeId: string | null): Promise<string | null> {
+export async function sichereKontakt(c: LexwareClient, k: Kontext, kundeId: string | null): Promise<string | null> {
 	if (!kundeId) return null;
 	const [kd] = await mitBetrieb(k, (tx) => tx`select lexware_id from app.kunden where id = ${kundeId} and betrieb_id = ${k.betriebId}`);
 	if (!kd) return null;
@@ -96,10 +96,10 @@ async function sichereKontakt(c: LexwareClient, k: Kontext, kundeId: string | nu
 }
 
 /** Schon angelegten Beleg finden (nach Zeitüberschreitung): gleicher Kontakt + Bruttobetrag, angelegt seit dem ersten Versuch. */
-async function findeBeleg(
+export async function findeBeleg(
 	c: LexwareClient,
 	k: Kontext,
-	typ: 'quotation' | 'orderconfirmation',
+	typ: 'quotation' | 'orderconfirmation' | 'invoice',
 	e: { kontaktId: string | null; kontaktName: string; brutto: number; seit: string }
 ): Promise<string | null> {
 	const seit = Date.parse(e.seit);
@@ -108,7 +108,8 @@ async function findeBeleg(
 	const bekannt = new Set(
 		(await mitBetrieb(k, (tx) => tx`
 			select lexware_id from app.angebote where betrieb_id = ${k.betriebId} and lexware_id is not null
-			union select lexware_id from app.auftragsbestaetigungen where betrieb_id = ${k.betriebId} and lexware_id is not null`)).map((z) => z.lexware_id as string)
+			union select lexware_id from app.auftragsbestaetigungen where betrieb_id = ${k.betriebId} and lexware_id is not null
+			union select lexware_id from app.rechnungen where betrieb_id = ${k.betriebId} and lexware_id is not null`)).map((z) => z.lexware_id as string)
 	);
 	const treffer: string[] = [];
 	for (let seite = 0; seite < 20; seite++) {
@@ -125,7 +126,7 @@ async function findeBeleg(
 	return treffer[0] ?? null;
 }
 
-async function speichereDatei(k: Kontext, lexwareId: string, typ: 'quotation' | 'orderconfirmation', name: string, bytes: Uint8Array): Promise<void> {
+export async function speichereDatei(k: Kontext, lexwareId: string, typ: 'quotation' | 'orderconfirmation' | 'invoice' | 'downpaymentinvoice' | 'dunning', name: string, bytes: Uint8Array): Promise<void> {
 	const sha = createHash('sha256').update(bytes).digest('hex');
 	await mitBetrieb(k, (tx) => tx`
 		insert into app.lexware_dateien (betrieb_id, lexware_id, typ, name, pdf, sha256)

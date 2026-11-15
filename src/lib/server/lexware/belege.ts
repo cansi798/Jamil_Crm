@@ -196,3 +196,102 @@ export function bruttoCent(e: Pick<BelegEingabe, 'positionen'>, satz: number): n
 	for (const p of e.positionen) netto += positionsSumme(p.menge, p.einzelpreisCent);
 	return summen([{ menge: 1, einzelpreisCent: netto }], satz as MwstSatz).bruttoCent;
 }
+
+// ——— Phase 3: Rechnung und Mahnung (Doku „Invoices“, „Dunnings“, gelesen 15.11.2026) ———
+
+export type RechnungEingabe = {
+	heute: string;
+	mwstSatz: MwstSatz;
+	positionen: BelegPosition[];
+	kunde: BelegKunde;
+	kleinunternehmer: boolean;
+	leistungVon: string;
+	leistungBis: string;
+	zahlungszielTage: number;
+	titel: 'Rechnung' | 'Teilrechnung';
+	bezug: string | null;
+};
+
+/** Pflichttexte nur für Privatkunden (Plan Abschnitt 2): Verzug § 286 Abs. 3 BGB, Aufbewahrung § 14 Abs. 4 Nr. 9 UStG. */
+export const TEXT_286 = 'Sie kommen spätestens 30 Tage nach Fälligkeit und Zugang dieser Rechnung in Verzug (§ 286 Abs. 3 BGB).';
+export const TEXT_AUFBEWAHRUNG = 'Bitte bewahren Sie diese Rechnung zwei Jahre auf (§ 14 Abs. 4 Nr. 9 UStG).';
+
+export function zahlungsBedingung(tage: number): Record<string, unknown> {
+	return { paymentTermLabel: tage === 0 ? 'Zahlbar sofort ohne Abzug' : `Zahlbar innerhalb von ${tage} Tagen ohne Abzug`, paymentTermDuration: tage };
+}
+
+/**
+ * Rechnung für POST /v1/invoices (Pflicht: voucherDate, address, lineItems, totalPrice, taxConditions,
+ * shippingConditions; Zahlungsziel über paymentConditions.paymentTermDuration). Leistungszeitraum: ein Tag →
+ * `service` mit shippingDate, sonst `serviceperiod` mit shippingDate + shippingEndDate.
+ */
+export function rechnungAlsLexware(e: RechnungEingabe): LexwareBeleg {
+	const warnungen: string[] = [];
+	const steuer = steuerFall({ kunde: e.kunde, kleinunternehmer: e.kleinunternehmer, mwstSatz: e.mwstSatz, datum: e.heute });
+	if (steuer.warnung) warnungen.push(steuer.warnung);
+	if (e.positionen.length === 0) warnungen.push('Keine Position ausgewählt.');
+	const be: BelegEingabe = { datum: e.heute, gueltigBis: e.heute, mwstSatz: e.mwstSatz, einleitung: null, schluss: null, positionen: e.positionen, kunde: e.kunde, kleinunternehmer: e.kleinunternehmer, termine: [] };
+	const privat = e.kunde.art === 'privat';
+	const body: Record<string, unknown> = {
+		voucherDate: lexwareDatum(e.heute),
+		address: adresse(e.kunde),
+		lineItems: positionen(be, steuer.satz),
+		totalPrice: { currency: 'EUR' },
+		taxConditions: { taxType: steuer.taxType },
+		paymentConditions: zahlungsBedingung(e.zahlungszielTage),
+		shippingConditions:
+			e.leistungVon === e.leistungBis
+				? { shippingType: 'service', shippingDate: lexwareDatum(e.leistungVon) }
+				: { shippingType: 'serviceperiod', shippingDate: lexwareDatum(e.leistungVon), shippingEndDate: lexwareDatum(e.leistungBis) },
+		title: e.titel,
+		introduction: kuerze(`Für unsere Leistungen${e.bezug ? ` (${e.bezug})` : ''} berechnen wir Ihnen:`)
+	};
+	const remark = verbinde([privat ? text35aRechnung(be, steuer.satz, warnungen) : null, privat ? TEXT_286 : null, privat ? TEXT_AUFBEWAHRUNG : null, 'Vielen Dank für Ihren Auftrag.']);
+	if (remark) body.remark = remark;
+	return { body, warnungen, steuer };
+}
+
+/** § 35a auf der Rechnung: mit Betrag; fehlt ein Materialanteil, kein geratener Betrag (Warnung, nur Überweisungshinweis). */
+function text35aRechnung(e: BelegEingabe, satz: number, warnungen: string[]): string | null {
+	const a = arbeitskosten35a(e.positionen, satz);
+	if (a.unvollstaendig.length > 0) {
+		warnungen.push(`§ 35a: Bei Position ${a.unvollstaendig.join(', ')} fehlt der Materialanteil – die Arbeitskosten stehen nicht auf der Rechnung. Bitte im Lexware-Entwurf ergänzen.`);
+		return 'Bitte überweisen Sie den Rechnungsbetrag – Barzahlung ist nach § 35a EStG nicht begünstigt.';
+	}
+	if (a.bruttoCent === 0) return null;
+	return `Im Rechnungsbetrag enthaltene Arbeitskosten nach § 35a EStG: ${euro(a.bruttoCent)} (darin ${euro(a.mwstCent)} MwSt). Bitte überweisen Sie den Rechnungsbetrag – Barzahlung ist nicht begünstigt.`;
+}
+
+export type MahnungEingabe = {
+	heute: string;
+	kunde: BelegKunde;
+	taxType: SteuerFall['taxType'];
+	stufe: number;
+	rechnungNummer: string;
+	gebuehrCent: number;
+	pauschaleCent: number;
+	zinsHinweis: string | null;
+};
+
+/**
+ * Mahnung für POST /v1/dunnings?precedingSalesVoucherId={Rechnung} (bleibt laut Doku immer Entwurf, Kontakt und
+ * Steuerart müssen zur Rechnung passen). Mahngebühr und Pauschale als Positionen mit 0 % (kein Entgelt, nicht
+ * steuerbar); Verzugszinsen nur als Hinweis im Text (Plan Entscheidung 6). Ohne Gebühr eine Textposition.
+ */
+export function mahnungAlsLexware(e: MahnungEingabe): Record<string, unknown> {
+	const zeilen: Record<string, unknown>[] = [];
+	const preis = (cent: number) => ({ currency: 'EUR', netAmount: cent / 100, taxRatePercentage: 0 });
+	if (e.gebuehrCent > 0) zeilen.push({ type: 'custom', name: 'Mahngebühr', quantity: 1, unitName: 'pauschal', unitPrice: preis(e.gebuehrCent), discountPercentage: 0 });
+	if (e.pauschaleCent > 0) zeilen.push({ type: 'custom', name: 'Verzugspauschale (§ 288 Abs. 5 BGB)', quantity: 1, unitName: 'pauschal', unitPrice: preis(e.pauschaleCent), discountPercentage: 0 });
+	if (zeilen.length === 0) zeilen.push({ type: 'text', name: `${e.stufe}. Mahnung`, description: `Zur Rechnung ${e.rechnungNummer}` });
+	return {
+		voucherDate: lexwareDatum(e.heute),
+		address: adresse(e.kunde),
+		lineItems: zeilen,
+		totalPrice: { currency: 'EUR' },
+		taxConditions: { taxType: e.taxType },
+		title: `${e.stufe}. Mahnung`,
+		introduction: kuerze(`Leider konnten wir zu unserer Rechnung ${e.rechnungNummer} noch keinen vollständigen Zahlungseingang feststellen. Bitte überweisen Sie den offenen Betrag umgehend.`),
+		remark: verbinde([e.zinsHinweis, 'Sollten Sie inzwischen gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.'])
+	};
+}

@@ -12,6 +12,10 @@ export const RECHTE = {
 	'plantafel.bearbeiten': 'Plantafel bearbeiten',
 	'angebote.bearbeiten': 'Angebote und Rechnungen bearbeiten',
 	'preise.sehen': 'Preise und Beträge sehen',
+	// Lexware Phase 3: Rechnungen und Mahnungen (Beträge zusätzlich nur mit „Preise sehen“)
+	'rechnungen.sehen': 'Rechnungen und Zahlungsstand ansehen',
+	'rechnungen.erstellen': 'Rechnungen in Lexware erstellen und senden',
+	'mahnungen.verwalten': 'Mahnstufen einstellen, Mahnungen freigeben und pausieren',
 	'katalog.bearbeiten': 'Katalog und Leistungen bearbeiten',
 	'protokolle.lesen': 'Protokolle ansehen',
 	'protokolle.bearbeiten': 'Protokolle anlegen und ändern',

@@ -3,6 +3,7 @@ import { mitBetrieb, type Kontext } from '../db';
 import { berlinTag } from '../../zeit';
 import { LexwareFehler } from './client';
 import { stelleEin, type Handler } from './warteschlange';
+import { nachBelegabgleich, type GeaenderterBeleg } from './rechnungen';
 
 /**
  * Rückmeldungen einrichten (Event-Subscriptions) und Belege aus Lexware spiegeln (Plan Task T3).
@@ -82,7 +83,17 @@ export const belegeAbgleichen: Handler = {
 				`/v1/voucherlist?voucherType=${BELEG_TYPEN}&voucherStatus=any&size=250&page=${seite}${seit ? `&updatedDateFrom=${seit}` : ''}`
 			);
 			// eine Transaktion je Seite (bis 250 Belege) statt einer je Beleg
+			const geaendert: GeaenderterBeleg[] = [];
 			await mitBetrieb(k, async (tx) => {
+				// Rechnungen (Phase 3): alten Stand merken → Festschreiben/Zahlung erkennen
+				const rIds = r.content.filter((b) => (b.voucherType === 'invoice' || b.voucherType === 'downpaymentinvoice') && UUIDX.test(b.id ?? '')).map((b) => b.id);
+				const alt = new Map<string, { status: string; offen: number | null }>(
+					rIds.length
+						? (await tx`select lexware_id, status, offen_cent from app.lexware_belege where betrieb_id = ${k.betriebId} and lexware_id = any(${rIds}::uuid[])`).map(
+								(z) => [z.lexware_id as string, { status: z.status as string, offen: z.offen_cent === null ? null : Number(z.offen_cent) }]
+							)
+						: []
+				);
 				for (const b of r.content) {
 					if (!UUIDX.test(b.id ?? '')) continue;
 					gelesen++;
@@ -99,6 +110,10 @@ export const belegeAbgleichen: Handler = {
 							datum = excluded.datum, faellig = excluded.faellig, brutto_cent = excluded.brutto_cent, offen_cent = excluded.offen_cent,
 							waehrung = excluded.waehrung, kontakt_id = excluded.kontakt_id, kontakt_name = excluded.kontakt_name, kunde_id = excluded.kunde_id,
 							archiviert = excluded.archiviert, geaendert_lexware = excluded.geaendert_lexware, veraltet = false, stand = now()`;
+					if (b.voucherType === 'invoice' || b.voucherType === 'downpaymentinvoice') {
+						const [kd] = kontakt ? await tx`select id from app.kunden where betrieb_id = ${k.betriebId} and lexware_id = ${kontakt}` : [];
+						geaendert.push({ lexwareId: b.id, typ: b.voucherType, alt: alt.get(b.id) ?? null, neu: { status: String(b.voucherStatus), offen: cent(b.openAmount), brutto: cent(b.totalAmount), nummer: b.voucherNumber ? String(b.voucherNumber).slice(0, 40) : null }, kundeId: kd?.id ?? null });
+					}
 					// Angebot im CRM: Status aus Lexware spiegeln (z. B. in Lexware „angenommen“ markiert → Nachfassen stoppt)
 					const st = String(b.voucherStatus);
 					if (b.voucherType === 'quotation' && ['draft', 'open', 'accepted', 'rejected', 'voided'].includes(st))
@@ -106,6 +121,7 @@ export const belegeAbgleichen: Handler = {
 							where betrieb_id = ${k.betriebId} and lexware_id = ${b.id} and lexware_status is distinct from ${st}`;
 				}
 			});
+			await nachBelegabgleich(k, geaendert);
 			if (r.last || r.content.length === 0) break;
 		}
 		await mitBetrieb(k, (tx) => tx`update app.lexware_konfig set letzter_abgleich = now() where betrieb_id = ${k.betriebId}`);

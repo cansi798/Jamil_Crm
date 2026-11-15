@@ -7,7 +7,7 @@
  */
 import { BEISPIEL_WERTE } from './nachfassen';
 
-export const MAIL_ZWECKE = ['allgemein', 'angebot', 'nachfassen_angebot', 'zahlungserinnerung', 'auftragsbestaetigung', 'buchungsbestaetigung', 'portal_link', 'bewertung'] as const;
+export const MAIL_ZWECKE = ['allgemein', 'angebot', 'nachfassen_angebot', 'zahlungserinnerung', 'rechnung', 'mahnung', 'auftragsbestaetigung', 'buchungsbestaetigung', 'portal_link', 'bewertung'] as const;
 export type MailZweck = (typeof MAIL_ZWECKE)[number];
 export const istMailZweck = (w: unknown): w is MailZweck => typeof w === 'string' && (MAIL_ZWECKE as readonly string[]).includes(w);
 
@@ -15,7 +15,9 @@ export const ZWECK_NAMEN: Record<MailZweck, string> = {
 	allgemein: 'Allgemein (Mail an Kunden)',
 	angebot: 'Angebot senden',
 	nachfassen_angebot: 'Nachfassen Angebot',
-	zahlungserinnerung: 'Zahlungserinnerung / Mahnung',
+	zahlungserinnerung: 'Zahlungserinnerung',
+	rechnung: 'Rechnung senden',
+	mahnung: 'Mahnung',
 	auftragsbestaetigung: 'Auftragsbestätigung',
 	buchungsbestaetigung: 'Terminbestätigung (Online-Buchung)',
 	portal_link: 'Kundenportal-Link',
@@ -27,7 +29,9 @@ export const ZWECK_HINWEIS: Record<MailZweck, string> = {
 	allgemein: '„Mail an Kunden“ am Kunden, Auftrag und Angebot.',
 	angebot: 'Mail mit dem Angebot (PDF aus Lexware) beim Versenden – nur Betriebe mit Lexware-Verbindung.',
 	nachfassen_angebot: 'Nachfass-Stufen für Angebote (Einstellungen → Nachfassen).',
-	zahlungserinnerung: 'Nachfass-Stufen für Rechnungen (sobald es Rechnungen gibt).',
+	zahlungserinnerung: 'Mahnstufe „Zahlungserinnerung“ (Einstellungen → Mahnungen).',
+	rechnung: 'Mail mit der Rechnung (PDF aus Lexware) beim „Senden“ in der Rechnung.',
+	mahnung: 'Mahnstufen 1–3 (Einstellungen → Mahnungen), PDF der Mahnung aus Lexware.',
 	auftragsbestaetigung: 'Mail zur Auftragsbestätigung nach Annahme eines Angebots.',
 	buchungsbestaetigung: 'Bestätigung nach einer Online-Buchung (je Terminart wählbar).',
 	portal_link: '„Per E-Mail senden“ beim Kundenportal-Link des Kunden.',
@@ -57,18 +61,27 @@ export const PLATZHALTER_TEXTE: Record<string, string> = {
 	'firma.name': 'Name des Betriebs',
 	'firma.telefon': 'Telefon des Betriebs',
 	'firma.email': 'E-Mail des Betriebs',
-	signatur: 'Firmensignatur (sonst automatisch am Ende)'
+	signatur: 'Firmensignatur (sonst automatisch am Ende)',
+	'rechnung.nummer': 'Rechnungsnummer (aus Lexware)',
+	'rechnung.datum': 'Rechnungsdatum',
+	offen: 'Noch offener Betrag',
+	zinsen: 'Verzugszinsen bis heute (nur Hinweis, § 288 BGB)',
+	gebuehr: 'Mahngebühr bzw. Pauschale dieser Stufe',
+	mahnstufe: 'Stufe, z. B. „1. Mahnung“'
 };
 
 const GEMEINSAM = ['kunde.name', 'kunde.anrede', 'kunde.email', 'auftrag.titel', 'auftrag.nummer', 'link', 'firma.name', 'firma.telefon', 'firma.email', 'signatur'];
 const ANGEBOT = ['angebot.nummer', 'angebot.datum', 'angebot.gueltig_bis', 'betrag'];
+const RECHNUNG = ['rechnung.nummer', 'rechnung.datum', 'offen'];
 
 /** Erlaubte Platzhalter je Zweck (andere werden im Editor als unbekannt markiert). */
 export const PLATZHALTER_JE_ZWECK: Record<MailZweck, readonly string[]> = {
 	allgemein: [...GEMEINSAM, ...ANGEBOT],
 	angebot: [...GEMEINSAM, ...ANGEBOT],
 	nachfassen_angebot: [...GEMEINSAM, ...ANGEBOT, 'faellig_am', 'tage'],
-	zahlungserinnerung: [...GEMEINSAM, ...ANGEBOT, 'faellig_am', 'tage'],
+	zahlungserinnerung: [...GEMEINSAM, ...ANGEBOT, ...RECHNUNG, 'faellig_am', 'tage'],
+	rechnung: [...GEMEINSAM, ...ANGEBOT, 'rechnung.nummer', 'rechnung.datum', 'offen', 'faellig_am'],
+	mahnung: [...GEMEINSAM, ...ANGEBOT, ...RECHNUNG, 'faellig_am', 'tage', 'zinsen', 'gebuehr', 'mahnstufe'],
 	auftragsbestaetigung: [...GEMEINSAM, ...ANGEBOT, 'ab.nummer'],
 	buchungsbestaetigung: [...GEMEINSAM, 'termin', 'dienst', 'buchung.link'],
 	portal_link: [...GEMEINSAM, 'portal.link'],
@@ -96,7 +109,13 @@ export const BEISPIELE_ALLE: Record<string, string> = {
 	dienst: 'Besichtigung',
 	'buchung.link': 'https://crm.example.org/buchung/…',
 	'portal.link': 'https://crm.example.org/portal/…',
-	'bewertung.link': 'https://www.example.org/bewertung'
+	'bewertung.link': 'https://www.example.org/bewertung',
+	'rechnung.nummer': 'RE0042',
+	'rechnung.datum': '20.11.2026',
+	offen: '1.190,00 €',
+	zinsen: '12,54 €',
+	gebuehr: '5,00 €',
+	mahnstufe: '1. Mahnung'
 };
 
 export type StandardVorlage = { name: string; betreff: string; html: string };
@@ -130,6 +149,20 @@ export const STANDARD_MAIL_VORLAGEN: Record<MailZweck, StandardVorlage> = {
 		html:
 			'<p>{{kunde.anrede}},</p><p>sicher ist es Ihrer Aufmerksamkeit entgangen: Der Betrag von {{betrag}} war am {{faellig_am}} fällig. ' +
 			`Bitte überweisen Sie ihn in den nächsten Tagen. Falls Sie schon gezahlt haben, betrachten Sie diese Mail bitte als gegenstandslos.</p>${gruss}`
+	},
+	rechnung: {
+		name: 'Rechnung senden',
+		betreff: 'Ihre Rechnung {{rechnung.nummer}} – {{auftrag.titel}}',
+		html:
+			'<p>{{kunde.anrede}},</p><p>vielen Dank für Ihren Auftrag. Anbei erhalten Sie unsere Rechnung {{rechnung.nummer}} über {{betrag}}, ' +
+			`zahlbar bis {{faellig_am}}. Bitte überweisen Sie den Betrag auf das in der Rechnung genannte Konto.</p>${gruss}`
+	},
+	mahnung: {
+		name: 'Mahnung',
+		betreff: '{{mahnstufe}} zur Rechnung {{rechnung.nummer}}',
+		html:
+			'<p>{{kunde.anrede}},</p><p>zu unserer Rechnung {{rechnung.nummer}} vom {{rechnung.datum}} ist trotz Fälligkeit am {{faellig_am}} noch ein Betrag von {{offen}} offen. ' +
+			`Anbei erhalten Sie unsere {{mahnstufe}}. Bitte überweisen Sie den offenen Betrag umgehend. Falls Sie inzwischen gezahlt haben, betrachten Sie diese Mail bitte als gegenstandslos.</p>${gruss}`
 	},
 	auftragsbestaetigung: {
 		name: 'Auftragsbestätigung',

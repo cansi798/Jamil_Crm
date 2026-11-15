@@ -100,6 +100,9 @@ export async function verarbeiteEreignisse(k: Kontext, max = 200): Promise<numbe
 			await meldeProblem(k, 'Lexware-Schlüssel erneuern', 'Lexware meldet: Der API-Schlüssel wurde widerrufen. Bitte einen neuen Schlüssel anlegen und unter Einstellungen → Lexware verbinden eintragen; die Rückmeldungen werden danach neu eingerichtet.');
 			ergebnis = 'schluessel widerrufen';
 		} else if (BELEG_EREIGNIS.test(e.event_type)) {
+			// Zahlung (Phase 3): Zahlungsstand der Rechnung gleich holen (Teilzahlungen, offen, bezahlt am)
+			if (e.event_type === 'payment.changed')
+				await stelleEin(k, { art: 'zahlung_holen', nutzlast: { lexwareId: e.resource_id }, idempotenz: `zahlung_holen:${e.resource_id}:${new Date(e.event_date).toISOString()}` });
 			await mitBetrieb(k, (tx) => tx`update app.lexware_belege set veraltet = true where betrieb_id = ${k.betriebId} and lexware_id = ${e.resource_id}`);
 			belege = true;
 			ergebnis = 'beleg veraltet';

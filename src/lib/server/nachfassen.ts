@@ -58,6 +58,11 @@ export type NachfassStufe = {
 	rolleId: string | null;
 	faelligVersatz: number;
 	mahnstufe: number | null;
+	/** Mahnstufen (Lexware Phase 3, Migration 122) */
+	gebuehrCent: number;
+	pauschaleFirma: boolean;
+	zinsenHinweis: boolean;
+	freigabe: boolean;
 	aktiv: boolean;
 };
 export type NachfassLauf = {
@@ -76,7 +81,7 @@ export type NachfassLauf = {
 	angelegt: string;
 };
 
-export const STUFEN_FELDER = ['art', 'tage', 'todo', 'mail', 'todoTitel', 'mailVorlageId', 'zuweisung', 'benutzerId', 'rolleId', 'faelligVersatz', 'mahnstufe', 'aktiv'] as const;
+export const STUFEN_FELDER = ['art', 'tage', 'todo', 'mail', 'todoTitel', 'mailVorlageId', 'zuweisung', 'benutzerId', 'rolleId', 'faelligVersatz', 'mahnstufe', 'gebuehr', 'pauschaleFirma', 'zinsenHinweis', 'freigabe', 'aktiv'] as const;
 export const MAX_STUFEN = 20;
 
 const nichtGefunden = (was: string) => new ApiFehler(404, `${was} nicht gefunden.`);
@@ -99,7 +104,7 @@ const bool = (w: unknown) => w === true || w === 'true' || w === 'on' || w === '
 
 // ——— Einstellungen: Mail-Vorlagen, Signatur, Stufen ———
 
-const STUFE_SPALTEN = `id, art, pos, tage, todo, mail, todo_titel, mail_vorlage_id, zuweisung, benutzer_id, rolle_id, faellig_versatz, mahnstufe, aktiv`;
+const STUFE_SPALTEN = `id, art, pos, tage, todo, mail, todo_titel, mail_vorlage_id, zuweisung, benutzer_id, rolle_id, faellig_versatz, mahnstufe, gebuehr_cent, pauschale_firma, zinsen_hinweis, freigabe, aktiv`;
 const zuStufe = (z: Record<string, any>): NachfassStufe => ({
 	id: z.id,
 	art: z.art,
@@ -114,8 +119,23 @@ const zuStufe = (z: Record<string, any>): NachfassStufe => ({
 	rolleId: z.rolle_id ?? null,
 	faelligVersatz: z.faellig_versatz,
 	mahnstufe: z.mahnstufe ?? null,
+	gebuehrCent: z.gebuehr_cent ?? 0,
+	pauschaleFirma: !!z.pauschale_firma,
+	zinsenHinweis: !!z.zinsen_hinweis,
+	freigabe: !!z.freigabe,
 	aktiv: z.aktiv
 });
+
+/** „5,00“ / „5“ → 500 Cent (0 bis 1.000 €), leer → 0. */
+function gebuehr(w: unknown): number {
+	if (w === undefined || w === null || w === '') return 0;
+	if (typeof w === 'number' && Number.isInteger(w) && w >= 0 && w <= 100000) return w;
+	const t = typeof w === 'string' ? w.trim().replace(/\s|€/g, '') : '';
+	if (!/^\d{1,4}([.,]\d{1,2})?$/.test(t)) throw new ApiFehler(400, 'Mahngebühr: Bitte einen Betrag von 0 bis 1.000 € (z. B. 5,00).');
+	const cent = Math.round(Number(t.replace(',', '.')) * 100);
+	if (cent > 100000) throw new ApiFehler(400, 'Mahngebühr: höchstens 1.000 €.');
+	return cent;
+}
 
 export async function listeStufen(k: Kontext, art?: NachfassArt): Promise<NachfassStufe[]> {
 	return mitBetrieb(k, async (tx) =>
@@ -153,6 +173,10 @@ function pruefeStufe(e: Record<string, unknown>) {
 		rolleId,
 		faelligVersatz: ganz(e.faelligVersatz, 'Fällig nach', 0, 60, 0),
 		mahnstufe: e.art === 'rechnung' && e.mahnstufe !== undefined && e.mahnstufe !== '' ? ganz(e.mahnstufe, 'Mahnstufe', 0, 3) : null,
+		gebuehrCent: e.art === 'rechnung' ? gebuehr(e.gebuehr) : 0,
+		pauschaleFirma: e.art === 'rechnung' && bool(e.pauschaleFirma),
+		zinsenHinweis: e.art === 'rechnung' && bool(e.zinsenHinweis),
+		freigabe: e.art === 'rechnung' && bool(e.freigabe),
 		aktiv: e.aktiv === undefined || e.aktiv === '' ? true : bool(e.aktiv)
 	};
 }
@@ -181,16 +205,17 @@ export async function speichereStufe(k: Kontext, stufeId: unknown, e: Record<str
 			if (n >= MAX_STUFEN) throw new ApiFehler(400, `Höchstens ${MAX_STUFEN} Stufen je Art.`);
 			const [z] = await tx`
 				insert into app.nachfass_stufen (betrieb_id, art, pos, tage, todo, mail, todo_titel, mail_vorlage_id, zuweisung, benutzer_id,
-					rolle_id, faellig_versatz, mahnstufe, aktiv)
+					rolle_id, faellig_versatz, mahnstufe, gebuehr_cent, pauschale_firma, zinsen_hinweis, freigabe, aktiv)
 				values (${k.betriebId}, ${w.art}, ${n}, ${w.tage}, ${w.todo}, ${w.mail}, ${w.todoTitel}, ${w.mailVorlageId}, ${w.zuweisung},
-					${w.benutzerId}, ${w.rolleId}, ${w.faelligVersatz}, ${w.mahnstufe}, ${w.aktiv})
+					${w.benutzerId}, ${w.rolleId}, ${w.faelligVersatz}, ${w.mahnstufe}, ${w.gebuehrCent}, ${w.pauschaleFirma}, ${w.zinsenHinweis}, ${w.freigabe}, ${w.aktiv})
 				returning ${tx.unsafe(STUFE_SPALTEN)}`;
 			return zuStufe(z);
 		}
 		const [z] = await tx`
 			update app.nachfass_stufen set tage = ${w.tage}, todo = ${w.todo}, mail = ${w.mail}, todo_titel = ${w.todoTitel},
 				mail_vorlage_id = ${w.mailVorlageId}, zuweisung = ${w.zuweisung}, benutzer_id = ${w.benutzerId}, rolle_id = ${w.rolleId},
-				faellig_versatz = ${w.faelligVersatz}, mahnstufe = ${w.mahnstufe}, aktiv = ${w.aktiv}
+				faellig_versatz = ${w.faelligVersatz}, mahnstufe = ${w.mahnstufe}, gebuehr_cent = ${w.gebuehrCent}, pauschale_firma = ${w.pauschaleFirma},
+				zinsen_hinweis = ${w.zinsenHinweis}, freigabe = ${w.freigabe}, aktiv = ${w.aktiv}
 			where id = ${id(stufeId, 'Stufe')} and betrieb_id = ${k.betriebId} and art = ${w.art}
 			returning ${tx.unsafe(STUFE_SPALTEN)}`;
 		if (!z) throw nichtGefunden('Stufe');
@@ -304,7 +329,7 @@ export async function vorschauBeispiele(k: Kontext, mitPreisen: boolean, heute =
 }
 
 /** Zuständigen für die Aufgabe bestimmen (null, wenn niemand passt). */
-async function zustaendigFuer(tx: TransactionSql, k: Kontext, s: NachfassStufe, auftragId: string | null): Promise<string | null> {
+export async function zustaendigFuer(tx: TransactionSql, k: Kontext, s: NachfassStufe, auftragId: string | null): Promise<string | null> {
 	if (s.zuweisung === 'fest' && s.benutzerId) {
 		const [b] = await tx`select id from app.benutzer where id = ${s.benutzerId} and betrieb_id = ${k.betriebId} and aktiv`;
 		return b?.id ?? null;

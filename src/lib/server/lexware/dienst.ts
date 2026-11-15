@@ -6,6 +6,8 @@ import { kontaktAktualisieren, kontaktAnlegen, kontakteAbgleichen } from './kont
 import { abosEinrichten, belegeAbgleichen, naechtlicherAbgleich } from './abgleich';
 import { verarbeiteEreignisse } from './ereignis';
 import { abAnlegen, abVersand, angebotFestschreiben, angebotVersand } from './angebote';
+import { rechnungAnlegen, rechnungHolen, zahlungHolen } from './rechnungen';
+import { mahnungAnlegen, mahnungVersand, pruefeMahnungenGedrosselt } from './mahnungen';
 
 /**
  * Hintergrund-Dienst für Lexware (jede Minute, wie Erinnerungen; aus mit CRM_LEXWARE_DIENST=aus, in Tests nie):
@@ -23,13 +25,20 @@ export const HANDLER: HandlerTabelle = {
 	angebot_festschreiben: angebotFestschreiben,
 	angebot_versand: angebotVersand,
 	ab_anlegen: abAnlegen,
-	ab_versand: abVersand
+	ab_versand: abVersand,
+	rechnung_anlegen: rechnungAnlegen,
+	rechnung_holen: rechnungHolen,
+	zahlung_holen: zahlungHolen,
+	mahnung_anlegen: mahnungAnlegen,
+	mahnung_versand: mahnungVersand
 };
 
 /** Ein Durchlauf für einen Betrieb (auch „Jetzt ausführen“ auf der Einstellungsseite). */
 export async function laufFuerBetrieb(k: Kontext, o: { client?: LexwareClient; jetzt?: Date; max?: number } = {}) {
 	const ereignisse = await verarbeiteEreignisse(k);
 	const nacht = await naechtlicherAbgleich(k, o.jetzt ?? new Date());
+	// Mahnstufen (Phase 3): höchstens stündlich, Basis gespiegelte Fälligkeit
+	if (!o.client) await pruefeMahnungenGedrosselt(k);
 	const client = o.client ?? (await holeClient(k));
 	const warteschlange = await arbeiteAb(k, client, HANDLER, { max: o.max ?? 50 });
 	return { ereignisse, nacht, ...warteschlange };

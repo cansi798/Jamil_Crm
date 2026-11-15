@@ -24,6 +24,14 @@ import type { AddressInfo } from 'node:net';
  *   shippingConditions; ungültiges Weiterführen → 406, z. B. Angebot als Entwurf/abgelehnt oder mit Alternativ-/
  *   Bedarfspositionen), GET /v1/order-confirmations/{id}, …/file (Entwurf → 409). Ob Lexware das Angebot beim
  *   Weiterführen auf „accepted“ setzt, ist in der Doku offen (Plan T0) – Schalter `abSetztAngenommen` (Standard aus).
+ * - Rechnungen POST /v1/invoices[?precedingSalesVoucherId={id}][&finalize=true] (Pflicht wie AB inkl. shippingConditions;
+ *   paymentConditions.paymentTermDuration → dueDate), GET /v1/invoices/{id} (voucherStatus draft|open|paid|paidoff|voided,
+ *   dueDate), …/file (Entwurf → 409). In der Belegliste mit openAmount = Brutto.
+ * - Zahlungen GET /v1/payments/{belegId}: {openAmount, currency, paymentStatus balanced|openRevenue, voucherType,
+ *   voucherStatus, paidDate, paymentItems: [{paymentItemType, postingDate, amount, currency}]}
+ * - Mahnungen POST /v1/dunnings?precedingSalesVoucherId={Rechnung} (Rechnung muss offen/überfällig sein, sonst 406;
+ *   bleibt immer Entwurf, erscheint NICHT in der Belegliste), GET /v1/dunnings/{id}, …/file (PDF auch im Entwurf –
+ *   laut Plan T0 noch zu bestätigen; Schalter `mahnungPdf`).
  * - Fehler: „regular format“ {timestamp, status, error, path, traceId, message}; Kontakte „legacy“ {IssueList: […]}
  * - Ratenlimit: 429; Retry-After optional
  *
@@ -64,6 +72,12 @@ export type Attrappe = {
 	verkaufsbelege: Map<string, Record<string, any>>;
 	/** Setzt Lexware beim Weiterführen zur AB das Angebot auf „accepted“? (Doku offen, Plan T0) */
 	abSetztAngenommen: boolean;
+	/** Liefert /v1/dunnings/{id}/file im Entwurf ein PDF? (Plan T0) */
+	mahnungPdf: boolean;
+	/** Rechnung in Lexware festschreiben (wie von Hand in der Lexware-Oberfläche) */
+	festschreiben: (id: string) => void;
+	/** Zahlung buchen (Bankabgleich in Lexware); Betrag in Euro */
+	bezahle: (id: string, euro: number, datum?: string) => void;
 	stoerung: (...s: Stoerung[]) => void;
 	/** Alle noch offenen Störungen verwerfen */
 	ruhe: () => void;
@@ -108,6 +122,9 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 		profil: {},
 		verkaufsbelege: new Map(),
 		abSetztAngenommen: false,
+		mahnungPdf: true,
+		festschreiben: () => {},
+		bezahle: () => {},
 		stoerungen: [],
 		stoerung: (...s) => void a.stoerungen.push(...s),
 		ruhe: () => void (a.stoerungen.length = 0),
@@ -224,9 +241,25 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 		// ——— Verkaufsbelege: Angebote und Auftragsbestätigungen ———
 		const ART: Record<string, { typ: string; praefix: string; pflicht: string[] }> = {
 			quotations: { typ: 'quotation', praefix: 'AG', pflicht: ['voucherDate', 'expirationDate', 'address', 'lineItems', 'totalPrice', 'taxConditions'] },
-			'order-confirmations': { typ: 'orderconfirmation', praefix: 'AB', pflicht: ['voucherDate', 'address', 'lineItems', 'totalPrice', 'taxConditions', 'shippingConditions'] }
+			'order-confirmations': { typ: 'orderconfirmation', praefix: 'AB', pflicht: ['voucherDate', 'address', 'lineItems', 'totalPrice', 'taxConditions', 'shippingConditions'] },
+			invoices: { typ: 'invoice', praefix: 'RE', pflicht: ['voucherDate', 'address', 'lineItems', 'totalPrice', 'taxConditions', 'shippingConditions'] },
+			dunnings: { typ: 'dunning', praefix: 'MA', pflicht: ['voucherDate', 'address', 'lineItems', 'totalPrice', 'taxConditions'] }
 		};
-		const vk = /^\/v1\/(quotations|order-confirmations)(?:\/([0-9a-f-]{36})(\/file)?)?$/.exec(pfad);
+		const zahlPfad = /^\/v1\/payments\/([0-9a-f-]{36})$/.exec(pfad);
+		if (zahlPfad && req.method === 'GET') {
+			const b = a.verkaufsbelege.get(zahlPfad[1]);
+			if (!b || b.voucherType === 'dunning') return fehler(res, 404, pfad, 'Not Found');
+			return antworte(200, {
+				openAmount: b.openAmount ?? 0,
+				currency: 'EUR',
+				paymentStatus: (b.openAmount ?? 0) > 0 ? 'openRevenue' : 'balanced',
+				voucherType: b.voucherType,
+				voucherStatus: b.voucherStatus,
+				paidDate: b.paidDate ?? null,
+				paymentItems: b.paymentItems ?? []
+			});
+		}
+		const vk = /^\/v1\/(quotations|order-confirmations|invoices|dunnings)(?:\/([0-9a-f-]{36})(\/file)?)?$/.exec(pfad);
 		if (vk) {
 			const art = ART[vk[1]];
 			if (!vk[2] && req.method === 'POST') {
@@ -242,9 +275,10 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 					vor = a.verkaufsbelege.get(vorId);
 					if (!vor) return fehler(res, 404, pfad, 'Not Found: precedingSalesVoucherId');
 					const alternativ = (vor.lineItems ?? []).some((p: any) => p.optional || p.alternative);
-					if (vor.voucherStatus === 'draft' || vor.voucherStatus === 'rejected' || alternativ) return fehler(res, 406, pfad, 'Invalid pursue action');
-				}
-				const fertig = url.searchParams.get('finalize') === 'true';
+					if (vor.voucherStatus === 'draft' || vor.voucherStatus === 'rejected' || vor.voucherStatus === 'voided' || alternativ) return fehler(res, 406, pfad, 'Invalid pursue action');
+					if (art.typ === 'dunning' && !(vor.voucherType === 'invoice' && ['open', 'overdue'].includes(vor.voucherStatus))) return fehler(res, 406, pfad, 'Invalid pursue action');
+				} else if (art.typ === 'dunning') return fehler(res, 406, pfad, 'precedingSalesVoucherId required');
+				const fertig = url.searchParams.get('finalize') === 'true' && art.typ !== 'dunning';
 				const id = randomUUID();
 				const t = jetzt();
 				const nr = [...a.verkaufsbelege.values()].filter((x) => x.voucherType === art.typ && x.voucherNumber).length + 1;
@@ -272,11 +306,17 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 					voucherNumber: fertig ? `${art.praefix}${String(nr).padStart(4, '0')}` : null,
 					totalPrice: { ...body.totalPrice, totalNetAmount: netto / 100, totalGrossAmount: (netto + steuer) / 100, totalTaxAmount: steuer / 100 },
 					relatedVouchers: vor ? [{ id: vorId, voucherNumber: vor.voucherNumber, voucherType: vor.voucherType }] : []
-				};
+				} as Record<string, any>;
+				if (art.typ === 'invoice') {
+					const tage = Number(body.paymentConditions?.paymentTermDuration ?? 0);
+					beleg.dueDate = new Date(Date.parse(String(body.voucherDate).slice(0, 10)) + tage * 86_400_000).toISOString().slice(0, 10) + 'T00:00:00.000+01:00';
+					beleg.openAmount = (netto + steuer) / 100;
+					beleg.paymentItems = [];
+				}
 				a.verkaufsbelege.set(id, beleg);
-				a.belege.push(
+				if (art.typ !== 'dunning') a.belege.push(
 					beleg_({ id, voucherType: art.typ, voucherStatus: beleg.voucherStatus, voucherNumber: beleg.voucherNumber, voucherDate: body.voucherDate, createdDate: t, updatedDate: t,
-						dueDate: null, contactId: kontaktId ?? null, contactName: body.address?.name ?? 'Kontakt', totalAmount: (netto + steuer) / 100, openAmount: 0 })
+						dueDate: beleg.dueDate ?? null, contactId: kontaktId ?? null, contactName: body.address?.name ?? 'Kontakt', totalAmount: (netto + steuer) / 100, openAmount: beleg.openAmount ?? 0 })
 				);
 				if (vor && a.abSetztAngenommen && vor.voucherType === 'quotation') {
 					vor.voucherStatus = 'accepted';
@@ -291,7 +331,7 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 				if (!vk[3]) return antworte(200, b);
 				const acc = (req.headers.accept as string) ?? '*/*';
 				if (!/(\*\/\*|application\/pdf)/.test(acc)) return fehler(res, 406, pfad, 'Not Acceptable');
-				if (b.voucherStatus === 'draft') return fehler(res, 409, pfad, 'Conflict: draft has no document');
+				if (b.voucherStatus === 'draft' && !(b.voucherType === 'dunning' && a.mahnungPdf)) return fehler(res, 409, pfad, 'Conflict: draft has no document');
 				const pdf = Buffer.from(`%PDF-1.4\n% Attrappe ${b.voucherType} ${b.voucherNumber}\n%%EOF\n`);
 				res.writeHead(200, { 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${b.voucherType}_${b.voucherNumber}.pdf"` });
 				return res.end(pdf);
@@ -300,6 +340,30 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 		}
 		return fehler(res, 404, pfad, 'Not Found');
 	});
+	a.festschreiben = (id) => {
+		const b = a.verkaufsbelege.get(id);
+		if (!b || b.voucherStatus !== 'draft') return;
+		const nr = [...a.verkaufsbelege.values()].filter((x) => x.voucherType === b.voucherType && x.voucherNumber).length + 1;
+		b.voucherStatus = 'open';
+		b.voucherNumber = `RE${String(nr).padStart(4, '0')}`;
+		b.updatedDate = jetzt();
+		const z = a.belege.find((x) => x.id === id);
+		if (z) Object.assign(z, { voucherStatus: 'open', voucherNumber: b.voucherNumber, updatedDate: b.updatedDate });
+	};
+	a.bezahle = (id, euro, datum = '2026-11-25') => {
+		const b = a.verkaufsbelege.get(id);
+		if (!b) return;
+		b.paymentItems.push({ paymentItemType: 'manualPayment', postingDate: `${datum}T10:00:00.000+01:00`, amount: euro, currency: 'EUR' });
+		b.openAmount = Math.round((b.openAmount - euro) * 100) / 100;
+		if (b.openAmount <= 0) {
+			b.openAmount = 0;
+			b.voucherStatus = 'paid';
+			b.paidDate = `${datum}T10:00:00.000+01:00`;
+		}
+		b.updatedDate = jetzt();
+		const z = a.belege.find((x) => x.id === id);
+		if (z) Object.assign(z, { voucherStatus: b.voucherStatus, openAmount: b.openAmount, updatedDate: b.updatedDate });
+	};
 	await new Promise<void>((ok) => server.listen(port, '127.0.0.1', ok));
 	const echterPort = (server.address() as AddressInfo).port;
 	return Object.assign(a, {

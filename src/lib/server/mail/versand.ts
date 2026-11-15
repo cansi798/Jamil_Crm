@@ -116,7 +116,7 @@ export function sichererDateiname(name: string): string {
 export type MailArt = 'angebot' | 'ab' | 'rechnung' | 'erinnerung' | 'mahnung' | 'nachfassen' | 'protokoll' | 'buchung' | 'test' | 'sonstiges';
 export type MailMeta = {
 	art: MailArt;
-	bezugTyp?: 'angebot' | 'auftrag' | 'auftragsbestaetigung' | 'kunde' | 'buchung' | 'protokoll' | 'lexware_beleg';
+	bezugTyp?: 'angebot' | 'auftrag' | 'auftragsbestaetigung' | 'kunde' | 'buchung' | 'protokoll' | 'lexware_beleg' | 'rechnung';
 	bezugId?: string | null;
 	lexwareId?: string | null;
 	/** Statt `mailVersandFuer` (z. B. Testmail vor dem Einschalten). */

@@ -27,7 +27,13 @@ export type LexwareArt =
 	| 'angebot_festschreiben'
 	| 'angebot_versand'
 	| 'ab_anlegen'
-	| 'ab_versand';
+	| 'ab_versand'
+	// Phase 3: Rechnung anlegen → holen (Spiegel, PDF); Zahlungsstand; Mahnung anlegen → PDF
+	| 'rechnung_anlegen'
+	| 'rechnung_holen'
+	| 'zahlung_holen'
+	| 'mahnung_anlegen'
+	| 'mahnung_versand';
 
 export type HandlerErgebnis = { lexwareId?: string | null; ergebnis?: Record<string, unknown> | null };
 export type Handler = {
@@ -113,7 +119,12 @@ const ART_NAME: Record<LexwareArt, string> = {
 	angebot_festschreiben: 'Angebot in Lexware festschreiben',
 	angebot_versand: 'Angebot-PDF aus Lexware holen und senden',
 	ab_anlegen: 'Auftragsbestätigung in Lexware anlegen',
-	ab_versand: 'Auftragsbestätigung-PDF aus Lexware holen und senden'
+	ab_versand: 'Auftragsbestätigung-PDF aus Lexware holen und senden',
+	rechnung_anlegen: 'Rechnung in Lexware anlegen',
+	rechnung_holen: 'Rechnung aus Lexware holen (Nummer, PDF)',
+	zahlung_holen: 'Zahlungsstand aus Lexware holen',
+	mahnung_anlegen: 'Mahnung in Lexware anlegen',
+	mahnung_versand: 'Mahnungs-PDF aus Lexware holen'
 };
 
 async function fehlgeschlagen(k: Kontext, g: Geholt, h: Handler, e: unknown) {
