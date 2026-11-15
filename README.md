@@ -71,6 +71,14 @@ Werte gehören in `.env` (nicht committen, Vorlage: `.env.example`) oder in die 
   `NEXTCLOUD_URL` ist sie aus. Aufbau und Bedrohungsmodell: `docs/nextcloud-anbindung.md`; Einrichtung:
   `installation/ANLEITUNG.md`, Abschnitt „Mit Nextcloud verbinden“.
 
+- `CRM_GEHEIMNIS_SCHLUESSEL` (≥ 32 Zeichen): verschlüsselt Lexware-API-Schlüssel und SMTP-Passwort in der Datenbank
+  (AES-256-GCM, `src/lib/server/geheimnis.ts`). Ohne ihn lassen sich beide nicht speichern. Nie ändern.
+- `CRM_LEXWARE_DIENST` (`an`/`aus`): Hintergrund-Dienst für Lexware (Warteschlange, Rückmeldungen, nächtlicher Abgleich).
+  Die Lexware-Adresse ist fest `https://api.lexware.io`; nur im Testmodus darf `CRM_LEXWARE_URL=http://127.0.0.1:<port>`
+  auf die Attrappe (`tests/hilfe/lexware-attrappe-start.ts`) zeigen.
+- `CRM_MAILVERSAND` (`an`/`aus`): echter Mailversand über das Postfach des Betriebs (Einstellungen → E-Mail-Versand);
+  im Testmodus (`CRM_TESTMODUS=1`) ohne ausdrückliches `an` immer aus.
+
 **Wer liest `.env`?** Nur die Skripte: `npm run migrate`, `seed:dev`, `admin:anlegen`, die Datenbank-Tests und
 `start-vorschau.sh`. Die gebaute Anwendung (`node build`, `src/lib/server/db.ts`) liest **keine** `.env`-Datei,
 sondern nur die Umgebung des Prozesses. Start in Produktion daher z. B.:
@@ -308,6 +316,14 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     (`app.benutzer_id`), nie für öffentliche Abläufe (die melden selbst), gebündelt je Schlüssel 15 Minuten, je Person und
     Kategorie abschaltbar (`benachrichtigung_einstellungen`, Änderungsprotokoll). Glocke liest Erinnerungen und
     Benachrichtigungen zusammen; Push schickt der Erinnerungs-Dienst (`stelleBenachrichtigungenZu`). Kein E-Mail-Versand.
+
+34. Lexware Phase 1 und Mailversand (Migrationen 118–120, Plan `docs/superpowers/plans/2026-11-15-lexware-phase1.md`):
+    Geheimnisse (`mail_konfig.passwort`, `lexware_konfig.schluessel`) AES-256-GCM, für `crm_app` nur schreibbar, gelesen nur über
+    SECURITY-DEFINER-Funktionen für `crm_auth`. SMTP-Server nur öffentlich (alle DNS-Ergebnisse geprüft, Verbindung zur geprüften
+    IP mit TLS-servername, Ports 25/465/587/2525, `netz-schutz.ts`), Fehlermeldungen allgemein. Lexware: feste Basis-Adresse,
+    Ratenlimit 667 ms je Schlüssel, Warteschlange `lexware_auftraege` mit eindeutigem Idempotenz-Schlüssel je Betrieb und Prüfung
+    `vorhanden()` (Marke „CRM-Kunde <id>“) vor dem Neuversuch nach Zeitüberschreitung; Webhook `/api/lexware/ereignis` nur mit
+    gültiger `X-Lxo-Signature` (RSA-SHA512), dedupliziert, Antwort ohne Auskunft über die Organisation.
 
 ## Installation auf einem eigenen Server
 

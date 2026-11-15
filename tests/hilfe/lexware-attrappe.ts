@@ -85,7 +85,7 @@ const lies = (req: IncomingMessage) =>
 		req.on('end', () => ok(s));
 	});
 
-export async function starteAttrappe(): Promise<Attrappe> {
+export async function starteAttrappe(port = 0): Promise<Attrappe> {
 	const a: Omit<Attrappe, 'url' | 'stop'> & { stoerungen: Stoerung[] } = {
 		schluessel: 'gueltiger-testschluessel-0001',
 		organisationId: randomUUID(),
@@ -208,10 +208,10 @@ export async function starteAttrappe(): Promise<Attrappe> {
 		}
 		return fehler(res, 404, pfad, 'Not Found');
 	});
-	await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
-	const port = (server.address() as AddressInfo).port;
+	await new Promise<void>((ok) => server.listen(port, '127.0.0.1', ok));
+	const echterPort = (server.address() as AddressInfo).port;
 	return Object.assign(a, {
-		url: `http://127.0.0.1:${port}`,
+		url: `http://127.0.0.1:${echterPort}`,
 		stop: () => new Promise<void>((ok) => (server.closeAllConnections(), server.close(() => ok())))
 	}) as Attrappe;
 }
