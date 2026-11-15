@@ -23,7 +23,7 @@ import type { AddressInfo } from 'node:net';
  * (für Zeitüberschreitung) und optional „trotzdem ausführen“ (Anfrage kommt an, Antwort geht verloren).
  */
 
-export type Stoerung = { status?: number; retryAfter?: number; verzoegerungMs?: number; trotzdemAusfuehren?: boolean; nurPfad?: RegExp };
+export type Stoerung = { status?: number; retryAfter?: number; verzoegerungMs?: number; trotzdemAusfuehren?: boolean; nurPfad?: RegExp; nurMethode?: string };
 export type Anfrage = { methode: string; pfad: string; query: URLSearchParams; body: any; auth: string | null };
 export type Kontakt = Record<string, any> & { id: string; version: number };
 export type Beleg = {
@@ -123,7 +123,7 @@ export async function starteAttrappe(): Promise<Attrappe> {
 		const body = roh ? JSON.parse(roh) : null;
 		const pfad = url.pathname;
 		a.anfragen.push({ methode: req.method ?? 'GET', pfad, query: url.searchParams, body, auth: (req.headers.authorization as string) ?? null });
-		const i = a.stoerungen.findIndex((s) => !s.nurPfad || s.nurPfad.test(pfad));
+		const i = a.stoerungen.findIndex((s) => (!s.nurPfad || s.nurPfad.test(pfad)) && (!s.nurMethode || s.nurMethode === req.method));
 		const st = i >= 0 ? a.stoerungen.splice(i, 1)[0] : null;
 		if (st?.verzoegerungMs && !st.trotzdemAusfuehren) await new Promise((r) => setTimeout(r, st.verzoegerungMs));
 		if (st?.status) return fehler(res, st.status, pfad, st.status === 429 ? 'Too Many Requests' : 'Fehler aus der Attrappe', st.retryAfter);

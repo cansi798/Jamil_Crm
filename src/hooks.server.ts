@@ -15,6 +15,7 @@ import { nextcloud } from '$lib/server/nextcloud/konfig';
 import { nextcloudKanal } from '$lib/server/nextcloud/melden';
 import { starteNextcloudDienst, stoppeNextcloudDienst } from '$lib/server/nextcloud/abgleich';
 import { PORTAL_COOKIE, sitzungGueltig } from '$lib/server/portal-zugang';
+import { starteLexwareDienst, stoppeLexwareDienst } from '$lib/server/lexware/dienst';
 import { ipVon } from '$lib/server/buchung-anfrage';
 
 /** Beim Start: Schriften fürs Angebots-PDF müssen da sein – sonst startet der Server nicht (lauter Fehler statt 500 später). */
@@ -24,6 +25,8 @@ export const init: ServerInit = () => {
 	if (!process.env.VITEST && process.env.CRM_ERINNERUNGEN !== 'aus') starteErinnerungsDienst();
 	// Nextcloud-Anbindung (optional, nur mit NEXTCLOUD_URL): Konfiguration beim Start prüfen (Fehler = Start bricht ab),
 	// Talk als weiterer Zustellweg für Erinnerungen, Abgleich Kalender/Kontakte/Dateien im Hintergrund.
+	// Lexware (Plan Phase 1): Warteschlange, Rückmeldungen, nächtlicher Abgleich – nur für verbundene Betriebe
+	if (!process.env.VITEST && process.env.CRM_LEXWARE_DIENST !== 'aus') starteLexwareDienst();
 	const nc = nextcloud();
 	if (nc) {
 		if (nc.talk) registriereKanal(nextcloudKanal);
@@ -36,6 +39,7 @@ export const init: ServerInit = () => {
 process.on('sveltekit:shutdown', () => {
 	stoppeErinnerungsDienst();
 	stoppeNextcloudDienst();
+	stoppeLexwareDienst();
 	void schliesseDb();
 });
 
