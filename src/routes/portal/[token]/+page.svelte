@@ -189,6 +189,17 @@
 								<form method="POST" action="?/entscheiden" class="pt-form" use:enhance={() => { sendet = true; return async ({ update }) => { await update(); sendet = false; schritt = null; }; }}>
 									<input type="hidden" name="angebotId" value={an.id} /><input type="hidden" name="entscheidung" value="angenommen" />
 									<p class="pt-hinweis">Bitte bestätigen: Sie nehmen das Angebot {an.nummer} über {euro(an.bruttoCent)} verbindlich an.</p>
+									{#if an.termine?.length}
+										<!-- Drei Terminvorschläge für den Baubeginn: Wahl Pflicht (oder „keiner passt“) -->
+										<fieldset class="pt-termine" data-testid="portal-terminwahl">
+											<legend>Wann sollen wir beginnen?</legend>
+											{#each an.termine as t (t.id)}
+												<label class="pt-check"><input type="radio" name="termin" value={t.id} required /><span>{tagKurz(t.beginn)}{t.beginn.slice(0, 4)}{t.hinweis ? ` – ${t.hinweis}` : ''}</span></label>
+											{/each}
+											<label class="pt-check"><input type="radio" name="termin" value="keiner" required /><span>Keiner passt – bitte melden Sie sich</span></label>
+											<label>Ihr Wunsch (freiwillig) <input type="text" name="terminWunsch" maxlength="1000" placeholder="z. B. lieber ab Mai" /></label>
+										</fieldset>
+									{/if}
 									<label class="pt-check"><input type="checkbox" name="agb" value="ja" required />
 										<span>Ich habe die {#if s.agbPdf}<a href={`/portal/${data.token}/agb`} target="_blank" rel="noopener noreferrer">AGB (PDF)</a>{:else if s.agbUrl}<a href={s.agbUrl} target="_blank" rel="noopener noreferrer">AGB</a>{:else}AGB{/if} gelesen und akzeptiere sie.{#if s.widerrufUrl} Hinweise zum <a href={s.widerrufUrl} target="_blank" rel="noopener noreferrer">Widerrufsrecht</a>.{/if}</span></label>
 									<div class="pt-knoepfe">
@@ -327,6 +338,17 @@
 </PortalHuelle>
 
 <style>
+	.pt-termine {
+		border: 0;
+		padding: 0;
+		margin: 0;
+		display: grid;
+		gap: 0.4rem;
+	}
+	.pt-termine legend {
+		font-weight: 600;
+		margin-bottom: 0.3rem;
+	}
 	.pt-inhalt {
 		display: grid;
 		gap: 0.85rem;

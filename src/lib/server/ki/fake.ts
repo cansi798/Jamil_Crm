@@ -443,9 +443,18 @@ export function deute(text: string, kontext: KiKontext, einzeln = false): { akti
 	if (/\bnachfass/.test(l) && /\b(wo|wer|welche[nrs]?|was|muss|müssen|fällig|faellig|steht|stehen|anstehend\w*)\b/.test(l) && !/\b(pausier\w*|stopp\w*|anhalten|fortsetz\w*|aufnehm\w*)\b/.test(l))
 		return { aktion: 'abfrage_nachfassen', daten: {} };
 	if (/\bnachfass/.test(l)) return nachfassen(t);
+	// Lexware Phase 2: Terminvorschläge, neue Version, Versenden
+	if (/\bangebot/.test(l) && /\btermin\w*\b/.test(l) && !/\b(?:angenommen|abgelehnt|zugesagt|abgesagt)\b/.test(l)) {
+		const termine = termineAus(t, kontext.heute);
+		if (termine) return { aktion: 'terminvorschlaege_setzen', daten: { angebot: angebotName(t.replace(/\b(?:baubeginn-?)?termin\w*\b/gi, ' ').replace(/(?::|\b\d).*$/, '')), termine } };
+	}
+	if (/\bangebot/.test(l) && /\bneue\s+version\b|\bneue\s+angebotsversion\b/.test(l)) return { aktion: 'neue_angebotsversion', daten: { angebot: angebotName(t.replace(/\bneue\s+(?:angebots)?version\b/gi, ' ')) } };
+	if (/\bangebot/.test(l) && /\b(?:versend\w*|verschick\w*|senden|schick\w*|rausschick\w*)\b/.test(l) && !/\bnachfass/.test(l))
+		return { aktion: 'angebot_versenden', daten: { angebot: angebotName(t.replace(/\b(?:versend\w*|verschick\w*|senden|schick\w*|rausschick\w*|raus)\b/gi, ' ')) } };
 	if (/\bangebot\b|\bhat\b.*\b(?:angenommen|abgelehnt|zugesagt|abgesagt)\b/.test(l) && /\b(?:angenommen|abgelehnt|zugesagt|abgesagt)\b/.test(l)) {
-		const n = nachfassen(t.replace(/\b(?:ist|wurde|hat|das|den|angenommen|abgelehnt|zugesagt|abgesagt)\b/gi, ' '));
-		return { aktion: 'angebot_entscheidung', daten: { angebot: n.daten.angebot, status: /\b(?:abgelehnt|abgesagt)\b/.test(l) ? 'abgelehnt' : 'angenommen' } };
+		const termin = /\bkeiner\s+passt\b|\bkein\s+termin\b/.test(l) ? 'keiner' : (/\btermin\s+([123])\b/.exec(l)?.[1] ?? { erste: '1', ersten: '1', zweite: '2', zweiten: '2', dritte: '3', dritten: '3' }[/\b(erste[n]?|zweite[n]?|dritte[n]?)\s+termin\b/.exec(l)?.[1] ?? ''] ?? undefined);
+		const n = nachfassen(t.replace(/,?\s*(?:mit\s+)?(?:den\s+|dem\s+)?(?:(?:erste[n]?|zweite[n]?|dritte[n]?)\s+termin|termin\s+[123]|keiner\s+passt).*$/i, '').replace(/\b(?:ist|wurde|hat|das|den|angenommen|abgelehnt|zugesagt|abgesagt)\b/gi, ' '));
+		return { aktion: 'angebot_entscheidung', daten: { angebot: n.daten.angebot, status: /\b(?:abgelehnt|abgesagt)\b/.test(l) ? 'abgelehnt' : 'angenommen', ...(termin ? { termin } : {}) } };
 	}
 	if (/\b(?:hake|hak|abhaken|abgehakt)\b|\b(?:ist|sind|als)\s+(?:jetzt\s+)?(?:erledigt|abgehakt)\b|\berledigt\s*$/.test(l) && !/\b(?:soll|muss|bis)\b/.test(l)) {
 		return abhaken(t);
@@ -479,7 +488,7 @@ const SCHRITT_TRENNER =
 const ERLAUBT = new Set([
 	'kunde_anlegen', 'auftrag_anlegen', 'todo_anlegen', 'einsatz_anlegen', 'einsatz_verschieben', 'protokoll_ausfuellen',
 	'mitarbeiter_zuweisen', 'status_aendern', 'todo_abhaken', 'anlage_anlegen', 'nachfassen_pausieren', 'quelle_setzen',
-	'dienst_anlegen', 'angebot_entscheidung', 'vorlage_anwenden'
+	'dienst_anlegen', 'angebot_entscheidung', 'vorlage_anwenden', 'angebot_versenden', 'neue_angebotsversion', 'terminvorschlaege_setzen'
 ]);
 
 /**
@@ -577,6 +586,40 @@ function abfrage(t: string, kontext: KiKontext): { aktion: string; daten: Record
 		/\b(?:hat|haben)\s+([A-ZÄÖÜ][\wäöüß-]+)\b/.exec(t)?.[1];
 	if (wer && !/^(ich|mich|mir|mein)$/i.test(wer) && (kolonne || istNamensWort(wer))) daten.wer = wer;
 	return { aktion: 'abfrage_tagesplan', daten };
+}
+
+/** Angebot aus dem Satz: Nummer oder Name nach „Angebot“/„für“/„von“. */
+function angebotName(t: string): string {
+	const nr = /\b(?:AN-?)?(\d{4}-\d{3,})\b/i.exec(t);
+	if (nr) return `AN-${nr[1]}`;
+	const m = /\b[Aa]ngebot\w*\s+(?:(?:für|fuer|von|bei|an)\s+)?(?:(?:den|die|das|dem)\s+)?(?:kunden?\s+|familie\s+|firma\s+|herrn?\s+|frau\s+)?([A-ZÄÖÜ][\wäöüß-]+(?:\s+[A-ZÄÖÜ][\wäöüß-]+)?)/.exec(t)
+		?? /\b(?:für|fuer|von|bei)\s+(?:(?:den|die|das|dem)\s+)?(?:kunden?\s+|familie\s+|firma\s+|herrn?\s+|frau\s+)?([A-ZÄÖÜ][\wäöüß-]+)/.exec(t);
+	return m ? m[1].replace(/\s+(?:Vom|Von|Für)$/, '') : sauber(t.replace(/\b(?:das|dem|den|angebot\w*|bitte|jetzt|vom|von|für)\b/gi, ' ')) || '?';
+}
+
+const MONATS_NR: Record<string, number> = { januar: 1, jänner: 1, februar: 2, märz: 3, maerz: 3, april: 4, mai: 5, juni: 6, juli: 7, august: 8, september: 9, oktober: 10, november: 11, dezember: 12 };
+
+/** „1., 8. und 15. März“ / „am 3.3. und 10.3.2027“ → bis zu drei Tage in der Zukunft (JJJJ-MM-TT). */
+function termineAus(t: string, heute: string): string[] | null {
+	const aus: string[] = [];
+	const jahrVon = (m: number, d: number, j?: string) => {
+		if (j) return Number(j.length === 2 ? `20${j}` : j);
+		const y = Number(heute.slice(0, 4));
+		const kandidat = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+		return kandidat > heute ? y : y + 1;
+	};
+	const add = (d: number, m: number, j?: string) => {
+		if (d < 1 || d > 31 || m < 1 || m > 12) return;
+		const y = jahrVon(m, d, j);
+		aus.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+	};
+	for (const g of t.matchAll(/((?:\d{1,2}\.\s*(?:,|und|oder)?\s*)+)\s*(januar|jänner|februar|märz|maerz|april|mai|juni|juli|august|september|oktober|november|dezember)(?:\s+(\d{4}))?/gi)) {
+		const m = MONATS_NR[g[2].toLowerCase()];
+		for (const d of g[1].matchAll(/(\d{1,2})\./g)) add(Number(d[1]), m, g[3]);
+	}
+	for (const g of t.matchAll(/\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})?(?!\d)/g)) add(Number(g[1]), Number(g[2]), g[3]);
+	const eindeutig = [...new Set(aus)].sort();
+	return eindeutig.length > 0 ? eindeutig.slice(0, 3) : null;
 }
 
 function nachfassen(t: string): { aktion: string; daten: Record<string, unknown> } {

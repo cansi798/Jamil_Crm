@@ -92,6 +92,15 @@
 		</section>
 
 		<section class="lx-karte">
+			<h2>Angebote und Auftragsbestätigungen <InfoFenster id="lexware.belege" /></h2>
+			<form method="POST" action="?/belege" use:enhance={behalten} class="lx-form">
+				<Schalter name="an" an={s.belegeInLexware} label="Belege über Lexware" info="lexware.belege" hinweis="An: Nummer und PDF kommen aus Lexware, das CRM vergibt keine AN-/AB-Nummern mehr. Ältere CRM-Angebote bleiben als „Altbeleg“ lesbar." />
+				<div class="lx-knoepfe"><button type="submit" class="kd-knopf hell">Speichern</button></div>
+			</form>
+			{#if fehler('belege')}<p role="alert" class="kd-fehler">{fehler('belege')}</p>{/if}
+			{#if erfolg('belege')}<p class="kd-info" role="status">Gespeichert.</p>{/if}
+		</section>
+		<section class="lx-karte">
 			<h2>Kunden und Belege abgleichen <InfoFenster id="lexware.abgleich" /></h2>
 			<form method="POST" action="?/kundenAnlegen" use:enhance={behalten} class="lx-form">
 				<Schalter name="an" an={s.kundenAnlegen} label="Fehlende Kunden in Lexware anlegen" info="lexware.kunden_anlegen" hinweis="Aus: Der Abgleich verknüpft nur Kunden, die es in Lexware schon gibt (gleiche E-Mail)." />

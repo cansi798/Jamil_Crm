@@ -429,6 +429,13 @@ export const INFOS: Record<string, Info> = {
 		standard: 'Jede Nacht ab 2 Uhr automatisch; zusätzlich auf Knopfdruck oder per Sprache („Lexware-Abgleich starten“).',
 		beispiel: 'Frau Musterfrau steht in Lexware mit derselben E-Mail – der Abgleich verknüpft sie mit dem CRM-Kunden.'
 	},
+	'lexware.belege': {
+		titel: 'Angebote und Auftragsbestätigungen über Lexware',
+		was: 'An: Bis zum Versenden ist das Angebot ein CRM-Entwurf ohne Nummer. Beim Versenden schreibt Lexware es fest (Nummer, PDF), die Mail geht aus dem CRM. Die Annahme erzeugt die Auftragsbestätigung in Lexware. Danach nicht mehr änderbar – „Neue Version“ legt ein neues Lexware-Angebot an.',
+		wirkt: 'Alle neuen Angebote und Auftragsbestätigungen Ihrer Firma, Kundenportal und Nachfassen.',
+		standard: 'An, sobald Lexware verbunden ist. Aus: wieder eigene CRM-Nummern (AN-/AB-…) – dann gäbe es zwei Nummernkreise, deshalb nur ausschalten, wenn Sie Lexware nicht mehr nutzen.',
+		beispiel: 'Angebot für Frau Müller versenden → Lexware vergibt AG0042, das PDF geht per Mail raus, im Portal steht das Lexware-PDF.'
+	},
 	'lexware.kunden_anlegen': {
 		titel: 'Fehlende Kunden in Lexware anlegen',
 		was: 'An: Beim Abgleich legt das CRM jeden Kunden, den es in Lexware noch nicht gibt, dort als Kontakt an. Aus: Es verknüpft nur vorhandene.',

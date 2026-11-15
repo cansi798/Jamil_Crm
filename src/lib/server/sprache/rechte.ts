@@ -88,6 +88,10 @@ export async function pruefeAktionsRechte(
 			return darf(locals, 'plantafel', 'preise.sehen');
 		case 'nachfassen_pausieren':
 		case 'angebot_entscheidung':
+		// Lexware Phase 2: wie die Angebots-Endpunkte (angebote.bearbeiten + preise.sehen, Modul angebote)
+		case 'angebot_versenden':
+		case 'neue_angebotsversion':
+		case 'terminvorschlaege_setzen':
 			await angeboteZugriff(locals);
 			return;
 		case 'abfrage_nachkalkulation':

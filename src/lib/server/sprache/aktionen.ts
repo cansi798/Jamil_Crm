@@ -45,7 +45,11 @@ export const AKTIONEN = [
 	'abfrage_lexware',
 	'lexware_abgleich_starten',
 	'abfrage_kunde_lexware',
-	'abfrage_mailversand'
+	'abfrage_mailversand',
+	// Lexware Phase 2: Angebot versenden (festschreiben), neue Version, drei Terminvorschläge
+	'angebot_versenden',
+	'neue_angebotsversion',
+	'terminvorschlaege_setzen'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
@@ -77,7 +81,10 @@ export const SCHRITT_AKTIONEN = [
 	'quelle_setzen',
 	'dienst_anlegen',
 	'angebot_entscheidung',
-	'vorlage_anwenden'
+	'vorlage_anwenden',
+	'angebot_versenden',
+	'neue_angebotsversion',
+	'terminvorschlaege_setzen'
 ] as const satisfies readonly AktionsName[];
 export type SchrittName = (typeof SCHRITT_AKTIONEN)[number];
 export const istSchrittAktion = (w: unknown): w is SchrittName => typeof w === 'string' && (SCHRITT_AKTIONEN as readonly string[]).includes(w);
@@ -201,7 +208,10 @@ export type KiAktion =
 	| { aktion: 'abfrage_nachkalkulation'; daten: { auftrag: string } }
 	| { aktion: 'abfrage_verlust'; daten: Record<string, never> }
 	| { aktion: 'portallink_zeigen'; daten: { auftrag: string } }
-	| { aktion: 'angebot_entscheidung'; daten: { angebot: string; status: 'angenommen' | 'abgelehnt' } }
+	| { aktion: 'angebot_entscheidung'; daten: { angebot: string; status: 'angenommen' | 'abgelehnt'; termin?: string } }
+	| { aktion: 'angebot_versenden'; daten: { angebot: string } }
+	| { aktion: 'neue_angebotsversion'; daten: { angebot: string } }
+	| { aktion: 'terminvorschlaege_setzen'; daten: { angebot: string; termine: string[] } }
 	| { aktion: 'vorlage_anwenden'; daten: VorlageAnwendenDaten }
 	| { aktion: 'leitfaden_oeffnen'; daten: { kunde?: string } }
 	| { aktion: 'abfrage_leitfaden'; daten: { auftrag: string } }
@@ -557,9 +567,31 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		type: 'object',
 		properties: {
 			angebot: text(100, 'Angebot wie gesprochen: Kundenname oder Nummer (z. B. AN-2026-0003)'),
-			status: { type: 'string', enum: ['angenommen', 'abgelehnt'] }
+			status: { type: 'string', enum: ['angenommen', 'abgelehnt'] },
+			termin: { type: 'string', enum: ['1', '2', '3', 'keiner'], description: 'Gewählter Baubeginn-Termin (Vorschlag 1–3) oder „keiner“, nur wenn genannt' }
 		},
 		required: ['angebot', 'status'],
+		additionalProperties: false
+	},
+	angebot_versenden: {
+		type: 'object',
+		properties: { angebot: text(100, 'Angebot wie gesprochen: Kundenname oder Nummer') },
+		required: ['angebot'],
+		additionalProperties: false
+	},
+	neue_angebotsversion: {
+		type: 'object',
+		properties: { angebot: text(100, 'Angebot wie gesprochen: Kundenname oder Nummer') },
+		required: ['angebot'],
+		additionalProperties: false
+	},
+	terminvorschlaege_setzen: {
+		type: 'object',
+		properties: {
+			angebot: text(100, 'Angebot wie gesprochen: Kundenname oder Nummer'),
+			termine: { type: 'array', minItems: 0, maxItems: 3, items: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Tag JJJJ-MM-TT (in der Zukunft)' }, description: 'Bis zu drei Baubeginn-Termine' }
+		},
+		required: ['angebot', 'termine'],
 		additionalProperties: false
 	},
 	vorlage_anwenden: {
@@ -645,6 +677,9 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	lexware_abgleich_starten: 'Abgleich mit Lexware starten: Kunden und Belege jetzt abgleichen („Lexware-Abgleich starten“, „Gleiche mit Lexware ab“).',
 	abfrage_kunde_lexware: 'Frage beantworten, ob ein Kunde schon in Lexware angelegt bzw. verknüpft ist („Ist Kunde Müller in Lexware?“).',
 	abfrage_mailversand: 'Frage beantworten, ob der Mailversand eingerichtet ist und ob es Mailfehler gab („Ist der Mailversand eingerichtet?“, „Gab es Mailfehler?“).',
+	angebot_versenden: 'Einen Angebots-Entwurf versenden – bei Lexware-Betrieben wird er dabei in Lexware festgeschrieben und ist danach nicht mehr änderbar („Angebot Müller versenden“).',
+	neue_angebotsversion: 'Von einem versendeten/entschiedenen Angebot eine neue, änderbare Version anlegen („Neue Version vom Angebot Müller“).',
+	terminvorschlaege_setzen: 'Bis zu drei Termine für den Baubeginn in einem Angebots-Entwurf vorschlagen („Termine für das Angebot Müller: 1., 8. und 15. März“).',
 	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. andere Fragen, Rechnungen, Löschen).'
 };
 

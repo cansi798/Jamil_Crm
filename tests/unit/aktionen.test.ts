@@ -36,7 +36,10 @@ describe('Aktions-Schema', () => {
 			'abfrage_lexware',
 			'lexware_abgleich_starten',
 			'abfrage_kunde_lexware',
-			'abfrage_mailversand'
+			'abfrage_mailversand',
+			'angebot_versenden',
+			'neue_angebotsversion',
+			'terminvorschlaege_setzen'
 		]);
 		expect(Object.keys(AKTIONS_SCHEMAS).sort()).toEqual([...AKTIONEN, 'unbekannt', 'mehrere_schritte'].sort());
 		// Werkzeuge für Function Calling: je Aktion eine Funktion mit Parametern = Schema

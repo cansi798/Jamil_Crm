@@ -870,7 +870,65 @@ async function angebotEntscheidung(k: Kontext, nutzer: Nutzer, d: Extract<KiAkti
 	delete bau.werte.pausiert;
 	bau.werte.status = d.status;
 	bau.zeilen.push({ label: 'Neuer Status', wert: d.status === 'angenommen' ? 'angenommen' : 'abgelehnt' });
+	// Drei Terminvorschläge (Lexware Phase 2): gewählten Baubeginn mitnehmen
+	if (d.status === 'angenommen' && bau.werte.angebotId) {
+		const { holeAngebot } = await import('../angebote');
+		const { sichtVon: sv } = await import('../auftraege');
+		const an = await holeAngebot(k, bau.werte.angebotId, { sicht: sv(nutzer), auftragAendern: false });
+		if (an.terminvorschlaege.length > 0) {
+			const t = d.termin === 'keiner' ? null : an.terminvorschlaege.find((x) => String(x.pos) === d.termin);
+			if (d.termin === 'keiner') {
+				bau.werte.termin = 'keiner';
+				bau.zeilen.push({ label: 'Baubeginn', wert: 'keiner passt – Aufgabe „Kunden anrufen“' });
+			} else if (t) {
+				bau.werte.termin = t.id;
+				bau.zeilen.push({ label: 'Baubeginn', wert: tagDeutschKurz(t.beginn) });
+			} else bau.warnungen.push(`Kein Baubeginn gewählt (Vorschläge: ${an.terminvorschlaege.map((x) => `${x.pos}) ${tagDeutschKurz(x.beginn)}`).join(', ')}) – z. B. „… angenommen, Termin 2“.`);
+		}
+	}
 	if (d.status === 'angenommen') bau.warnungen.push('Danach entsteht automatisch die Auftragsbestätigung (falls eingeschaltet); das Nachfassen stoppt.');
+	return bau;
+}
+
+const tagDeutschKurz = (t: string) => `${t.slice(8, 10)}.${t.slice(5, 7)}.${t.slice(0, 4)}`;
+
+/** Angebot nach Name/Nummer finden (Lexware Phase 2): `nur` filtert nach Status. */
+async function angebotFinden(k: Kontext, nutzer: Nutzer, gesprochen: string, nur: (a: { status: string; altbeleg: boolean }) => boolean, keinText: string): Promise<Bau> {
+	const bau = neuerBau();
+	const { listeAngebote } = await import('../angebote');
+	const { sichtVon: sv } = await import('../auftraege');
+	const alle = (await listeAngebote(k, {}, { sicht: sv(nutzer), auftragAendern: false })).filter(nur);
+	const q = normal(ohneAnrede(gesprochen));
+	const nr = /\b(?:an-?)?(\d{4})-?(\d{3,})\b/i.exec(gesprochen);
+	const treffer = nr
+		? alle.filter((a) => a.nummer.endsWith(`${nr[1]}-${nr[2].padStart(4, '0')}`) || a.nummer.toLowerCase().includes(nr[0].toLowerCase()))
+		: alle.filter((a) => woerter(q).every((w) => normal(`${a.kundeName} ${a.auftragTitel ?? ''} ${a.nummer}`).includes(w)));
+	bau.werte.angebotId = null;
+	const label = (a: (typeof alle)[number]) => `${a.nummer} · ${a.kundeName}${a.auftragTitel ? ` · ${a.auftragTitel}` : ''}`;
+	if (treffer.length === 1) {
+		bau.werte.angebotId = treffer[0].id;
+		bau.zeilen.push({ label: 'Angebot', wert: label(treffer[0]) });
+	} else if (treffer.length > 1) {
+		bau.auswahl.push({ feld: 'angebot', frage: 'Welches Angebot?', optionen: treffer.slice(0, 8).map((a) => ({ id: a.id, label: label(a) })) });
+		bau.zeilen.push({ label: 'Angebot', wert: 'bitte wählen' });
+	} else bau.fehlt.push(`${keinText} „${gesprochen}“ gefunden.`);
+	return bau;
+}
+
+async function angebotVersenden(k: Kontext, nutzer: Nutzer, d: { angebot: string }): Promise<Bau> {
+	const bau = await angebotFinden(k, nutzer, d.angebot, (a) => a.status === 'entwurf' && !a.altbeleg, 'Kein Angebots-Entwurf zu');
+	const { lexwareBelegModus } = await import('../lexware/modus');
+	if (await lexwareBelegModus(k)) bau.warnungen.push('Danach ist das Angebot nicht mehr änderbar: Lexware schreibt es fest und vergibt Nummer und PDF; die Mail geht aus dem CRM.');
+	else bau.warnungen.push('Das Angebot wird als versendet markiert und ist danach eingefroren.');
+	return bau;
+}
+
+async function terminvorschlaegeSetzen(k: Kontext, nutzer: Nutzer, d: { angebot: string; termine: string[] }): Promise<Bau> {
+	const bau = await angebotFinden(k, nutzer, d.angebot, (a) => a.status === 'entwurf' && !a.altbeleg, 'Kein Angebots-Entwurf zu');
+	const { pruefeTermine } = await import('../terminvorschlaege');
+	const liste = pruefeTermine((d.termine ?? []).map((beginn) => ({ beginn })));
+	bau.werte.termine = liste.map((t) => ({ beginn: t.beginn }));
+	bau.zeilen.push({ label: 'Baubeginn-Termine', wert: liste.length ? liste.map((t) => tagDeutschKurz(t.beginn)).join(', ') : 'keine (Vorschläge löschen)' });
 	return bau;
 }
 
@@ -975,7 +1033,10 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_lexware: 'Lexware',
 	lexware_abgleich_starten: 'Lexware-Abgleich',
 	abfrage_kunde_lexware: 'Kunde in Lexware',
-	abfrage_mailversand: 'E-Mail-Versand'
+	abfrage_mailversand: 'E-Mail-Versand',
+	angebot_versenden: 'Angebot versenden',
+	neue_angebotsversion: 'Neue Angebotsversion',
+	terminvorschlaege_setzen: 'Terminvorschläge'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -1011,6 +1072,9 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 		case 'nachfassen_pausieren':
 			return werte.angebotId ? `/angebote/${werte.angebotId}#nachfassen` : '/ausgangsbelege/angebote';
 		case 'angebot_entscheidung':
+		case 'angebot_versenden':
+		case 'neue_angebotsversion':
+		case 'terminvorschlaege_setzen':
 			return werte.angebotId ? `/angebote/${werte.angebotId}` : '/ausgangsbelege/angebote';
 		case 'dienst_anlegen':
 			return '/einstellungen/online-buchung';
@@ -1085,6 +1149,16 @@ export async function loeseAuf(
 				break;
 			case 'angebot_entscheidung':
 				bau = await angebotEntscheidung(k, nutzer, aktion.daten);
+				break;
+			case 'angebot_versenden':
+				bau = await angebotVersenden(k, nutzer, aktion.daten);
+				break;
+			case 'neue_angebotsversion':
+				bau = await angebotFinden(k, nutzer, aktion.daten.angebot, (a) => a.status !== 'entwurf', 'Kein versendetes oder entschiedenes Angebot zu');
+				bau.warnungen.push('Es entsteht ein neuer, änderbarer Entwurf (bei Lexware ohne Nummer, bis er versendet wird).');
+				break;
+			case 'terminvorschlaege_setzen':
+				bau = await terminvorschlaegeSetzen(k, nutzer, aktion.daten);
 				break;
 			case 'vorlage_anwenden':
 				bau = await vorlageAnwenden(k, nutzer, aktion.daten);

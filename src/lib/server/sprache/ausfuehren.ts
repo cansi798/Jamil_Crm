@@ -309,6 +309,9 @@ async function ausfuehrenJe(
 		case 'nachfassen_pausieren':
 		case 'angebot_entscheidung':
 		case 'quelle_setzen':
+		case 'angebot_versenden':
+		case 'neue_angebotsversion':
+		case 'terminvorschlaege_setzen':
 			return neueAktionen(k, nutzer, aktion, w);
 		case 'abfrage_tagesplan':
 		case 'route_heute':
@@ -402,8 +405,24 @@ async function neueAktionen(k: { betriebId: string; benutzerId: string }, nutzer
 		case 'angebot_entscheidung': {
 			const { setzeAngebotStatus } = await import('../angebote');
 			const zg = { sicht: sichtVon(nutzer), auftragAendern: (await import('../rechte')).hatRecht(nutzer, 'auftraege.bearbeiten') };
-			const a = await setzeAngebotStatus(k, w.angebotId, w.status, zg, 'sprache');
+			const a = await setzeAngebotStatus(k, w.angebotId, w.status, zg, 'sprache', w.termin ? { termin: w.termin } : {});
 			return { status: 200, meldung: `Angebot ${a.nummer} ist ${w.status}`, link: `/angebote/${a.id}`, warnungen: a.hinweis ? [a.hinweis] : [] };
+		}
+		case 'angebot_versenden': {
+			const { setzeAngebotStatus } = await import('../angebote');
+			const zg = { sicht: sichtVon(nutzer), auftragAendern: (await import('../rechte')).hatRecht(nutzer, 'auftraege.bearbeiten') };
+			const a = await setzeAngebotStatus(k, w.angebotId, 'versendet', zg, 'sprache');
+			return { status: 200, meldung: a.belegQuelle === 'lexware' ? 'Angebot wird in Lexware festgeschrieben und versendet' : `Angebot ${a.nummer} ist versendet`, link: `/angebote/${a.id}`, warnungen: a.hinweis ? [a.hinweis] : [] };
+		}
+		case 'neue_angebotsversion': {
+			const { neueVersion } = await import('../angebote');
+			const a = await neueVersion(k, w.angebotId, { sicht: sichtVon(nutzer), auftragAendern: false });
+			return { status: 201, meldung: 'Neue Angebotsversion angelegt', link: `/angebote/${a.id}`, warnungen: [] };
+		}
+		case 'terminvorschlaege_setzen': {
+			const { setzeTerminvorschlaege } = await import('../angebote');
+			const a = await setzeTerminvorschlaege(k, w.angebotId, w.termine, { sicht: sichtVon(nutzer), auftragAendern: false });
+			return { status: 200, meldung: `${a.terminvorschlaege.length} Terminvorschläge gespeichert`, link: `/angebote/${a.id}`, warnungen: [] };
 		}
 		case 'nachfassen_pausieren': {
 			const { setzeNachfassenPausiert } = await import('../nachfassen');

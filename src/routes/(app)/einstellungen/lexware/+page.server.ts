@@ -6,7 +6,7 @@ import { pruefeModul } from '$lib/server/tarif';
 import { mitBetrieb } from '$lib/server/db';
 import { geheimnisBereit } from '$lib/server/geheimnis';
 import { UUID } from '$lib/server/kunden';
-import { pruefeVerbindung, setzeKundenAnlegen, speichereLexwareSchluessel, trenneLexware } from '$lib/server/lexware/konfig';
+import { pruefeVerbindung, setzeBelegeInLexware, setzeKundenAnlegen, speichereLexwareSchluessel, trenneLexware } from '$lib/server/lexware/konfig';
 import { auftragAbbrechen, auftragErneut, listeAuftraege } from '$lib/server/lexware/warteschlange';
 import { starteAboEinrichtung, starteAbgleich } from '$lib/server/lexware/abgleich';
 import { laufFuerBetrieb } from '$lib/server/lexware/dienst';
@@ -95,6 +95,15 @@ export const actions: Actions = {
 			return { aktion: 'kundenAnlegen', ergebnis: 'gespeichert' };
 		} catch (e) {
 			return alsFormFehler(e, { aktion: 'kundenAnlegen' });
+		}
+	},
+	belege: async ({ locals, request }) => {
+		const f = await request.formData();
+		try {
+			await setzeBelegeInLexware(await zugriff(locals), f.get('an') === 'on');
+			return { aktion: 'belege', ergebnis: 'gespeichert' };
+		} catch (e) {
+			return alsFormFehler(e, { aktion: 'belege' });
 		}
 	},
 	jetzt: async ({ locals }) => {

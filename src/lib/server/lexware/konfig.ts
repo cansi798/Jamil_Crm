@@ -24,6 +24,8 @@ export type LexwareKonfig = {
 	letzterFehler: string | null;
 	kundenAnlegen: boolean;
 	letzterAbgleich: string | null;
+	/** Angebote und Auftragsbestätigungen über Lexware (Nummer + PDF aus Lexware; Plan Phase 2) */
+	belegeInLexware: boolean;
 };
 
 const iso = (d: unknown) => (d ? new Date(d as string).toISOString() : null);
@@ -32,7 +34,7 @@ const tag = (d: unknown) => (d ? (d instanceof Date ? berlinTag(d) : String(d).s
 export async function ladeLexwareKonfig(k: Kontext): Promise<LexwareKonfig> {
 	const [z] = await mitBetrieb(k, (tx) => tx`
 		select schluessel_hinweis, gueltig_bis, status, organisation_id, firmenname, steuerart, kleinunternehmer, geprueft_am,
-			letzter_fehler, kunden_anlegen, letzter_abgleich
+			letzter_fehler, kunden_anlegen, letzter_abgleich, belege_in_lexware
 		from app.lexware_konfig where betrieb_id = ${k.betriebId}`);
 	return {
 		verbunden: z?.status === 'verbunden',
@@ -47,7 +49,8 @@ export async function ladeLexwareKonfig(k: Kontext): Promise<LexwareKonfig> {
 		geprueftAm: iso(z?.geprueft_am),
 		letzterFehler: z?.letzter_fehler ?? null,
 		kundenAnlegen: z?.kunden_anlegen ?? false,
-		letzterAbgleich: iso(z?.letzter_abgleich)
+		letzterAbgleich: iso(z?.letzter_abgleich),
+		belegeInLexware: z?.belege_in_lexware ?? true
 	};
 }
 
@@ -137,6 +140,14 @@ export async function pruefeVerbindung(k: Kontext, client?: LexwareClient): Prom
 
 export async function setzeKundenAnlegen(k: Kontext, an: boolean): Promise<void> {
 	await mitBetrieb(k, (tx) => tx`update app.lexware_konfig set kunden_anlegen = ${an} where betrieb_id = ${k.betriebId}`);
+}
+
+/**
+ * Belege über Lexware (Standard an): Neue Angebote bekommen keine CRM-Nummer mehr, Nummer und PDF kommen aus Lexware;
+ * Auftragsbestätigungen entstehen in Lexware. Aus: wieder CRM-Nummern AN-/AB-… (zwei Nummernkreise vermeiden!).
+ */
+export async function setzeBelegeInLexware(k: Kontext, an: boolean): Promise<void> {
+	await mitBetrieb(k, (tx) => tx`update app.lexware_konfig set belege_in_lexware = ${an} where betrieb_id = ${k.betriebId}`);
 }
 
 /** Verbindung trennen: Rückmeldungen in Lexware abbestellen (so weit möglich), Schlüssel und offene Aufträge löschen. */

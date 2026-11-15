@@ -37,40 +37,45 @@
 ## Tasks
 
 ### Task 1: Migration 121
-- [ ] `angebote`: `beleg_quelle crm|lexware`, `nummer` nullable + Check, `lexware_id/_nummer/_status/_version/_stand`, `lexware_fehler`; Trigger Nummer, Trigger „festgeschrieben bleibt versendet“.
-- [ ] `lexware_konfig.belege_in_lexware`; `app.lexware_beleg_modus(betrieb)` (SECURITY DEFINER, intern).
-- [ ] `app.lexware_dateien` (PDF-Zwischenspeicher, RLS), `auftragsbestaetigungen.lexware_id`, `beleg_quelle`.
-- [ ] `app.angebot_terminvorschlaege` + Trigger nur Entwurf; `angebot_entscheidungen.termin_vorschlag_id`, `termin_wunsch_text`; `auftraege.baubeginn`.
-- [ ] Mail-Zweck `angebot`.
+- [x] `angebote`: `beleg_quelle crm|lexware`, `nummer` nullable + Check, `lexware_id/_nummer/_status/_version/_stand`, `lexware_fehler`; Trigger Nummer, Trigger „festgeschrieben bleibt versendet“.
+- [x] `lexware_konfig.belege_in_lexware`; `app.lexware_beleg_modus(betrieb)` (SECURITY DEFINER, intern).
+- [x] `app.lexware_dateien` (PDF-Zwischenspeicher, RLS), `auftragsbestaetigungen.lexware_id`, `beleg_quelle`.
+- [x] `app.angebot_terminvorschlaege` + Trigger nur Entwurf; `angebot_entscheidungen.termin_vorschlag_id`, `termin_wunsch_text`; `auftraege.baubeginn`.
+- [x] Mail-Zweck `angebot`.
 
 ### Task 2: Belegdaten für Lexware (rein, Unit-Tests)
 `src/lib/server/lexware/belege.ts`: `lexwareDatum(tag)`, `steuerFall(...)`, `arbeitskosten35a(positionen, mwst)`, `termineText(termine)`, `angebotAlsLexware(...)`, `abAlsLexware(...)`.
-- [ ] Snapshot privat/firma, 13b, Kleinunternehmer, Termine, § 35a (mit/ohne Material), Längen (title 25, introduction/remark 2000, 300 Positionen).
+- [x] Snapshot privat/firma, 13b, Kleinunternehmer, Termine, § 35a (mit/ohne Material), Längen (title 25, introduction/remark 2000, 300 Positionen).
 
 ### Task 3: Attrappe
-- [ ] `POST/GET /v1/quotations`, `/file`, `POST /v1/order-confirmations[?precedingSalesVoucherId]` (Entwurf/abgelehnt → 406), `/file`, Belegliste mit den neuen Belegen.
+- [x] `POST/GET /v1/quotations`, `/file`, `POST /v1/order-confirmations[?precedingSalesVoucherId]` (Entwurf/abgelehnt → 406), `/file`, Belegliste mit den neuen Belegen.
 
 ### Task 4: Angebot über Lexware (Server + DB-Tests)
 `src/lib/server/lexware/angebote.ts`, Änderungen in `angebote.ts`, `kundenportal-oeffentlich.ts`, `auftragsbestaetigung.ts`, `nachfassen.ts`, `lexware/abgleich.ts`, `lexware/dienst.ts`, `warteschlange.ts`.
-- [ ] DB: Lexware-Betrieb → neue Angebote ohne CRM-Nummer; ohne Lexware unverändert AN-…
-- [ ] Versenden → ein POST mit finalize, Nummer + PDF gespeichert, Portal zeigt Lexware-PDF, Mail mit Anhang (Attrappe) bzw. Aufgabe.
-- [ ] Doppelklick → ein Auftrag; Zeitüberschreitung → ungewiss → kein zweites Angebot.
-- [ ] Festgeschrieben → zurück zum Entwurf abgelehnt; vor dem Festschreiben „Versand zurücknehmen“ möglich.
-- [ ] Neue Version → neuer Entwurf ohne Nummer, Termine kopiert; Altbeleg-Entwurf gesperrt.
-- [ ] Annahme → `ab_anlegen` mit `precedingSalesVoucherId`, AB-Spiegel mit Lexware-Nummer; Lexware nicht erreichbar → Annahme gespeichert, AB kommt nach.
-- [ ] Nachfassen stoppt bei Lexware-Status accepted/rejected.
+- [x] DB: Lexware-Betrieb → neue Angebote ohne CRM-Nummer; ohne Lexware unverändert AN-…
+- [x] Versenden → ein POST mit finalize, Nummer + PDF gespeichert, Portal zeigt Lexware-PDF, Mail mit Anhang (Attrappe) bzw. Aufgabe.
+- [x] Doppelklick → ein Auftrag; Zeitüberschreitung → ungewiss → kein zweites Angebot.
+- [x] Festgeschrieben → zurück zum Entwurf abgelehnt; vor dem Festschreiben „Versand zurücknehmen“ möglich.
+- [x] Neue Version → neuer Entwurf ohne Nummer, Termine kopiert; Altbeleg-Entwurf gesperrt.
+- [x] Annahme → `ab_anlegen` mit `precedingSalesVoucherId`, AB-Spiegel mit Lexware-Nummer; Lexware nicht erreichbar → Annahme gespeichert, AB kommt nach.
+- [x] Nachfassen stoppt bei Lexware-Status accepted/rejected.
 
 ### Task 5: Terminvorschläge (Server + DB-Tests)
-- [ ] Setzen (max 3, Zukunft, nur Entwurf), Text im Lexware-Beleg, Portal-Annahme ohne Wahl → 400, Wahl → Auftrag `baubeginn`, Einsatz reserviert, AB-Text; „keiner passt“ → Aufgabe.
+- [x] Setzen (max 3, Zukunft, nur Entwurf), Text im Lexware-Beleg, Portal-Annahme ohne Wahl → 400, Wahl → Auftrag `baubeginn`, Einsatz reserviert, AB-Text; „keiner passt“ → Aufgabe.
 
 ### Task 6: Oberfläche
-- [ ] Angebot: Lexware-Kasten (Stand, Nummer, Fehler, „In Lexware öffnen“, PDF, Mailprogramm), Versenden mit Rückfrage, Termine-Editor, Altbeleg-Hinweis; Portal: Terminwahl; Lexware-Einstellungsseite: Schalter `belege_in_lexware` mit ⓘ.
+- [x] Angebot: Lexware-Kasten (Stand, Nummer, Fehler, „In Lexware öffnen“, PDF, Mailprogramm), Versenden mit Rückfrage, Termine-Editor, Altbeleg-Hinweis; Portal: Terminwahl; Lexware-Einstellungsseite: Schalter `belege_in_lexware` mit ⓘ.
 
 ### Task 7: Sprachaktionen + Funktionen/Neuigkeiten
-- [ ] Fake-KI, Anweisungen, Schemas, Rechte, Auflösen, Ausführen, Tests.
+- [x] Fake-KI, Anweisungen, Schemas, Rechte, Auflösen, Ausführen, Tests.
 
 ### Task 8: Prüfen, commit, push
-- [ ] `npm test`, betroffene `test:db`, `npm run check`, `npm run build`; commit auf `lexware`, push.
+- [x] `npm test`, betroffene `test:db`, `npm run check`, `npm run build`; commit auf `lexware`, push.
 
 ## Nicht in Phase 2 (folgen)
 Rechnungen (T7), Zahlungsstand (T8), Mahnungen (T9), Abschlag/Schluss per Deeplink, Umschaltanleitung/Probelauf mit Testkonto (T11), Gesamtprüfung (T12), E2E-Kette mit Attrappe.
+
+## Stand 15.11.2026 (umgesetzt, Branch `lexware`)
+
+- Tests: Unit 676/676, DB 1004 (Gesamtlauf; 2 Zeitüberschreitungen in `kundenportal.test.ts` nur durch parallelen Build, einzeln grün), neue Suite `tests/db/lexware-angebote.test.ts` 12/12, `npm run check` 0 Fehler, `npm run build` ok.
+- Offen: Probelauf gegen ein echtes Lexware-XL-Testkonto (T0: § 13b mit Satz 0, setzt die AB das Angebot auf „accepted“?, App-Adresse für Deeplinks, PDF sofort nach dem Festschreiben verfügbar?); Anzeige `baubeginn` auf der Auftragsseite; E2E-Kette mit Attrappe; Installationspaket-Probelauf mit Migration 121.

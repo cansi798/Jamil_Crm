@@ -15,6 +15,7 @@
 	import { mailtoLink } from '$lib/nachfassen';
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
+	import { frage } from '$lib/rueckfrage';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -91,11 +92,22 @@
 		)
 	);
 
+	// Drei Terminvorschläge für den Baubeginn (Jamil #6093): bis zu drei Tage, im Entwurf änderbar
+	type TerminZeile = { beginn: string; hinweis: string };
+	const termineAus = (a: Angebot): TerminZeile[] => {
+		const t = a.terminvorschlaege.map((x) => ({ beginn: x.beginn, hinweis: x.hinweis ?? '' }));
+		while (t.length < 3) t.push({ beginn: '', hinweis: '' });
+		return t;
+	};
+	let termine = $state<TerminZeile[]>(termineAus(anfang));
+	let terminWahl = $state('');
+
 	function uebernehme(a: Angebot) {
 		angebot = a;
 		zeilen = zeilenAus(a);
 		kopf = kopfAus(a);
 		gespeichertStand = standVon(zeilen, kopf);
+		termine = termineAus(a);
 	}
 
 	// Neue Daten vom Server (neue Version, Statuswechsel mit invalidateAll) übernehmen
@@ -107,7 +119,8 @@
 		}
 	});
 
-	const entwurf = $derived(angebot.status === 'entwurf');
+	// Altbelege (CRM-Nummer in einem Lexware-Betrieb) sind nur lesbar
+	const entwurf = $derived(angebot.status === 'entwurf' && !angebot.altbeleg);
 	const geaendert = $derived(entwurf && standVon(zeilen, kopf) !== gespeichertStand);
 	const live = $derived(
 		summen(
@@ -206,14 +219,48 @@
 			a.remove();
 		});
 
-	const status = (nach: string, text: string) =>
+	const status = (nach: string, text: string, extra: Record<string, unknown> = {}) =>
 		aktion(async () => {
 			if (geaendert) await speichernIntern();
-			const a = await api('POST', `/api/angebote/${angebot.id}/status`, { status: nach });
+			const a = await api('POST', `/api/angebote/${angebot.id}/status`, { status: nach, ...extra });
 			uebernehme(a);
 			meldung = a.hinweis ? `${text} ${a.hinweis}` : text;
 			await invalidateAll();
 		});
+
+	// Lexware (Plan Phase 2): Versenden schreibt das Angebot in Lexware fest – vorher nachfragen
+	const lexware = $derived(angebot.belegQuelle === 'lexware');
+	const PHASE_TEXT: Record<string, string> = {
+		wartet: 'wird in Lexware festgeschrieben …',
+		festgeschrieben: 'in Lexware festgeschrieben – PDF wird geholt …',
+		pdf: 'bereit zum Versand (PDF aus Lexware)',
+		gesendet: 'an den Kunden gesendet',
+		fehler: 'Fehler bei Lexware'
+	};
+	async function versenden(ev: MouseEvent) {
+		const knopf = ev.currentTarget as HTMLElement;
+		if (lexware) {
+			const ok = await frage(knopf, { frage: 'Danach ist das Angebot nicht mehr änderbar: Lexware schreibt es fest und vergibt die Nummer. Jetzt versenden?', ja: 'Versenden' });
+			if (!ok) return;
+			return status('versendet', 'Versendet.');
+		}
+		return status('versendet', 'Als versendet markiert.');
+	}
+	const termineSpeichern = () =>
+		aktion(async () => {
+			const a = await api('PUT', `/api/angebote/${angebot.id}/termine`, {
+				termine: termine.filter((t) => t.beginn).map((t) => ({ beginn: t.beginn, hinweis: t.hinweis.trim() || null }))
+			});
+			uebernehme(a);
+			meldung = 'Terminvorschläge gespeichert.';
+		});
+	const alsGesendet = () =>
+		aktion(async () => {
+			await api('POST', `/api/angebote/${angebot.id}/gesendet`, {});
+			meldung = 'Als gesendet markiert – das Nachfassen zählt ab heute.';
+			await invalidateAll();
+		});
+	const tagText = (t: string) => new Date(`${t}T12:00:00Z`).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
 
 	const neueVersion = () =>
 		aktion(async () => {
@@ -393,12 +440,70 @@
 		</section>
 	{/if}
 
-	{#if !entwurf}
+	{#if angebot.altbeleg}
+		<p class="kt-hinweis warnung" data-testid="altbeleg">
+			Altbeleg (CRM-Nummer): Seit Lexware die Belege führt, ist dieses Angebot nur lesbar. Für Änderungen „Als neue Version
+			bearbeiten“ – daraus wird ein Lexware-Angebot.
+		</p>
+	{:else if !entwurf}
 		<p class="kt-hinweis">
 			Dieses Angebot ist {ANGEBOT_STATUS_NAMEN[angebot.status].toLowerCase()} und kann nicht mehr geändert werden. Für Änderungen
 			„Als neue Version bearbeiten“.
 		</p>
 	{/if}
+
+	{#if lexware && data.lexware}
+		<section class="an-nachfassen an-lexware" aria-labelledby="lexware-titel" data-testid="angebot-lexware">
+			<h2 id="lexware-titel">Lexware</h2>
+			{#if entwurf}
+				<p class="kd-info">
+					Entwurf im CRM – noch ohne Nummer. Beim Versenden legt das CRM das Angebot in Lexware an und schreibt es fest; Nummer und PDF
+					kommen aus Lexware. Das PDF hier ist nur eine Vorschau (Wasserzeichen „Vorschau – kein Beleg“).
+				</p>
+				{#each data.lexware.hinweise as h (h)}<p class="kt-hinweis warnung">{h}</p>{/each}
+			{:else}
+				<p class="kd-info">
+					Stand: <strong>{PHASE_TEXT[angebot.lexware?.phase ?? ''] ?? '–'}</strong>{#if angebot.lexware?.nummer} · Nummer {angebot.lexware.nummer}{/if}{#if angebot.lexware?.status}
+						· in Lexware: {angebot.lexware.status === 'accepted' ? 'angenommen' : angebot.lexware.status === 'rejected' ? 'abgelehnt' : angebot.lexware.status === 'open' ? 'offen' : angebot.lexware.status}{/if}
+				</p>
+				{#if angebot.lexware?.fehler}<p class="kd-fehler" role="alert">{angebot.lexware.fehler}</p>{/if}
+				{#each data.lexware.schritte as s (s.art + s.seit)}
+					<p class="kd-info">
+						Wartet auf Lexware (seit {new Date(s.seit).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}){s.fehler ? `: ${s.fehler}` : ''}
+					</p>
+				{/each}
+				<div class="an-nf-mail">
+					{#if data.lexware.link}<a class="kd-knopf hell" href={data.lexware.link} target="_blank" rel="noopener noreferrer">In Lexware öffnen</a>{/if}
+					{#if angebot.lexware?.phase === 'pdf'}
+						{#if data.mail}
+							<a class="kd-knopf hell" href={mailtoLink(data.mail.an, `Ihr Angebot ${angebot.nummer}`, 'Anbei erhalten Sie unser Angebot als PDF (bitte das heruntergeladene PDF anhängen).')}>In Mailprogramm öffnen</a>
+						{/if}
+						<button type="button" class="kd-knopf hell" onclick={alsGesendet} disabled={arbeitet}>Als gesendet markieren</button>
+					{/if}
+				</div>
+			{/if}
+		</section>
+	{/if}
+
+	<section class="an-nachfassen an-termine" aria-labelledby="termine-titel" data-testid="angebot-termine">
+		<h2 id="termine-titel">Terminvorschläge für den Baubeginn</h2>
+		{#if entwurf && !angebot.altbeleg}
+			<p class="kd-info">Bis zu drei Tage – der Kunde wählt bei der Annahme im Portal einen davon (oder „keiner passt“).</p>
+			{#each termine as t, i (i)}
+				<div class="kd-zwei">
+					<label>Termin {i + 1} <input type="date" bind:value={t.beginn} /></label>
+					<label>Hinweis <input type="text" bind:value={t.hinweis} maxlength="200" placeholder="z. B. vormittags" /></label>
+				</div>
+			{/each}
+			<div><button type="button" class="kd-knopf hell" onclick={termineSpeichern} disabled={arbeitet}>Termine speichern</button></div>
+		{:else if angebot.terminvorschlaege.length > 0}
+			<ul class="kd-liste">
+				{#each angebot.terminvorschlaege as t (t.id)}<li>{t.pos}) {tagText(t.beginn)}{t.hinweis ? ` – ${t.hinweis}` : ''}</li>{/each}
+			</ul>
+		{:else}
+			<p class="kd-info">Keine Terminvorschläge.</p>
+		{/if}
+	</section>
 
 	<section aria-label="Angaben" class="an-kopf kd-formular">
 		<div class="kd-zwei">
@@ -556,15 +661,31 @@
 		{#if entwurf}
 			<button type="button" class="kd-knopf" onclick={speichern} disabled={arbeitet || !geaendert}>Speichern</button>
 		{/if}
-		<button type="button" class="kd-knopf hell" onclick={pdf} disabled={arbeitet}>PDF herunterladen</button>
-		{#if angebot.status === 'entwurf'}
-			<button type="button" class="kd-knopf hell" onclick={() => status('versendet', 'Als versendet markiert.')} disabled={arbeitet || zeilen.length === 0}>
-				Als versendet markieren
+		<button type="button" class="kd-knopf hell" onclick={pdf} disabled={arbeitet}>
+			{lexware ? (angebot.lexware?.id ? 'PDF (Lexware) herunterladen' : 'Vorschau-PDF') : 'PDF herunterladen'}
+		</button>
+		{#if angebot.status === 'entwurf' && !angebot.altbeleg}
+			<button type="button" class="kd-knopf hell" onclick={versenden} disabled={arbeitet || zeilen.length === 0}>
+				{lexware ? 'Versenden (in Lexware festschreiben)' : 'Als versendet markieren'}
 			</button>
 		{:else if angebot.status === 'versendet'}
-			<button type="button" class="kd-knopf hell" onclick={() => status('angenommen', 'Angebot angenommen.')} disabled={arbeitet}>Angenommen</button>
+			{#if angebot.terminvorschlaege.length > 0}
+				<label class="an-terminwahl">
+					Baubeginn
+					<Auswahl bind:value={terminWahl}>
+						<option value="">– nicht gewählt –</option>
+						{#each angebot.terminvorschlaege as t (t.id)}<option value={t.id}>{tagText(t.beginn)}</option>{/each}
+						<option value="keiner">Keiner passt (Kunden anrufen)</option>
+					</Auswahl>
+				</label>
+			{/if}
+			<button type="button" class="kd-knopf hell" onclick={() => status('angenommen', 'Angebot angenommen.', terminWahl ? { termin: terminWahl } : {})} disabled={arbeitet}>Angenommen</button>
 			<button type="button" class="kd-knopf hell" onclick={() => status('abgelehnt', 'Angebot abgelehnt.')} disabled={arbeitet}>Abgelehnt</button>
-			<button type="button" class="kd-knopf hell" onclick={() => status('entwurf', 'Zurück zum Entwurf.')} disabled={arbeitet}>Zurück zum Entwurf</button>
+			{#if !lexware}
+				<button type="button" class="kd-knopf hell" onclick={() => status('entwurf', 'Zurück zum Entwurf.')} disabled={arbeitet}>Zurück zum Entwurf</button>
+			{:else if !angebot.lexware?.id}
+				<button type="button" class="kd-knopf hell" onclick={() => status('entwurf', 'Versand zurückgenommen.')} disabled={arbeitet}>Versand zurücknehmen</button>
+			{/if}
 		{/if}
 		{#if !entwurf}
 			<button type="button" class="kd-knopf hell" onclick={neueVersion} disabled={arbeitet}>Als neue Version bearbeiten</button>
@@ -583,6 +704,11 @@
 		gap: 0.25rem 0.75rem;
 	}
 
+	.an-terminwahl {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
 	.an-nf-mail {
 		margin: 0.5rem 0;
 	}

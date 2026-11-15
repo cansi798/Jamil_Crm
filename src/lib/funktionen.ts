@@ -42,6 +42,18 @@ export type Funktion = {
 
 export const FUNKTIONEN: Funktion[] = [
 	{
+		id: 'lexware_angebote',
+		schritt: 'angebot',
+		name: 'Angebote und Auftragsbestätigungen über Lexware',
+		was: 'Beim Versenden legt das CRM das Angebot in Lexware an und schreibt es fest; Nummer und PDF kommen aus Lexware, die Mail mit dem PDF geht aus dem CRM (ohne Postfach: Aufgabe „bereit zum Versand“). Nimmt der Kunde an, entsteht die Auftragsbestätigung in Lexware – mit dem gewählten Baubeginn. § 13b und § 35a stehen automatisch im Beleg. Fällt Lexware aus, wartet alles und kommt nach.',
+		wann: 'Bei „Versenden“ und bei jeder Annahme (Portal, Büro, Sprache).',
+		href: '/einstellungen/lexware',
+		info: 'lexware.belege',
+		zustand: 'keiner',
+		modul: 'lexware',
+		recht: 'einstellungen'
+	},
+	{
 		id: 'lexware_abgleich',
 		schritt: 'abschluss',
 		name: 'Abgleich mit Lexware',

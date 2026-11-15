@@ -22,6 +22,11 @@ import { erzeugeLink, speicherePortalEinstellungen } from '../../src/lib/server/
 import { entscheide, ladePortal, portalAktion, portalDokument } from '../../src/lib/server/kundenportal-oeffentlich';
 import { starteAttrappe, type Attrappe } from '../hilfe/lexware-attrappe';
 import { berlinTag, tagPlus } from '../../src/lib/zeit';
+import { antwort, jsonAnfrage } from './hilfe-1c';
+import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
+import { POST as ausfuehrenPost } from '../../src/routes/api/sprache/ausfuehren/+server';
+import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
+import { FakeKi } from '../../src/lib/server/ki/fake';
 
 /** Angebot über Lexware, Annahme → Lexware-AB, drei Terminvorschläge (Plan Phase 2; Migration 121). */
 describe('Lexware: Angebote, Auftragsbestätigung, Terminvorschläge', () => {
@@ -272,6 +277,37 @@ describe('Lexware: Angebote, Auftragsbestätigung, Terminvorschläge', () => {
 		await lauf();
 		await entscheide(token, an2.id, { entscheidung: 'angenommen', agb: true, termin: 'keiner', terminWunsch: 'lieber im Mai' }, '203.0.113.9');
 		expect(await root`select beschreibung from app.todos where titel = 'Kunden anrufen: kein Baubeginn-Termin passt'`).toEqual([{ beschreibung: expect.stringContaining('lieber im Mai') }]);
+	});
+
+	it('Sprache: Termine setzen, versenden (Rückfrage mit Warnung), annehmen mit Termin 2, neue Version; Monteur ohne Preisrechte → Hinweis', async () => {
+		setzeKiAnbieter(new FakeKi());
+		await root`update app.rollen set rechte = array_append(rechte, 'sprache.nutzen') where name = 'Chef' and not ('sprache.nutzen' = any (rechte))`;
+		const chef = { ...u.chefA, rechte: [...u.chefA.rechte, 'sprache.nutzen'] };
+		const sag = async (text: string, nutzer: Nutzer = chef) => (await antwort(await textPost({ locals: { nutzer }, request: jsonAnfrage('POST', { text }) } as never))).koerper;
+		const ja = async (r: any) => (await antwort(await ausfuehrenPost({ locals: { nutzer: chef }, request: jsonAnfrage('POST', { vorschlag: r.vorschlag }) } as never)));
+		const an = await neuesAngebot();
+		const jahr = Number(berlinTag(new Date()).slice(0, 4)) + 1;
+		let r = await sag(`Termine für das Angebot Müller: 1., 8. und 15. März ${jahr}`);
+		expect(r.karte.aktion).toBe('terminvorschlaege_setzen');
+		expect((await ja(r)).status).toBe(200);
+		expect((await holeAngebot(kA(), an.id)).terminvorschlaege.map((t) => t.beginn)).toEqual([`${jahr}-03-01`, `${jahr}-03-08`, `${jahr}-03-15`]);
+		r = await sag('Angebot Müller versenden');
+		expect(r.karte.aktion).toBe('angebot_versenden');
+		expect(r.karte.warnungen.join(' ')).toMatch(/nicht mehr änderbar/);
+		expect((await ja(r)).status).toBe(200);
+		await lauf();
+		r = await sag('Angebot Müller ist angenommen, Termin 2');
+		expect(r.karte.zeilen).toContainEqual({ label: 'Baubeginn', wert: `08.03.${jahr}` });
+		expect((await ja(r)).status).toBe(200);
+		expect((await root`select to_char(baubeginn, 'YYYY-MM-DD') as b from app.auftraege where id = ${u.auftragA}`)[0].b).toBe(`${jahr}-03-08`);
+		r = await sag('Neue Version vom Angebot Müller');
+		expect(r.karte.aktion).toBe('neue_angebotsversion');
+		const neu = await ja(r);
+		expect(neu.status).toBe(201);
+		const monteur = { ...u.monteurA, rechte: [...u.monteurA.rechte, 'sprache.nutzen'] };
+		const m = await sag('Angebot Müller versenden', monteur);
+		expect(m.vorschlag).toBeNull();
+		setzeKiAnbieter(null);
 	});
 
 	it('Hinweise vor dem Versand: § 35a ohne Materialanteil', async () => {
