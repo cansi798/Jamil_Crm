@@ -15,6 +15,9 @@
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import { navigationsLink, telefonLink } from '$lib/kontakt-links';
+	import BelegListe from '$lib/components/ausgangsbelege/BelegListe.svelte';
+	import { RECHNUNG_ART_NAMEN, ZAHL_STATUS_KLASSE, ZAHL_STATUS_NAMEN } from '$lib/rechnungen';
+	import { euro } from '$lib/geld';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -261,6 +264,33 @@
 					{/each}
 				</form>
 			</div>
+		</Abschnitt>
+	{/if}
+
+	<!-- Rechnungen und Zahlungsstand aus Lexware (Phase 3) -->
+	{#if data.rechnungen && data.rechnungen.length > 0}
+		<Abschnitt titel="Rechnungen" id="rechnungen" info="rechnung.seite">
+			{@const offen = data.rechnungen.filter((r) => ['offen', 'teilbezahlt', 'ueberfaellig'].includes(r.status))}
+			<p class="kd-info" data-testid="kunde-rechnungen-stand">
+				{offen.length === 0 ? 'Alles bezahlt.' : `${offen.length} offen${offen.some((r) => r.offenCent !== null) ? `, zusammen ${euro(offen.reduce((s2, r) => s2 + (r.offenCent ?? 0), 0))}` : ''}${offen.some((r) => r.status === 'ueberfaellig') ? ' – davon überfällig' : ''}.`}
+			</p>
+			<BelegListe
+				kompakt
+				label="Rechnungen des Kunden"
+				leerText="Keine Rechnungen."
+				zeilen={data.rechnungen.map((r) => ({
+					id: r.id,
+					typ: 'rechnung',
+					href: r.crm ? `/rechnungen/${r.id}` : r.lexwareLink,
+					neuerTab: !r.crm,
+					nummer: r.nummer ?? RECHNUNG_ART_NAMEN[r.art],
+					auftrag: r.auftrag ? `${r.auftrag.nummer} · ${r.auftrag.titel}` : null,
+					datum: tagDeutsch(r.datum),
+					zusatz: r.faellig ? `fällig ${tagDeutsch(r.faellig)}` : null,
+					status: { text: ZAHL_STATUS_NAMEN[r.status], klasse: ZAHL_STATUS_KLASSE[r.status] },
+					betrag: r.offenCent !== null && r.offenCent > 0 ? `offen ${euro(r.offenCent)}` : r.bruttoCent !== null ? euro(r.bruttoCent) : null
+				}))}
+			/>
 		</Abschnitt>
 	{/if}
 

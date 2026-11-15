@@ -13,6 +13,7 @@ import { leitfaedenFuerTermine } from '$lib/server/leitfaden';
 import { sichtVon } from '$lib/server/auftraege';
 import { ohneAusgeschalteteKacheln, siehtKennzahlen } from '$lib/server/kennzahlen';
 import { startCockpit, type StartCockpit } from '$lib/server/start-cockpit';
+import { offeneRechnungen, type OffeneSumme } from '$lib/server/lexware/rechnungen';
 import { ablaufendeNachweise, erlaubteKacheln, ladeStartLayout, loescheStartLayout, neueBuchungen, speichereStartLayout, startRolle, type AblaufenderNachweis, type NeueBuchung } from '$lib/server/start-layout';
 import { KACHEL_ARTEN, LayoutFehler, pruefeLayout, standardLayout, type StartLayout } from '$lib/start-kacheln';
 
@@ -45,6 +46,7 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 	let katalog: { id: string; titel: string; beschreibung: string; gruppe: string; groesse: string; hoehe: number }[] = [];
 	let buchungen: { anzahl: number; liste: NeueBuchung[] } | null = null;
 	let nachweise: AblaufenderNachweis[] | null = null;
+	let rechnungen: OffeneSumme | null = null;
 	if (nutzer?.betriebId) {
 		const k0 = { betriebId: nutzer.betriebId, benutzerId: nutzer.id };
 		const module0 = await moduleDesBetriebs(k0);
@@ -113,6 +115,8 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 		}
 		// Kachel „Heute“ (Wunsch Jamil msg 2647): Termine, Aufgaben, Nachfassen – Chef/Büro mit Personenwahl
 		if (brauche.has('buchungen')) buchungen = await neueBuchungen(k, jetzt);
+		// Kachel „Offene Rechnungen“ (Lexware Phase 3): Recht „Rechnungen sehen“ + „Preise sehen“ (erlaubteKacheln)
+		if (brauche.has('rechnungen') && hatRecht(nutzer, 'preise.sehen') && hatRecht(nutzer, 'rechnungen.sehen')) rechnungen = await offeneRechnungen(k, berlinTag(jetzt));
 		if (brauche.has('nachweise') && hatRecht(nutzer, 'partner.verwalten')) nachweise = await ablaufendeNachweise(k, berlinTag(jetzt));
 		if (brauche.has('heute') && module.includes('auftraege')) {
 			personen = await planPersonen(k, nutzer);
@@ -139,6 +143,7 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 		cockpit,
 		buchungen,
 		nachweise,
+		rechnungen,
 		layout,
 		eigenesLayout,
 		standard,

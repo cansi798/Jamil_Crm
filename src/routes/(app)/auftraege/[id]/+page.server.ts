@@ -33,6 +33,8 @@ import { aktiveMitarbeiter, listeTodos, todoSichtVon } from '$lib/server/todos';
 import { einsaetzeZumAuftrag, legeEinsatzAn } from '$lib/server/plantafel';
 import { angeboteZugriff, legeAngebotAn, listeAngebote, ordneAngebotZu } from '$lib/server/angebote';
 import { listeAngebotVorlagen } from '$lib/server/angebot-vorlagen';
+import { pruefeErstellen, rechnungenZugriff, siehtRechnungen } from '$lib/server/rechnungen-zugriff';
+import { erstelleRechnung, listeRechnungen, rechnungsVorschlag } from '$lib/server/lexware/rechnungen';
 import { ohnePreise } from '$lib/server/preisschutz';
 import { hatModul } from '$lib/server/tarif';
 import { entwirfAngebot } from '$lib/server/ki/angebot-entwurf';
@@ -193,7 +195,11 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			// Auswahl „Vorlage“ beim „Angebot erstellen“ (Vorlagen enthalten Preise: nur mit beiden Rechten)
 			angebotVorlagen: angeboteSichtbar && preise ? await listeAngebotVorlagen(k) : [],
 			// „KI-Entwurf“: zusätzlich Modul ki_angebote (Stichworte/Foto → Entwurf nur aus dem Katalog)
-			darfKiEntwurf: angeboteSichtbar && preise && (await hatModul(k.betriebId, 'ki_angebote'))
+			darfKiEntwurf: angeboteSichtbar && preise && (await hatModul(k.betriebId, 'ki_angebote')),
+			// Rechnungen über Lexware (Phase 3): Liste mit Zahlstatus; Dialog „Rechnung erstellen“ nur mit Recht + Preisen
+			rechnungen: (await siehtRechnungen(nutzer)) ? await listeRechnungen(k, { auftragId: auftrag.id, preise }) : null,
+			rechnungVorschlag:
+				preise && hatRecht(nutzer, 'rechnungen.erstellen') && (await siehtRechnungen(nutzer)) ? await rechnungsVorschlag(k, auftrag.id).catch(() => null) : null
 		};
 	});
 };
@@ -620,6 +626,33 @@ export const actions: Actions = {
 	},
 	/** Neues Angebot (Entwurf) zu diesem Auftrag anlegen und den Editor öffnen. */
 	/** Neues Angebot (Entwurf); mit `vorlageId` gleich mit den Positionen und Texten einer Angebots-Vorlage. */
+	/** Rechnung in Lexware aus dem angenommenen Angebot (Dialog: Mengen laut Aufmaß, Zeitraum, Zahlungsziel). */
+	rechnungErstellen: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		let id: string;
+		try {
+			const z = await rechnungenZugriff(locals);
+			pruefeErstellen(z);
+			const anzahl = Number(f.get('anzahl') ?? 0);
+			const mengen = Number.isInteger(anzahl) && anzahl > 0 && anzahl <= 300
+				? Array.from({ length: anzahl }, (_, i) => (f.get(`aktiv-${i}`) === 'on' ? String(f.get(`menge-${i}`) ?? '') : ''))
+				: undefined;
+			const s = (n: string) => (typeof f.get(n) === 'string' ? (f.get(n) as string) : '');
+			id = (await erstelleRechnung(z.k, params.id, {
+				art: s('art') || 'rechnung',
+				mengen,
+				leistungVon: s('leistungVon'),
+				leistungBis: s('leistungBis'),
+				zahlungszielTage: s('zahlungszielTage'),
+				festschreiben: s('festschreiben'),
+				abschlagProzent: s('abschlagProzent'),
+				abschlagBetrag: s('abschlagBetrag')
+			})).id;
+		} catch (e) {
+			return alsFormFehler(e, { rechnungFehler: true });
+		}
+		redirect(303, `/rechnungen/${id}`);
+	},
 	angebotErstellen: async ({ locals, params, request }) => {
 		const vorlage = (await request.formData()).get('vorlageId');
 		let id: string;

@@ -57,3 +57,11 @@
 
 ## Nicht in Phase 3 (folgen)
 Storno per Gutschrift (`credit-notes`), Aufgabe „Auftrag fertig, noch keine Rechnung“ (§ 14 Abs. 2 UStG, 6 Monate), ZUGFeRD/XRechnung-Auswahl beim Versand, automatischer Versand nach 4 Wochen, Kennzahlen „abgerechnet“/„Zahlungsdauer“, T0-Probelauf mit XL-Testkonto (Dunning-PDF im Entwurf? Deeplink-Pfad für Mahnungen? `paymentConditions` Pflicht?), E2E-Kette.
+
+## Stand 15.11.2026 (umgesetzt, Branch `lexware`)
+
+- Server: `src/lib/server/lexware/rechnungen.ts` (Vorschlag, Dialog, Handler, Spiegel, Liste/Detail, PDF, Senden, Pause), `lexware/mahnungen.ts` (Stufen-Standard, Konfig, Engine, Lexware-Mahnung, Freigabe, Senden), `rechnungen-zugriff.ts`; Abgleich/Ereignis/Dienst erweitert.
+- Oberfläche: Auftrag → Ausgangsbelege (Rechnungen in der Liste, „Rechnung erstellen“ mit `RechnungDialog`), `/rechnungen/[id]`, Ausgangsbelege → Rechnungen (Filter + Kacheln), Kundenakte „Rechnungen“, Startseiten-Kachel „Offene Rechnungen“, Einstellungen → Mahnungen (Menü „Abschluss & danach“), Nachfassen-Seite nur noch Angebote.
+- Sprache: `rechnung_erstellen`, `rechnung_senden`, `mahnung_pausieren`, `abfrage_offene_rechnungen`, `abfrage_zahlstatus` (Fake-KI, Anweisungen, Rechte, Tests).
+- Tests: Unit 687/687, DB 1011 (Gesamtlauf; 3 alte Erwartungen angepasst, danach grün), neue Suite `tests/db/lexware-rechnungen.test.ts` 7/7, `npm run check` 0 Fehler, `npm run build` ok.
+- Offen bis Abnahme: Bildschirmfotos 1280/390 px gegen die Geschwister-Seiten (Vorschau nicht gebaut, Auftrag), T0-Probelauf XL-Testkonto (Mahnungs-PDF im Entwurf, `paymentConditions`, Deeplink-Pfad `dunnings`), Storno/Gutschrift, Aufgabe „fertig, noch keine Rechnung“, E2E-Kette, Installationspaket-Probelauf mit Migration 122.

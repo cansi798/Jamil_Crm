@@ -103,6 +103,8 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (hat('einstellungen') && module.includes('angebote')) g.angebot.push({ name: 'Nachfassen', href: '/einstellungen/nachfassen', symbol: 'angebote' });
 		// 3. Auftrag: Kundenportal und Auftragsbestätigung
 		if (hat('einstellungen') && module.includes('angebote')) g.auftrag.push({ name: 'Kundenportal & Auftragsbestätigung', href: '/einstellungen/kundenportal', symbol: 'angebote' });
+		// 4. Abschluss & danach: Mahnstufen für Rechnungen (Lexware Phase 3) – wer Mahnungen verwaltet
+		if (module.includes('lexware') && hat('mahnungen.verwalten')) g.danach.push({ name: 'Mahnungen', href: '/einstellungen/mahnungen', symbol: 'angebote' });
 		// „Leistungen für Bestandskunden“ (msg 3408) steht seit Jamil msg 3534 in „Kundenportal & Auftragsbestätigung“ – die Gruppe
 		// „Abschluss & danach“ bleibt vorbereitet und erscheint erst wieder, wenn sie Einträge hat
 

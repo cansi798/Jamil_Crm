@@ -49,14 +49,22 @@ export const AKTIONEN = [
 	// Lexware Phase 2: Angebot versenden (festschreiben), neue Version, drei Terminvorschläge
 	'angebot_versenden',
 	'neue_angebotsversion',
-	'terminvorschlaege_setzen'
+	'terminvorschlaege_setzen',
+	// Lexware Phase 3: Rechnungen, Zahlungsstand, Mahnungen
+	'rechnung_erstellen',
+	'rechnung_senden',
+	'mahnung_pausieren',
+	'abfrage_offene_rechnungen',
+	'abfrage_zahlstatus'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
 export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen', 'kalender_zeigen', 'buchungslink_zeigen',
 	'abfrage_nachkalkulation', 'abfrage_verlust', 'portallink_zeigen', 'leitfaden_oeffnen', 'abfrage_leitfaden',
 	// Lexware/Mail (Plan Lexware Phase 1): Fragen; „Abgleich starten“ stellt nur einen Abgleich ein (harmlos, wiederholbar)
-	'abfrage_lexware', 'lexware_abgleich_starten', 'abfrage_kunde_lexware', 'abfrage_mailversand'] as const;
+	'abfrage_lexware', 'lexware_abgleich_starten', 'abfrage_kunde_lexware', 'abfrage_mailversand',
+	// Lexware Phase 3: Fragen zu Rechnungen
+	'abfrage_offene_rechnungen', 'abfrage_zahlstatus'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt' | 'mehrere_schritte';
@@ -84,7 +92,10 @@ export const SCHRITT_AKTIONEN = [
 	'vorlage_anwenden',
 	'angebot_versenden',
 	'neue_angebotsversion',
-	'terminvorschlaege_setzen'
+	'terminvorschlaege_setzen',
+	'rechnung_erstellen',
+	'rechnung_senden',
+	'mahnung_pausieren'
 ] as const satisfies readonly AktionsName[];
 export type SchrittName = (typeof SCHRITT_AKTIONEN)[number];
 export const istSchrittAktion = (w: unknown): w is SchrittName => typeof w === 'string' && (SCHRITT_AKTIONEN as readonly string[]).includes(w);
@@ -212,6 +223,11 @@ export type KiAktion =
 	| { aktion: 'angebot_versenden'; daten: { angebot: string } }
 	| { aktion: 'neue_angebotsversion'; daten: { angebot: string } }
 	| { aktion: 'terminvorschlaege_setzen'; daten: { angebot: string; termine: string[] } }
+	| { aktion: 'rechnung_erstellen'; daten: { auftrag: string } }
+	| { aktion: 'rechnung_senden'; daten: { rechnung: string } }
+	| { aktion: 'mahnung_pausieren'; daten: { rechnung: string; bis: string } }
+	| { aktion: 'abfrage_offene_rechnungen'; daten: { filter?: 'offen' | 'ueberfaellig' | 'alle' } }
+	| { aktion: 'abfrage_zahlstatus'; daten: { kunde: string } }
 	| { aktion: 'vorlage_anwenden'; daten: VorlageAnwendenDaten }
 	| { aktion: 'leitfaden_oeffnen'; daten: { kunde?: string } }
 	| { aktion: 'abfrage_leitfaden'; daten: { auftrag: string } }
@@ -594,6 +610,38 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		required: ['angebot', 'termine'],
 		additionalProperties: false
 	},
+	rechnung_erstellen: {
+		type: 'object',
+		properties: { auftrag: text(100, 'Auftrag wie gesprochen: Kundenname, Titel oder Nummer (z. B. A-2026-0031)') },
+		required: ['auftrag'],
+		additionalProperties: false
+	},
+	rechnung_senden: {
+		type: 'object',
+		properties: { rechnung: text(100, 'Rechnung wie gesprochen: Nummer (z. B. RE0042) oder Kundenname') },
+		required: ['rechnung'],
+		additionalProperties: false
+	},
+	mahnung_pausieren: {
+		type: 'object',
+		properties: {
+			rechnung: text(100, 'Rechnung wie gesprochen: Nummer oder Kundenname'),
+			bis: { type: 'string', pattern: '^(\\d{4}-\\d{2}-\\d{2})?$', description: 'Pause bis einschließlich JJJJ-MM-TT; leer = Pause aufheben' }
+		},
+		required: ['rechnung', 'bis'],
+		additionalProperties: false
+	},
+	abfrage_offene_rechnungen: {
+		type: 'object',
+		properties: { filter: { type: 'string', enum: ['offen', 'ueberfaellig', 'alle'], description: 'offen (Standard), nur überfällige oder alle' } },
+		additionalProperties: false
+	},
+	abfrage_zahlstatus: {
+		type: 'object',
+		properties: { kunde: text(100, 'Kunde wie gesprochen') },
+		required: ['kunde'],
+		additionalProperties: false
+	},
 	vorlage_anwenden: {
 		type: 'object',
 		properties: {
@@ -680,7 +728,12 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 	angebot_versenden: 'Einen Angebots-Entwurf versenden – bei Lexware-Betrieben wird er dabei in Lexware festgeschrieben und ist danach nicht mehr änderbar („Angebot Müller versenden“).',
 	neue_angebotsversion: 'Von einem versendeten/entschiedenen Angebot eine neue, änderbare Version anlegen („Neue Version vom Angebot Müller“).',
 	terminvorschlaege_setzen: 'Bis zu drei Termine für den Baubeginn in einem Angebots-Entwurf vorschlagen („Termine für das Angebot Müller: 1., 8. und 15. März“).',
-	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. andere Fragen, Rechnungen, Löschen).'
+	rechnung_erstellen: 'Zu einem Auftrag mit angenommenem Angebot die Rechnung in Lexware anlegen (als Entwurf, Mengen wie im Angebot) („Rechnung zu Auftrag Müller erstellen“, „Mach die Rechnung für A-2026-0031“).',
+	rechnung_senden: 'Eine festgeschriebene Rechnung per Mail mit PDF an den Kunden senden („Rechnung RE0042 senden“, „Schick die Rechnung an Müller“).',
+	mahnung_pausieren: 'Mahnungen einer Rechnung bis zu einem Tag pausieren („Keine Mahnung an Müller bis Monatsende“); bis leer = Pause aufheben.',
+	abfrage_offene_rechnungen: 'Frage nach offenen bzw. überfälligen Rechnungen beantworten („Welche Rechnungen sind überfällig?“, „Wer schuldet uns noch Geld?“).',
+	abfrage_zahlstatus: 'Frage beantworten, ob ein Kunde seine Rechnungen bezahlt hat („Hat Kunde Müller bezahlt?“).',
+	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. andere Fragen, Löschen).'
 };
 
 export type Werkzeug = { type: 'function'; function: { name: string; description: string; parameters: Schema } };

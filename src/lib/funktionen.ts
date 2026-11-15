@@ -54,6 +54,30 @@ export const FUNKTIONEN: Funktion[] = [
 		recht: 'einstellungen'
 	},
 	{
+		id: 'lexware_rechnungen',
+		schritt: 'abschluss',
+		name: 'Rechnungen über Lexware und Zahlungsstand',
+		was: 'Am Auftrag „Rechnung erstellen“: Positionen aus dem angenommenen Angebot, Mengen laut Aufmaß, Leistungszeitraum, Zahlungsziel – die Rechnung entsteht in Lexware (Standard Entwurf, Festschreiben in Lexware). Danach zeigt das CRM Nummer, PDF und den Zahlungsstand aus Lexware (offen, teilweise bezahlt, bezahlt, überfällig) am Auftrag, beim Kunden und unter Ausgangsbelege. Abschlags- und Schlussrechnungen bereitet es vor und öffnet Lexware.',
+		wann: 'Beim Klick auf „Rechnung erstellen“; Zahlungsstand bei jeder Rückmeldung von Lexware und nachts.',
+		href: '/ausgangsbelege',
+		info: 'rechnung.seite',
+		zustand: 'keiner',
+		modul: 'lexware',
+		recht: 'rechnungen.sehen'
+	},
+	{
+		id: 'mahnungen',
+		schritt: 'abschluss',
+		name: 'Zahlungserinnerung und Mahnungen',
+		was: 'Nach der Fälligkeit legt das CRM die eingestellten Stufen an: Erinnerung als Aufgabe mit fertiger Mail, Mahnungen in Lexware (mit Gebühr/Pauschale, PDF aus Lexware). Gesendet wird auf Klick; die 3. Mahnung nur nach Freigabe. Sobald gezahlt ist, stoppt alles.',
+		wann: 'Stündlich im Hintergrund, Basis ist die Fälligkeit aus Lexware.',
+		href: '/einstellungen/mahnungen',
+		info: 'mahnungen.seite',
+		zustand: 'keiner',
+		modul: 'lexware',
+		recht: 'mahnungen.verwalten'
+	},
+	{
 		id: 'lexware_abgleich',
 		schritt: 'abschluss',
 		name: 'Abgleich mit Lexware',

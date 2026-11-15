@@ -21,6 +21,11 @@ import {
 import { mahnLaeufe, mahnungFreigeben, markiereLaufGesendet, pruefeMahnungen, uebernimmMahnStandard } from '../../src/lib/server/lexware/mahnungen';
 import { starteAttrappe, beleg, type Attrappe } from '../hilfe/lexware-attrappe';
 import { berlinTag, tagPlus } from '../../src/lib/zeit';
+import { antwort, jsonAnfrage } from './hilfe-1c';
+import { POST as textPost } from '../../src/routes/api/sprache/text/+server';
+import { POST as ausfuehrenPost } from '../../src/routes/api/sprache/ausfuehren/+server';
+import { setzeKiAnbieter } from '../../src/lib/server/ki/anbieter';
+import { FakeKi } from '../../src/lib/server/ki/fake';
 
 /** Rechnungen, Zahlungsstand, Mahnungen über Lexware (Plan Phase 3; Migration 122). */
 describe('Lexware: Rechnungen, Zahlungsstand, Mahnungen', () => {
@@ -242,5 +247,46 @@ describe('Lexware: Rechnungen, Zahlungsstand, Mahnungen', () => {
 		expect(d).toMatchObject({ art: 'abschlag', nummer: 'AR0001', status: expect.stringMatching(/offen|ueberfaellig/) });
 		const s = await erstelleRechnung(kA(), u.auftragA, { art: 'schluss' });
 		expect((await root`select brutto_cent from app.rechnungen where id = ${s.id}`)[0].brutto_cent).toBe(String(v.gesamtBruttoCent - brutto));
+	});
+
+	it('Sprache: Rechnung erstellen (Rückfrage), offene Rechnungen, hat bezahlt?, Mahnung pausieren; Monteur ohne Rechte → kein Vorschlag', async () => {
+		setzeKiAnbieter(new FakeKi());
+		const extra = ['sprache.nutzen', 'rechnungen.sehen', 'rechnungen.erstellen', 'mahnungen.verwalten'];
+		const chef = { ...u.chefA, rechte: [...new Set([...u.chefA.rechte, ...extra])] };
+		const sag = async (text: string, nutzer: Nutzer = chef) => (await antwort(await textPost({ locals: { nutzer }, request: jsonAnfrage('POST', { text }) } as never))).koerper;
+		const ja = async (r: any) => await antwort(await ausfuehrenPost({ locals: { nutzer: chef }, request: jsonAnfrage('POST', { vorschlag: r.vorschlag }) } as never));
+		try {
+			await angenommen();
+			const titel = (await root`select titel from app.auftraege where id = ${u.auftragA}`)[0].titel as string;
+			let r = await sag(`Rechnung zu Auftrag ${titel} erstellen`);
+			expect(r.karte.aktion).toBe('rechnung_erstellen');
+			expect(r.karte.fehler).toBeNull();
+			expect(r.karte.warnungen.join(' ')).toMatch(/Entwurf in Lexware/);
+			const e = await ja(r);
+			expect(e.status).toBe(201);
+			expect(await root`select 1 from app.rechnungen where auftrag_id = ${u.auftragA}`).toHaveLength(1);
+			await lauf();
+			a.festschreiben(await rechnungsId());
+			await starteAbgleich(kA());
+			await lauf();
+			const kunde = (await root`select nachname from app.kunden where id = ${u.kundeA}`)[0].nachname as string;
+			r = await sag('Welche Rechnungen sind offen?');
+			expect(r.karte.aktion).toBe('abfrage_offene_rechnungen');
+			expect(r.vorschlag).toBeNull();
+			expect(r.karte.antwort.vorlesen).toMatch(/^1 offene Rechnung/);
+			r = await sag(`Hat Kunde ${kunde} bezahlt?`);
+			expect(r.karte.antwort.vorlesen).toMatch(/^Nein, bei .* ist eine Rechnung offen/);
+			r = await sag(`Keine Mahnung an ${kunde} bis Monatsende`);
+			expect(r.karte.aktion).toBe('mahnung_pausieren');
+			expect((await ja(r)).status).toBe(200);
+			expect((await root`select mahnen_pausiert_bis from app.rechnungen where auftrag_id = ${u.auftragA}`)[0].mahnen_pausiert_bis).not.toBeNull();
+			const monteur = { ...u.monteurA, rechte: [...u.monteurA.rechte, 'sprache.nutzen'] };
+			const m = await sag('Welche Rechnungen sind überfällig?', monteur);
+			expect(m.vorschlag).toBeNull();
+			expect(m.karte.fehler).toBeTruthy();
+			expect((await sag(`Rechnung zu Auftrag ${titel} erstellen`, monteur)).vorschlag).toBeNull();
+		} finally {
+			setzeKiAnbieter(null);
+		}
 	});
 });

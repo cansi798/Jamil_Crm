@@ -94,6 +94,19 @@ export async function pruefeAktionsRechte(
 		case 'terminvorschlaege_setzen':
 			await angeboteZugriff(locals);
 			return;
+		// Rechnungen (Lexware Phase 3): wie die Seiten – Modul lexware, Rechnungen sehen + Preise sehen; Erstellen/Senden
+		// zusätzlich „Rechnungen erstellen“, Pause „Mahnungen verwalten“
+		case 'abfrage_offene_rechnungen':
+		case 'abfrage_zahlstatus':
+			await darf(locals, 'lexware', 'rechnungen.sehen');
+			return pruefeRecht(locals, 'preise.sehen');
+		case 'rechnung_erstellen':
+		case 'rechnung_senden':
+			await darf(locals, 'lexware', 'rechnungen.erstellen');
+			return pruefeRecht(locals, 'preise.sehen');
+		case 'mahnung_pausieren':
+			await darf(locals, 'lexware', 'rechnungen.sehen');
+			return pruefeRecht(locals, 'mahnungen.verwalten');
 		case 'abfrage_nachkalkulation':
 		case 'abfrage_verlust':
 			await darf(locals, 'zeiterfassung', 'preise.sehen');

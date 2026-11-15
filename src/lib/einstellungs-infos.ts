@@ -429,6 +429,49 @@ export const INFOS: Record<string, Info> = {
 		standard: 'Jede Nacht ab 2 Uhr automatisch; zusätzlich auf Knopfdruck oder per Sprache („Lexware-Abgleich starten“).',
 		beispiel: 'Frau Musterfrau steht in Lexware mit derselben E-Mail – der Abgleich verknüpft sie mit dem CRM-Kunden.'
 	},
+	// ——— Rechnungen und Mahnungen über Lexware (Phase 3) ———
+	'rechnung.seite': {
+		titel: 'Rechnung',
+		was: 'Zeigt den Stand der Rechnung aus Lexware: Nummer, offen, teilweise bezahlt, bezahlt oder überfällig, die Zahlungen und die Mahnungen. Ändern lässt sich die Rechnung nur in Lexware.',
+		wirkt: 'Diese Rechnung.',
+		standard: 'Neue Rechnungen entstehen als Entwurf in Lexware; nach dem Festschreiben dort erscheint „Senden“.',
+		beispiel: 'Frau Müller überweist 500 € von 1.190 € → hier steht „Teilweise bezahlt“, offen 690 €.'
+	},
+	'rechnung.dialog': {
+		titel: 'Rechnung aus dem Angebot erstellen',
+		was: 'Übernimmt die Positionen des angenommenen Angebots. Mengen nach dem Aufmaß anpassen, leere Menge = Position weglassen (Teilrechnung). Dazu Leistungszeitraum und Zahlungsziel. Lexware vergibt Nummer und PDF.',
+		wirkt: 'Diesen Auftrag; die Rechnung entsteht in Lexware.',
+		standard: 'Entwurf in Lexware (prüfen und dort festschreiben); „gleich festschreiben“ nur, wenn alles sicher ist. Zahlungsziel aus Einstellungen → Mahnungen.',
+		beispiel: 'Angebot 10 m² Fliesen, Aufmaß 11,5 m² → Menge 11,5 eintragen, Rechnung erstellen.'
+	},
+	'rechnung.abschlag': {
+		titel: 'Abschlags- und Schlussrechnung',
+		was: 'Die Lexware-Schnittstelle kann sie nicht anlegen. Das CRM rechnet Betrag und Positionen vor und öffnet Lexware („In Lexware fertigstellen“). Danach ordnet der Abgleich die Rechnung von selbst zu (gleicher Kunde, gleicher Betrag).',
+		wirkt: 'Diesen Auftrag.',
+		standard: 'Abschlag als Prozent oder Betrag vom Auftrag; Schlussrechnung = Auftrag minus Abschläge.',
+		beispiel: '30 % Abschlag auf 11.900 € → 3.570 € vorbereitet, in Lexware als Abschlagsrechnung anlegen.'
+	},
+	'rechnung.mahnungen': {
+		titel: 'Zahlungserinnerung und Mahnungen',
+		was: 'Nach der Fälligkeit legt das CRM die eingestellten Stufen an: Erinnerung als Aufgabe mit fertiger Mail, Mahnungen in Lexware (PDF). Gesendet wird auf Klick. Sobald gezahlt ist, stoppt alles.',
+		wirkt: 'Diese Rechnung; „pausieren bis“ hält die Stufen an.',
+		standard: 'Stufen aus Einstellungen → Mahnungen; die 3. Mahnung nur nach Freigabe.',
+		beispiel: 'Kunde meldet sich, zahlt Ende des Monats → Pause bis zum 31. eintragen.'
+	},
+	'mahnungen.seite': {
+		titel: 'Mahnstufen',
+		was: 'Legt fest, wie viele Stufen es gibt, wann sie greifen (Tage nach Fälligkeit aus Lexware), welche Gebühr, ob die 40-€-Pauschale (nur Firmen), ob ein Zinshinweis und ob eine Freigabe nötig ist – und mit welchem Mailtext.',
+		wirkt: 'Alle offenen Rechnungen Ihrer Firma, die im CRM erstellt wurden.',
+		standard: 'Leer. Vorschlag: Erinnerung nach 3 Tagen, 1. Mahnung nach 17, 2. nach 45 (Zinshinweis, Pauschale bei Firmen), 3. nach 60 nur mit Freigabe.',
+		beispiel: '1. Mahnung mit 5,00 € Gebühr → Lexware-Mahnung mit Position „Mahngebühr 5,00 €“.'
+	},
+	'mahnungen.konfig': {
+		titel: 'Basiszins und Zahlungsziel',
+		was: 'Basiszins für den Zinshinweis (§ 288 BGB: Privatkunden + 5, Firmen + 9 Prozentpunkte) und das vorgeschlagene Zahlungsziel neuer Rechnungen. Zinsen erscheinen nur als Hinweis, nie als Position.',
+		wirkt: 'Neue Mahnläufe und neue Rechnungen Ihrer Firma.',
+		standard: 'Basiszins 1,27 % (bitte halbjährlich bei der Bundesbank prüfen), Zahlungsziel 14 Tage.',
+		beispiel: '1.000 € seit 73 Tagen offen, Privatkunde → Hinweis 12,54 € Verzugszinsen.'
+	},
 	'lexware.belege': {
 		titel: 'Angebote und Auftragsbestätigungen über Lexware',
 		was: 'An: Bis zum Versenden ist das Angebot ein CRM-Entwurf ohne Nummer. Beim Versenden schreibt Lexware es fest (Nummer, PDF), die Mail geht aus dem CRM. Die Annahme erzeugt die Auftragsbestätigung in Lexware. Danach nicht mehr änderbar – „Neue Version“ legt ein neues Lexware-Angebot an.',

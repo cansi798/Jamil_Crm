@@ -396,6 +396,9 @@ export function deute(text: string, kontext: KiKontext, einzeln = false): { akti
 		return { aktion: 'abfrage_lexware', daten: {} };
 	}
 	if (/\b(mail-?versand|mailfehler|mail-?postfach|e-mail-versand)\b|\bmails?\b.*\b(fehler|eingerichtet|angekommen)\b/.test(l)) return { aktion: 'abfrage_mailversand', daten: {} };
+	// Rechnungen und Mahnungen über Lexware (Phase 3)
+	const re = rechnungBefehl(t, l, kontext.heute);
+	if (re) return re;
 	// Leitfaden beim Termin (Jamil msg 4353): Stand, Eingaben, öffnen
 	const lf = leitfadenBefehl(t, l);
 	if (lf) return lf;
@@ -480,6 +483,36 @@ export function deute(text: string, kontext: KiKontext, einzeln = false): { akti
 }
 
 
+/** „Rechnung zu Auftrag Müller erstellen“, „Rechnung RE0042 senden“, „Keine Mahnung an Müller bis 30.11.“, „Welche Rechnungen sind überfällig?“, „Hat Kunde Müller bezahlt?“ */
+function rechnungBefehl(t: string, l: string, heute: string): { aktion: string; daten: Record<string, unknown> } | null {
+	const rest = (s: string) => sauber(s).replace(/^(?:dem|den|der|die|das|auftrag|kunde|kunden|kundin|bei|an|für|fuer|zu[mr]?)\s+/gi, '').replace(/^(?:auftrag|kunde|kunden)\s+/i, '').replace(/[?.!]+$/, '').trim();
+	const bezahlt = /\b(?:hat|haben)\s+(?:der\s+|die\s+)?(?:kunde|kundin|firma|familie)?\s*(.+?)\s+(?:schon\s+|bereits\s+|endlich\s+)?(?:bezahlt|gezahlt|überwiesen)\b/i.exec(t);
+	if (bezahlt) return { aktion: 'abfrage_zahlstatus', daten: { kunde: rest(bezahlt[1]) } };
+	if (/\bmahnung\w*\b/.test(l) && /\b(?:keine|pausier\w*|stopp\w*|aussetz\w*|anhalten)\b/.test(l)) {
+		const bisM = /\bbis\s+(?:zum\s+)?(\d{1,2})\.(\d{1,2})\.?(\d{4})?/.exec(t);
+		const bis = /\bmonatsende\b|\bende\s+des\s+monats\b/.test(l)
+			? (() => { const d = new Date(`${heute.slice(0, 7)}-01T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() + 1, 0); return d.toISOString().slice(0, 10); })()
+			: bisM
+				? `${bisM[3] ?? heute.slice(0, 4)}-${bisM[2].padStart(2, '0')}-${bisM[1].padStart(2, '0')}`
+				: '';
+		const wer = /\b(?:an|für|fuer|bei|zu[mr]?)\s+(?:den\s+|die\s+|der\s+)?(?:kunden?\s+|rechnung\s+)?(.+?)(?:\s+bis\b.*)?$/i.exec(t.replace(/\bmahnung\w*\b|\b(?:pausier\w*|stopp\w*|aussetz\w*|anhalten)\b/gi, ' '));
+		return { aktion: 'mahnung_pausieren', daten: { rechnung: wer ? rest(wer[1]) : '', bis } };
+	}
+	if (!/\brechnung/.test(l) && !/\bschuldet\b|\bschulden\b.*\bgeld\b|\bnoch\s+geld\b/.test(l)) return null;
+	if (/\b(?:welche|wie\s?viele|zeig\w*|liste|gibt\s+es)\b.*\brechnung|\bschuldet\b|\bschulden\b|\bnoch\s+geld\b|\brechnungen\b.*\b(?:offen|überfällig|ueberfaellig)\b/.test(l))
+		return { aktion: 'abfrage_offene_rechnungen', daten: { filter: /überfällig|ueberfaellig|fällig\s+seit|mahnen/.test(l) ? 'ueberfaellig' : 'offen' } };
+	if (/\b(?:send\w*|schick\w*|verschick\w*|versend\w*|mail\w*)\b/.test(l)) {
+		const nr = /\b([A-Z]{1,4}-?\d{3,})\b/.exec(t);
+		const wer = /\b(?:an|für|fuer|von|zu[mr]?)\s+(.+?)(?:\s+(?:send\w*|schick\w*|raus))?$/i.exec(t);
+		return { aktion: 'rechnung_senden', daten: { rechnung: nr ? nr[1] : wer ? rest(wer[1]) : '' } };
+	}
+	if (/\b(?:erstell\w*|mach\w*|schreib\w*|anleg\w*|leg\w*)\b/.test(l)) {
+		const wer = /\b(?:zu[mr]?|für|fuer|von)\s+(.+?)(?:\s+(?:erstell\w*|mach\w*|schreib\w*|anleg\w*|an))?$/i.exec(t);
+		return { aktion: 'rechnung_erstellen', daten: { auftrag: wer ? rest(wer[1]) : '' } };
+	}
+	return null;
+}
+
 // ——— Mehrere Schritte (Jamil msg 2983) ———
 
 /** Trennstelle zwischen zwei Befehlen: Komma/„und“/„dann“ vor einem Befehlswort. */
@@ -488,7 +521,8 @@ const SCHRITT_TRENNER =
 const ERLAUBT = new Set([
 	'kunde_anlegen', 'auftrag_anlegen', 'todo_anlegen', 'einsatz_anlegen', 'einsatz_verschieben', 'protokoll_ausfuellen',
 	'mitarbeiter_zuweisen', 'status_aendern', 'todo_abhaken', 'anlage_anlegen', 'nachfassen_pausieren', 'quelle_setzen',
-	'dienst_anlegen', 'angebot_entscheidung', 'vorlage_anwenden', 'angebot_versenden', 'neue_angebotsversion', 'terminvorschlaege_setzen'
+	'dienst_anlegen', 'angebot_entscheidung', 'vorlage_anwenden', 'angebot_versenden', 'neue_angebotsversion', 'terminvorschlaege_setzen',
+	'rechnung_erstellen', 'rechnung_senden', 'mahnung_pausieren'
 ]);
 
 /**

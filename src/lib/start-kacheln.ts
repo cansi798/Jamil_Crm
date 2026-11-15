@@ -31,6 +31,7 @@ const FEST: KachelArt[] = [
 	{ id: 'auslastung', titel: 'Auslastung (2 Wochen)', beschreibung: 'Geplante Stunden je Mitarbeiter', gruppe: 'Planung', groesse: 'l', hoehe: 1 },
 	{ id: 'quellen', titel: 'Umsatz nach Auftragsquelle', beschreibung: 'Umsatz dieses Jahr je Quelle', gruppe: 'Kennzahlen', groesse: 'l', hoehe: 1 },
 	{ id: 'buchungen', titel: 'Neue Online-Buchungen', beschreibung: 'Buchungen der letzten 7 Tage', gruppe: 'Planung', groesse: 'm', hoehe: 1 },
+	{ id: 'rechnungen', titel: 'Offene Rechnungen', beschreibung: 'Offene und überfällige Rechnungen aus Lexware', gruppe: 'Kennzahlen', groesse: 'm', hoehe: 1 },
 	{ id: 'nachweise', titel: 'Partner-Nachweise laufen ab', beschreibung: 'Abgelaufene und bald ablaufende Nachweise', gruppe: 'Planung', groesse: 'm', hoehe: 1 },
 	{ id: 'bereiche', titel: 'Bereiche', beschreibung: 'Schnellzugriff auf alle Bereiche', gruppe: 'Navigation', groesse: 'breit', hoehe: 1 }
 ];
@@ -113,6 +114,7 @@ const STANDARD: Record<StartRolle, StartLayout> = {
 		k('auslastung', 'l'),
 		k('quellen', 'l'),
 		k('nachfassen', 's'),
+		k('rechnungen', 'm'),
 		k('buchungen', 'm'),
 		k('nachweise', 'm'),
 		k('zeiterfassung', 'l'),
@@ -123,6 +125,7 @@ const STANDARD: Record<StartRolle, StartLayout> = {
 		k('handlung', 'l'),
 		k('monat', 'l'),
 		k('nachfassen', 's'),
+		k('rechnungen', 'm'),
 		k('buchungen', 'm'),
 		k('auslastung', 'l'),
 		k('nachweise', 'm'),

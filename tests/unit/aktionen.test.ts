@@ -39,7 +39,12 @@ describe('Aktions-Schema', () => {
 			'abfrage_mailversand',
 			'angebot_versenden',
 			'neue_angebotsversion',
-			'terminvorschlaege_setzen'
+			'terminvorschlaege_setzen',
+			'rechnung_erstellen',
+			'rechnung_senden',
+			'mahnung_pausieren',
+			'abfrage_offene_rechnungen',
+			'abfrage_zahlstatus'
 		]);
 		expect(Object.keys(AKTIONS_SCHEMAS).sort()).toEqual([...AKTIONEN, 'unbekannt', 'mehrere_schritte'].sort());
 		// Werkzeuge für Function Calling: je Aktion eine Funktion mit Parametern = Schema

@@ -56,6 +56,7 @@ export function wendeAuswahlAn(werte: Record<string, any>, offen: Auswahl[], aus
 		else if (a.feld === 'todo') w.todoId = id;
 		else if (a.feld === 'objekt') w.objektId = id;
 		else if (a.feld === 'angebot') w.angebotId = id;
+		else if (a.feld === 'rechnung') w.rechnungId = id;
 		else if (a.feld === 'quelle') w.quelleId = id;
 		else throw new ApiFehler(400, 'Ungültige Auswahl.');
 	}
@@ -312,6 +313,9 @@ async function ausfuehrenJe(
 		case 'angebot_versenden':
 		case 'neue_angebotsversion':
 		case 'terminvorschlaege_setzen':
+		case 'rechnung_erstellen':
+		case 'rechnung_senden':
+		case 'mahnung_pausieren':
 			return neueAktionen(k, nutzer, aktion, w);
 		case 'abfrage_tagesplan':
 		case 'route_heute':
@@ -329,6 +333,8 @@ async function ausfuehrenJe(
 		case 'lexware_abgleich_starten':
 		case 'abfrage_kunde_lexware':
 		case 'abfrage_mailversand':
+		case 'abfrage_offene_rechnungen':
+		case 'abfrage_zahlstatus':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
 		case 'leitfaden_eingabe': {
 			const { speichereEingaben } = await import('../leitfaden');
@@ -423,6 +429,22 @@ async function neueAktionen(k: { betriebId: string; benutzerId: string }, nutzer
 			const { setzeTerminvorschlaege } = await import('../angebote');
 			const a = await setzeTerminvorschlaege(k, w.angebotId, w.termine, { sicht: sichtVon(nutzer), auftragAendern: false });
 			return { status: 200, meldung: `${a.terminvorschlaege.length} Terminvorschläge gespeichert`, link: `/angebote/${a.id}`, warnungen: [] };
+		}
+		// Rechnungen (Lexware Phase 3)
+		case 'rechnung_erstellen': {
+			const { erstelleRechnung } = await import('../lexware/rechnungen');
+			const r = await erstelleRechnung(k, w.auftragId, {});
+			return { status: 201, meldung: 'Rechnung wird in Lexware angelegt', link: `/rechnungen/${r.id}`, warnungen: [r.hinweis] };
+		}
+		case 'rechnung_senden': {
+			const { sendeRechnung } = await import('../lexware/rechnungen');
+			const r = await sendeRechnung(k, w.rechnungId);
+			return { status: 200, meldung: `Rechnung an ${r.an} gesendet`, link: `/rechnungen/${w.rechnungId}`, warnungen: [] };
+		}
+		case 'mahnung_pausieren': {
+			const { setzeMahnPause } = await import('../lexware/rechnungen');
+			await setzeMahnPause(k, w.rechnungId, w.bis || null);
+			return { status: 200, meldung: w.bis ? 'Mahnungen pausiert' : 'Mahnungen laufen wieder', link: `/rechnungen/${w.rechnungId}`, warnungen: [] };
 		}
 		case 'nachfassen_pausieren': {
 			const { setzeNachfassenPausiert } = await import('../nachfassen');

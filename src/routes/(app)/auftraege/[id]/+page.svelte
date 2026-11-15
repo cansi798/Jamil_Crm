@@ -28,6 +28,8 @@
 	import LoeschenKnopf from '$lib/components/ui/LoeschenKnopf.svelte';
 	import LoeschenPanel from '$lib/components/ui/LoeschenPanel.svelte';
 	import { ANGEBOT_STATUS_NAMEN } from '$lib/angebot-status';
+	import RechnungDialog from '$lib/components/RechnungDialog.svelte';
+	import { RECHNUNG_ART_NAMEN, ZAHL_STATUS_KLASSE, ZAHL_STATUS_NAMEN } from '$lib/rechnungen';
 	import { euro } from '$lib/geld';
 	import { berlinTag, berlinUhrzeit, tagDeutsch, tagKurz } from '$lib/zeit';
 	import { EINSATZ_ARTEN, EINSATZ_ART_NAMEN } from '$lib/einsatz-art';
@@ -87,6 +89,21 @@
 				zusatz: ab.versendetAm ? `versendet ${tagDeutsch(berlinTag(new Date(ab.versendetAm)))}` : null,
 				status: { text: ab.versandStatus === 'gesendet' ? 'Versendet' : 'Bereit zum Versand', klasse: `s-${ab.versandStatus === 'gesendet' ? 'angenommen' : 'versendet'}` },
 				sort: berlinTag(new Date(ab.angelegt))
+			});
+		}
+		// Rechnungen über Lexware (Phase 3): Nummer aus Lexware, Zahlstatus, offener Betrag
+		for (const r of data.rechnungen ?? []) {
+			l.push({
+				id: `re-${r.id}`,
+				typ: 'rechnung',
+				href: `/rechnungen/${r.id}`,
+				nummer: r.nummer ?? RECHNUNG_ART_NAMEN[r.art],
+				datum: tagDeutsch(r.datum),
+				zusatz: r.offenCent !== null && r.status !== 'bezahlt' && r.status !== 'storniert' && r.offenCent !== r.bruttoCent ? `offen ${euro(r.offenCent)}` : r.faellig ? `fällig ${tagDeutsch(r.faellig)}` : null,
+				status: { text: ZAHL_STATUS_NAMEN[r.status], klasse: ZAHL_STATUS_KLASSE[r.status] },
+				betrag: r.bruttoCent !== null ? euro(r.bruttoCent) : null,
+				pdf: r.nummer && r.bruttoCent !== null && r.status !== 'entwurf' ? `/api/rechnungen/${r.id}/pdf` : null,
+				sort: r.datum
 			});
 		}
 		return l.sort((x, y) => (x.sort < y.sort ? 1 : x.sort > y.sort ? -1 : 0)).map(({ sort: _s, ...z }) => z);
@@ -774,7 +791,7 @@
 				</Karte>
 			</div>
 
-			{#if data.angebote || data.auftragsbestaetigungen.length > 0 || data.abHinweis}
+			{#if data.angebote || data.auftragsbestaetigungen.length > 0 || data.abHinweis || (data.rechnungen?.length ?? 0) > 0}
 				<!-- Ausgangsbelege des Auftrags (Jamil msg 3525): Angebote, Auftragsbestätigungen und (mit Lexware) Rechnungen in EINER
 				     Liste, neueste zuerst, Belegart als Abzeichen – gleiche Zeile wie unter „Ausgangsbelege“ (BelegListe) -->
 				<div class="af-k k-angebote" id="ausgangsbelege">
@@ -832,6 +849,13 @@
 									{/each}
 								</ul>
 							{/if}
+						{/if}
+						{#if data.rechnungVorschlag && data.rechnungVorschlag.angebot}
+							<AddPanel label="Rechnung erstellen" offen={!!form?.rechnungFehler}>
+								{#snippet children(schliessen)}
+									<RechnungDialog v={data.rechnungVorschlag!} fehler={form?.rechnungFehler ? (form?.fehler as string) : null} {schliessen} />
+								{/snippet}
+							</AddPanel>
 						{/if}
 						{#if wegeAngebot.length > 0}
 							<AddPanel label="Angebot hinzufügen" offen={!!form?.kiStichworte}>

@@ -350,7 +350,8 @@ describe('Sprache – Audio, Text, Vorschlag (Tasks 2 und 4)', () => {
 	});
 
 	it('nicht unterstützt → „Das kann ich noch nicht“, kein Vorschlag (KI wurde gefragt)', async () => {
-		const a = await text(u.bueroA, { text: 'Schreib eine Rechnung für Müller' });
+		// Rechnungen gibt es seit Lexware Phase 3 per Sprache – Gutschriften (Storno) noch nicht
+		const a = await text(u.bueroA, { text: 'Schreib eine Gutschrift für Müller' });
 		expect(a.status).toBe(200);
 		expect(a.koerper.vorschlag).toBeNull();
 		expect(a.koerper.karte.titel).toBe('Das kann ich noch nicht');

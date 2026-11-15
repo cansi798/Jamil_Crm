@@ -28,6 +28,8 @@
 			: s.zuweisung === 'rolle'
 				? `Rolle ${data.rollen.find((r) => r.id === s.rolleId)?.name ?? '–'}`
 				: 'Zuständiger des Auftrags';
+	// Rechnungen: eigene Seite Einstellungen → Mahnungen (Lexware Phase 3)
+	const ARTEN_HIER: NachfassArt[] = NACHFASS_ARTEN.filter((a) => a === 'angebot');
 	const stufenVon = (art: NachfassArt) => data.stufen.filter((s) => s.art === art);
 
 	// Vorlagen für die Stufen: die passenden zuerst (Angebot → „Nachfassen Angebot“, Rechnung → „Zahlungserinnerung“)
@@ -51,7 +53,7 @@
 		Kunden. Automatisch versendet wird noch nichts (Mail-Anbindung offen).
 	<InfoFenster id="nachfassen.seite" /></p>
 
-	{#each NACHFASS_ARTEN as art (art)}
+	{#each ARTEN_HIER as art (art)}
 		<Karte>
 			{#snippet titel()}{art === 'angebot' ? 'Angebote' : 'Rechnungen'}{/snippet}
 			{#if art === 'rechnung'}
@@ -90,6 +92,11 @@
 			</AddPanel>
 		</Karte>
 	{/each}
+
+	<Karte>
+		{#snippet titel()}Rechnungen{/snippet}
+		<p class="kd-info">Zahlungserinnerung und Mahnstufen für Rechnungen stehen unter <a href="/einstellungen/mahnungen">Einstellungen → Mahnungen</a>.</p>
+	</Karte>
 
 	<Karte>
 		{#snippet titel()}Mail-Vorlagen und Signatur{/snippet}

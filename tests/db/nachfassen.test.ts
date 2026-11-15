@@ -170,7 +170,7 @@ describe('Nachfassen', () => {
 		// die beiden Vorschlags-Vorlagen sind „Nachfassen Angebot“; dazu je Zweck ein Standard
 		expect(d.vorlagen.filter((v: any) => v.zweck === 'nachfassen_angebot')).toHaveLength(2);
 		// je Zweck eine Standard-Vorlage (seit Lexware Phase 2 auch „Angebot senden“)
-		expect(d.vorlagen.filter((v: any) => v.istStandard)).toHaveLength(8);
+		expect(d.vorlagen.filter((v: any) => v.istStandard)).toHaveLength(10); // + Rechnung senden, Mahnung (Lexware Phase 3)
 		expect(((await mailLoad({ locals: { nutzer: u.chefA } })) as any).signatur).toBe('<p>Gruß</p>');
 		expect(d.rollen.map((r: any) => r.name)).toContain('Chef');
 	});

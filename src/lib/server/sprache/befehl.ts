@@ -484,6 +484,11 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 		const { beantworteLexware } = await import('./lexware');
 		return { text, vorschlag: null, karte: await beantworteLexware(k, aktion) };
 	}
+	// Rechnungen (Lexware Phase 3) – Fragen ohne Rückfrage
+	if (aktion.aktion === 'abfrage_offene_rechnungen' || aktion.aktion === 'abfrage_zahlstatus') {
+		const { beantworteRechnungen } = await import('./rechnungen');
+		return { text, vorschlag: null, karte: await beantworteRechnungen(k, aktion) };
+	}
 	if (aktion.aktion === 'kalender_zeigen') {
 		return { text, vorschlag: null, karte: await beantworteKalender(k, nutzer, aktion.daten, jetzt) };
 	}

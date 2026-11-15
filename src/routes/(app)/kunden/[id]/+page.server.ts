@@ -27,6 +27,8 @@ import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachf
 import { erzeugeLink, KUNDEN_PORTAL_FELDER, kundenPortal, ladeKundeAb, portalPasswort, portalZugriff, speichereKundeAb, speichereKundenPortal, widerrufeLink } from '$lib/server/kundenportal';
 import { mailVorbereitung } from '$lib/server/mail-vorlagen';
 import { ladeLexwareKonfig } from '$lib/server/lexware/konfig';
+import { siehtRechnungen } from '$lib/server/rechnungen-zugriff';
+import { listeRechnungen } from '$lib/server/lexware/rechnungen';
 import { kundeLexwareStand, kundeNachLexware, setze13b } from '$lib/server/lexware/kontakte';
 import { mitBetrieb } from '$lib/server/db';
 
@@ -91,7 +93,9 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			// wer Aufträge bearbeiten darf (wie früher am Auftrag); leer = wie die Firma
 			ab: angeboteModul && hatRecht(nutzer, 'auftraege.bearbeiten') ? await ladeKundeAb(k, kunde.id) : null,
 			// Lexware (Plan Phase 1): Stand des Kontakts, „In Lexware übertragen“, § 13b – nur mit Modul und Verbindung
-			lexware: await lexwareBereich(k, kunde.id, hatRecht(nutzer, 'kunden.bearbeiten'))
+			lexware: await lexwareBereich(k, kunde.id, hatRecht(nutzer, 'kunden.bearbeiten')),
+			// Rechnungen und Zahlungsstand aus Lexware (Phase 3) – Beträge nur mit „Preise sehen“
+			rechnungen: (await siehtRechnungen(nutzer)) ? await listeRechnungen(k, { kundeId: kunde.id, preise: hatRecht(nutzer, 'preise.sehen') }) : null
 		};
 	});
 };

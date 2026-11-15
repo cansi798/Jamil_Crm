@@ -932,6 +932,53 @@ async function terminvorschlaegeSetzen(k: Kontext, nutzer: Nutzer, d: { angebot:
 	return bau;
 }
 
+// ——— Rechnungen (Lexware Phase 3) ———
+
+const euroText = (c: number) => `${(c / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
+async function rechnungErstellenBau(k: Kontext, nutzer: Nutzer, d: { auftrag: string }): Promise<Bau> {
+	const bau = neuerBau();
+	await auftragAufloesen(bau, k, nutzer, d.auftrag, true);
+	if (!bau.werte.auftragId) return bau;
+	const { rechnungsVorschlag } = await import('../lexware/rechnungen');
+	const v = await rechnungsVorschlag(k, bau.werte.auftragId);
+	if (v.grund) bau.fehlt.push(v.grund);
+	else if (v.wartet) bau.fehlt.push('Zu diesem Auftrag wird gerade schon eine Rechnung in Lexware angelegt.');
+	else {
+		bau.zeilen.push({ label: 'Grundlage', wert: v.ab ? `Auftragsbestätigung ${v.ab.nummer}` : `Angebot ${v.angebot?.nummer}` });
+		bau.zeilen.push({ label: 'Positionen', wert: `${v.positionen.length} (Mengen wie im Angebot)` });
+		bau.zeilen.push({ label: 'Betrag', wert: euroText(v.gesamtBruttoCent) });
+		bau.zeilen.push({ label: 'Leistung', wert: `${tagDeutschKurz(v.leistungVon)} – ${tagDeutschKurz(v.leistungBis)}` });
+		bau.zeilen.push({ label: 'Zahlungsziel', wert: `${v.zahlungszielTage} Tage` });
+		if (v.bisher > 0) bau.warnungen.push(`Zu diesem Auftrag gibt es schon ${v.bisher} Rechnung${v.bisher === 1 ? '' : 'en'} – bitte prüfen, ob noch etwas offen ist.`);
+		bau.warnungen.push('Die Rechnung entsteht als Entwurf in Lexware – dort prüfen und festschreiben. Mengen laut Aufmaß ändern Sie am Auftrag („Rechnung erstellen“).');
+	}
+	return bau;
+}
+
+/** Rechnung nach Nummer oder Kunde/Auftrag finden (nur CRM-Rechnungen, `nur` filtert nach Zahlstatus). */
+async function rechnungFinden(k: Kontext, gesprochen: string, nur: (s: string, gesendet: boolean) => boolean, keinText: string): Promise<Bau> {
+	const bau = neuerBau();
+	const { listeRechnungen } = await import('../lexware/rechnungen');
+	const alle = (await listeRechnungen(k, { preise: true })).filter((r) => r.crm && nur(r.status, !!r.gesendetAm));
+	const nr = /\b([A-Z]{1,4}-?\d{3,})\b/i.exec(gesprochen);
+	const q = normal(ohneAnrede(gesprochen));
+	const treffer = nr
+		? alle.filter((r) => (r.nummer ?? '').toLowerCase().replace('-', '') === nr[1].toLowerCase().replace('-', ''))
+		: alle.filter((r) => woerter(q).length > 0 && woerter(q).every((w) => normal(`${r.kunde?.name ?? ''} ${r.auftrag?.titel ?? ''} ${r.auftrag?.nummer ?? ''} ${r.nummer ?? ''}`).includes(w)));
+	bau.werte.rechnungId = null;
+	const label = (r: (typeof alle)[number]) => `${r.nummer ?? 'Rechnung'} · ${r.kunde?.name ?? ''}${r.offenCent !== null ? ` · offen ${euroText(r.offenCent)}` : ''}`;
+	if (treffer.length === 1) {
+		bau.werte.rechnungId = treffer[0].id;
+		bau.zeilen.push({ label: 'Rechnung', wert: label(treffer[0]) });
+	} else if (treffer.length > 1) {
+		bau.auswahl.push({ feld: 'rechnung', frage: 'Welche Rechnung?', optionen: treffer.slice(0, 8).map((r) => ({ id: r.id, label: label(r) })) });
+		bau.zeilen.push({ label: 'Rechnung', wert: 'bitte wählen' });
+	} else bau.fehlt.push(`${keinText} „${gesprochen}“ gefunden.`);
+	return bau;
+}
+const OFFEN = (s: string) => s === 'offen' || s === 'teilbezahlt' || s === 'ueberfaellig';
+
 /** Gesprochene Quelle → aktive Quelle des Betriebs (genau, sonst Anfang des Namens); keine → Hinweis. */
 async function quelleAufloesen(bau: Bau, k: Kontext, gesprochen: string): Promise<void> {
 	const { listeQuellen } = await import('../quellen');
@@ -1036,7 +1083,12 @@ const TITEL: Record<AktionsName, string> = {
 	abfrage_mailversand: 'E-Mail-Versand',
 	angebot_versenden: 'Angebot versenden',
 	neue_angebotsversion: 'Neue Angebotsversion',
-	terminvorschlaege_setzen: 'Terminvorschläge'
+	terminvorschlaege_setzen: 'Terminvorschläge',
+	rechnung_erstellen: 'Rechnung erstellen',
+	rechnung_senden: 'Rechnung senden',
+	mahnung_pausieren: 'Mahnungen pausieren',
+	abfrage_offene_rechnungen: 'Offene Rechnungen',
+	abfrage_zahlstatus: 'Zahlungsstand'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -1076,6 +1128,11 @@ function aendernLink(aktion: KiAktion, werte: Record<string, any>): string {
 		case 'neue_angebotsversion':
 		case 'terminvorschlaege_setzen':
 			return werte.angebotId ? `/angebote/${werte.angebotId}` : '/ausgangsbelege/angebote';
+		case 'rechnung_erstellen':
+			return werte.auftragId ? `/auftraege/${werte.auftragId}#ausgangsbelege` : '/auftraege';
+		case 'rechnung_senden':
+		case 'mahnung_pausieren':
+			return werte.rechnungId ? `/rechnungen/${werte.rechnungId}` : '/ausgangsbelege/rechnungen';
 		case 'dienst_anlegen':
 			return '/einstellungen/online-buchung';
 		case 'leitfaden_eingabe':
@@ -1091,7 +1148,7 @@ export async function loeseAuf(
 	nutzer: Nutzer,
 	aktion: Exclude<
 		KiAktion,
-		{ aktion: 'unbekannt' | 'mehrere_schritte' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' | 'leitfaden_oeffnen' | 'abfrage_leitfaden' | 'abfrage_lexware' | 'lexware_abgleich_starten' | 'abfrage_kunde_lexware' | 'abfrage_mailversand' }
+		{ aktion: 'unbekannt' | 'mehrere_schritte' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' | 'leitfaden_oeffnen' | 'abfrage_leitfaden' | 'abfrage_lexware' | 'lexware_abgleich_starten' | 'abfrage_kunde_lexware' | 'abfrage_mailversand' | 'abfrage_offene_rechnungen' | 'abfrage_zahlstatus' }
 	>,
 	jetzt: Date
 ): Promise<Vorschau> {
@@ -1160,6 +1217,20 @@ export async function loeseAuf(
 			case 'terminvorschlaege_setzen':
 				bau = await terminvorschlaegeSetzen(k, nutzer, aktion.daten);
 				break;
+			case 'rechnung_erstellen':
+				bau = await rechnungErstellenBau(k, nutzer, aktion.daten);
+				break;
+			case 'rechnung_senden':
+				bau = await rechnungFinden(k, aktion.daten.rechnung, (st, gesendet) => OFFEN(st) && !gesendet, 'Keine festgeschriebene, noch nicht gesendete Rechnung zu');
+				bau.warnungen.push('Die Mail mit dem Rechnungs-PDF aus Lexware geht über das CRM-Postfach an den Kunden.');
+				break;
+			case 'mahnung_pausieren': {
+				bau = await rechnungFinden(k, aktion.daten.rechnung, (st) => OFFEN(st), 'Keine offene Rechnung zu');
+				const bis = aktion.daten.bis && /^\d{4}-\d{2}-\d{2}$/.test(aktion.daten.bis) ? aktion.daten.bis : '';
+				bau.werte.bis = bis;
+				bau.zeilen.push({ label: 'Mahnungen', wert: bis ? `pausiert bis ${tagDeutschKurz(bis)}` : 'Pause aufheben' });
+				break;
+			}
 			case 'vorlage_anwenden':
 				bau = await vorlageAnwenden(k, nutzer, aktion.daten);
 				break;

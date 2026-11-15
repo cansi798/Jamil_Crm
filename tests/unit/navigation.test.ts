@@ -20,13 +20,15 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 			Anfrage: ['Auftragsquellen', 'Terminarten', 'Online-Buchung', 'Leitfaden beim Termin'],
 			Angebot: ['Katalog', 'Kalkulation', 'Nachfassen'],
 			Auftrag: ['Kundenportal & Auftragsbestätigung'],
+			// Lexware Phase 3: Mahnstufen für Rechnungen (Recht mahnungen.verwalten, Modul lexware)
+			'Abschluss & danach': ['Mahnungen'],
 			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll- & Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
 			'Team & Partner': ['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner'],
 			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen'],
 			Allgemein: ['Funktionen & Automatisierungen', 'Briefkopf / Firmenprofil', 'E-Mail-Versand', 'Lexware verbinden', 'Erinnerungen', 'Handy verbinden'],
 			Benutzeradministration: ['Benutzer', 'Nextcloud', 'Rollen']
 		});
-		expect(nav.gruppen.map((g) => g.titel).slice(0, 4)).toEqual(['Anfrage', 'Angebot', 'Auftrag', 'Vorlagen']);
+		expect(nav.gruppen.map((g) => g.titel).slice(0, 5)).toEqual(['Anfrage', 'Angebot', 'Auftrag', 'Abschluss & danach', 'Vorlagen']);
 		expect(namen(nav.mehr)).not.toContain('Leistungen für Bestandskunden');
 		expect(nav.mehr).toEqual(nav.gruppen.flatMap((g) => g.eintraege));
 		expect(nav.haupt[1]).toMatchObject({ href: '/kunden' });

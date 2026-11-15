@@ -280,6 +280,24 @@
 				{/each}
 			</ul>
 		</section>
+	{:else if id === 'rechnungen' && data.rechnungen}
+		<section class="heute-karte" aria-labelledby="st-re" data-testid="kachel-rechnungen">
+			<div class="plan-kopf">
+				<h2 id="st-re">Offene Rechnungen</h2>
+				<a href="/ausgangsbelege/rechnungen?status=offen" class="zeit-link">{euro(data.rechnungen.offenCent)}</a>
+			</div>
+			<ul class="plan-liste">
+				{#each data.rechnungen.liste as r (r.id)}
+					<li class:ueberfaellig={r.status === 'ueberfaellig'}>
+						<span class="plan-zeit">{r.status === 'ueberfaellig' ? 'überfällig' : 'fällig'} {r.faellig ? tagDeutsch(r.faellig) : ''}</span>
+						<span class="plan-was"><a href={r.crm ? `/rechnungen/${r.id}` : '/ausgangsbelege/rechnungen'}>{r.nummer ?? 'Rechnung'} · {r.kunde?.name ?? ''}</a><small>{r.offenCent !== null ? `offen ${euro(r.offenCent)}` : ''}</small></span>
+					</li>
+				{:else}
+					<li class="leise">Keine offenen Rechnungen.</li>
+				{/each}
+			</ul>
+			{#if data.rechnungen.ueberfaellig > 0}<p class="kd-info">{data.rechnungen.ueberfaellig} überfällig: {euro(data.rechnungen.ueberfaelligCent)}</p>{/if}
+		</section>
 	{:else if id === 'nachweise' && data.nachweise}
 		<section class="heute-karte" aria-labelledby="st-nw">
 			<div class="plan-kopf">

@@ -27,7 +27,9 @@ export function erlaubteKacheln(nutzer: Nutzer, module: readonly string[]): Set<
 		for (const id of KENNZAHL_IDS) if (!KENNZAHLEN[id].preis || mitPreisen) e.add(kennzahlKachelId(id));
 		if (module.includes('plantafel')) e.add('buchungen');
 	}
-	if (hatRecht(nutzer, 'partner.verwalten')) e.add('nachweise'); // Modul „auftraege“ ist oben schon geprüft
+	if (hatRecht(nutzer, 'partner.verwalten')) e.add('nachweise');
+	// Offene Rechnungen (Lexware Phase 3): Beträge → nur mit „Preise sehen“, Monteur nie
+	if (module.includes('lexware') && preise && hatRecht(nutzer, 'rechnungen.sehen')) e.add('rechnungen'); // Modul „auftraege“ ist oben schon geprüft
 	return e;
 }
 

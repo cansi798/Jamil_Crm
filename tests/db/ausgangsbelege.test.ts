@@ -110,7 +110,7 @@ describe('Ausgangsbelege', () => {
 			expect(await fehler(() => reLoad({ locals: { nutzer: n }, url: new URL('http://t/ausgangsbelege/rechnungen') } as never))).toMatchObject({ status: 403 });
 		}
 		// Rechnungen: gleicher Rahmen wie die anderen Reiter (Zeitraum, Kacheln an/aus), aber keine Daten
-		expect(await reLoad({ locals: { nutzer: u.chefA }, url: new URL('http://t/ausgangsbelege/rechnungen?zeitraum=jahr') } as never)).toEqual({ zeitraum: 'jahr', kennzahlenAn: expect.any(Boolean) });
+		expect(await reLoad({ locals: { nutzer: u.chefA }, url: new URL('http://t/ausgangsbelege/rechnungen?zeitraum=jahr') } as never)).toMatchObject({ zeitraum: 'jahr', status: null, rechnungen: [] }); // Lexware Phase 3: Liste aus Lexware
 		const a = (await angLoad({ locals: { nutzer: u.chefA }, url: new URL('http://t/ausgangsbelege/angebote') } as never)) as { angebote: unknown[] };
 		expect(a.angebote.length).toBe(3);
 		// Suche auch bei Angeboten (Jamil msg 3056) – gleicher Parameter wie bei den ABs
