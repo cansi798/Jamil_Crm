@@ -53,6 +53,8 @@ export type Attrappe = {
 	abos: { subscriptionId: string; organizationId: string; createdDate: string; eventType: string; callbackUrl: string }[];
 	profil: Record<string, unknown>;
 	stoerung: (...s: Stoerung[]) => void;
+	/** Alle noch offenen Störungen verwerfen */
+	ruhe: () => void;
 	zuruecksetzen: () => void;
 	stop: () => Promise<void>;
 };
@@ -94,6 +96,7 @@ export async function starteAttrappe(): Promise<Attrappe> {
 		profil: {},
 		stoerungen: [],
 		stoerung: (...s) => void a.stoerungen.push(...s),
+		ruhe: () => void (a.stoerungen.length = 0),
 		zuruecksetzen: () => {
 			a.anfragen.length = 0;
 			a.kontakte.clear();
