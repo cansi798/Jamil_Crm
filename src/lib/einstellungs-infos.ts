@@ -400,6 +400,42 @@ export const INFOS: Record<string, Info> = {
 		standard: 'Neue Benutzer kommen per Einladung.',
 		beispiel: 'Neue Mitarbeiterin einladen und die Rolle „Büro“ geben.'
 	},
+	// ——— E-Mail-Versand (Plan Lexware Phase 1, Jamil Talk #6093: Postfach kommt noch) ———
+	'mail.seite': {
+		titel: 'E-Mail-Versand',
+		was: 'Legt fest, über welches Postfach das CRM Mails verschickt: Angebote, Auftragsbestätigungen, Terminbestätigungen, Protokolle und später Rechnungen und Mahnungen (Lexware selbst kann keine Mails senden).',
+		wirkt: 'Alle Mails Ihrer Firma, die das CRM verschickt.',
+		standard: 'Kein Postfach, kein Versand: Das CRM bereitet Mails nur vor und legt eine Aufgabe „bereit zum Versand“ an.',
+		beispiel: 'Sie tragen das IONOS-Postfach buero@ihre-firma.de ein, senden eine Testmail und schalten dann den Versand ein.'
+	},
+	'mail.postfach': {
+		titel: 'Postfach (SMTP)',
+		was: 'Server, Port, Anmeldung und Absender Ihres Postfachs. Das Passwort wird verschlüsselt gespeichert und nie wieder angezeigt.',
+		wirkt: 'Den Absender aller Mails aus dem CRM.',
+		standard: 'Leer; Port 587 mit STARTTLS.',
+		beispiel: 'IONOS: smtp.ionos.de, Port 587, STARTTLS, Benutzer = Ihre Mailadresse. Für gute Zustellung SPF, DKIM und DMARC der Domain einrichten lassen.'
+	},
+	'mail.bcc': {
+		titel: 'Kopie an (BCC)',
+		was: 'Jede Mail aus dem CRM geht zusätzlich als Blindkopie an diese Adresse.',
+		wirkt: 'Alle Mails aus dem CRM.',
+		standard: 'Leer (keine Kopie).',
+		beispiel: 'kopie@ihre-firma.de – so liegt jede versendete Rechnung auch in Ihrem eigenen Postfach.'
+	},
+	'mail.aktiv': {
+		titel: 'Mails versenden',
+		was: 'An: Mails gehen direkt über das Postfach hinaus. Aus: Das CRM bereitet sie nur vor (Aufgabe mit fertigem Text und PDF).',
+		wirkt: 'Alle Mails Ihrer Firma aus dem CRM.',
+		standard: 'Aus.',
+		beispiel: 'Erst Testmail senden, dann einschalten. In der Vorschau (Testmodus) gehen nie echte Mails hinaus.'
+	},
+	'mail.protokoll': {
+		titel: 'Versandprotokoll',
+		was: 'Zeigt jede Mail des CRM: an wen, was, wann und ob sie angekommen ist bzw. welcher Fehler kam. Anhänge werden mit Prüfsumme vermerkt.',
+		wirkt: 'Nur die Anzeige; Einträge bleiben als Geschäftsbriefe 6 Jahre.',
+		standard: 'Die letzten 50 Mails.',
+		beispiel: '„Fehler: 535 Authentication failed“ heißt: Benutzername oder Passwort des Postfachs stimmen nicht.'
+	},
 	'nextcloud.seite': {
 		titel: 'Nextcloud-Anbindung',
 		was: 'Verbindet das CRM mit Ihrer Nextcloud (Anmeldung, Kalender, Kontakte, Dateien).',

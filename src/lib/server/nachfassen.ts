@@ -41,22 +41,8 @@ export {
  * Nachfass-Aufgaben werden erledigt. Versenden kann später eine Anbindung (`MailVersand`); bis dahin „Kopieren“/mailto.
  */
 
-/** Versand-Schnittstelle für später (Jamil 2589: Anbindung offen). Heute gibt es nur „nicht verbunden“. */
-export interface MailVersand {
-	readonly verbunden: boolean;
-	senden(mail: { an: string; betreff: string; html: string; text: string; anhaenge?: { name: string; typ: string; bytes: Uint8Array }[] }): Promise<void>;
-}
-export const KEIN_VERSAND: MailVersand = {
-	verbunden: false,
-	async senden() {
-		throw new ApiFehler(409, 'Der Mailversand ist noch nicht angebunden – bitte „In Mailprogramm öffnen“ nutzen.');
-	}
-};
-export let mailVersand: MailVersand = KEIN_VERSAND;
-/** Anbindung setzen (später echte Anbindung; in Tests eine Attrappe). */
-export function setzeMailVersand(v: MailVersand | null): void {
-	mailVersand = v ?? KEIN_VERSAND;
-}
+/** Versand-Schnittstelle: liegt jetzt in `mail/versand.ts` (SMTP je Betrieb, Plan Lexware Phase 1); hier nur weitergereicht. */
+export { KEIN_VERSAND, setzeMailVersand, mailVersandFuer, type MailVersand } from './mail/versand';
 
 export type NachfassStufe = {
 	id: string;

@@ -2,7 +2,7 @@ import { mitBetriebOeffentlich, OEFFENTLICH, systemAbfrage, type TransactionSql 
 import { ApiFehler } from './fehler';
 import { pruefeBild } from './bildpruefung';
 import { sendePush, type PushNachricht } from './erinnerungen';
-import { mailVersand } from './nachfassen';
+import { mailVersandFuer, sendeMail } from './mail/versand';
 import { baueMail, holeSignatur, mailWerte, vorlageFuer } from './mail-vorlagen';
 import { ONLINE_QUELLE, startlisteFallsLeer, uebersprungeneSchritte } from './quellen';
 import { startStatus } from '../auftrag-board';
@@ -355,6 +355,7 @@ export async function bucheTermin(token: unknown, e: Buchungseingabe, o: { jetzt
 		if (!info) throw new ApiFehler(400, 'Bitte nur Fotos als JPEG oder PNG hochladen.');
 		return { ...f, typ: info.typ };
 	});
+	const versand = await mailVersandFuer(k.betriebId);
 	const { ergebnis, hinweise, mail } = await (async () => {
 		try {
 			return await mitBetriebOeffentlich(k.betriebId, async (tx) => {
@@ -426,7 +427,7 @@ export async function bucheTermin(token: unknown, e: Buchungseingabe, o: { jetzt
 				const betrieb = await betriebsanzeige(tx, k.betriebId, l.dienst.farbe);
 				// Terminbestätigung aus der Vorlage des Dienstes bzw. dem Standard (Bibliothek, Jamil msg 2789)
 				let fertig: { betreff: string; html: string; text: string } | null = null;
-				if (mailVersand.verbunden && o.basisUrl) {
+				if (versand.verbunden && o.basisUrl) {
 					const kx = { betriebId: k.betriebId, benutzerId: OEFFENTLICH };
 					const [d] = await tx`select mail_vorlage_id from app.buchung_dienste where id = ${l.dienst.id} and betrieb_id = ${k.betriebId}`;
 					const { werte } = await mailWerte(tx, kx, { kundeId: kunde.id, auftragId: auftrag.id }, { preise: false });
@@ -447,10 +448,12 @@ export async function bucheTermin(token: unknown, e: Buchungseingabe, o: { jetzt
 	})();
 	sendeHinweise(k.betriebId, hinweise);
 	// Bestätigung per E-Mail, sobald der Mailversand angebunden ist (Jamil 2589); bis dahin Bestätigung am Bildschirm + .ics
-	if (mailVersand.verbunden && mail.fertig) {
-		void mailVersand
-			.senden({ an: mail.an, betreff: mail.fertig.betreff, text: mail.fertig.text, html: mail.fertig.html })
-			.catch((err) => console.error('Bestätigung per E-Mail:', err));
+	if (versand.verbunden && mail.fertig) {
+		void sendeMail(
+			{ betriebId: k.betriebId, benutzerId: OEFFENTLICH },
+			{ an: mail.an, betreff: mail.fertig.betreff, text: mail.fertig.text, html: mail.fertig.html },
+			{ art: 'buchung', bezugTyp: 'buchung', bezugId: mail.buchungId, versand }
+		).catch((err) => console.error('Bestätigung per E-Mail:', err));
 	}
 	return ergebnis;
 }

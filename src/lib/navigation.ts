@@ -137,6 +137,10 @@ export function baueNavigation(nutzer: NavNutzer, module: readonly string[], ext
 		if (hat('einstellungen')) g.allgemein.push({ name: 'Funktionen & Automatisierungen', href: '/einstellungen/funktionen', symbol: 'angebote' });
 		// Briefkopf und Logo (für Angebote): Betriebsdaten, ohne Modulbindung
 		if (hat('einstellungen')) g.allgemein.push({ name: 'Briefkopf / Firmenprofil', href: '/einstellungen/briefkopf', symbol: 'briefkopf' });
+		// Postfach für den Mailversand des CRM (Plan Lexware Phase 1): Angebote, AB, Rechnungen gehen aus dem CRM hinaus
+		if (hat('einstellungen')) g.allgemein.push({ name: 'E-Mail-Versand', href: '/einstellungen/mail', symbol: 'briefkopf' });
+		// Lexware Office (Tarif XL) als Belegsystem: Schlüssel, Rückmeldungen, Kunden-Abgleich
+		if (hat('einstellungen') && module.includes('lexware')) g.allgemein.push({ name: 'Lexware verbinden', href: '/einstellungen/lexware', symbol: 'angebote' });
 		if (hat('erinnerungen.nutzen')) g.allgemein.push({ name: 'Erinnerungen', href: '/konto/benachrichtigungen', symbol: 'todos' });
 		// Handy-Abgleich der eigenen Aufgaben per CalDAV (Jamil msgs 2964/2980): wer Aufgaben sieht
 		if (auftraegeLesen) g.allgemein.push({ name: 'Handy verbinden', href: '/konto/handy', symbol: 'todos' });

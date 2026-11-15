@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 		const inhalt = typeof prot.inhalt === 'string' ? JSON.parse(prot.inhalt) : prot.inhalt;
 		const [{ unterschrift } = { unterschrift: null }] = await mitBetrieb(k, (tx) => tx`
 			select unterschrift from app.baustellen_protokolle where id = ${params.id}`);
-		await sendeProtokollEmail({
+		await sendeProtokollEmail(k, {
 			profil,
 			logo,
 			protokoll: {
@@ -48,7 +48,7 @@ export const POST: RequestHandler = async ({ locals, params }) => {
 				inhalt
 			},
 			unterschrift: unterschrift ? Buffer.from(unterschrift) : null
-		}, auftrag.kundeEmail);
+		}, auftrag.kundeEmail, params.id);
 		return json({ ok: true, empfaenger: auftrag.kundeEmail });
 	} catch (e) {
 		return alsAntwort(e);

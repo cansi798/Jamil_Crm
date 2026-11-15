@@ -23,7 +23,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll- & Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
 			'Team & Partner': ['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner'],
 			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen'],
-			Allgemein: ['Funktionen & Automatisierungen', 'Briefkopf / Firmenprofil', 'Erinnerungen', 'Handy verbinden'],
+			Allgemein: ['Funktionen & Automatisierungen', 'Briefkopf / Firmenprofil', 'E-Mail-Versand', 'Lexware verbinden', 'Erinnerungen', 'Handy verbinden'],
 			Benutzeradministration: ['Benutzer', 'Nextcloud', 'Rollen']
 		});
 		expect(nav.gruppen.map((g) => g.titel).slice(0, 4)).toEqual(['Anfrage', 'Angebot', 'Auftrag', 'Vorlagen']);

@@ -4,7 +4,7 @@ import { suchMuster } from '../ausgangsbelege';
 import { ladePdfDaten } from './angebote';
 import { holeLogo, holeProfil } from './betriebsprofil';
 import { angebotPdf } from './pdf/angebot-pdf';
-import { mailVersand } from './nachfassen';
+import { mailVersandFuer, sendeMail } from './mail/versand';
 import { baueMail, holeSignatur, mailWerte, vorlageFuer } from './mail-vorlagen';
 import { UUID } from './kunden';
 import { sichtbar, type Sicht } from './auftraege';
@@ -15,7 +15,7 @@ import type { AngebotAngenommen } from './ereignisse';
  * Auftragsbestätigung (Jamil msg 2778): Sobald ein Angebot „angenommen“ ist – egal ob im Kundenportal, von Hand im
  * Büro oder per Sprache –, entsteht automatisch ein PDF aus den Angebotsdaten mit Titel „Auftragsbestätigung“ und
  * eigener Nummer (AB-JJJJ-NNNN), gespeichert am Auftrag und sofort im Kundenportal sichtbar. Versand über die
- * Mail-Schnittstelle (`mailVersand`); solange keine angebunden ist, steht sie „bereit zum Versand“ – mit Aufgabe und
+ * Mail-Schnittstelle (`mailVersandFuer`, Postfach des Betriebs); solange keine angebunden ist, steht sie „bereit zum Versand“ – mit Aufgabe und
  * Glocke für den Zuständigen und den Knöpfen „PDF herunterladen“ / „In Mailprogramm öffnen“.
  * Schalter „Auftragsbestätigung automatisch“: je Betrieb (Kundenportal-Einstellungen), je Auftrag überschreibbar.
  */
@@ -129,10 +129,18 @@ export async function beiAngebotAngenommen(e: AngebotAngenommen): Promise<string
 			insert into app.auftragsbestaetigungen (betrieb_id, angebot_id, auftrag_id, nummer, pdf, mail_an, mail_betreff, mail_text, ausloeser)
 			values (${k.betriebId}, ${e.angebotId}, ${e.auftragId}, ${nummer}, ${Buffer.from(pdf)}, ${kd?.email ?? null}, ${betreff}, ${text}, ${e.quelle})
 			returning id`;
-		if (mailVersand.verbunden && kd?.email) {
-			await mailVersand.senden({ an: kd.email, betreff, html: mail.html, text, anhaenge: [{ name: `${nummer}.pdf`, typ: 'application/pdf', bytes: pdf }] });
-			await tx`update app.auftragsbestaetigungen set versand_status = 'gesendet', versendet_am = now() where id = ${ab.id} and betrieb_id = ${k.betriebId}`;
-			return `Auftragsbestätigung ${nummer} erstellt und an ${kd.email} gesendet.`;
+		const versand = await mailVersandFuer(k.betriebId);
+		if (versand.verbunden && kd?.email) {
+			const r = await sendeMail(
+				k,
+				{ an: kd.email, betreff, html: mail.html, text, anhaenge: [{ name: `${nummer}.pdf`, typ: 'application/pdf', bytes: pdf }] },
+				{ art: 'ab', bezugTyp: 'auftragsbestaetigung', bezugId: ab.id, versand }
+			).catch((err: Error) => ({ status: 'fehler' as const, fehler: err.message }));
+			if (r.status === 'gesendet') {
+				await tx`update app.auftragsbestaetigungen set versand_status = 'gesendet', versendet_am = now() where id = ${ab.id} and betrieb_id = ${k.betriebId}`;
+				return `Auftragsbestätigung ${nummer} erstellt und an ${kd.email} gesendet.`;
+			}
+			// Versand fehlgeschlagen (steht im Versandprotokoll): wie ohne Mailversand – Aufgabe + Glocke
 		}
 		// Noch kein Mailversand: Aufgabe + Glocke für den Zuständigen
 		const wer = await zustaendig(tx, k, e.benutzerId, e.auftragId);
