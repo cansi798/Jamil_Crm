@@ -479,6 +479,11 @@ export async function vorschlagAusText(locals: { nutzer: Nutzer | null }, text: 
 		const { beantworteLeitfadenStand } = await import('./leitfaden');
 		return { text, vorschlag: null, karte: await beantworteLeitfadenStand(k, nutzer, aktion.daten.auftrag) };
 	}
+	// Lexware und Mailversand (Plan Lexware Phase 1) – Fragen bzw. Abgleich einstellen, ohne Rückfrage
+	if (aktion.aktion === 'abfrage_lexware' || aktion.aktion === 'lexware_abgleich_starten' || aktion.aktion === 'abfrage_kunde_lexware' || aktion.aktion === 'abfrage_mailversand') {
+		const { beantworteLexware } = await import('./lexware');
+		return { text, vorschlag: null, karte: await beantworteLexware(k, aktion) };
+	}
 	if (aktion.aktion === 'kalender_zeigen') {
 		return { text, vorschlag: null, karte: await beantworteKalender(k, nutzer, aktion.daten, jetzt) };
 	}

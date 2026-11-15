@@ -42,6 +42,18 @@ export type Funktion = {
 
 export const FUNKTIONEN: Funktion[] = [
 	{
+		id: 'lexware_abgleich',
+		schritt: 'abschluss',
+		name: 'Abgleich mit Lexware',
+		was: 'Das CRM holt jede Nacht die Belege aus Lexware (Angebote, Auftragsbestätigungen, Rechnungen, Gutschriften) und verknüpft Kunden mit Lexware-Kontakten; im CRM geänderte Kunden zieht es in Lexware nach. Rückmeldungen von Lexware (z. B. Zahlung eingegangen) kommen sofort an. Was nicht klappt, wartet und wird wiederholt – doppelte Belege entstehen nicht.',
+		wann: 'Nachts ab 2 Uhr, bei jeder Rückmeldung von Lexware und auf Knopfdruck bzw. per Sprache.',
+		href: '/einstellungen/lexware',
+		info: 'lexware.abgleich',
+		zustand: 'keiner',
+		modul: 'lexware',
+		recht: 'einstellungen'
+	},
+	{
 		id: 'leitfaden',
 		schritt: 'anfrage',
 		name: 'Leitfaden beim Termin',

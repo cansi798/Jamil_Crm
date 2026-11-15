@@ -41,12 +41,18 @@ export const AKTIONEN = [
 	'vorlage_anwenden',
 	'leitfaden_oeffnen',
 	'abfrage_leitfaden',
-	'leitfaden_eingabe'
+	'leitfaden_eingabe',
+	'abfrage_lexware',
+	'lexware_abgleich_starten',
+	'abfrage_kunde_lexware',
+	'abfrage_mailversand'
 ] as const;
 
 /** Nur lesend (Frage) – keine Bestätigung, kein Vorschlag (Wunsch Jamil msg 2647). */
 export const NUR_LESEN = ['abfrage_tagesplan', 'route_heute', 'abfrage_auslastung', 'abfrage_monatsgewinn', 'abfrage_nachfassen', 'kalender_zeigen', 'buchungslink_zeigen',
-	'abfrage_nachkalkulation', 'abfrage_verlust', 'portallink_zeigen', 'leitfaden_oeffnen', 'abfrage_leitfaden'] as const;
+	'abfrage_nachkalkulation', 'abfrage_verlust', 'portallink_zeigen', 'leitfaden_oeffnen', 'abfrage_leitfaden',
+	// Lexware/Mail (Plan Lexware Phase 1): Fragen; „Abgleich starten“ stellt nur einen Abgleich ein (harmlos, wiederholbar)
+	'abfrage_lexware', 'lexware_abgleich_starten', 'abfrage_kunde_lexware', 'abfrage_mailversand'] as const;
 
 export type AktionsName = (typeof AKTIONEN)[number];
 export type WerkzeugName = AktionsName | 'unbekannt' | 'mehrere_schritte';
@@ -200,6 +206,10 @@ export type KiAktion =
 	| { aktion: 'leitfaden_oeffnen'; daten: { kunde?: string } }
 	| { aktion: 'abfrage_leitfaden'; daten: { auftrag: string } }
 	| { aktion: 'leitfaden_eingabe'; daten: { kunde?: string; email?: string; telefon?: string; bevorzugter_kontakt?: 'email' | 'chat' | 'telefon'; notiz?: string } }
+	| { aktion: 'abfrage_lexware'; daten: Record<string, never> }
+	| { aktion: 'lexware_abgleich_starten'; daten: Record<string, never> }
+	| { aktion: 'abfrage_kunde_lexware'; daten: { kunde: string } }
+	| { aktion: 'abfrage_mailversand'; daten: Record<string, never> }
 	| { aktion: 'unbekannt'; daten: Record<string, never> }
 	| { aktion: 'mehrere_schritte'; daten: { schritte: SchrittAktion[] } };
 
@@ -475,6 +485,15 @@ export const AKTIONS_SCHEMAS: Record<WerkzeugName, Schema> = {
 		additionalProperties: false
 	},
 	abfrage_nachfassen: { type: 'object', properties: {}, additionalProperties: false },
+	abfrage_lexware: { type: 'object', properties: {}, additionalProperties: false },
+	lexware_abgleich_starten: { type: 'object', properties: {}, additionalProperties: false },
+	abfrage_kunde_lexware: {
+		type: 'object',
+		properties: { kunde: text(100, 'Kunde wie gesprochen (Name oder Firma)') },
+		required: ['kunde'],
+		additionalProperties: false
+	},
+	abfrage_mailversand: { type: 'object', properties: {}, additionalProperties: false },
 	kalender_zeigen: {
 		type: 'object',
 		properties: {
@@ -622,6 +641,10 @@ const BESCHREIBUNGEN: Record<WerkzeugName, string> = {
 		'Protokoll zu einem Auftrag: eine Protokoll-Vorlage starten („Protokoll Abdichtung für Auftrag Müller starten“ → vorlage) oder ein Baustellen-Protokoll (Abnahme, Regiebericht, Aufmaß, Mängelliste) ausfüllen (typ).',
 	mehrere_schritte:
 		'Befehl mit MEHREREN Schritten in einem Satz („Leg Kunde Müller an, mach einen Auftrag Badsanierung und plan Murat für Montag ein“): alle Schritte als Liste in der gesprochenen Reihenfolge (höchstens 8).',
+	abfrage_lexware: 'Frage beantworten, ob Lexware verbunden ist und ob etwas hängt (Warteschlange, Fehler, Schlüssel läuft ab) („Ist Lexware verbunden?“, „Hängt etwas bei Lexware?“).',
+	lexware_abgleich_starten: 'Abgleich mit Lexware starten: Kunden und Belege jetzt abgleichen („Lexware-Abgleich starten“, „Gleiche mit Lexware ab“).',
+	abfrage_kunde_lexware: 'Frage beantworten, ob ein Kunde schon in Lexware angelegt bzw. verknüpft ist („Ist Kunde Müller in Lexware?“).',
+	abfrage_mailversand: 'Frage beantworten, ob der Mailversand eingerichtet ist und ob es Mailfehler gab („Ist der Mailversand eingerichtet?“, „Gab es Mailfehler?“).',
 	unbekannt: 'Für alles, was keine der anderen Aktionen ist (z. B. andere Fragen, Rechnungen, Löschen).'
 };
 

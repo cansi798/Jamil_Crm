@@ -1,6 +1,7 @@
 import { ApiFehler } from '../fehler';
 import { angeboteZugriff } from '../angebote';
 import { darf, darfEines, pruefeModul } from '../tarif';
+import { pruefeRecht } from '../rechte';
 import type { AktionsName } from './aktionen';
 
 /**
@@ -69,6 +70,14 @@ export async function pruefeAktionsRechte(
 		case 'route_heute':
 		case 'abfrage_nachfassen':
 			return darfEines(locals, 'auftraege', ['auftraege.bearbeiten', 'auftraege.lesen', 'auftraege.alle_lesen']);
+		// Lexware/Mail (Plan Lexware Phase 1): wie die Einstellungsseiten; „Kunde in Lexware?“ wie die Kundenakte
+		case 'abfrage_lexware':
+		case 'lexware_abgleich_starten':
+			return darf(locals, 'lexware', 'einstellungen');
+		case 'abfrage_kunde_lexware':
+			return darf(locals, 'lexware', 'kunden.lesen');
+		case 'abfrage_mailversand':
+			return pruefeRecht(locals, 'einstellungen');
 		case 'anlage_anlegen':
 			return darf(locals, 'kunden', 'kunden.bearbeiten');
 		case 'abfrage_auslastung':

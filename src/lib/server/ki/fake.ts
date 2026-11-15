@@ -388,6 +388,14 @@ export function deute(text: string, kontext: KiKontext, einzeln = false): { akti
 		const m = re.exec(t);
 		return m ? sauber(m[1]).replace(/^(?:dem|den|der|die|das|auftrag|kunde|kunden|bei|für|fuer)\s+/gi, '').replace(/[?.!]+$/, '') : '';
 	};
+	// Lexware und Mailversand (Plan Lexware Phase 1)
+	if (/\blexware\b/.test(l)) {
+		const kd = /\b(?:ist|sind|steht|gibt\s+es)\s+(?:der\s+|die\s+|den\s+)?(?:kunden?|kundin|firma)?\s*(.+?)\s+(?:schon\s+|bereits\s+|auch\s+)?(?:in|bei)\s+lexware\b/i.exec(t);
+		if (kd && !/^(?:lexware|etwas|was|alles)$/i.test(kd[1].trim())) return { aktion: 'abfrage_kunde_lexware', daten: { kunde: sauber(kd[1]) } };
+		if (/\b(abgleich\w*|gleiche?\b.*\bab|synchronisier\w*|abgleichen)\b/.test(l)) return { aktion: 'lexware_abgleich_starten', daten: {} };
+		return { aktion: 'abfrage_lexware', daten: {} };
+	}
+	if (/\b(mail-?versand|mailfehler|mail-?postfach|e-mail-versand)\b|\bmails?\b.*\b(fehler|eingerichtet|angekommen)\b/.test(l)) return { aktion: 'abfrage_mailversand', daten: {} };
 	// Leitfaden beim Termin (Jamil msg 4353): Stand, Eingaben, öffnen
 	const lf = leitfadenBefehl(t, l);
 	if (lf) return lf;

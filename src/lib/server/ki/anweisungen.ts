@@ -47,6 +47,8 @@ export function systemAktion(k: KiKontext): string {
 		'  abfrage_tagesplan (wer leer = ich; zeitraum heute|morgen|woche|datum; nur_ueberfaellig=true bei überfällig).',
 		'- „Wie lief der Auftrag Müller?“, „Nachkalkulation Müller“: abfrage_nachkalkulation; „Welche Aufträge machen Verlust?“: abfrage_verlust.',
 		'- „Kundenportal für Müller“, „Portal-Link Müller“: portallink_zeigen.',
+		'- Lexware: „Ist Lexware verbunden?“, „Hängt etwas bei Lexware?“: abfrage_lexware; „Lexware-Abgleich starten“: lexware_abgleich_starten; „Ist Kunde Müller in Lexware?“: abfrage_kunde_lexware (kunde).',
+		'- „Ist der Mailversand eingerichtet?“, „Gab es Mailfehler?“: abfrage_mailversand.',
 		'- Leitfaden beim Termin: „Leitfaden starten“, „Leitfaden fortsetzen für Demir“: leitfaden_oeffnen (kunde nur wenn genannt);',
 		'  „Wie weit ist der Leitfaden bei Demir?“: abfrage_leitfaden; „Im Leitfaden: E-Mail ist max@…, bevorzugt per WhatsApp“, „E-Mail ist …“ ohne „neuer Kunde“: leitfaden_eingabe.',
 		'- „Angebot Müller ist angenommen“, „Kunde Schmidt hat das Angebot abgelehnt“: angebot_entscheidung (status angenommen|abgelehnt).',

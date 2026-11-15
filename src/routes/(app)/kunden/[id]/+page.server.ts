@@ -26,6 +26,9 @@ import {
 import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachfassen';
 import { erzeugeLink, KUNDEN_PORTAL_FELDER, kundenPortal, ladeKundeAb, portalPasswort, portalZugriff, speichereKundeAb, speichereKundenPortal, widerrufeLink } from '$lib/server/kundenportal';
 import { mailVorbereitung } from '$lib/server/mail-vorlagen';
+import { ladeLexwareKonfig } from '$lib/server/lexware/konfig';
+import { kundeLexwareStand, kundeNachLexware, setze13b } from '$lib/server/lexware/kontakte';
+import { mitBetrieb } from '$lib/server/db';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const k = await seitenZugriff(locals, 'kunden', 'kunden.lesen');
@@ -86,10 +89,20 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			nachfassen: angeboteModul ? { aus: await kundeKeinNachfassen(k, kunde.id) } : null,
 			// Auftragsbestätigung automatisch je Kunde (Jamil msg 3521 E): eigener Platz „Automatik“, auch ohne Kundenportal –
 			// wer Aufträge bearbeiten darf (wie früher am Auftrag); leer = wie die Firma
-			ab: angeboteModul && hatRecht(nutzer, 'auftraege.bearbeiten') ? await ladeKundeAb(k, kunde.id) : null
+			ab: angeboteModul && hatRecht(nutzer, 'auftraege.bearbeiten') ? await ladeKundeAb(k, kunde.id) : null,
+			// Lexware (Plan Phase 1): Stand des Kontakts, „In Lexware übertragen“, § 13b – nur mit Modul und Verbindung
+			lexware: await lexwareBereich(k, kunde.id, hatRecht(nutzer, 'kunden.bearbeiten'))
 		};
 	});
 };
+
+async function lexwareBereich(k: { betriebId: string; benutzerId: string }, kundeId: string, darf: boolean) {
+	if (!darf || !(await hatModul(k.betriebId, 'lexware'))) return null;
+	const c = await ladeLexwareKonfig(k);
+	if (!c.schluesselGesetzt) return null;
+	const [z] = await mitBetrieb(k, (tx) => tx`select art, bauleister_13b, bescheinigung_13b_bis::text as bis from app.kunden where id = ${kundeId} and betrieb_id = ${k.betriebId}`);
+	return { verbunden: c.verbunden, stand: await kundeLexwareStand(k, kundeId), firma: z?.art === 'firma', bauleister13b: !!z?.bauleister_13b, bis13b: (z?.bis as string | null) ?? null };
+}
 
 const text = (f: FormData, feld: string) => {
 	const w = f.get(feld);
@@ -187,6 +200,27 @@ export const actions: Actions = {
 			return { abMeldung: 'Gespeichert.' };
 		} catch (e) {
 			return alsFormFehler(e, { abFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** „In Lexware übertragen“ (Modul lexware + „Kunden bearbeiten“): über die Warteschlange, nie doppelt. */
+	lexware: async ({ locals, params }) => {
+		try {
+			await darf(locals, 'lexware', 'kunden.bearbeiten');
+			const r = await kundeNachLexware(betriebKontext(locals), params.id);
+			return { lexwareMeldung: r.neu ? (r.art === 'kontakt_anlegen' ? 'Wird in Lexware angelegt – gleich hier zu sehen.' : 'Wird in Lexware aktualisiert.') : 'Ist schon unterwegs nach Lexware.' };
+		} catch (e) {
+			return alsFormFehler(e, { lexwareFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** § 13b UStG (Bauleister mit Bescheinigung) – nur Firmenkunden. */
+	lexware13b: async ({ locals, params, request }) => {
+		const f = await request.formData();
+		try {
+			await darf(locals, 'lexware', 'kunden.bearbeiten');
+			await setze13b(betriebKontext(locals), params.id, { bauleister: f.get('bauleister') === 'on', bis: text(f, 'bis') });
+			return { lexwareMeldung: '§ 13b gespeichert.' };
+		} catch (e) {
+			return alsFormFehler(e, { lexwareFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}
 	},
 	/** „Kein automatisches Nachfassen“ für diesen Kunden an/aus (`kunden.bearbeiten`). */

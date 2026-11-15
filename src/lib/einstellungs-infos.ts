@@ -400,6 +400,70 @@ export const INFOS: Record<string, Info> = {
 		standard: 'Neue Benutzer kommen per Einladung.',
 		beispiel: 'Neue Mitarbeiterin einladen und die Rolle „Büro“ geben.'
 	},
+	// ——— Lexware Office (Plan Lexware Phase 1, Jamil Talk #6086/#6093) ———
+	'lexware.seite': {
+		titel: 'Lexware verbinden',
+		was: 'Verbindet das CRM mit Lexware Office (nur Tarif XL). Lexware führt dann alle Belege: Kunden, Angebote, Auftragsbestätigungen, Rechnungen, Mahnungen und Zahlungen; das CRM ist die bequeme Oberfläche dafür.',
+		wirkt: 'Ihre ganze Firma.',
+		standard: 'Nicht verbunden.',
+		beispiel: 'Jamil legt in Lexware unter „Erweiterungen → Public API“ einen Schlüssel an, fügt ihn hier ein, und das CRM zeigt „Verbunden – Bauwelt Handwerk“.'
+	},
+	'lexware.schluessel': {
+		titel: 'API-Schlüssel',
+		was: 'Der Zugangsschlüssel zu Lexware. Er wird verschlüsselt gespeichert, nie wieder angezeigt (nur die letzten 4 Zeichen) und gilt höchstens 24 Monate; 30 Tage vorher warnt das CRM.',
+		wirkt: 'Alle Anfragen des CRM an Lexware.',
+		standard: 'Kein Schlüssel; „gültig bis“ ohne Angabe = heute + 24 Monate.',
+		beispiel: 'Nur der Lexware-Kontoadministrator kann den Schlüssel anlegen. Neuer Schlüssel → hier einfügen, die Rückmeldungen danach neu einrichten.'
+	},
+	'lexware.rueckmeldungen': {
+		titel: 'Rückmeldungen von Lexware',
+		was: 'Lexware meldet dem CRM sofort, wenn sich in Lexware etwas ändert (Kunde, Angebot, Rechnung, Zahlung). Jede Meldung wird mit der Signatur von Lexware geprüft.',
+		wirkt: 'Wie schnell das CRM Zahlungen und Änderungen aus Lexware zeigt.',
+		standard: 'Nicht eingerichtet; ohne Rückmeldungen gleicht das CRM nachts und auf Knopfdruck ab.',
+		beispiel: 'Ein Kunde zahlt, Lexware gleicht das Konto ab – Minuten später steht die Rechnung im CRM auf „bezahlt“.'
+	},
+	'lexware.abgleich': {
+		titel: 'Kunden und Belege abgleichen',
+		was: 'Holt die Belegliste aus Lexware (Angebote, Auftragsbestätigungen, Rechnungen, Gutschriften) und verknüpft CRM-Kunden mit Lexware-Kontakten. Im CRM geänderte Kunden werden in Lexware nachgezogen.',
+		wirkt: 'Kunden und Belegübersicht Ihrer Firma.',
+		standard: 'Jede Nacht ab 2 Uhr automatisch; zusätzlich auf Knopfdruck oder per Sprache („Lexware-Abgleich starten“).',
+		beispiel: 'Frau Musterfrau steht in Lexware mit derselben E-Mail – der Abgleich verknüpft sie mit dem CRM-Kunden.'
+	},
+	'lexware.kunden_anlegen': {
+		titel: 'Fehlende Kunden in Lexware anlegen',
+		was: 'An: Beim Abgleich legt das CRM jeden Kunden, den es in Lexware noch nicht gibt, dort als Kontakt an. Aus: Es verknüpft nur vorhandene.',
+		wirkt: 'Alle Kunden Ihrer Firma im CRM.',
+		standard: 'Aus (sonst landen auch Anfragen ohne Auftrag in Lexware).',
+		beispiel: 'Ein Kunde lässt sich auch einzeln übertragen: Kunde öffnen → „In Lexware übertragen“.'
+	},
+	'lexware.warteschlange': {
+		titel: 'Warteschlange',
+		was: 'Alles, was zu Lexware geht, wartet hier, bis es geklappt hat. Ist Lexware kurz nicht erreichbar, versucht das CRM es selbst wieder; doppelte Belege entstehen dabei nicht.',
+		wirkt: 'Nur die Anzeige; Fehler, die ein Mensch klären muss, kommen zusätzlich als Aufgabe.',
+		standard: 'Wiederholung mit wachsendem Abstand (30 Sekunden bis 6 Stunden), nach 8 Versuchen „bitte prüfen“.',
+		beispiel: '„bitte prüfen – Lexware hat die Daten abgelehnt“: Kundendaten korrigieren und „Erneut versuchen“.'
+	},
+	'lexware.protokoll': {
+		titel: 'Protokoll',
+		was: 'Die letzten Anfragen an Lexware mit Ergebnis und Dauer – ohne Schlüssel und ohne Inhalte.',
+		wirkt: 'Nur die Anzeige; Einträge werden nach 90 Tagen gelöscht.',
+		standard: 'Die letzten 30 Anfragen.',
+		beispiel: '„GET /v1/profile → 401“ heißt: Der Schlüssel ist ungültig.'
+	},
+	'kunde.lexware': {
+		titel: 'Kunde in Lexware',
+		was: 'Zeigt, ob dieser Kunde als Kontakt in Lexware steht und auf dem neuesten Stand ist. „In Lexware übertragen“ legt ihn dort an bzw. zieht Änderungen nach.',
+		wirkt: 'Nur diesen Kunden.',
+		standard: 'Nicht übertragen; der nächtliche Abgleich verknüpft Kunden mit gleicher E-Mail.',
+		beispiel: 'Sie ändern die Adresse im CRM – nachts (oder sofort per Knopf) steht sie auch in Lexware.'
+	},
+	'kunde.13b': {
+		titel: 'Bauleister (§ 13b UStG)',
+		was: 'Erbringt der Firmenkunde selbst Bauleistungen und hat eine gültige Bescheinigung des Finanzamts, schuldet er die Umsatzsteuer: Rechnungen an ihn gehen netto mit dem Hinweis „Steuerschuldnerschaft des Leistungsempfängers“.',
+		wirkt: 'Rechnungen an diesen Kunden (sobald Rechnungen über Lexware laufen).',
+		standard: 'Aus.',
+		beispiel: 'Bau-Meier GmbH legt die Bescheinigung bis 31.12.2028 vor – Haken setzen, Datum eintragen; kurz vor Ablauf warnt das CRM.'
+	},
 	// ——— E-Mail-Versand (Plan Lexware Phase 1, Jamil Talk #6093: Postfach kommt noch) ———
 	'mail.seite': {
 		titel: 'E-Mail-Versand',

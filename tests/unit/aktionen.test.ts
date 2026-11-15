@@ -32,7 +32,11 @@ describe('Aktions-Schema', () => {
 			'vorlage_anwenden',
 			'leitfaden_oeffnen',
 			'abfrage_leitfaden',
-			'leitfaden_eingabe'
+			'leitfaden_eingabe',
+			'abfrage_lexware',
+			'lexware_abgleich_starten',
+			'abfrage_kunde_lexware',
+			'abfrage_mailversand'
 		]);
 		expect(Object.keys(AKTIONS_SCHEMAS).sort()).toEqual([...AKTIONEN, 'unbekannt', 'mehrere_schritte'].sort());
 		// Werkzeuge für Function Calling: je Aktion eine Funktion mit Parametern = Schema

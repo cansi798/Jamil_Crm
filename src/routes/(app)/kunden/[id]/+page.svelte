@@ -264,6 +264,38 @@
 		</Abschnitt>
 	{/if}
 
+	<!-- Lexware (Plan Phase 1): Kontakt in Lexware, § 13b -->
+	{#if data.lexware}
+		<Abschnitt titel="Lexware" id="lexware" info="kunde.lexware">
+			<div class="kp-einstellung" data-testid="kunde-lexware">
+				{#if form?.lexwareFehler}<p role="alert" class="kd-fehler">{form.lexwareFehler}</p>{/if}
+				{#if form?.lexwareMeldung}<p role="status" class="kp-meldung">{form.lexwareMeldung}</p>{/if}
+				<p class="kd-info">
+					{#if data.lexware.stand.verknuepft}
+						In Lexware verknüpft{data.lexware.stand.aktuell ? ' – auf dem neuesten Stand' : ' – im CRM geändert, noch nicht übertragen'}.
+					{:else}
+						Noch nicht in Lexware.
+					{/if}
+					{#if data.lexware.stand.inArbeit} Wird gerade übertragen.{/if}
+					{#if data.lexware.stand.geaendertInLexware} In Lexware wurde der Kontakt geändert – bitte dort nachsehen; das CRM führt bei den Kundendaten.{/if}
+					{#if data.lexware.stand.problem}<br /><span class="kd-fehler">Problem: {data.lexware.stand.problem}</span>{/if}
+				</p>
+				{#if data.lexware.verbunden && !(data.lexware.stand.verknuepft && data.lexware.stand.aktuell)}
+					<form method="POST" action="?/lexware" use:enhance><button type="submit" class="kd-knopf klein">In Lexware übertragen</button></form>
+				{/if}
+				{#if data.lexware.firma}
+					<form method="POST" action="?/lexware13b" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form">
+						<InfoFeld id="kunde.13b">
+							<label class="kp-haken"><input type="checkbox" name="bauleister" checked={data.lexware.bauleister13b} /> Bauleister nach § 13b UStG (Kunde schuldet die Umsatzsteuer)</label>
+						</InfoFeld>
+						<label>Bescheinigung des Finanzamts gültig bis<input type="date" name="bis" value={data.lexware.bis13b ?? ''} /></label>
+						<div><button type="submit" class="kd-knopf hell klein">§ 13b speichern</button></div>
+					</form>
+				{/if}
+			</div>
+		</Abschnitt>
+	{/if}
+
 	<!-- Automatik für diesen Kunden (Jamil msgs 3521 E, 3558): Auftragsbestätigung automatisch (auch ohne Kundenportal) und Nachfassen -->
 	{#if data.ab || (data.darfBearbeiten && data.nachfassen)}
 		<Abschnitt titel="Automatik" id="automatik" info="kunde.automatik">

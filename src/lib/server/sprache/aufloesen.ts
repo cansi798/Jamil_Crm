@@ -971,7 +971,11 @@ const TITEL: Record<AktionsName, string> = {
 	vorlage_anwenden: 'Aufgaben-Vorlage übernehmen',
 	leitfaden_oeffnen: 'Leitfaden öffnen',
 	abfrage_leitfaden: 'Leitfaden-Stand',
-	leitfaden_eingabe: 'Im Leitfaden eintragen'
+	leitfaden_eingabe: 'Im Leitfaden eintragen',
+	abfrage_lexware: 'Lexware',
+	lexware_abgleich_starten: 'Lexware-Abgleich',
+	abfrage_kunde_lexware: 'Kunde in Lexware',
+	abfrage_mailversand: 'E-Mail-Versand'
 };
 
 /** Link „Ändern“: normales Formular, so weit wie möglich vorausgefüllt (nur unkritische Felder in der URL). */
@@ -1023,7 +1027,7 @@ export async function loeseAuf(
 	nutzer: Nutzer,
 	aktion: Exclude<
 		KiAktion,
-		{ aktion: 'unbekannt' | 'mehrere_schritte' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' | 'leitfaden_oeffnen' | 'abfrage_leitfaden' }
+		{ aktion: 'unbekannt' | 'mehrere_schritte' | 'abfrage_tagesplan' | 'route_heute' | 'abfrage_auslastung' | 'abfrage_monatsgewinn' | 'abfrage_nachfassen' | 'kalender_zeigen' | 'buchungslink_zeigen' | 'abfrage_nachkalkulation' | 'abfrage_verlust' | 'portallink_zeigen' | 'leitfaden_oeffnen' | 'abfrage_leitfaden' | 'abfrage_lexware' | 'lexware_abgleich_starten' | 'abfrage_kunde_lexware' | 'abfrage_mailversand' }
 	>,
 	jetzt: Date
 ): Promise<Vorschau> {

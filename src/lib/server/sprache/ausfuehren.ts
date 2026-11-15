@@ -322,6 +322,10 @@ async function ausfuehrenJe(
 		case 'portallink_zeigen':
 		case 'leitfaden_oeffnen':
 		case 'abfrage_leitfaden':
+		case 'abfrage_lexware':
+		case 'lexware_abgleich_starten':
+		case 'abfrage_kunde_lexware':
+		case 'abfrage_mailversand':
 			throw new ApiFehler(400, 'Fragen werden ohne Bestätigung beantwortet.');
 		case 'leitfaden_eingabe': {
 			const { speichereEingaben } = await import('../leitfaden');
