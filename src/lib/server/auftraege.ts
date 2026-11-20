@@ -5,6 +5,7 @@ import { anzeigeName, likeMuster, sucheWoerter, textFeld, UUID } from './kunden'
 import { hatRecht } from './rechte';
 import { darfEines } from './tarif';
 import { erlaubterWechsel, istStatus, STATUS, type AuftragStatus } from '../auftrag-status';
+import { erinnereAnRechnung } from './rechnung-erinnerung';
 import { istArbeitsstand, naechsterGeltenderStatus, startStatus, statusUebersprungen, vorigerGeltenderStatus, type Arbeitsstand } from '../auftrag-board';
 import { uebersprungeneSchritte } from './quellen';
 import { istTag } from '../zeit';
@@ -614,6 +615,8 @@ export async function setzeStatus(
 		const erlaubt = ziel !== null && ziel !== alt.status;
 		if (!erlaubt) throw new ApiFehler(409, 'Statuswechsel nicht erlaubt');
 		await tx`update app.auftraege set status = ${ziel} where id = ${id} and betrieb_id = ${k.betriebId}`;
+		// Abgenommen → nur Erinnerung „Rechnung erstellen“ ans Büro, kein Rechnungsentwurf (Jamil msg 6525/6527)
+		if (ziel === 'abgenommen') await erinnereAnRechnung(tx, k, id);
 		return ladeEinen(tx, k, sicht, id);
 	});
 }

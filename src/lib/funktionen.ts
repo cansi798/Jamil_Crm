@@ -54,6 +54,18 @@ export const FUNKTIONEN: Funktion[] = [
 		recht: 'einstellungen'
 	},
 	{
+		id: 'rechnung_erinnerung',
+		schritt: 'abschluss',
+		name: 'Erinnerung „Rechnung erstellen“',
+		was: 'Wechselt ein Auftrag auf „Abgenommen“, legt das CRM eine Aufgabe „Rechnung für Auftrag … erstellen“ an (fällig in zwei Werktagen, mit Glocke und Link) – aber keine Rechnung. Wer sie bekommt, stellen Sie selbst ein.',
+		wann: 'Beim Statuswechsel auf „Abgenommen“ (je Auftrag einmal).',
+		href: '/einstellungen/rechnung-erinnerung',
+		info: 'rechnung_erinnerung.seite',
+		zustand: 'keiner',
+		modul: 'auftraege',
+		recht: 'einstellungen'
+	},
+	{
 		id: 'lexware_rechnungen',
 		schritt: 'abschluss',
 		name: 'Rechnungen über Lexware und Zahlungsstand',

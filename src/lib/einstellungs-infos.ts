@@ -271,6 +271,22 @@ export const INFOS: Record<string, Info> = {
 		beispiel: '„Termin anfragen“ mit https://www.ihre-firma.de/anfrage oder „Anrufen“ mit tel:+4940123456.'
 	},
 
+	// ——— Erinnerung „Rechnung erstellen“ (Jamil msgs 6525/6527/6530) ———
+	'rechnung_erinnerung.seite': {
+		titel: 'Erinnerung „Rechnung erstellen“',
+		was: 'Wird ein Auftrag „Abgenommen“, legt das CRM nur eine Aufgabe „Rechnung für Auftrag … erstellen“ an – fällig in zwei Werktagen, mit Link zum Auftrag. Es entsteht keine Rechnung von selbst.',
+		wirkt: 'Alle Aufträge, die auf „Abgenommen“ wechseln. Je Auftrag höchstens eine Erinnerung. Die Aufgabe lässt sich danach wie jede andere umweisen.',
+		standard: 'Büro, sonst wer Rechnungen erstellen darf (Chef zuerst).',
+		beispiel: 'Auftrag A-2026-0012 wird abgenommen → Sabine aus dem Büro bekommt die Aufgabe „Rechnung für Auftrag A-2026-0012 erstellen“.'
+	},
+	'rechnung_erinnerung.zuweisung': {
+		titel: 'Zuweisen an',
+		was: 'Bestimmt, wer die Erinnerung bekommt: der Standard (Büro, sonst Chef), eine feste Person oder die erste aktive Person einer Rolle.',
+		wirkt: 'Nur neue Erinnerungen. Ist die gewählte Person oder Rolle nicht mehr aktiv, gilt der Standard.',
+		standard: 'Büro, sonst Chef.',
+		beispiel: '„Eine feste Person“ → Jürgen Weiß bekommt jede Erinnerung „Rechnung erstellen“.'
+	},
+
 	// ——— Nachfassen ———
 	'nachfassen.seite': {
 		titel: 'Automatisch nachfassen',

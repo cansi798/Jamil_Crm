@@ -112,6 +112,17 @@ export function tagPlus(tag: string, n: number): string {
 	return alsTag(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
 }
 
+/** Tag + n Werktage (Montag–Freitag; Feiertage zählen mit). Ein Samstag/Sonntag als Start zählt nicht mit. */
+export function werktagePlus(tag: string, n: number): string {
+	let t = tag;
+	let rest = Math.max(0, Math.floor(n));
+	while (rest > 0) {
+		t = tagPlus(t, 1);
+		if (wochentag(t) < 5) rest--;
+	}
+	return t;
+}
+
 /** Wochentag 0 = Montag … 6 = Sonntag. */
 export function wochentag(tag: string): number {
 	const t = zerlege(tag);
