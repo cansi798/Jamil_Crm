@@ -12,7 +12,7 @@
 	height={groesse}
 	fill="none"
 	stroke="currentColor"
-	stroke-width="1.9"
+	stroke-width="1.6"
 	stroke-linecap="round"
 	stroke-linejoin="round"
 	aria-hidden="true"

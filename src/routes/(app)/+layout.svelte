@@ -70,7 +70,7 @@
 			<a href="/" class="marke nur-breit">
 				<span class="marke-zeichen" aria-hidden="true">
 					<!-- Haus mit Dachlinie, leicht handgezeichnet (Theme „Handwerk“) -->
-					<svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4.3l8.6 6.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /><path d="M6 10.2V19.6h12.1V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /><path d="M10 19.5v-5.2h4.1v5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg>
+					<svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4.3l8.6 6.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /><path d="M6 10.2V19.6h12.1V10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /><path d="M10 19.5v-5.2h4.1v5.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
 				</span>
 				<span class="marke-text"><span class="marke-klein">Handwerk</span>CRM System</span>
 			</a>
@@ -212,8 +212,17 @@
 		right: 0;
 		bottom: 0;
 		background: var(--ui-nav);
-		box-shadow: 0 -4px 16px rgba(31, 30, 32, 0.18);
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		box-shadow: 0 -1px 0 rgba(31, 30, 32, 0.08);
 		padding-bottom: env(safe-area-inset-bottom);
+	}
+	/* Apple-Schliff: Milchglas für Leiste unten und Kopfleiste – gleiche Anthrazit-Farbe, leicht durchscheinend */
+	@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+		.hauptnav {
+			background: rgba(45, 44, 46, 0.95);
+			-webkit-backdrop-filter: saturate(180%) blur(20px);
+			backdrop-filter: saturate(180%) blur(20px);
+		}
 	}
 	.liste {
 		list-style: none;
@@ -247,16 +256,16 @@
 		font-family: var(--m365-schrift);
 		font-size: 0.6875rem;
 		font-weight: 500;
+		letter-spacing: 0;
 		line-height: 1.2;
 		text-align: center;
 		text-decoration: none;
 		cursor: pointer;
-		transition: color 150ms, background 150ms;
+		transition: color var(--ui-uebergang), background var(--ui-uebergang);
 	}
 	.eintrag[aria-current='page'] {
 		color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 		font-weight: 600;
-		box-shadow: inset 0 3px 0 var(--ui-akzent);
 	}
 	.eintrag:hover:not(.aus) {
 		color: #fff;
@@ -330,7 +339,15 @@
 			height: 3.5rem;
 			padding: 0 1.5rem;
 			background: var(--ui-nav); /* Jamil msg 3319: gleiches Anthrazit wie die Seitenleiste */
+			border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 			color: var(--ui-nav-text);
+		}
+		@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+			.kopfleiste {
+				background: rgba(45, 44, 46, 0.97);
+				-webkit-backdrop-filter: saturate(180%) blur(20px);
+				backdrop-filter: saturate(180%) blur(20px);
+			}
 		}
 		.kopf-bereich {
 			display: flex;
@@ -339,10 +356,9 @@
 			min-width: 0;
 			color: var(--ui-nav-text);
 			font-family: var(--ui-schrift-titel);
-			font-size: var(--ui-schrift-s);
-			font-weight: 700;
-			letter-spacing: 0.08em;
-			text-transform: uppercase;
+			font-size: 0.9375rem;
+			font-weight: 600;
+			letter-spacing: -0.01em;
 		}
 		.kopf-bereich :global(.nav-symbol) {
 			width: 18px;
@@ -375,8 +391,8 @@
 			width: 100%;
 			min-height: 2.25rem;
 			padding-left: 2.25rem;
-			border: 1px solid rgba(255, 255, 255, 0.12);
-			border-radius: 999px;
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			border-radius: 10px;
 			background: rgba(255, 255, 255, 0.08);
 			color: #fff;
 		}
@@ -396,14 +412,13 @@
 			background: var(--ui-nav-hover);
 		}
 		.gruppe {
-			margin: 1.25rem 0 0.35rem;
+			margin: 1.25rem 0 0.3rem;
 			padding: 0 1.4rem;
 			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 			font-family: var(--ui-schrift-titel);
-			font-size: 0.6875rem;
-			font-weight: 700;
-			letter-spacing: 0.12em;
-			text-transform: uppercase;
+			font-size: 0.75rem;
+			font-weight: 600;
+			letter-spacing: 0.01em;
 		}
 		.nur-schmal {
 			display: none;
@@ -428,9 +443,10 @@
 			width: 1.5rem;
 			height: 1.5rem;
 			margin-right: -0.25rem;
-			font-size: 1.375rem;
+			font-size: 1rem;
 			line-height: 1;
-			transition: transform 150ms;
+			opacity: 0.8;
+			transition: transform var(--ui-uebergang);
 		}
 		.nav-gruppe:not([open]) summary::after {
 			transform: rotate(-90deg);
@@ -517,10 +533,11 @@
 			gap: 0.75rem;
 			min-height: 2.75rem; /* Tippziel ≥ 44 px */
 			margin: 0;
-			padding: 0.375rem 0.8rem;
-			border-radius: 10px;
+			padding: 0.375rem 0.75rem;
+			border-radius: 8px;
 			font-size: 0.875rem;
 			font-weight: 500;
+			letter-spacing: -0.01em;
 			text-align: left;
 			line-height: 1.2;
 			color: var(--ui-nav-text);
@@ -535,19 +552,13 @@
 		.eintrag[aria-current='page'] :global(.nav-symbol) {
 			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 		}
+		/* Apple-Seitenleiste: aktiver Eintrag nur als getönte, gerundete Fläche (ohne Balken links) */
 		.eintrag[aria-current='page']::before {
-			content: '';
-			position: absolute;
-			left: -0.6rem;
-			top: 0.55rem;
-			bottom: 0.55rem;
-			width: 4px;
-			border-radius: 0 4px 4px 0;
-			background: var(--ui-akzent);
+			content: none;
 		}
 		.eintrag :global(.nav-symbol) {
-			width: 20px;
-			height: 20px;
+			width: 18px;
+			height: 18px;
 			flex: none;
 			color: var(--ui-nav-leise);
 		}

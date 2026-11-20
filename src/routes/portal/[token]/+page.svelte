@@ -367,10 +367,11 @@
 		gap: 0.15rem;
 		min-width: 0;
 		padding: 0.55rem 0.6rem;
-		border: 1px solid var(--ui-rand);
+		border: 1px solid var(--ui-haarlinie);
 		border-top: 3px solid var(--ui-akzent);
-		border-radius: var(--ui-radius);
+		border-radius: var(--ui-radius-karte);
 		background: var(--ui-flaeche);
+		box-shadow: var(--ui-schatten);
 		color: var(--ui-text);
 		text-decoration: none;
 		animation: pt-rein 0.45s ease-out both;
@@ -578,7 +579,7 @@
 	.pt-chips button {
 		min-height: 2.25rem;
 		padding: 0 0.8rem;
-		border: 1px solid var(--ui-rand);
+		border: 1px solid var(--ui-haarlinie);
 		border-radius: 999px;
 		background: var(--ui-flaeche);
 		color: var(--ui-text);
@@ -617,7 +618,7 @@
 		list-style: none;
 	}
 	.pt-doks li + li {
-		border-top: 1px solid var(--ui-rand);
+		border-top: 1px solid var(--ui-haarlinie);
 	}
 	.pt-dok {
 		display: flex;

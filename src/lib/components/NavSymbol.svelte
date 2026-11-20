@@ -12,7 +12,7 @@
 	height="24"
 	fill="none"
 	stroke="currentColor"
-	stroke-width="1.8"
+	stroke-width="1.6"
 	stroke-linecap="round"
 	stroke-linejoin="round"
 	aria-hidden="true"

@@ -20,10 +20,27 @@ jede Änderung. Was hier steht, ist in gemeinsamen Bausteinen umgesetzt – **Ba
   `--ui-akzent*`-Tokens ab (`src/lib/farbe.ts`). Nie Farben fest einbauen – immer Tokens.
 - **Nie** `color: var(--ui-akzent)` für Text auf Weiß (zu hell) → `--ui-akzent-text`. Auf Akzent-Füllung immer
   `color: var(--ui-akzent-auf)`.
-- **Schrift:** Überschriften, Knöpfe, Überzeilen `--ui-schrift-titel` (Montserrat); Text Inter. Beide liegen unter
-  `static/schriften` (CSP erlaubt nur eigene Schriften).
-- **Abstände** im 4er/8er-Raster (`--ui-a1` … `--ui-a5`), Radien: Felder `--ui-radius` (8 px), Karten
-  `--ui-radius-karte` (12 px), Knöpfe/Chips Pille.
+- **Schrift:** seit dem Apple-Schliff (1a) Systemschrift – SF Pro auf Mac/iPhone, sonst Inter (`static/schriften`,
+  CSP erlaubt nur eigene Schriften). Montserrat bleibt nur fürs Kundenportal, wenn der Betrieb sie wählt.
+- **Abstände** im 4er/8er-Raster (`--ui-a1` … `--ui-a5`), Radien: Felder und Knöpfe `--ui-radius`/`--ui-knopf-radius`
+  (10 px), Karten `--ui-radius-karte` (14 px), Dialoge `--ui-radius-dialog` (16 px), Chips Kapsel.
+
+### 1a. Apple-Schliff (Jamil, Talk „CRM System“ msg 6528, 21.11.2026)
+
+„Farbgebung so lassen, aber vom Aussehen an das Apple-Design anpassen“ – im CRM UND im Kundenportal. Farben und
+Farb-Tokens bleiben; geändert sind nur Form, Schrift und Bewegung. Umsetzung: Tokens in `styles/basis.css`, Feinschliff
+der gemeinsamen Bausteine in `stil/apple.css` (letzte Schicht), Seitenleiste/Kopfleiste in `(app)/+layout.svelte`,
+Portal in `portal/PortalHuelle.svelte`.
+
+- Systemschrift, Apple-Typo-Skala: Seitentitel 28 px fett mit enger Laufweite, Abschnittstitel 15 px halbfett
+  (keine Versalien mehr), Text 15 px.
+- Feine 1-px-Trennlinien `--ui-haarlinie` / `--ui-haarlinie-stark` (halbtransparent) statt kräftiger Rahmen; sehr weiche
+  Schatten `--ui-schatten`; Kopfband der Karten weiß mit Trennlinie.
+- Umschalter = Segmented Control (9 px außen, 7 px innen, weißes Segment mit Schatten). Listen „inset grouped“.
+- Kopfleiste und Leiste unten mit Milchglas (`backdrop-filter`, Rückfall: volles Anthrazit), gleicher Farbton.
+- Übergänge `--ui-uebergang` (200 ms), Knöpfe geben beim Drücken nach (`scale(0.98)`); `prefers-reduced-motion` schaltet ab.
+- Fokus immer sichtbar: Rahmen in `--ui-akzent-text` + Ring `--ui-fokus-ring`. Linien-Symbole einheitlich 1,6 px.
+- Löschen oben rechts, einheitliche Bausteine und alle Abläufe bleiben unverändert.
 
 ## 2. Knöpfe – EIN System
 
@@ -31,7 +48,7 @@ Baustein `components/ui/Knopf.svelte` (`art="primaer|sekundaer|ghost|gefahr"`, `
 Altbestand nutzt die Klassen `kd-knopf` (primär), `kd-knopf hell` (sekundär), `knopf-ghost`/`knopf-subtil`
 (ghost), `kd-knopf gefahr` (gefahr) – sie sehen identisch aus.
 
-- Alle Knöpfe gleich hoch (40 px, Touch 44 px), Pillenform, Montserrat, Symbol **links** vom Text.
+- Alle Knöpfe gleich hoch (40 px, Touch 44 px), abgerundetes Rechteck (10 px, Apple-Schliff), Systemschrift, Symbol **links** vom Text.
 - **Je Bereich höchstens ein Primärknopf.** Löschen/Deaktivieren immer `gefahr`.
 - Keine Aktion als reiner Text-Link. Navigation (zur Seite X) darf ein Link sein.
 

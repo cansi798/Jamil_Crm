@@ -115,10 +115,11 @@
 		display: grid;
 		/* eine Spalte, die nie breiter als die Karte wird (z. B. waagerecht scrollende Tagesleiste der Buchung) */
 		grid-template-columns: minmax(0, 1fr);
-		gap: 0.55rem;
-		padding: 1rem 1.1rem;
-		border-radius: var(--ui-radius-karte);
-		border: 1px solid var(--ui-rand);
+		gap: 0.6rem;
+		/* Apple-Schliff (Jamil msg 6528): mehr Luft, 16 px Radius, Haarlinie, sehr weicher Schatten – Farben unverändert */
+		padding: 1.15rem 1.3rem;
+		border-radius: var(--ui-radius-dialog);
+		border: 1px solid var(--ui-haarlinie);
 		background: var(--ui-flaeche);
 		box-shadow: var(--ui-schatten);
 		animation: pt-rein 0.5s ease-out both;
@@ -134,11 +135,12 @@
 		min-width: 0;
 		min-height: 2.75rem;
 		font: inherit;
-		padding: 0 0.6rem;
-		border: 1px solid var(--ui-rand-stark);
+		padding: 0 0.75rem;
+		border: 1px solid var(--ui-haarlinie-stark);
 		border-radius: var(--ui-radius);
 		background: var(--ui-flaeche);
 		color: var(--ui-text);
+		transition: border-color var(--ui-uebergang), box-shadow var(--ui-uebergang);
 	}
 	:where(.pt) :global(:is(.pt-form, .pt-felder) textarea) {
 		padding: 0.6rem;
@@ -164,6 +166,10 @@
 		font-weight: 700;
 		text-decoration: none;
 		cursor: pointer;
+		transition: background var(--ui-uebergang), border-color var(--ui-uebergang), transform 150ms ease;
+	}
+	:where(.pt) :global(.pt-knopf:active) {
+		transform: scale(0.98);
 	}
 	:where(.gross) :global(.pt-knopf) {
 		text-transform: uppercase;
@@ -176,14 +182,15 @@
 	:where(.pt) :global(.pt-knopf.hell) {
 		background: var(--ui-flaeche);
 		color: var(--ui-text);
-		border: 1px solid var(--ui-rand-stark);
+		border: 1px solid var(--ui-haarlinie-stark);
 	}
 	:where(.pt) :global(.pt-knopf:disabled) {
 		opacity: 0.6;
 		cursor: default;
 	}
 	:where(.pt) :global(.pt-knopf:focus-visible) {
-		outline: none;
+		outline: 2px solid var(--ui-akzent-text);
+		outline-offset: 2px;
 		box-shadow: var(--ui-fokus-ring);
 	}
 	.pt-fuss {
@@ -192,7 +199,7 @@
 		gap: 0.4rem 1.2rem;
 		padding-top: 1rem;
 		padding-bottom: 2rem;
-		border-top: 1px solid var(--ui-rand);
+		border-top: 1px solid var(--ui-haarlinie);
 		color: var(--ui-text-leise);
 		font-size: var(--ui-schrift-s);
 	}

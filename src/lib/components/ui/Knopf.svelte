@@ -57,7 +57,7 @@
 {#snippet inhalt()}
 	{#if symbol}
 		<svg class="knopf-symbol" viewBox="0 0 16 16" aria-hidden="true"
-			><path d={PFADE[symbol]} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg
+			><path d={PFADE[symbol]} fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg
 		>
 	{/if}
 	{@render children()}

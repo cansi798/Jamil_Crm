@@ -1,0 +1,219 @@
+/* Apple-Schliff (Jamil, Talk „CRM System“ msg 6528, 20.11.2026): „Design in der Farbgebung der Software so lassen,
+   aber vom Aussehen an das Apple-Design anpassen, sodass alles moderner wirkt.“
+   Farben und Farb-Tokens bleiben unverändert. Hier stehen nur Form, Schrift, Abstände, Linien, Schatten und Bewegung –
+   als letzte Schicht nach komponenten.css (gleiche Spezifität „html body …“, später geladen = gewinnt).
+   Regeln: docs/design-regeln.md, Abschnitt „Apple-Schliff“. Funktionen, Texte und Abläufe ändern sich nicht. */
+
+/* ── Typografie: Apple-Skala (Large Title, Headline, Body, Footnote), etwas engere Laufweite ─────────── */
+html body :is(h1, h2, h3, h4) {
+	letter-spacing: -0.015em;
+}
+html body .seiten-kopf h1,
+html body .kd-seite > h1 {
+	font-size: clamp(1.5rem, 2.2vw, var(--ui-schrift-titel-gross));
+	font-weight: 700;
+	letter-spacing: -0.022em;
+}
+html body .seiten-kopf .seiten-meta {
+	color: var(--ui-text-leise);
+	font-size: 0.875rem;
+}
+
+/* Abschnitts-Überschriften: Headline (15 px, halbfett, normale Schreibweise) statt Versalien; schmaler Akzentstrich bleibt */
+html body :is(.karte-titel, .abschnitt-titel, .kd-seite h2:not([class])) {
+	font-size: 0.9375rem;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	text-transform: none;
+}
+html body :is(.karte-titel, .abschnitt-titel, .kd-seite h2:not([class]))::before {
+	width: 3px;
+	height: 0.9rem;
+	border-radius: 2px;
+}
+html body .ui-eyebrow {
+	letter-spacing: 0.06em;
+	font-weight: 600;
+}
+
+/* ── Karten und Abschnitte: mehr Luft, 14 px Radius, Haarlinie, sehr weicher Schatten ─────────────────── */
+html body :is(.karte, .abschnitt) {
+	border: 1px solid var(--ui-haarlinie);
+	border-radius: var(--ui-radius-karte);
+	box-shadow: var(--ui-schatten);
+}
+html body :is(.karte-kopf, .abschnitt-kopf) {
+	background: transparent;
+	border-bottom: 1px solid var(--ui-haarlinie);
+	border-radius: var(--ui-radius-karte) var(--ui-radius-karte) 0 0;
+}
+html body .abschnitt-anzahl {
+	border-color: var(--ui-haarlinie);
+	background: var(--ui-grau-hell);
+}
+
+/* ── Listen: „inset grouped“ – gerundete Gruppe, Zeilen durch Haarlinien getrennt ──────────────────────── */
+html body .kd-liste {
+	border: 1px solid var(--ui-haarlinie);
+	border-radius: var(--ui-radius-karte);
+	box-shadow: var(--ui-schatten);
+	overflow: hidden;
+}
+html body .kd-liste > li + li {
+	border-top-color: var(--ui-haarlinie);
+}
+html body .kd-liste > li > a {
+	transition: background var(--ui-uebergang), box-shadow var(--ui-uebergang);
+}
+html body .abschnitt .kd-liste {
+	box-shadow: none;
+	border-color: var(--ui-haarlinie);
+}
+html body .listen-eintrag {
+	border-bottom-color: var(--ui-haarlinie);
+}
+
+/* ── Knöpfe: abgerundetes Rechteck (10 px), Systemschrift halbfett, sanftes Drücken ───────────────────── */
+html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf) {
+	border-radius: var(--ui-knopf-radius);
+	border-width: 1px;
+	font-family: var(--m365-schrift);
+	font-size: 0.875rem;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	transition: background var(--ui-uebergang), border-color var(--ui-uebergang), color var(--ui-uebergang),
+		box-shadow var(--ui-uebergang), transform 150ms ease, opacity var(--ui-uebergang);
+}
+html body :is(.knopf, .knopf-gefuellt, .kd-knopf):not(.hell, .gefahr):hover {
+	box-shadow: 0 2px 8px rgba(45, 44, 46, 0.1);
+}
+html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf):active {
+	transform: scale(0.98);
+	box-shadow: none;
+}
+html body :is(.knopf.hell, .kd-knopf.hell, .knopf-sekundaer) {
+	border-color: var(--ui-haarlinie-stark);
+}
+html body :is(.kd-knopf, .knopf, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr).klein {
+	border-radius: 8px;
+}
+html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf):focus-visible {
+	outline: 2px solid var(--ui-akzent-text);
+	outline-offset: 2px;
+	box-shadow: var(--ui-fokus-ring);
+}
+html body :is(.ka-protokoll, .td-bearbeiten, .kk-bearbeiten, .kk-rechnung, .af-termin-neu) > summary {
+	border-radius: var(--ui-knopf-radius);
+	font-family: var(--m365-schrift);
+	font-weight: 600;
+}
+
+/* ── Eingabefelder: 10 px, Haarlinie, weicher Fokusring ──────────────────────────────────────────────── */
+html body :is(input:not([type='checkbox'], [type='radio'], [type='file'], [type='range'], [type='color'], [type='hidden'], [type='submit'], [type='button']), select, textarea) {
+	border-radius: var(--ui-radius);
+	border-color: var(--ui-haarlinie-stark);
+	transition: border-color var(--ui-uebergang), box-shadow var(--ui-uebergang), background var(--ui-uebergang);
+}
+html body :is(input, select, textarea):focus-visible {
+	border-color: var(--ui-akzent);
+	box-shadow: var(--ui-fokus-ring);
+	outline: none;
+}
+html body input[type='file']::file-selector-button {
+	border-radius: 8px;
+}
+
+/* ── Segmented Control (EIN Umschalter): Apple-Form – 9 px außen, 7 px innen, weißes Segment mit Schatten ─ */
+html body :is(.ui-umschalter, .af-ansicht, .pt-ansicht, .af-reiter, .pills, .af-meine, .pt-farbe, .seg, .ab-reiter):not(.ui-nie) {
+	padding: 2px;
+	border: 0;
+	border-radius: var(--ui-radius-seg);
+	background: rgba(118, 112, 104, 0.12);
+}
+html body :is(.ui-umschalter, .af-ansicht, .pt-ansicht, .af-reiter, .pills, .af-meine, .pt-farbe, .ab-reiter) :is(a, button):not(.ui-nie),
+html body .seg .seg-teil:not(.ui-nie) {
+	border-radius: 7px !important;
+	font-family: var(--m365-schrift);
+	font-weight: 500 !important;
+	letter-spacing: -0.01em;
+	transition: background var(--ui-uebergang), color var(--ui-uebergang), box-shadow var(--ui-uebergang);
+}
+html body :is(.ui-umschalter, .af-ansicht, .pt-ansicht, .af-reiter, .pills, .af-meine, .pt-farbe, .ab-reiter) :is(a, button):not(.ui-nie):is([aria-current='page'], [aria-current='true'], [aria-pressed='true'], .aktiv),
+html body .seg .seg-teil:not(.ui-nie).an {
+	font-weight: 600 !important;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1), 0 1px 1px rgba(0, 0, 0, 0.04), inset 0 -2px 0 var(--ui-akzent) !important;
+}
+html body :is(.ui-umschalter, .af-ansicht, .pt-ansicht, .af-reiter, .pills, .af-meine, .pt-farbe, .ab-reiter) :is(a, button):not(.ui-nie):focus-visible,
+html body .seg .seg-teil:not(.ui-nie):focus-visible {
+	outline: 2px solid var(--ui-akzent-text);
+	outline-offset: 1px;
+}
+
+/* Chips, Pills, Abzeichen: Kapsel, Systemschrift */
+html body .ui-chip {
+	border-color: var(--ui-haarlinie-stark);
+	transition: background var(--ui-uebergang), border-color var(--ui-uebergang);
+}
+html body :is(.ui-pill, .af-status, .an-status, .badge) {
+	font-family: var(--m365-schrift);
+	letter-spacing: 0;
+}
+
+/* ── Tabellen: Haarlinien, ruhiger Kopf ohne Band ─────────────────────────────────────────────────────── */
+html body .tabelle thead th {
+	background: transparent;
+	border-bottom: 1px solid var(--ui-haarlinie-stark);
+	font-weight: 600;
+}
+html body .tabelle tbody td {
+	border-bottom-color: var(--ui-haarlinie);
+}
+html body .tabelle tbody tr:nth-child(even) {
+	background: transparent;
+}
+
+/* ── Dialoge, Popover, schwebende Menüs: 16 px, großer weicher Schatten, Milchglas-Schleier ─────────── */
+html body .ui-schleier {
+	background: rgba(31, 30, 32, 0.32);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+}
+html body .ui-dialog {
+	border-radius: var(--ui-radius-dialog) var(--ui-radius-dialog) 0 0;
+}
+@media (min-width: 900px) {
+	html body .ui-dialog {
+		border-radius: var(--ui-radius-dialog);
+		box-shadow: 0 24px 64px rgba(31, 30, 32, 0.22), 0 2px 8px rgba(31, 30, 32, 0.08);
+	}
+}
+html body .ui-dialog-titel {
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+html body :is(.ui-popover, .ui-schwebend, .rf-blase) {
+	border-radius: 12px;
+	border-color: var(--ui-haarlinie);
+	box-shadow: var(--m365-schatten-pop);
+}
+
+/* Brotkrume: wie ein iOS-Zurück-Link */
+html body .kd-zurueck {
+	font-weight: 500;
+	letter-spacing: -0.005em;
+}
+
+/* Leerzustand: ruhiger, gerundet */
+html body .kd-leer {
+	border-radius: var(--ui-radius-karte);
+}
+
+/* ── Bewegung reduzieren, wenn das System das wünscht ────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+	html body * {
+		transition-duration: 0ms !important;
+	}
+	html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf):active {
+		transform: none;
+	}
+}
