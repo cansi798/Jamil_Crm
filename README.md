@@ -175,6 +175,9 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
   **Entwicklungsdatenbank** der Vorschau: Sie legen Testkunden an (und löschen sie am Ende wieder – bricht ein Test
   vorher ab, bleiben sie liegen; die Einträge im Änderungsprotokoll bleiben immer), melden sich an und richten ggf.
   Zwei-Faktor ein. Nie gegen eine Produktionsumgebung laufen lassen.
+- Testmodus (`CRM_TESTMODUS=1`, passwortlose Anmeldung nur für `.test`-Konten der Betriebe – nie für Plattform-Admins,
+  Migration 127): Der Server startet damit nur mit lokaler `ORIGIN` (localhost/127.0.0.1) oder wenn die Adresse in
+  `CRM_TESTMODUS_ORIGIN` steht (setzt `scripts/start-vorschau.sh` für die öffentliche Vorschau selbst).
 - Läuft die Vorschau im Testmodus (`CRM_TESTMODUS=1`), melden sich die E2E-Tests über „Mit E-Mail und Passwort
   anmelden“ an (gleicher Weg wie ohne Testmodus). `tests/e2e/plantafel.spec.ts` legt einen eigenen Auftrag mit
   Einsätzen drei Wochen voraus an und löscht ihn am Ende wieder. Der Offline-Test braucht

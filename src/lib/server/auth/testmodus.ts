@@ -5,10 +5,28 @@ import { hashe, SITZUNG_SEKUNDEN } from './sitzung';
 /**
  * Testmodus der Vorschau (Wunsch Can + Jamil, 16.10.2026): Anmeldung nur mit Benutzername, ohne Passwort und
  * ohne zweiten Faktor – nur wenn `CRM_TESTMODUS=1` gesetzt ist und nur für Test-Konten (E-Mail auf „.test“).
- * Die Datenbankfunktion `app.test_anmeldung` prüft die .test-Einschränkung noch einmal selbst.
+ * Die Datenbankfunktion `app.test_anmeldung` prüft die .test-Einschränkung noch einmal selbst und lässt Plattform-Admins
+ * nie ohne Passwort herein (Migration 127).
  */
 export function testmodusAktiv(env: Record<string, string | undefined> = process.env): boolean {
 	return env.CRM_TESTMODUS === '1';
+}
+
+const LOKAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i;
+
+/**
+ * Start-Prüfung (Prüfbericht 21.11.2026): Der Testmodus darf nur lokal laufen (ORIGIN localhost/127.0.0.1) – ein
+ * Produktionsserver mit versehentlich gesetztem CRM_TESTMODUS=1 startet NICHT. Ausnahme nur bewusst: Die öffentliche
+ * Vorschau (crm.waybuild-software.de) nennt ihre Adresse in CRM_TESTMODUS_ORIGIN (setzt scripts/start-vorschau.sh;
+ * mehrere Adressen mit Komma). Liefert eine Fehlermeldung oder null.
+ */
+export function testmodusStartFehler(env: Record<string, string | undefined> = process.env): string | null {
+	if (!testmodusAktiv(env)) return null;
+	const origin = (env.ORIGIN ?? '').trim().replace(/\/$/, '');
+	if (origin === '' || LOKAL.test(origin)) return null;
+	const erlaubt = (env.CRM_TESTMODUS_ORIGIN ?? '').split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+	if (erlaubt.includes(origin)) return null;
+	return `CRM_TESTMODUS=1 ist nur lokal erlaubt (ORIGIN localhost/127.0.0.1) – ORIGIN ist ${origin}. Für die Vorschau die Adresse in CRM_TESTMODUS_ORIGIN eintragen, im Betrieb CRM_TESTMODUS entfernen.`;
 }
 
 /** Kurzer Benutzername → E-Mail des Test-Kontos („can.chef“ → can.chef@bauwelt.test, „can.admin“ → …@crm.test). */

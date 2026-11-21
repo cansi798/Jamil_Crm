@@ -78,9 +78,9 @@ export function leseKonfig(env: Env = process.env): NextcloudKonfig | null {
 			clientId,
 			clientSecret,
 			zweiFaktorVertrauen: ja(env.NEXTCLOUD_2FA_VERTRAUEN),
-			perEmail: env.NEXTCLOUD_PER_EMAIL_VERKNUEPFEN === undefined || env.NEXTCLOUD_PER_EMAIL_VERKNUEPFEN.trim() === ''
-				? true
-				: ja(env.NEXTCLOUD_PER_EMAIL_VERKNUEPFEN)
+			// Standard AUS (Prüfbericht 21.11.2026): Automatisch per E-Mail verknüpfen nur, wenn bewusst eingeschaltet –
+			// meldet eine Nextcloud unbestätigte Adressen als bestätigt, könnte sonst ein fremdes Konto übernommen werden.
+			perEmail: ja(env.NEXTCLOUD_PER_EMAIL_VERKNUEPFEN)
 		};
 	}
 

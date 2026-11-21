@@ -11,7 +11,7 @@ import type { Identitaet } from './oidc';
  *
  * - Vorrang hat die Verknüpfung über den Nextcloud-Benutzernamen, die ein Admin (Recht „Benutzer verwalten“) im CRM
  *   anlegt.
- * - Sonst (NEXTCLOUD_PER_EMAIL_VERKNUEPFEN, Standard ja): Nextcloud meldet eine BESTÄTIGTE E-Mail, und genau ein
+ * - Sonst (NEXTCLOUD_PER_EMAIL_VERKNUEPFEN=ja, Standard seit 21.11.2026 AUS): Nextcloud meldet eine BESTÄTIGTE E-Mail, und genau ein
  *   aktiver CRM-Benutzer dieses Betriebs hat sie → Verknüpfung entsteht bei der ersten Anmeldung.
  * - CRM-Benutzer werden nie automatisch angelegt. Plattform-Admins melden sich nie über Nextcloud an.
  * - Zwei-Faktor: NEXTCLOUD_2FA_VERTRAUEN=ja → Nextcloud hat 2FA erzwungen, die Sitzung gilt als bestätigt.

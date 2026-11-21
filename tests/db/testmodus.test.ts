@@ -75,15 +75,26 @@ describe('Testmodus der Vorschau (Anmeldung nur mit Benutzername)', () => {
 		expect((anmeldeLoad({ locals: {}, url: new URL('http://localhost/anmelden') } as never) as { testmodus: boolean }).testmodus).toBe(false);
 	});
 
-	it('meldet Test-Chef und Test-Admin mit Testmodus ohne Passwort und ohne 2FA an', async () => {
+	it('meldet den Test-Chef mit Testmodus ohne Passwort und ohne 2FA an', async () => {
 		process.env.CRM_TESTMODUS = '1';
-		for (const name of ['can.chef', 'can.admin']) {
-			const r = await anmelden(name);
-			expect(r.umleitung).toBe('/');
-			const token = r.cookies.speicher.get(COOKIE_NAME);
-			expect(token).toBeTruthy();
-			expect(await pruefeSitzung(token!)).not.toBeNull();
-		}
+		const r = await anmelden('can.chef');
+		expect(r.umleitung).toBe('/');
+		const token = r.cookies.speicher.get(COOKIE_NAME);
+		expect(token).toBeTruthy();
+		expect(await pruefeSitzung(token!)).not.toBeNull();
+	});
+
+	it('lässt Plattform-Admins nie ohne Passwort herein – auch nicht mit .test-Adresse (Migration 127)', async () => {
+		process.env.CRM_TESTMODUS = '1';
+		const r = await anmelden('can.admin');
+		expect(r.umleitung).toBeNull();
+		expect(r.cookies.speicher.has(COOKIE_NAME)).toBe(false);
+		expect(JSON.stringify(r.ergebnis)).toContain('Plattform-Admins');
+		const [{ id }] = await root`select id from app.benutzer where email = 'can.admin@crm.test'`;
+		const [z] = await systemAbfrage(
+			(sql) => sql`select app.test_anmeldung(${id}::uuid, ${Buffer.alloc(32, 2)}::bytea, now() + interval '1 day') as ok`
+		);
+		expect(z.ok).toBe(false);
 	});
 
 	it('lässt echte Konten auch im Testmodus nicht ohne Passwort herein', async () => {

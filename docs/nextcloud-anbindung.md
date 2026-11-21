@@ -27,7 +27,8 @@ Benutzer anderer Betriebe können sich nicht über diese Nextcloud anmelden und 
   CRM-Code ein. Nextcloud meldet keinen verlässlichen `amr`/`acr`-Wert, deshalb ist das eine Betreiber-Entscheidung.
 - **Keine Neuanlage:** SSO legt nie CRM-Benutzer an. Verknüpfung entweder durch einen Admin (Nextcloud-Benutzername
   = `sub`) oder bei der ersten Anmeldung über eine von Nextcloud als **bestätigt** gemeldete E-Mail, die genau ein
-  aktiver Benutzer des Betriebs hat (abschaltbar: `NEXTCLOUD_PER_EMAIL_VERKNUEPFEN=nein`).
+  aktiver Benutzer des Betriebs hat – das Letzte nur mit `NEXTCLOUD_PER_EMAIL_VERKNUEPFEN=ja` (seit 21.11.2026
+  standardmäßig **aus**: meldet eine Nextcloud unbestätigte Adressen als bestätigt, könnte sonst ein fremdes Konto übernommen werden).
 - **Plattform-Admins** nie über Nextcloud (Funktionen lehnen ab).
 - **Einbetten:** Das CRM sendet `X-Frame-Options: DENY` und `frame-ancestors 'none'`; das Sitzungs-Cookie ist
   `SameSite=Lax` und wäre in einem fremden iframe ohnehin nicht dabei → Kachel öffnet in neuem Tab.

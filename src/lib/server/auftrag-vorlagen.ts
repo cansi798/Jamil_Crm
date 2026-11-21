@@ -287,7 +287,7 @@ export async function vorlagenVerlauf(
 		left join app.benutzer b on b.id = a.benutzer_id
 		left join app.auftrag_vorlagen v on v.id = (a.nachher ->> 'vorlage_id')::uuid and v.betrieb_id = a.betrieb_id
 		where a.betrieb_id = ${k.betriebId} and a.tabelle = 'todos' and a.aktion = 'angelegt'
-			and a.nachher ->> 'auftrag_id' = ${auftragId} and a.nachher ->> 'vorlage_id' is not null
+			and coalesce(a.nachher ->> 'auftrag_id', a.vorher ->> 'auftrag_id') = ${auftragId} and a.nachher ->> 'vorlage_id' is not null
 		group by a.zeit, a.nachher ->> 'vorlage_id', a.benutzer_id
 		order by a.zeit desc limit 50`);
 	return z.map((r) => ({

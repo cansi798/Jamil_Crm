@@ -89,9 +89,11 @@ export async function verarbeiteEreignisse(k: Kontext, max = 200): Promise<numbe
 	for (const e of liste) {
 		let ergebnis = 'ignoriert';
 		if (e.event_type === 'contact.changed' || e.event_type === 'contact.deleted') {
-			// eigene Änderung (PUT des CRM) ist schon im Stand → nur später/fremd Geändertes markieren
+			// eigene Änderung (PUT des CRM) ist schon im Stand → nur später/fremd Geändertes markieren.
+			// Das CRM führt (Plan Frage 8): lexware_stand bleibt, „geaendert“ auch (Trigger, Migration 126) – eine noch
+			// nicht gesendete CRM-Änderung bleibt damit „zu senden“ und wird beim nächsten Abgleich übertragen.
 			const z = await mitBetrieb(k, (tx) => tx`
-				update app.kunden set lexware_geaendert = true, lexware_stand = now()
+				update app.kunden set lexware_geaendert = true
 				where betrieb_id = ${k.betriebId} and lexware_id = ${e.resource_id}
 					and (lexware_stand is null or lexware_stand < ${e.event_date}::timestamptz - interval '30 seconds') returning id`);
 			ergebnis = z.length ? 'kunde markiert' : 'kein Kunde / eigene Änderung';

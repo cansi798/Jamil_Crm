@@ -18,10 +18,14 @@ import { PORTAL_COOKIE, sitzungGueltig } from '$lib/server/portal-zugang';
 import { starteLexwareDienst, stoppeLexwareDienst } from '$lib/server/lexware/dienst';
 import { ipVon } from '$lib/server/buchung-anfrage';
 import { mitAnfrageSpeicher } from '$lib/server/anfrage-speicher';
+import { testmodusStartFehler } from '$lib/server/auth/testmodus';
 
 /** Beim Start: Schriften fürs Angebots-PDF müssen da sein – sonst startet der Server nicht (lauter Fehler statt 500 später). */
 export const init: ServerInit = () => {
 	pruefeSchriften();
+	// Testmodus nur lokal bzw. für die ausdrücklich genannte Vorschau-Adresse – sonst startet der Server nicht
+	const testFehler = testmodusStartFehler();
+	if (testFehler) throw new Error(testFehler);
 	// Erinnerungen (Wunsch Jamil msg 2679): jede Minute fällige zustellen (App-Glocke + Web-Push)
 	if (!process.env.VITEST && process.env.CRM_ERINNERUNGEN !== 'aus') starteErinnerungsDienst();
 	// Nextcloud-Anbindung (optional, nur mit NEXTCLOUD_URL): Konfiguration beim Start prüfen (Fehler = Start bricht ab),

@@ -17,7 +17,7 @@ import { nextcloud } from '$lib/server/nextcloud/konfig';
 
 /** Eine einzige Meldung für alle Fehlgründe, damit nicht erkennbar ist, ob die E-Mail existiert. */
 const FALSCH = 'E-Mail oder Passwort ist falsch.';
-const TEST_FALSCH = 'Diesen Test-Benutzer gibt es nicht. Beispiele: can.chef, jamil.buero, can.monteur, jamil.admin';
+const TEST_FALSCH = 'Diesen Test-Benutzer gibt es nicht (Plattform-Admins melden sich mit Passwort an). Beispiele: can.chef, jamil.buero, can.monteur';
 const ZU_OFT = 'Zu viele Anmeldeversuche. Bitte in 15 Minuten erneut versuchen.';
 const MAX_EMAIL = 254;
 const MAX_PASSWORT = 1024;

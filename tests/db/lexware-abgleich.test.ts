@@ -135,6 +135,39 @@ describe('Lexware: Kunden-Abgleich, Webhooks, Belege', () => {
 		expect((await root`select verarbeitet_am, ergebnis from app.lexware_ereignisse where resource_id = ${kd.lexware_id}`)[0].ergebnis).toBe('kunde markiert');
 	});
 
+	it('Webhook „Kontakt geändert“ überschreibt eine noch nicht gesendete CRM-Änderung nicht – das CRM führt (Migration 126)', async () => {
+		const [kd] = await root`select lexware_id from app.kunden where id = ${u.kundeA}`;
+		// alles gesendet → dann im CRM ändern, ohne zu senden
+		await root`update app.kunden set lexware_stand = now() - interval '1 hour', geaendert = now() - interval '2 hours', lexware_geaendert = false where id = ${u.kundeA}`;
+		await root`update app.kunden set telefon = '040 999 111' where id = ${u.kundeA}`;
+		expect((await kundeLexwareStand(kA(), u.kundeA)).aktuell).toBe(false);
+		const [vor] = await root`select geaendert, lexware_stand from app.kunden where id = ${u.kundeA}`;
+		// Lexware meldet eine fremde Änderung am Kontakt
+		const e = { organizationId: a.organisationId, eventType: 'contact.changed', resourceId: kd.lexware_id, eventDate: new Date(Date.now() + 300_000).toISOString() };
+		const { t, sig } = signiert(e);
+		expect((await nimmEreignisAn(t, sig)).status).toBe(202);
+		await lauf();
+		const [nach] = await root`select geaendert, lexware_stand, lexware_geaendert from app.kunden where id = ${u.kundeA}`;
+		expect(nach.lexware_geaendert).toBe(true);
+		// „geaendert“ und der Lexware-Stand bleiben: die CRM-Änderung ist weiter „zu senden“
+		expect(new Date(nach.geaendert).getTime()).toBe(new Date(vor.geaendert).getTime());
+		expect(new Date(nach.lexware_stand).getTime()).toBe(new Date(vor.lexware_stand).getTime());
+		expect((await kundeLexwareStand(kA(), u.kundeA)).aktuell).toBe(false);
+		// Abgleich überträgt die CRM-Daten (PUT) – danach aktuell
+		await root`delete from app.lexware_auftraege where art = 'kontakte_abgleichen'`;
+		await starteKundenAbgleich(kA());
+		await lauf();
+		await lauf();
+		const k = a.kontakte.get(kd.lexware_id)!;
+		expect(k.phoneNumbers.private).toEqual(['040 999 111']);
+		expect((await kundeLexwareStand(kA(), u.kundeA)).aktuell).toBe(true);
+		// Ein rein technisches Update (nur Lexware-Felder) setzt „geaendert“ nicht neu
+		const [g1] = await root`select geaendert from app.kunden where id = ${u.kundeA}`;
+		await root`update app.kunden set lexware_version = lexware_version + 0, lexware_stand = now() where id = ${u.kundeA}`;
+		const [g2] = await root`select geaendert from app.kunden where id = ${u.kundeA}`;
+		expect(new Date(g2.geaendert).getTime()).toBe(new Date(g1.geaendert).getTime());
+	});
+
 	it('Belegabgleich über mehrere Seiten: Upsert in Cent mit Kundenbezug; zweiter Lauf ändert nichts doppelt; Rückmeldung markiert veraltet', async () => {
 		const [kd] = await root`select lexware_id from app.kunden where id = ${u.kundeA}`;
 		for (let i = 0; i < 260; i++) a.belege.push(beleg({ voucherNumber: `RE${2000 + i}`, contactId: i === 0 ? kd.lexware_id : null }));

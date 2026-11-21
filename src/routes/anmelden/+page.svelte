@@ -30,8 +30,8 @@
 			{#if data.testmodus}
 				<p class="testmodus" role="note">
 					<strong>Testmodus:</strong> Anmeldung nur mit Benutzername – ohne Passwort und Zwei-Faktor. Gilt nur für
-					Test-Zugänge, z. B. <code>can.chef</code>, <code>jamil.buero</code>, <code>can.monteur</code>,
-					<code>jamil.admin</code>.
+					Test-Zugänge der Betriebe, z. B. <code>can.chef</code>, <code>jamil.buero</code>, <code>can.monteur</code>.
+					Plattform-Admins (<code>….admin</code>) melden sich mit Passwort und zweitem Faktor an.
 				</p>
 				<label class="feld">
 					Benutzername

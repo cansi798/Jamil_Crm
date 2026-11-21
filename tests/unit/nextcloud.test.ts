@@ -46,7 +46,11 @@ describe('Nextcloud-Konfiguration', () => {
 			NEXTCLOUD_KONTAKTE_GRUPPE: 'Team',
 			NEXTCLOUD_DATEIEN: 'ja'
 		})!;
-		expect(k.anmeldung).toMatchObject({ zweiFaktorVertrauen: false, perEmail: true });
+		// Verknüpfen per E-Mail ist seit 21.11.2026 standardmäßig AUS, bewusst einschaltbar
+		expect(k.anmeldung).toMatchObject({ zweiFaktorVertrauen: false, perEmail: false });
+		const an = leseKonfig({ NEXTCLOUD_URL: URL_NC, NEXTCLOUD_ANMELDUNG: 'ja', NEXTCLOUD_OIDC_CLIENT_ID: 'id', NEXTCLOUD_OIDC_CLIENT_SECRET: 'geheim', NEXTCLOUD_PER_EMAIL_VERKNUEPFEN: 'ja' })!;
+		expect(an.anmeldung?.perEmail).toBe(true);
+		expect(leseKonfig({ NEXTCLOUD_URL: URL_NC, NEXTCLOUD_ANMELDUNG: 'ja', NEXTCLOUD_OIDC_CLIENT_ID: 'id', NEXTCLOUD_OIDC_CLIENT_SECRET: 'geheim', NEXTCLOUD_PER_EMAIL_VERKNUEPFEN: 'nein' })!.anmeldung?.perEmail).toBe(false);
 		expect(k.kontakte).toEqual({ gruppe: 'Team' });
 		expect(k.dateien).toEqual({ ordner: 'CRM' });
 		expect(k.kalender).toBe(false);
