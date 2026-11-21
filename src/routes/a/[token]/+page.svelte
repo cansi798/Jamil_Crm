@@ -83,8 +83,8 @@
 		min-height: 2.75rem;
 		padding: 0.5rem 1rem;
 		border-radius: 0.4rem;
-		background: #0f6cbd;
-		color: #fff;
+		background: var(--ui-primaer, #c3a56f); /* Hausfarbe statt altem Blau */
+		color: var(--ui-primaer-auf, #1d1d1f);
 		text-decoration: none;
 		font-weight: 600;
 		text-align: center;
@@ -92,8 +92,8 @@
 	}
 	.knopf.zweit {
 		background: #fff;
-		color: #0f6cbd;
-		border: 1px solid #0f6cbd;
+		color: var(--ui-akzent-text, #7f6b48);
+		border: 1px solid var(--ui-haarlinie-stark, #dcdad8);
 	}
 	.link {
 		overflow-wrap: anywhere;

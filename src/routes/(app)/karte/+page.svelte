@@ -539,7 +539,7 @@
 		border: 0;
 		padding: 0;
 		background: none;
-		color: #0f6cbd;
+		color: var(--ui-akzent-text);
 		font: inherit;
 		text-decoration: underline;
 		cursor: pointer;
