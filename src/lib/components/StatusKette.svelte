@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frage, rueckfrage } from '$lib/rueckfrage';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
 	import { STATUS, STATUS_NAMEN, type AuftragStatus } from '$lib/auftrag-status';
@@ -34,8 +35,12 @@
 
 	const index = $derived(STATUS.indexOf(status));
 	const weiter = $derived(naechsterGeltenderStatus(status, uebersprungen));
-	const zurueckOk = (ziel: AuftragStatus) =>
-		STATUS.indexOf(ziel) > index || confirm(`Status wirklich zurück auf „${STATUS_NAMEN[ziel]}“ setzen?`);
+	// Zurücksetzen fragt nach – mit der gemeinsamen Rückfrage-Blase statt confirm() (Regel Jamil msg 3091)
+	const zurueckFrage = (ziel: AuftragStatus) => ({
+		frage: `Status wirklich zurück auf „${STATUS_NAMEN[ziel]}“ setzen?`,
+		ja: 'Zurücksetzen',
+		aus: STATUS.indexOf(ziel) > index
+	});
 </script>
 
 <div class="sk">
@@ -52,9 +57,7 @@
 							title={statusUebersprungen(s, uebersprungen)
 								? `„${STATUS_NAMEN[s]}“ ist für diese Auftragsquelle übersprungen – Klick setzt den Status trotzdem`
 								: `Status auf „${STATUS_NAMEN[s]}“ setzen`}
-							onclick={(ev) => {
-								if (!zurueckOk(s)) ev.preventDefault();
-							}}>{STATUS_NAMEN[s]}</button
+							use:rueckfrage={zurueckFrage(s)}>{STATUS_NAMEN[s]}</button
 						>
 					{:else}
 						<span aria-current={s === status ? 'step' : undefined}>{STATUS_NAMEN[s]}</span>
@@ -76,9 +79,13 @@
 				aria-label="Status"
 				class="sk-chip"
 				onchange={(ev) => {
-					const ziel = ev.currentTarget.value as AuftragStatus;
-					if (zurueckOk(ziel)) ev.currentTarget.form?.requestSubmit();
-					else ev.currentTarget.value = status;
+					const feld = ev.currentTarget;
+					const ziel = feld.value as AuftragStatus;
+					const f = zurueckFrage(ziel);
+					void (f.aus ? Promise.resolve(true) : frage(feld, f)).then((ok) => {
+						if (ok) feld.form?.requestSubmit();
+						else feld.value = status;
+					});
 				}}
 			>
 				{#each STATUS as s (s)}<option value={s} selected={s === status}>{STATUS_NAMEN[s]}{statusUebersprungen(s, uebersprungen) ? ' (übersprungen)' : ''}</option>{/each}

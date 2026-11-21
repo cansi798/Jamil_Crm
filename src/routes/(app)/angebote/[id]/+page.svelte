@@ -207,11 +207,13 @@
 			meldung = 'Gespeichert.';
 		});
 
-	const pdf = () =>
-		aktion(async () => {
+	const pdf = (ev: MouseEvent) => {
+		const knopf = ev.currentTarget as HTMLElement;
+		return aktion(async () => {
 			if (geaendert) await speichernIntern();
 			const n = angebot.positionen.filter((p) => p.einzelpreisCent === 0).length;
-			if (n > 0 && !confirm(`${n === 1 ? '1 Position' : `${n} Positionen`} ohne Preis – trotzdem erstellen?`)) return;
+			// Rückfrage-Blase am Knopf statt confirm() (gemeinsamer Baustein, Regel Jamil msg 3091)
+			if (n > 0 && !(await frage(knopf, { frage: `${n === 1 ? '1 Position' : `${n} Positionen`} ohne Preis – trotzdem erstellen?`, ja: 'Trotzdem erstellen' }))) return;
 			const a = document.createElement('a');
 			a.href = `/api/angebote/${angebot.id}/pdf`;
 			a.download = `Angebot_${angebot.nummer}.pdf`;
@@ -219,6 +221,7 @@
 			a.click();
 			a.remove();
 		});
+	};
 
 	const status = (nach: string, text: string, extra: Record<string, unknown> = {}) =>
 		aktion(async () => {

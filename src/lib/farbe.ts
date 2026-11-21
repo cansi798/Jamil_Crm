@@ -125,7 +125,6 @@ export function farbTokens(farbe: string | null | undefined): FarbTokens {
 	for (let i = 1; i <= 20 && kontrast(text, WEISS) < 4.6; i++) text = zuHex(mische(rgb, SCHWARZ, i * 0.05));
 	const hover = zuHex(mische(rgb, SCHWARZ, 0.1));
 	const primaer = primaerFuellung(istFarbe(farbe) ? farbe.toLowerCase() : STANDARD_FARBE);
-	const [r, g, b] = rgb;
 	return {
 		'--ui-akzent': hex,
 		'--ui-akzent-hover': hover,
@@ -134,7 +133,8 @@ export function farbTokens(farbe: string | null | undefined): FarbTokens {
 		'--ui-akzent-hell': zuHex(mische(rgb, WEISS_RGB, 0.84)),
 		'--ui-akzent-zart': zuHex(mische(rgb, WEISS_RGB, 0.93)),
 		'--ui-akzent-rand': zuHex(mische(rgb, WEISS_RGB, 0.55)),
-		'--ui-fokus-ring': `0 0 0 3px rgba(${r}, ${g}, ${b}, 0.35)`,
+		// Fokus-Ring gut sichtbar (Kontrast des Akzent-Texts ≥ 4,6 : 1), mit weißem Spalt wie basis.css
+		'--ui-fokus-ring': `0 0 0 2px var(--ui-flaeche, #fff), 0 0 0 4px ${text}`,
 		'--ui-primaer': primaer.fuellung,
 		'--ui-primaer-hover': primaer.hover,
 		'--ui-primaer-auf': primaer.auf

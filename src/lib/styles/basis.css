@@ -48,7 +48,8 @@
 	--ui-primaer: #c3a56f;
 	--ui-primaer-hover: #b59967;
 	--ui-primaer-auf: #1d1d1f;
-	--ui-fokus-ring: 0 0 0 4px rgba(195, 165, 111, 0.35);
+	/* Fokus-Ring: weißer Spalt + Akzent-Text-Ton (≥ 5 : 1) – der zarte Beige-Schein allein (≈ 1,3 : 1) war kaum zu sehen */
+	--ui-fokus-ring: 0 0 0 2px var(--ui-flaeche, #fff), 0 0 0 4px var(--ui-akzent-text);
 
 	/* ── Anthrazit (Navigation, Kopfleiste, Text) ──────────────────────────────────────────────────── */
 	--ui-anthrazit-900: #1f1e20;
@@ -82,7 +83,7 @@
 	--ui-seite-x: 1rem; /* Seitenrand links/rechts (Desktop 1,25 rem) */
 	--ui-seite-oben: 0.6rem; /* Abstand über der Brotkrume */
 	--ui-brotkrume: 1.25rem; /* reservierte Zeile für „← Zurück“ bzw. Überzeile – immer da, damit der Titel nie springt */
-	--ui-kopf-hoehe: 3.1rem; /* Seitenkopf: Titel + Kennzahl (Desktop 3,5 rem) */
+	--ui-kopf-hoehe: 3.3rem; /* Seitenkopf: Titel + Kennzahl-Zeile passen hinein (Handy: 24 px Titel + 14 px Zeile ≈ 52,6 px; vorher 3,1 rem → Seiten mit Kennzahl-Zeile 3 px höher als ohne). Desktop 3,5 rem */
 	--ui-abstand-block: 0.75rem; /* zwischen Seitenkopf, Filterleiste, Karten */
 	--ui-karte-x: 1.1rem;
 	--ui-karte-y: 0.85rem;
@@ -117,6 +118,7 @@
 	--ui-gruen-hell: #e6f0e8;
 	--ui-orange: #c27a1c;
 	--ui-orange-hell: #fbefdd;
+	--ui-orange-text: #9a5f12; /* Orange für Text und Pills mit weißer Schrift (≥ 5 : 1; --ui-orange nur 3,5 : 1) */
 	--ui-rot: #b03a2e;
 	--ui-rot-hell: #f7e3e0;
 	--ui-lila: #7a5aa6;
@@ -125,6 +127,7 @@
 	--ui-blau-hell: #e4ecf5;
 	--ui-grau: #8a8885;
 	--ui-grau-hell: #efede9;
+	--ui-grau-text: #6b6a6d; /* Grau für Pills mit weißer Schrift (5,4 : 1; --ui-grau nur 3,5 : 1) */
 
 	/* Typo-Skala */
 	--ui-schrift-xs: 0.75rem;
@@ -148,7 +151,7 @@
 	--m365-fehler-hell: var(--ui-gefahr-hell);
 	--m365-text: var(--ui-text);
 	--m365-text-leise: var(--ui-text-leise);
-	--m365-text-leicht: #a3a2a5;
+	--m365-text-leicht: var(--ui-text-leise); /* vorher #a3a2a5 (2,5 : 1, zu blass für Text) */
 	--m365-rand: var(--ui-rand);
 	--m365-rand-stark: var(--ui-rand-stark);
 	--m365-flaeche: var(--ui-flaeche);

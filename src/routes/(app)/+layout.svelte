@@ -7,6 +7,7 @@
 	import NurLesenHinweis from '$lib/components/NurLesenHinweis.svelte';
 	import Schnellzugriff from '$lib/components/Schnellzugriff.svelte';
 	import Glocke from '$lib/components/Glocke.svelte';
+	import LadeBalken from '$lib/components/ui/LadeBalken.svelte';
 	import LaufendeZeit from '$lib/components/zeit/LaufendeZeit.svelte';
 	import { loesche, merkeNutzer, nutzerKennung } from '$lib/heute-kopie';
 	import type { LayoutData } from './$types';
@@ -60,6 +61,7 @@
 
 {#if data.navigation}
 	<div class="huelle" style={data.farbStil}>
+		<LadeBalken />
 		<!-- Unter 900 px: Leiste unten (Start, Kunden, Plantafel, Mehr); ab 900 px: Seitenleiste mit allen Einträgen. -->
 		<nav class="hauptnav" aria-label="Hauptnavigation">
 			{#if logoHell}

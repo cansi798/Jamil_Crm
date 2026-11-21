@@ -25,7 +25,7 @@
 		<label>Unsere Kunden-/Lieferantennummer <input name="nummer" maxlength="60" value={w('nummer')} /></label>
 		<label>Telefon <input name="telefon" type="tel" maxlength="50" value={w('telefon')} /></label>
 		<label>E-Mail <input name="email" type="email" maxlength="200" value={w('email')} /></label>
-		<label>Website <input name="web" maxlength="300" value={w('web')} /></label>
+		<label>Website <input name="web" inputmode="url" autocapitalize="off" spellcheck="false" maxlength="300" value={w('web')} /></label>
 		<label>Straße <input name="strasse" maxlength="200" value={w('strasse')} /></label>
 		<label>PLZ <input name="plz" maxlength="20" value={w('plz')} /></label>
 		<label>Ort <input name="ort" maxlength="200" value={w('ort')} /></label>

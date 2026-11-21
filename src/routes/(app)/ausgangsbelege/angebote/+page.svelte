@@ -8,6 +8,7 @@
 	import { euro } from '$lib/geld';
 	import { tagDeutsch } from '$lib/zeit';
 	import { enhance } from '$app/forms';
+	import { einmalig } from '$lib/einmalig';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -63,7 +64,7 @@
 >
 	{#snippet aktionen()}
 		{#if data.darfOhneAuftrag}
-			<form method="POST" action="?/neu" use:enhance class="seiten-aktionen">
+			<form method="POST" action="?/neu" use:enhance={einmalig()} class="seiten-aktionen">
 				<button type="submit" class="kd-knopf" aria-label="+ Angebot ohne Auftrag"><Plus />Angebot</button>
 			</form>
 		{/if}

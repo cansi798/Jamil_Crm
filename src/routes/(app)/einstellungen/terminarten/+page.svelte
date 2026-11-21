@@ -8,6 +8,7 @@
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
 	import { enhance } from '$app/forms';
+	import { einmalig } from '$lib/einmalig';
 	import '$lib/stil/kunden.css';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -86,7 +87,7 @@
 		{/if}
 		<AddPanel label="Terminart hinzufügen" offen={!!fehlerIn('neu')}>
 			{#snippet children(schliessen)}
-				<form method="POST" action="?/anlegen" use:enhance class="kd-formular">
+				<form method="POST" action="?/anlegen" use:enhance={einmalig()} class="kd-formular">
 					{#if fehlerIn('neu')}<p role="alert" class="kd-fehler">{fehlerIn('neu')}</p>{/if}
 					<label>Name <input type="text" name="name" maxlength="100" required placeholder="z. B. Besichtigung, Wartung, Aufmaß" /></label>
 					<label class="ta-kurz">Dauer (Minuten) <input type="number" name="dauerMin" min="5" max="720" step="5" value="60" required /></label>

@@ -3,6 +3,7 @@
 	import { untrack } from 'svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
+	import { einmalig } from '$lib/einmalig';
 	import { tagDeutsch } from '$lib/zeit';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -38,7 +39,7 @@
 	{#if form && 'angelegt' in form}<p role="status" class="kd-info">Abwesenheit eingetragen.</p>{/if}
 	<AddPanel label="Abwesenheit eintragen" knopf={false} bind:offen={neuOffen}>
 		{#snippet children(schliessen)}
-	<form method="POST" action="?/anlegen" use:enhance class="kd-formular">
+	<form method="POST" action="?/anlegen" use:enhance={einmalig()} class="kd-formular">
 		{#if form?.fehler}<p role="alert" class="kd-fehler">{form.fehler}</p>{/if}
 		<div class="ab-feld">
 			<span class="ab-label" aria-hidden="true">Mitarbeiter *</span>

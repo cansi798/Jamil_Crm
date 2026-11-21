@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Schalter from '$lib/components/ui/Schalter.svelte';
@@ -59,7 +60,7 @@
 						{#if darfLoeschen(d.vonId)}
 							<form method="POST" action="?/unterlageLoeschen" use:enhance={sofort}>
 								<input type="hidden" name="art" value="datei" /><input type="hidden" name="id" value={d.id} />
-								<button type="submit" class="kd-knopf hell klein" aria-label={`Dokument „${anzeige}“ löschen`} onclick={(e) => { if (!confirm(`Dokument „${anzeige}“ löschen?`)) e.preventDefault(); }}>Löschen</button>
+								<button type="submit" class="kd-knopf gefahr klein" aria-label={`Dokument „${anzeige}“ löschen`} use:rueckfrage={`Dokument „${anzeige}“ wirklich löschen?`}>Löschen</button>
 							</form>
 						{/if}
 					</div>
@@ -80,7 +81,7 @@
 						{#if darfLoeschen(n.vonId)}
 							<form method="POST" action="?/unterlageLoeschen" use:enhance={sofort}>
 								<input type="hidden" name="art" value="notiz" /><input type="hidden" name="id" value={n.id} />
-								<button type="submit" class="kd-knopf hell klein" aria-label={`Notiz vom ${wann(n.angelegt)} löschen`} onclick={(e) => { if (!confirm('Notiz löschen?')) e.preventDefault(); }}>Löschen</button>
+								<button type="submit" class="kd-knopf gefahr klein" aria-label={`Notiz vom ${wann(n.angelegt)} löschen`} use:rueckfrage={'Notiz wirklich löschen?'}>Löschen</button>
 							</form>
 						{/if}
 					</div>

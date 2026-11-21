@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { einmalig } from '$lib/einmalig';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { euro, mengeText } from '$lib/geld';
 	import { tagDeutsch } from '$lib/zeit';
@@ -33,7 +34,7 @@
 {:else if v.wartet}
 	<p class="kd-info">Eine Rechnung wird gerade in Lexware angelegt – bitte kurz warten.</p>
 {:else}
-	<form method="POST" action="?/rechnungErstellen" use:enhance class="kd-formular" data-testid="rechnung-dialog">
+	<form method="POST" action="?/rechnungErstellen" use:enhance={einmalig()} class="kd-formular" data-testid="rechnung-dialog">
 		{#if fehler}<p role="alert" class="kd-fehler">{fehler}</p>{/if}
 		<p class="kd-info">
 			Aus {v.ab ? `der Auftragsbestätigung ${v.ab.nummer}` : `dem Angebot ${v.angebot?.nummer}`} – Lexware vergibt Nummer und PDF. <InfoFenster id="rechnung.dialog" />

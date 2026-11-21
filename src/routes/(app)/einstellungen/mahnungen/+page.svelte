@@ -59,7 +59,7 @@
 						{@render formular(s)}
 						<form method="POST" action="?/stufeLoeschen" use:enhance class="nf-loeschen">
 							<input type="hidden" name="id" value={s.id} />
-							<button type="submit" class="kd-knopf hell" use:rueckfrage={'Stufe wirklich löschen?'}>Stufe löschen</button>
+							<button type="submit" class="kd-knopf gefahr" use:rueckfrage={'Stufe wirklich löschen?'}>Stufe löschen</button>
 						</form>
 					</details>
 				</li>

@@ -501,14 +501,14 @@ html .ui-feld {
 	line-height: 1;
 	white-space: nowrap;
 	color: #fff;
-	background: var(--ui-grau);
+	background: var(--ui-grau-text);
 }
 .ui-pill.gruen { background: var(--ui-gruen); }
-.ui-pill.orange { background: var(--ui-orange); }
+.ui-pill.orange { background: var(--ui-orange-text); }
 .ui-pill.rot { background: var(--ui-rot); }
 .ui-pill.lila { background: var(--ui-lila); }
 .ui-pill.blau { background: var(--ui-blau); }
-.ui-pill.grau { background: var(--ui-grau); }
+.ui-pill.grau { background: var(--ui-grau-text); }
 
 /* ── Listen-Zeilen ───────────────────────────────────────────────────────────────────────────────────── */
 
@@ -566,12 +566,12 @@ html :is(.af-status, .an-status) {
 	font-size: var(--ui-schrift-xs);
 	font-weight: 600;
 	line-height: 1;
-	background: var(--ui-grau);
+	background: var(--ui-grau-text);
 }
-html .af-status.s-anfrage { background: var(--ui-grau); color: #fff; }
+html .af-status.s-anfrage { background: var(--ui-grau-text); color: #fff; }
 html .af-status.s-angebot { background: var(--ui-lila); color: #fff; }
 html .af-status.s-beauftragt { background: var(--ui-blau); color: #fff; }
-html .af-status.s-in_arbeit { background: var(--ui-orange); color: #fff; }
+html .af-status.s-in_arbeit { background: var(--ui-orange-text); color: #fff; }
 html .af-status.s-abgenommen { background: var(--ui-gruen); color: #fff; }
 html .af-status.s-abgerechnet { background: #5c6370; color: #fff; }
 html .an-status.s-versendet { background: var(--ui-blau); color: #fff; }

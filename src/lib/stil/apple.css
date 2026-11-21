@@ -345,3 +345,12 @@ html body .kd-leer {
 		transform: none;
 	}
 }
+
+/* ── Eingabefelder am Handy: mindestens 16 px Schrift ─────────────────────────────────────────────────
+   iOS-Safari vergrößert die ganze Seite, sobald ein Feld mit kleinerer Schrift den Fokus bekommt (bisher 14 px) –
+   auf der Baustelle muss man dann jedes Mal zurückzoomen. Nur für Touch-Geräte; am Schreibtisch bleibt es kompakt. */
+@media (pointer: coarse) {
+	html body :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']), select, textarea) {
+		font-size: max(16px, 1em) !important; /* gegen kleinere Schriften einzelner Bausteine */
+	}
+}

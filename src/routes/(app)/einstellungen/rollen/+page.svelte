@@ -3,6 +3,7 @@
 	import { untrack } from 'svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	import { enhance } from '$app/forms';
+	import { einmalig } from '$lib/einmalig';
 	import '$lib/stil/kunden.css';
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import type { ActionData, PageData } from './$types';
@@ -31,7 +32,7 @@
 
 	<AddPanel label="Rolle anlegen" knopf={false} bind:offen={neuOffen}>
 		{#snippet children(schliessen)}
-			<form method="POST" action="?/neu" use:enhance class="kd-formular">
+			<form method="POST" action="?/neu" use:enhance={einmalig()} class="kd-formular">
 				{#if form?.fehler}
 					<p role="alert" class="kd-fehler">{form.fehler}</p>
 				{/if}

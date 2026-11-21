@@ -2,6 +2,7 @@
 	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
+	import { einmalig } from '$lib/einmalig';
 	import { STATUS_NAMEN } from '$lib/auftrag-status';
 	import { terminKurz } from '$lib/einsatz-art';
 	import { berlinTag, berlinUhrzeit, tagDeutsch } from '$lib/zeit';
@@ -320,7 +321,7 @@
 					{#if data.lexware.stand.problem}<br /><span class="kd-fehler">Problem: {data.lexware.stand.problem}</span>{/if}
 				</p>
 				{#if data.lexware.verbunden && !(data.lexware.stand.verknuepft && data.lexware.stand.aktuell)}
-					<form method="POST" action="?/lexware" use:enhance><button type="submit" class="kd-knopf klein">In Lexware übertragen</button></form>
+					<form method="POST" action="?/lexware" use:enhance={einmalig()}><button type="submit" class="kd-knopf klein">In Lexware übertragen</button></form>
 				{/if}
 				{#if data.lexware.firma}
 					<form method="POST" action="?/lexware13b" use:enhance={() => async ({ update }) => update({ reset: false })} class="kp-form kp-einst-form">
@@ -501,7 +502,7 @@
 	<Abschnitt titel="Verlauf">
 		{#snippet aktionen()}
 			{#if data.darfAngebotAnlegen}
-				<form method="POST" action="?/angebotErstellen" use:enhance>
+				<form method="POST" action="?/angebotErstellen" use:enhance={einmalig()}>
 					<button type="submit" class="kd-knopf hell"><Plus />Angebot ohne Auftrag</button>
 				</form>
 			{/if}

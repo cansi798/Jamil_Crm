@@ -113,8 +113,8 @@
 							<input type="hidden" name="kontaktId" value={c.id} />
 							<input name="name" required maxlength="200" value={c.name} aria-label="Name" />
 							<input name="rolle" maxlength="100" value={c.rolle ?? ''} placeholder="Rolle" aria-label="Rolle" />
-							<input name="telefon" maxlength="50" value={c.telefon ?? ''} placeholder="Telefon" aria-label="Telefon" />
-							<input name="email" maxlength="200" value={c.email ?? ''} placeholder="E-Mail" aria-label="E-Mail" />
+							<input name="telefon" type="tel" maxlength="50" value={c.telefon ?? ''} placeholder="Telefon" aria-label="Telefon" />
+							<input name="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="200" value={c.email ?? ''} placeholder="E-Mail" aria-label="E-Mail" />
 							<button type="submit" class="kd-knopf klein">Speichern</button>
 						</form>
 					{:else}
