@@ -57,19 +57,15 @@ export type FarbTokens = {
 };
 
 /**
- * Füllung der Hauptknöpfe und des schwebenden Plus (Jamil msgs 6655/6656, 21.11.2026: flach in der Hausfarbe mit
- * weißer Schrift statt Gold mit dunkler Schrift). Weiß muss WCAG AA (≥ 4,5 : 1) erreichen – sonst wird die Hausfarbe
- * schrittweise abgedunkelt. Bräuchte das mehr als 45 % Schwarz (sehr helle Farben wie Gelb würden schlammig), bleibt die
- * Hausfarbe und die Schrift wird dunkel (ebenfalls ≥ 4,5 : 1, siehe `lesbareFuellung`).
+ * Hauptknöpfe, schwebendes Plus und Mikrofon (Jamil msgs 6655/6656/6685, 21.11.2026): Die Fläche ist IMMER die
+ * originale Hausfarbe (Logo-Beige bzw. Farbe des Betriebs) – nie abgedunkelt, keine erfundene Farbe. Die Schrift (und
+ * das Symbol) ist Weiß, wenn das ≥ 4,5 : 1 erreicht, sonst fast Schwarz #1d1d1f (erreicht keines 4,5 : 1, gewinnt das
+ * Bessere). Hover: nur ganz leicht abgedunkelt (7 %), als Zustand – nicht als Grundfarbe.
  */
-export function primaerFuellung(hex: string): { fuellung: string; auf: string } {
-	if (kontrast(hex, WEISS) >= 4.5) return { fuellung: hex, auf: WEISS };
-	const rgb = zuRgb(hex);
-	for (let i = 1; i <= 9; i++) {
-		const f = zuHex(mische(rgb, SCHWARZ, i * 0.05));
-		if (kontrast(f, WEISS) >= 4.5) return { fuellung: f, auf: WEISS };
-	}
-	return lesbareFuellung(hex);
+export const FAST_SCHWARZ = '#1d1d1f';
+export function primaerFuellung(hex: string): { fuellung: string; auf: string; hover: string } {
+	const auf = kontrast(hex, WEISS) >= 4.5 || kontrast(hex, WEISS) > kontrast(hex, FAST_SCHWARZ) ? WEISS : FAST_SCHWARZ;
+	return { fuellung: hex, auf, hover: zuHex(mische(zuRgb(hex), SCHWARZ, 0.07)) };
 }
 
 /**
@@ -128,7 +124,7 @@ export function farbTokens(farbe: string | null | undefined): FarbTokens {
 	let text = hex;
 	for (let i = 1; i <= 20 && kontrast(text, WEISS) < 4.6; i++) text = zuHex(mische(rgb, SCHWARZ, i * 0.05));
 	const hover = zuHex(mische(rgb, SCHWARZ, 0.1));
-	const primaer = primaerFuellung(hex);
+	const primaer = primaerFuellung(istFarbe(farbe) ? farbe.toLowerCase() : STANDARD_FARBE);
 	const [r, g, b] = rgb;
 	return {
 		'--ui-akzent': hex,
@@ -140,7 +136,7 @@ export function farbTokens(farbe: string | null | undefined): FarbTokens {
 		'--ui-akzent-rand': zuHex(mische(rgb, WEISS_RGB, 0.55)),
 		'--ui-fokus-ring': `0 0 0 3px rgba(${r}, ${g}, ${b}, 0.35)`,
 		'--ui-primaer': primaer.fuellung,
-		'--ui-primaer-hover': zuHex(mische(zuRgb(primaer.fuellung), SCHWARZ, 0.1)),
+		'--ui-primaer-hover': primaer.hover,
 		'--ui-primaer-auf': primaer.auf
 	};
 }

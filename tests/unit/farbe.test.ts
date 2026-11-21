@@ -77,19 +77,25 @@ describe('Akzentfarbe aus dem Logo (msg 3016)', () => {
 	});
 });
 
-describe('primaerFuellung (Hauptknöpfe, Jamil msg 6656)', () => {
-	it('weiße Schrift mit Kontrast ≥ 4,5 : 1; zu helle Hausfarben werden abgedunkelt', () => {
-		for (const f of ['#c3a56f', '#1d4ed8', '#0e700e', '#e11d48', '#ffd400', '#7dd3fc']) {
-			const t = farbTokens(f);
-			expect(kontrast(t['--ui-primaer'], t['--ui-primaer-auf'])).toBeGreaterThanOrEqual(4.5);
+describe('primaerFuellung (Hauptknöpfe, Jamil msgs 6656/6685)', () => {
+	it('Fläche ist immer die originale Hausfarbe – nie abgedunkelt', () => {
+		for (const f of ['#c3a56f', '#1d4ed8', '#0e700e', '#e11d48', '#ffd400', '#7dd3fc', '#808080']) {
+			expect(farbTokens(f)['--ui-primaer']).toBe(f);
 		}
-		expect(farbTokens('#c3a56f')['--ui-primaer-auf']).toBe('#ffffff');
-		expect(farbTokens('#c3a56f')['--ui-primaer']).toBe('#89734e');
-		expect(farbTokens('#1d4ed8')['--ui-primaer']).toBe('#1d4ed8');
+		expect(farbTokens(null)['--ui-primaer']).toBe(STANDARD_FARBE);
 	});
-	it('sehr helle Farbe, die zu stark abgedunkelt werden müsste: Hausfarbe bleibt, Schrift dunkel', () => {
-		const t = primaerFuellung('#fff59d');
-		expect(t.auf).toBe('#1f1e20');
-		expect(kontrast(t.fuellung, t.auf)).toBeGreaterThanOrEqual(4.5);
+	it('Schrift weiß bei ≥ 4,5 : 1, sonst fast Schwarz', () => {
+		expect(primaerFuellung('#c3a56f').auf).toBe('#1d1d1f'); // Logo-Beige: Weiß nur 2,4 : 1
+		expect(primaerFuellung('#1d4ed8').auf).toBe('#ffffff');
+		expect(primaerFuellung('#ffd400').auf).toBe('#1d1d1f');
+		for (const f of ['#c3a56f', '#1d4ed8', '#0e700e', '#ffd400', '#7dd3fc']) {
+			const t = primaerFuellung(f);
+			expect(kontrast(t.fuellung, t.auf)).toBeGreaterThanOrEqual(4.5);
+		}
+	});
+	it('Hover nur leicht dunkler (7 %), nicht als neue Grundfarbe', () => {
+		const t = farbTokens('#c3a56f');
+		expect(t['--ui-primaer-hover']).toBe('#b59967');
+		expect(t['--ui-primaer']).toBe('#c3a56f');
 	});
 });

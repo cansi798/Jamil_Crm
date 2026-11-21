@@ -55,10 +55,11 @@ Portal in `portal/PortalHuelle.svelte`.
 - **Kachel = `.ui-kachel`** (stil/apple.css): weiß, 1-px-Haarlinie, weicher Schatten, 14 px Radius, Zahl
   `.ui-kachel-wert` (groß, halbfett), Bezeichnung `.ui-kachel-titel` (grau), Ton über `.ui-ton-*`; `0` → `.null`
   (grauer Punkt, Zahl bleibt gut lesbar). Kennzahl-Streifen (`KennzahlKacheln`) sehen gleich aus.
-- **Hauptknopf und schwebendes Plus** in `--ui-primaer` (Hausfarbe flach, weiße Schrift; `farbe.ts primaerFuellung`
-  dunkelt zu helle Hausfarben ab, bis 4,5 : 1 erreicht ist – Standard-Gold wird Bronze `#89734e`; extrem helle Farben
-  behalten den Ton mit dunkler Schrift). 10 px Radius, 40 px (Touch 44 px), mittleres Gewicht. Einträge im
-  Schnellzugriff: heller Knopf mit Symbol in der Hausfarbe.
+- **Hauptknopf, schwebendes Plus, Mikrofon** in `--ui-primaer` = **immer die originale Hausfarbe** (Logo-Beige bzw.
+  Farbe des Betriebs), nie abgedunkelt, keine eigene Farbe (Jamil msg 6685). Schrift und Symbol: Weiß, wenn das
+  ≥ 4,5 : 1 erreicht, sonst fast Schwarz `#1d1d1f` (`farbe.ts primaerFuellung`; Standard-Beige → dunkle Schrift).
+  Hover nur ganz leicht dunkler (7 %, `--ui-primaer-hover`). 10 px Radius, 40 px (Touch 44 px), mittleres Gewicht.
+  Einträge im Schnellzugriff: heller Knopf mit Symbol in der Hausfarbe.
 - **„+“ nie als Text:** `<Knopf symbol="plus">` bzw. in Altbestand `<Plus />` (`ui/Plus.svelte`, unsichtbares „+ “
   für Screenreader/Tests).
 
