@@ -28,6 +28,8 @@ export type ZeitEintrag = {
 	auftragId: string;
 	auftragNummer?: string | null;
 	auftragTitel?: string | null;
+	/** Kundennummer aus Lexware (Can #6748) – für Exporte */
+	kundeNummer?: number | null;
 	art: ZeitArt;
 	beginn: string;
 	/** leer = läuft noch */

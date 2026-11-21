@@ -36,7 +36,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 			'cache-control': 'no-store'
 		});
 		if (format === 'csv') {
-			const zeilen: (string | number | null)[][] = [['Tag', 'Beginn', 'Ende', 'Art', 'Auftrag', 'Stunden', 'Pause (Min.)', 'km', 'Notiz', 'Korrektur', 'Freigegeben']];
+			const zeilen: (string | number | null)[][] = [['Tag', 'Beginn', 'Ende', 'Art', 'Auftrag', 'Kundennr.', 'Stunden', 'Pause (Min.)', 'km', 'Notiz', 'Korrektur', 'Freigegeben']];
 			for (const e of n.eintraege) {
 				const b = new Date(e.beginn);
 				const ende = e.ende ? new Date(e.ende) : null;
@@ -47,6 +47,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 					ende ? berlinUhrzeit(ende) : 'läuft',
 					ZEIT_ART_NAMEN[e.art],
 					`${e.auftragNummer ?? ''} ${e.auftragTitel ?? ''}`.trim(),
+					// Kundennummer aus Lexware (Can #6748); leer = folgt
+					e.kundeNummer ?? null,
 					stundenDezimal(min),
 					e.pauseMin || null,
 					e.km,

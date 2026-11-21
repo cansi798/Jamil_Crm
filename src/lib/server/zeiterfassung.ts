@@ -60,6 +60,7 @@ function uebersetze(e: unknown): never {
 // ——— Lesen ———
 
 const AUSWAHL = `z.id, z.benutzer_id, b.name as benutzer_name, z.auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel,
+	(select kd.lexware_kundennummer from app.kunden kd where kd.id = a.kunde_id and kd.betrieb_id = a.betrieb_id) as kunde_nummer,
 	z.art, z.beginn, z.ende, z.pause_min, z.km, z.km_berechnet, z.km_quelle,
 	z.start_adresse, z.ziel_adresse, z.notiz, z.manuell, z.korrektur_grund, z.freigegeben_am, z.nacharbeit`;
 const VON = `app.zeit_eintraege z
@@ -77,6 +78,7 @@ export function zuEintrag(z: Record<string, any>): ZeitEintrag {
 		auftragId: z.auftrag_id,
 		auftragNummer: z.auftrag_nummer ?? null,
 		auftragTitel: z.auftrag_titel ?? null,
+		kundeNummer: z.kunde_nummer ?? null,
 		art: z.art,
 		beginn: iso(z.beginn)!,
 		ende: iso(z.ende),

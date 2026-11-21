@@ -208,9 +208,13 @@ describe('Zeiterfassung', () => {
 
 	it('Export CSV und PDF; Monteur bekommt immer nur sich selbst', async () => {
 		await trageNach(chef, { art: 'arbeit', tag: '2026-10-19', von: '08:00', bis: '12:00', grund: '=Formel', benutzerId: u.ids.monteurA, auftragId: u.auftragA });
+		// Kundennummer aus Lexware steht im Export (Can #6748)
+		await root`update app.kunden set lexware_kundennummer = 10777 where id = (select kunde_id from app.auftraege where id = ${u.auftragA})`;
 		const csvAntwort = await exportGet({ locals: { nutzer: u.monteurA }, url: new URL(`http://x/zeiten/export?format=csv&von=2026-10-19&bis=2026-10-25&person=${u.ids.chefA}`) } as never);
 		expect(csvAntwort.headers.get('content-type')).toMatch(/text\/csv/);
 		const text = await csvAntwort.text();
+		expect(text).toContain('Kundennr.');
+		expect(text).toContain(';10777;');
 		expect(text).toContain('2026-10-19;08:00;12:00;Arbeit;');
 		expect(text).toContain(";4;");
 		expect(text).toContain("'=Formel");
