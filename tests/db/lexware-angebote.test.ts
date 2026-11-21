@@ -231,7 +231,8 @@ describe('Lexware: Angebote, Auftragsbestätigung, Terminvorschläge', () => {
 		await setzeAngebotStatus(kA(), an.id, 'angenommen');
 		await lauf();
 		expect((await holeAngebot(kA(), an.id)).status).toBe('angenommen');
-		expect((await root`select status from app.lexware_auftraege where art = 'ab_anlegen'`)[0].status).toBe('wartet');
+		// 5xx beim Anlegen: unklar, ob Lexware schon angelegt hat → „ungewiss“ (vor dem nächsten Versuch erst nachsehen)
+		expect((await root`select status from app.lexware_auftraege where art = 'ab_anlegen'`)[0].status).toBe('ungewiss');
 		await root`update app.lexware_auftraege set naechster_versuch = now() where art = 'ab_anlegen'`;
 		await lauf();
 		expect(await root`select 1 from app.auftragsbestaetigungen where angebot_id = ${an.id} and beleg_quelle = 'lexware'`).toHaveLength(1);
