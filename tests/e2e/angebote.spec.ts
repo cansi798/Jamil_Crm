@@ -67,7 +67,7 @@ test.describe('Angebote', () => {
 			await expect(page.getByTestId('position')).toHaveCount(3);
 			await expect(page.locator('.sb-brutto')).toContainText('€');
 
-			await page.getByRole('button', { name: 'Speichern' }).click();
+			await page.getByRole('button', { name: 'Speichern', exact: true }).click();
 			await expect(page.getByRole('status').filter({ hasText: 'Gespeichert.' })).toBeVisible();
 			await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 			const gespeichert = (await api(page, 'GET', `/api/angebote/${angebotId}`)).json;

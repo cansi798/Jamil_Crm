@@ -73,15 +73,26 @@ test('Ausgangsbelege: Umleitung, einheitliche Reiter, Suche überall, AB-Liste m
 	await expect(page).toHaveURL(/status=gesendet/);
 	await expect(page.getByText('Keine Auftragsbestätigungen für diesen Filter.')).toBeVisible();
 
-	// Rechnungen: gleicher Rahmen, Suche und Status gesperrt, Leerzustand mittig
+	// Rechnungen (Lexware Phase 3, seit 15.11.): gleicher Rahmen wie die anderen Reiter, Suche und Status-Filter
+	// bedienbar; Zahlungsstand kommt aus Lexware – ohne Lexware-Verbindung bleibt die Liste leer (Leerzustand mittig).
 	await reiter.getByRole('link', { name: 'Rechnungen' }).click();
 	await expect(page).toHaveURL(/\/ausgangsbelege\/rechnungen$/);
-	await expect(page.getByText('Rechnungen kommen mit der Lexware-Anbindung')).toBeVisible();
-	await expect(page.getByRole('searchbox', { name: 'Rechnungen suchen' })).toBeDisabled();
-	await expect(page.getByRole('group', { name: 'Status' }).getByRole('button')).toHaveText(['Alle', 'Offen', 'Bezahlt', 'Überfällig']);
-	for (const b of await page.getByRole('group', { name: 'Status' }).getByRole('button').all()) await expect(b).toBeDisabled();
+	await expect(page.getByText('Rechnungen entstehen in Lexware')).toBeVisible();
+	await expect(page.getByRole('searchbox', { name: 'Rechnungen suchen' })).toBeEnabled();
+	const rStatus = page.getByRole('navigation', { name: 'Status' });
+	await expect(rStatus.getByRole('link')).toHaveText(['Alle', 'Offen', 'Überfällig', 'Teilweise bezahlt', 'Bezahlt', 'Entwurf']);
+	await expect(rStatus.getByRole('link', { name: 'Alle' })).toHaveAttribute('aria-current', 'page');
 	await expect(page.getByRole('group', { name: 'Rechnungen: Kennzahlen' })).toBeVisible();
-	const leer = await page.locator('.beleg-leer .kd-leer').evaluate((el) => {
+	await rStatus.getByRole('link', { name: 'Überfällig' }).click();
+	await expect(page).toHaveURL(/status=ueberfaellig/);
+	await expect(rStatus.getByRole('link', { name: 'Überfällig' })).toHaveAttribute('aria-current', 'page');
+	for (const s of await page.locator('li[data-beleg] .an-status').allInnerTexts()) expect(s).toBe('Überfällig');
+	await page.getByRole('searchbox', { name: 'Rechnungen suchen' }).fill('zzz-gibt-es-nicht');
+	await page.getByRole('searchbox', { name: 'Rechnungen suchen' }).press('Enter');
+	await expect(page).toHaveURL(/suche=zzz-gibt-es-nicht/);
+	await expect(page).toHaveURL(/status=ueberfaellig/);
+	await expect(page.getByText('Keine Rechnungen für diesen Filter.')).toBeVisible();
+	const leer = await page.locator('.beleg-liste .kd-leer').evaluate((el) => {
 		const k = el.getBoundingClientRect();
 		const symbol = getComputedStyle(el, '::before');
 		return { links: k.left, rechts: k.right, breite: el.scrollWidth, sichtbar: el.clientWidth, symbolBreite: symbol.width, anzeige: getComputedStyle(el).display };

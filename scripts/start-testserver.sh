@@ -33,6 +33,10 @@ if [ -z "$DB" ] || [ "$DB" = "crm" ]; then
 fi
 export PGDATABASE="$DB"
 PORT_INTERN="${TESTSERVER_PORT:-3000}"
+# Die Browser-Tests der Sprachsteuerung erwarten die Test-KI (FakeKi, ohne Internet) – nie die echte KI aus .env.
+export CRM_KI_ANBIETER="${TESTSERVER_KI:-fake}"
+# Lexware nur gegen die Attrappe (tests/hilfe/lexware-attrappe-start.ts), z. B. TESTSERVER_LEXWARE_URL=http://127.0.0.1:3901
+if [ -n "${TESTSERVER_LEXWARE_URL:-}" ]; then export CRM_LEXWARE_URL="$TESTSERVER_LEXWARE_URL"; fi
 ORIGIN_TEST="${TESTSERVER_ORIGIN:-http://127.0.0.1:8310}"
 
 echo "Datenbank „$DB“ anlegen (falls nötig) …"
@@ -61,6 +65,8 @@ fi
 rm -f "$BAULOG"
 
 # Alten Testserver beenden – nur über die eigene PID-Datei (nie fremde „node build“-Prozesse)
+# Eigene Kennung in der Befehlszeile („node build --crm-testserver“): start-vorschau.sh beendet mit
+# pkill -f '^node build$' nur die Vorschau, und die Vorschau-Wache hält einen Testserver nicht für die Vorschau.
 if [ -f "$PIDDATEI" ]; then
 	kill "$(cat "$PIDDATEI")" 2>/dev/null || true
 	rm -f "$PIDDATEI"
@@ -69,7 +75,7 @@ fi
 
 echo "Starte Testserver (ORIGIN $ORIGIN_TEST, Datenbank $DB, Testmodus an) …"
 nohup setsid sh -c 'echo $$ > "$1"; exec env -u PGUSER -u PGPASSWORD \
-	NODE_ENV=production HOST=0.0.0.0 PORT="$2" ORIGIN="$3" BODY_SIZE_LIMIT=6M CRM_TESTMODUS=1 node build' \
+	NODE_ENV=production HOST=0.0.0.0 PORT="$2" ORIGIN="$3" BODY_SIZE_LIMIT=6M CRM_TESTMODUS=1 node build --crm-testserver' \
 	testserver "$PIDDATEI" "$PORT_INTERN" "$ORIGIN_TEST" > "$LOG" 2>&1 < /dev/null &
 
 i=0

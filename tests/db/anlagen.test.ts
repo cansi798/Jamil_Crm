@@ -19,6 +19,7 @@ import { aendereAuftrag, holeAuftrag, legeAuftragAn, sichtVon } from '../../src/
 import { aendereTodo, todoSichtVon } from '../../src/lib/server/todos';
 import { berlinTag, tagPlus } from '../../src/lib/zeit';
 import { naechsterTermin } from '../../src/lib/wiederholung';
+import { GET as etikettGet } from '../../src/routes/(app)/anlagen/[id]/etikett/+server';
 import { baueUmgebung, testPng, UNBEKANNT, type Umgebung } from './hilfe-1c';
 
 /** Anlagen an Objekten mit QR-Code (Wünsche Jamil, msgs 2503/2505). */
@@ -178,5 +179,27 @@ describe('Anlagen', () => {
 		expect(await anlagePerQr(a.id)).toBeNull(); // die ID ist kein Kürzel
 		// crm_app darf die Funktion nicht aufrufen
 		await expect(u.alsApp(u.betriebA, u.ids.chefA, (tx) => tx`select * from app.anlage_per_qr(${a.qrToken})`)).rejects.toThrow(/permission denied/);
+	});
+	it('Etikett-Endpunkt: angemeldet PDF (einzeln und Bogen), ohne Sitzung 401, fremder Betrieb 404', async () => {
+		const a = await wp();
+		const aufruf = (nutzer: unknown, suche = '') =>
+			etikettGet({ locals: { nutzer }, params: { id: a.id }, url: new URL(`https://crm.example/anlagen/${a.id}/etikett${suche}`) } as never);
+		for (const [nutzer, suche, datei] of [
+			[u.chefA, '', 'etikett.pdf'],
+			[u.monteurA, '?format=bogen', 'etiketten-bogen.pdf']
+		] as const) {
+			const r = await aufruf(nutzer, suche);
+			expect(r.status).toBe(200);
+			expect(r.headers.get('content-type')).toBe('application/pdf');
+			expect(r.headers.get('content-disposition')).toBe(`inline; filename="${datei}"`);
+			expect(r.headers.get('cache-control')).toBe('private, no-store');
+			const pdf = Buffer.from(await r.arrayBuffer());
+			expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+			expect(r.headers.get('content-length')).toBe(String(pdf.byteLength));
+		}
+		const gast = await aufruf(null);
+		expect(gast.status).toBe(401);
+		expect(gast.headers.get('content-type')).toMatch(/^application\/json/);
+		expect((await aufruf(u.chefB)).status).toBe(404);
 	});
 });

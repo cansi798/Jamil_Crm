@@ -27,7 +27,27 @@ export async function anmelden(page: Page, email: string): Promise<void> {
 	}
 	await page.getByLabel('Passwort').fill(zugang(email));
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden$/);
+	// Passwortprüfung (Argon2) braucht unter Last mehrere Sekunden – 5 s Standard reichen dann nicht
+	await expect(page).not.toHaveURL(/\/anmelden$/, { timeout: 20_000 });
+	await cookiesFuerHttpTestserver(page);
+}
+
+/**
+ * Das Sitzungs-Cookie ist `Secure`. Chromium schickt es auch an http://127.0.0.1 (gilt als sicherer Ursprung),
+ * Playwrights Anfrage-Kontext (`page.request`) aber nicht – gegen den eigenen Testserver (http) bekämen API-Aufrufe
+ * aus dem Test sonst 401 „Nicht angemeldet“ als JSON. Nur bei http-Zielen: Cookies ohne `Secure` neu setzen.
+ * Gegen die Vorschau (https) ändert sich nichts.
+ */
+export async function cookiesFuerHttpTestserver(page: Page): Promise<void> {
+	const ziel = new URL(page.url());
+	if (ziel.protocol !== 'http:') return;
+	const ctx = page.context();
+	// ohne URL abfragen: cookies(http-Adresse) ließe gerade die `Secure`-Cookies weg
+	const sichere = (await ctx.cookies()).filter((c) => c.secure && c.domain.replace(/^\./, '') === ziel.hostname);
+	if (sichere.length === 0) return;
+	// Chromium lässt ein sicheres Cookie nicht von einem unsicheren gleichen Namens überschreiben → erst entfernen
+	for (const c of sichere) await ctx.clearCookies({ name: c.name, domain: c.domain, path: c.path });
+	await ctx.addCookies(sichere.map((c) => ({ ...c, secure: false })));
 }
 
 /** Aktueller TOTP-Code zu einem Base32-Geheimnis (gleiche Parameter wie src/lib/server/auth/totp.ts). */

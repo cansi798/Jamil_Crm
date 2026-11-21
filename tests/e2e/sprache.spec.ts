@@ -220,7 +220,8 @@ test.describe('Sprachsteuerung', () => {
 
 	test('nicht unterstützt → „Das kann ich noch nicht“', async ({ page }) => {
 		await anmelden(page, BUERO);
-		const dialog = await befehlTippen(page, 'Schreib eine Rechnung für Schröder');
+		// (Rechnungen gehen seit Lexware Phase 3 per Sprache – darum ein Befehl, den das CRM wirklich nicht kennt)
+		const dialog = await befehlTippen(page, 'Spiel mir Musik vor');
 		await expect(dialog.getByRole('heading', { name: 'Das kann ich noch nicht' })).toBeVisible();
 	});
 

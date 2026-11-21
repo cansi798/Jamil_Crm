@@ -3,10 +3,10 @@ import { bestaetigen } from './hilfe';
 
 /**
  * Nachfassen (Jamil msgs 2585, 2633, 2636) mit der Vorlagen-Bibliothek (msg 2789): Mail-Vorlage „Zahlungserinnerung“
- * mit Vorschau in Einstellungen → E-Mail-Vorlagen anlegen, in einer Rechnungs-Stufe auswählen, beides wieder löschen.
+ * mit Vorschau in Einstellungen → E-Mail-Vorlagen anlegen, in einer Mahnstufe (Einstellungen → Mahnungen) auswählen, beides wieder löschen.
  * Ändert die Stufen für Angebote des Betriebs NICHT. Braucht den Testmodus (Chef ohne Zwei-Faktor).
  */
-test('Nachfassen: Vorlage in der Bibliothek anlegen, in einer Rechnungs-Stufe wählen, beides löschen', async ({ page }, info) => {
+test('Nachfassen: Vorlage in der Bibliothek anlegen, in einer Mahnstufe wählen, beides löschen', async ({ page }, info) => {
 	await page.goto('/anmelden');
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
@@ -32,22 +32,24 @@ test('Nachfassen: Vorlage in der Bibliothek anlegen, in einer Rechnungs-Stufe w�
 		await f.getByRole('button', { name: 'Vorlage anlegen' }).click();
 		await page.waitForURL(/\/einstellungen\/mail-vorlagen\/[0-9a-f-]{36}\?angelegt=1$/);
 		await page.goto('/einstellungen/mail-vorlagen');
-		await expect(page.getByRole('list', { name: 'Vorlagen Zahlungserinnerung / Mahnung' }).locator('li', { hasText: name })).toBeVisible();
+		await expect(page.getByRole('list', { name: 'Vorlagen Zahlungserinnerung' }).locator('li', { hasText: name })).toBeVisible();
 
-		// Rechnungs-Stufe: Tag 10, Mail mit dieser Vorlage + Aufgabe
-		await page.goto('/einstellungen/nachfassen');
-		const rechnungen = page.locator('.karte', { hasText: 'Rechnungen gibt es im CRM noch nicht' });
-		await rechnungen.getByRole('button', { name: 'Stufe hinzufügen' }).click();
-		const s = rechnungen.locator('form[action="?/stufe"]').last();
+		// Mahnstufe mit dieser Vorlage: seit Lexware Phase 3 (15.11.) nicht mehr unter „Nachfassen“ (nur noch Angebote),
+		// sondern unter Einstellungen → Mahnungen
+		await page.goto('/einstellungen/mahnungen');
+		await expect(page.getByRole('heading', { level: 1, name: 'Zahlungserinnerung und Mahnungen' })).toBeVisible();
+		await page.getByRole('button', { name: 'Stufe hinzufügen' }).first().click();
+		const s = page.locator('form[action="?/stufe"]').last();
+		await s.locator('select[name="mahnstufe"]').selectOption('0');
 		await s.locator('input[name="tage"]').fill('10');
 		await s.locator('input[name="mail"]').check();
 		await s.locator('select[name="mailVorlageId"]').selectOption({ label: name });
 		await s.locator('input[name="todoTitel"]').fill(`${name}: Zahlung prüfen`);
 		await s.getByRole('button', { name: 'Stufe hinzufügen' }).click();
-		await expect(rechnungen.getByRole('list', { name: 'Stufen Rechnung' })).toContainText(`Mail „${name}“`);
+		await expect(page.getByRole('list', { name: 'Mahnstufen' })).toContainText(`Mail „${name}“`);
 	} finally {
-		await page.goto('/einstellungen/nachfassen');
-		const st = page.getByRole('list', { name: 'Stufen Rechnung' }).locator('li', { hasText: name });
+		await page.goto('/einstellungen/mahnungen');
+		const st = page.getByRole('list', { name: 'Mahnstufen' }).locator('li', { hasText: name });
 		if (await st.count()) {
 			await st.locator('summary').first().click();
 			await st.getByRole('button', { name: 'Stufe löschen' }).click();

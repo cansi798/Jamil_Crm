@@ -146,14 +146,17 @@ describe('Lexware: Kunden-Abgleich, Webhooks, Belege', () => {
 		expect(a.anfragen.filter((x) => x.pfad === '/v1/voucherlist').map((x) => x.query.get('page'))).toEqual(['0', '1']);
 		expect(a.anfragen.find((x) => x.pfad === '/v1/voucherlist')!.query.get('voucherType')).toBe('quotation,orderconfirmation,invoice,downpaymentinvoice,creditnote');
 		// Zahlung in Lexware → Rückmeldung → veraltet → neuer Abgleich übernimmt den Stand
-		a.belege[0].voucherStatus = 'paid';
-		a.belege[0].openAmount = 0;
+		// wie in Lexware (und a.bezahle): eine Zahlung ändert auch updatedDate – sonst fände der Abgleich „seit gestern“
+		// den Beleg nicht (das feste Datum aus beleg() lag nur am 15.11. noch im Fenster → Test lief ab 16.11. rot)
+		Object.assign(a.belege[0], { voucherStatus: 'paid', openAmount: 0, updatedDate: new Date().toISOString() });
 		const { t, sig } = signiert({ organizationId: a.organisationId, eventType: 'payment.changed', resourceId: a.belege[0].id, eventDate: new Date().toISOString() });
 		expect((await nimmEreignisAn(t, sig)).ergebnis).toBe('neu');
 		await laufFuerBetrieb(kA(), { client: await holeClient(kA(), { abstandMs: 0 }), jetzt: NACHTS_1UHR, max: 0 });
 		expect((await root`select veraltet from app.lexware_belege where lexware_id = ${a.belege[0].id}`)[0].veraltet).toBe(true);
 		await lauf();
 		expect((await root`select status, offen_cent, veraltet from app.lexware_belege where lexware_id = ${a.belege[0].id}`)[0]).toMatchObject({ status: 'paid', offen_cent: '0', veraltet: false });
+		// Zahlungsstand holen (payment.changed) klappt auch für Belege, die nur in der Belegliste stehen – kein Fall „prüfen“
+		expect(await root`select art, letzter_fehler from app.lexware_auftraege where betrieb_id = ${u.betriebA} and status not in ('erledigt', 'abgebrochen')`).toEqual([]);
 		expect((await root`select count(*)::int as n from app.lexware_belege where betrieb_id = ${u.betriebA}`)[0].n).toBe(260);
 		// RLS: Betrieb B sieht keine Belege
 		expect(await u.alsApp(u.betriebB, u.ids.chefB, (tx) => tx`select 1 from app.lexware_belege`)).toHaveLength(0);

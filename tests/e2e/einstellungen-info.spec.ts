@@ -83,7 +83,9 @@ test('ⓘ erklärt die Einstellung, Funktionen-Übersicht, Was ist neu', async (
 	if (!mobil) {
 		const nav = page.getByRole('navigation').first();
 		for (const t of ['Anfrage', 'Angebot', 'Auftrag']) await expect(nav.getByText(t, { exact: true })).toBeVisible();
-		await expect(nav.getByText('Abschluss & danach', { exact: true })).toHaveCount(0);
+		// „Abschluss & danach“ hat seit Lexware Phase 3 wieder Einträge (Erinnerung Rechnung, Jamil msg 6530; Mahnungen)
+		await expect(nav.getByText('Abschluss & danach', { exact: true })).toBeVisible();
+		await expect(nav.getByRole('link', { name: 'Erinnerung Rechnung' })).toBeVisible();
 		await expect(nav.getByRole('link', { name: 'Leistungen für Bestandskunden' })).toHaveCount(0);
 		await expect(nav.getByRole('link', { name: 'Protokoll- & Aufmaß-Vorlagen' })).toBeVisible();
 		await expect(nav.getByRole('link', { name: 'Terminarten' })).toBeVisible();
