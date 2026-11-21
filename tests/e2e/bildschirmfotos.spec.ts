@@ -53,7 +53,8 @@ test.describe('Bildschirmfotos', () => {
 		await page.screenshot({ path: `${ORDNER}/1b-todos-monteur-mobil.png` });
 		await page.context().clearCookies();
 		await anmelden(page, 'buero@bauwelt.test');
-		await page.goto('/auftraege');
+		// Am Handy startet „Aufträge“ als Board (Karten ohne Link) – für den Auftrag die Liste öffnen
+		await page.goto('/auftraege?ansicht=liste');
 		await page.getByRole('main').getByRole('link', { name: /Badsanierung/ }).first().click();
 		await expect(page).toHaveURL(/\/auftraege\/[0-9a-f-]{36}$/);
 		await page.screenshot({ path: `${ORDNER}/1b-auftrag-mobil.png`, fullPage: true });

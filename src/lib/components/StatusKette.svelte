@@ -74,8 +74,10 @@
 	<form method="POST" action={aktion} use:enhance class="sk-mobil">
 		<input type="hidden" name="sprung" value="1" />
 		{#if darfBearbeiten}
+			<!-- value: nach „Weiter →“ zeigt die Auswahl sonst noch den alten Status (selected an den Optionen reicht nicht) -->
 			<Auswahl
 				name="status"
+				value={status}
 				aria-label="Status"
 				class="sk-chip"
 				onchange={(ev) => {

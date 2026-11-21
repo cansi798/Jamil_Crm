@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { anmelden, bestaetigen, erwarteKeinQuerScrollen } from './hilfe';
+import { bestaetigen, erwarteKeinQuerScrollen } from './hilfe';
 import { nurAufTestserver } from './ziel';
 
 /**
@@ -9,7 +9,12 @@ import { nurAufTestserver } from './ziel';
 nurAufTestserver(test);
 
 test('Mahnstufen: Vorschlag, Zahlungsziel speichern, Stufe löschen mit Rückfrage', async ({ page }, info) => {
-	await anmelden(page, 'can.chef');
+	// Test-Zugang „can.chef“ (Testmodus, ohne Passwort) wie lexware-einstellungen.spec.ts
+	await page.goto('/anmelden');
+	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur mit Testmodus');
+	await page.getByLabel('Benutzername').fill('can.chef');
+	await page.getByRole('button', { name: 'Anmelden' }).click();
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 });
 	await page.goto('/einstellungen/mahnungen');
 	await expect(page.getByRole('heading', { name: 'Zahlungserinnerung und Mahnungen' })).toBeVisible();
 	await erwarteKeinQuerScrollen(page, info.project.name === 'mobil' ? 390 : 1280);
@@ -30,12 +35,17 @@ test('Mahnstufen: Vorschlag, Zahlungsziel speichern, Stufe löschen mit Rückfra
 	const ziel = page.getByLabel('Zahlungsziel neuer Rechnungen (Tage)');
 	const vorher = await ziel.inputValue();
 	const neu = vorher === '21' ? '20' : '21';
+	const speichern = async () =>
+		Promise.all([
+			page.waitForResponse((r) => r.url().includes('?/konfig') && r.request().method() === 'POST'),
+			page.locator('form[action="?/konfig"]').getByRole('button', { name: 'Speichern' }).click()
+		]);
 	await ziel.fill(neu);
-	await page.getByRole('button', { name: 'Speichern' }).last().click();
+	await speichern();
 	await page.reload();
 	await expect(page.getByLabel('Zahlungsziel neuer Rechnungen (Tage)')).toHaveValue(neu);
 	await page.getByLabel('Zahlungsziel neuer Rechnungen (Tage)').fill(vorher);
-	await page.getByRole('button', { name: 'Speichern' }).last().click();
+	await speichern();
 	await page.reload();
 	await expect(page.getByLabel('Zahlungsziel neuer Rechnungen (Tage)')).toHaveValue(vorher);
 
