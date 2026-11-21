@@ -176,12 +176,20 @@
 		<Abschnitt titel="Kundenportal" id="kundenportal">
 			{#if form?.portalFehler}<p role="alert" class="kd-fehler">{form.portalFehler}</p>{/if}
 			{#if form?.portalMeldung}<p role="status" class="kd-info">{form.portalMeldung}</p>{/if}
-			{#if form?.portalUrl}
+			{#if form?.portalUrl || form?.portalCode}
 				<div class="kp-neu" data-testid="portal-url">
-					<p><strong>Neuer Link</strong> – nur jetzt sichtbar, bitte gleich kopieren und dem Kunden schicken:</p>
-					<input readonly value={form.portalUrl} aria-label="Portal-Link" onfocus={(ev) => ev.currentTarget.select()} />
-					<button type="button" class="kd-knopf" onclick={() => navigator.clipboard?.writeText(form?.portalUrl ?? '')}>Kopieren</button>
-					{#if data.portalMail}<MailAnKunde vorbereitung={data.portalMail} extra={{ 'portal.link': form.portalUrl }} knopf="Per E-Mail senden" titel="Portal-Link per E-Mail" />{/if}
+					{#if form?.portalUrl && !form?.portalCodeNeu}
+						<p><strong>Neuer Link</strong> – nur jetzt sichtbar, bitte gleich kopieren und dem Kunden schicken:</p>
+						<input readonly value={form.portalUrl} aria-label="Portal-Link" onfocus={(ev) => ev.currentTarget.select()} />
+						<button type="button" class="kd-knopf" onclick={() => navigator.clipboard?.writeText(form?.portalUrl ?? '')}>Kopieren</button>
+					{/if}
+					{#if form?.portalCode}
+						<!-- Zugangscode zum Annehmen von Angeboten (Migration 128): nur gehasht gespeichert, deshalb nur jetzt sichtbar -->
+						<p><strong>Zugangscode</strong> zum Annehmen von Angeboten – nur jetzt sichtbar, steht auch in der Portal-Mail:</p>
+						<input readonly class="kp-code" value={form.portalCode} aria-label="Zugangscode" data-testid="portal-code" onfocus={(ev) => ev.currentTarget.select()} />
+						<button type="button" class="kd-knopf hell" onclick={() => navigator.clipboard?.writeText(form?.portalCode ?? '')}>Code kopieren</button>
+					{/if}
+					{#if data.portalMail && form?.portalUrl}<MailAnKunde vorbereitung={data.portalMail} extra={{ 'portal.link': form.portalUrl, 'portal.zugangscode': form.portalCode ?? '' }} knopf="Per E-Mail senden" titel="Portal-Link per E-Mail" />{/if}
 				</div>
 			{/if}
 			{#each data.portal.links.filter((l) => l.gueltig) as l (l.id)}
@@ -204,6 +212,12 @@
 							<button type="button" class="kd-knopf gefahr" onclick={() => (widerrufFrage = l.id)}>Widerrufen</button>
 						{/if}
 					</div>
+					{#if !l.hatCode}
+						<p class="kd-info kp-alt" data-testid="portal-ohne-code-crm">Dieser Link hat noch keinen Zugangscode – ohne Code kann der Kunde Angebote nicht online annehmen (Ansehen geht).</p>
+					{/if}
+					<form method="POST" action="?/portalCode" use:enhance class="kp-form">
+						<button type="submit" class="kd-knopf hell" data-testid="portal-code-neu">{l.hatCode ? 'Neuen Zugangscode erzeugen (alter wird ungültig)' : 'Zugangscode erzeugen'}</button>
+					</form>
 					{#if l.ohneKopie}
 						<p class="kd-info kp-alt">Dieser Link wurde vor dem Update erzeugt und lässt sich hier nicht öffnen – zum Öffnen bitte einmal einen neuen Link erzeugen (der alte wird dann ungültig).</p>
 					{/if}
@@ -709,6 +723,7 @@
 	.kp-neu { display: flex; flex-wrap: wrap; gap: var(--ui-a2); padding: var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-gruen-hell); margin-bottom: var(--ui-a3); }
 	.kp-neu p { margin: 0; flex-basis: 100%; }
 	.kp-neu input { flex: 1 1 14rem; min-height: var(--ui-feld-hoehe); min-width: 0; }
+	.kp-neu input.kp-code { flex: 0 1 12rem; font-family: ui-monospace, monospace; font-size: 1.1em; letter-spacing: 0.08em; }
 	.kp-knoepfe { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: center; }
 	.kp-frage { display: flex; flex-wrap: wrap; gap: var(--ui-a2); align-items: center; padding: var(--ui-a2) var(--ui-a3); border-radius: var(--ui-radius); background: var(--ui-rot-hell); }
 	.kp-alt { flex-basis: 100%; margin: 0; }

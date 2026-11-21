@@ -37,6 +37,9 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 	await karte.getByRole('button', { name: /Link für den Kunden erzeugen|Neuen Link erzeugen/ }).click();
 	const url = await karte.getByLabel('Portal-Link').inputValue();
 	expect(url).toMatch(/\/portal\/[A-Za-z0-9_-]{43}$/);
+	// Zugangscode zum Annehmen (Migration 128): nur jetzt sichtbar
+	const code = await karte.getByTestId('portal-code').inputValue();
+	expect(code).toMatch(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
 	// Passwort (msg 3037): Standard ist die PLZ des Kunden – steht auf der Karte
 	const plz = /Postleitzahl \((\S+)\)/.exec((await karte.getByRole('group', { name: 'Portal-Passwort' }).textContent()) ?? '')?.[1];
 	expect(plz, 'Seed-Kunde ohne PLZ').toBeTruthy();
@@ -83,6 +86,15 @@ test('Link erzeugen, Portal als Kunde, Angebot annehmen, Auftragsbestätigung; L
 		// ohne AGB-Häkchen lässt der Browser nicht absenden
 		await expect(kunde.getByRole('button', { name: 'Verbindlich annehmen' })).toBeVisible();
 		await kunde.locator('input[name="agb"]').check();
+		// ohne Zugangscode lässt der Browser nicht absenden; falscher Code → Meldung, richtiger → angenommen
+		await verbindlich.click();
+		await expect(kunde.getByRole('button', { name: 'Verbindlich annehmen' })).toBeVisible();
+		await kunde.getByTestId('portal-zugangscode').fill('AAAA-AAAA');
+		await verbindlich.click();
+		await expect(kunde.getByRole('alert')).toContainText('Zugangscode stimmt nicht');
+		await annehmen.click();
+		await kunde.locator('input[name="agb"]').check();
+		await kunde.getByTestId('portal-zugangscode').fill(code);
 		await verbindlich.click();
 		await expect(kunde.getByText(/Vielen Dank für Ihren Auftrag/)).toBeVisible();
 		await expect(kunde.getByRole('link', { name: /Auftragsbestätigung AB-/ }).first()).toBeVisible();

@@ -37,7 +37,8 @@ export const actions: Actions = {
 				agb: f.get('agb'),
 				grund: f.get('grund'),
 				termin: f.get('termin'),
-				terminWunsch: f.get('terminWunsch')
+				terminWunsch: f.get('terminWunsch'),
+				zugangscode: f.get('zugangscode')
 			}, ipVon(event));
 			return { erledigt: r.status, angebotId };
 		} catch (e) {

@@ -24,7 +24,7 @@ import {
  * Aufträge nur mit Modul `auftraege` und Leserecht (`null` = Bereich ausblenden); mit nur `auftraege.lesen` die eigenen.
  */
 import { kundeKeinNachfassen, setzeKundeKeinNachfassen } from '$lib/server/nachfassen';
-import { erzeugeLink, KUNDEN_PORTAL_FELDER, kundenPortal, ladeKundeAb, portalPasswort, portalZugriff, speichereKundeAb, speichereKundenPortal, widerrufeLink } from '$lib/server/kundenportal';
+import { erzeugeLink, KUNDEN_PORTAL_FELDER, kundenPortal, ladeKundeAb, neuerZugangscode, portalPasswort, portalZugriff, speichereKundeAb, speichereKundenPortal, widerrufeLink } from '$lib/server/kundenportal';
 import { mailVorbereitung } from '$lib/server/mail-vorlagen';
 import { ladeLexwareKonfig } from '$lib/server/lexware/konfig';
 import { siehtRechnungen } from '$lib/server/rechnungen-zugriff';
@@ -131,7 +131,17 @@ export const actions: Actions = {
 		try {
 			const r = await erzeugeLink(await portalZugriff(locals), params.id, f.get('laeuftAb'));
 			const basis = (process.env.ORIGIN ?? url.origin).replace(/\/$/, '');
-			return { portalUrl: `${basis}/portal/${r.token}` };
+			return { portalUrl: `${basis}/portal/${r.token}`, portalCode: r.code };
+		} catch (e) {
+			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
+		}
+	},
+	/** Neuer Zugangscode für den gültigen Link (Migration 128: alte Links ohne Code, Code verloren) – Code nur jetzt sichtbar. */
+	portalCode: async ({ locals, params, url }) => {
+		try {
+			const r = await neuerZugangscode(await portalZugriff(locals), params.id);
+			const basis = (process.env.ORIGIN ?? url.origin).replace(/\/$/, '');
+			return { portalCode: r.code, portalUrl: r.token ? `${basis}/portal/${r.token}` : null, portalCodeNeu: true };
 		} catch (e) {
 			return alsFormFehler(e, { portalFehler: e instanceof ApiFehler ? e.message : 'Interner Fehler.' });
 		}

@@ -203,14 +203,14 @@ describe('Kundenportal', () => {
 	it('Annahme im Portal: AGB-Häkchen Pflicht, Nachweis (Token- und IP-Hash), Auftrag beauftragt, Auftragsbestätigung mit Aufgabe und Glocke, Hook', async () => {
 		await speicherePortalEinstellungen(kA(), { agbUrl: 'https://a.test/agb', abAutomatisch: 'ja', standard: 'nur_markierte' });
 		const an = await versendetesAngebot(u.auftragA);
-		const { token } = await erzeugeLink(zA(), u.kundeA);
+		const { token, code } = await erzeugeLink(zA(), u.kundeA);
 		const gemeldet: AngebotAngenommen[] = [];
 		const ab = abonniere('angebotAngenommen', async (e) => {
 			gemeldet.push(e);
 		});
 		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Hans Müller', agb: false }, IP)).rejects.toMatchObject({ status: 400 });
 		// kein Namensfeld mehr (msg 3032): ein mitgeschickter Name wird ignoriert, der Nachweis nimmt den Kunden aus dem CRM
-		const r = await entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Irgendwer', agb: true }, IP);
+		const r = await entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Irgendwer', agb: true, zugangscode: code }, IP);
 		ab();
 		expect(r.status).toBe('angenommen');
 		expect(r.hinweise[0]).toMatch(/^Auftragsbestätigung AB-\d{4}-0001 erstellt – bereit zum Versand/);
@@ -250,9 +250,9 @@ describe('Kundenportal', () => {
 
 	it('Ablehnung mit Grund → Aufgabe; Online-Annahme abgeschaltet → 403', async () => {
 		const an = await versendetesAngebot(u.auftragA);
-		const { token } = await erzeugeLink(zA(), u.kundeA);
+		const { token, code } = await erzeugeLink(zA(), u.kundeA);
 		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an', annahme: 'aus' });
-		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Hans', agb: true }, IP)).rejects.toMatchObject({ status: 403 });
+		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', name: 'Hans', agb: true, zugangscode: code }, IP)).rejects.toMatchObject({ status: 403 });
 		await speichereKundenPortal(zA(), u.kundeA, { sichtbar: 'an' });
 		const r = await entscheide(token, an.id, { entscheidung: 'abgelehnt', agb: false, grund: 'zu teuer' }, IP);
 		expect(r.status).toBe('abgelehnt');
@@ -359,7 +359,7 @@ describe('Kundenportal', () => {
 		// ohne PDF: Warnung in den Einstellungen (agbPdf null), Portal ohne PDF-Link
 		expect(((await einstellungenLoad({ locals: { nutzer: u.chefA } } as never)) as { agbPdf: unknown }).agbPdf).toBeNull();
 		const an = await versendetesAngebot(u.auftragA); // vor dem Link: dann ist es im Portal freigegeben
-		const { token } = await erzeugeLink(zA(), u.kundeA);
+		const { token, code } = await erzeugeLink(zA(), u.kundeA);
 		expect((await ladePortal(token, IP))!.agbPdf).toBeNull();
 		await expect(portalAgb(token, IP)).rejects.toMatchObject({ status: 404 });
 		// Chef lädt hoch → Fassung (SHA-256 + Zeitpunkt)
@@ -375,7 +375,7 @@ describe('Kundenportal', () => {
 		expect(new TextDecoder().decode((await r.arrayBuffer()).slice(0, 5))).toBe('%PDF-');
 		await expect(portalAgb('x'.repeat(43), IP)).rejects.toMatchObject({ status: 404 });
 		// Annahme hält genau diese Fassung fest; danach neue Fassung → alter Nachweis bleibt
-		await entscheide(token, an.id, { entscheidung: 'angenommen', agb: true }, IP);
+		await entscheide(token, an.id, { entscheidung: 'angenommen', agb: true, zugangscode: code }, IP);
 		await speichereAgbPdf(kA(), pdf('Fassung 2'));
 		const [ent] = await root`select name, agb_pdf_hash, agb_pdf_stand from app.angebot_entscheidungen where angebot_id = ${an.id}`;
 		expect(ent.name).toBe('Hans Müller');

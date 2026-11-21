@@ -123,6 +123,8 @@ export type PortalSeite = {
 	agbPdf: { stand: string } | null;
 	widerrufUrl: string | null;
 	auftraege: PortalAuftrag[];
+	/** Hat der Link einen Zugangscode (Migration 128)? Ohne Code kann der Kunde nicht annehmen und muss ihn anfordern. */
+	zugangscode: boolean;
 };
 
 async function auftraegeImBereich(tx: TransactionSql, p: PortalKontext): Promise<string[]> {
@@ -179,7 +181,8 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		select coalesce(pr.firmenname, be.name) as name, pr.telefon, pr.email, pr.web, pr.logo is not null as hat_logo, pr.logo_dunkel is not null as hat_logo_dunkel, pr.farbe,
 			pr.dunkel_farbe, pr.hintergrund_farbe, pr.titel_schrift, pr.text_schrift, coalesce(pr.titel_gross, false) as titel_gross,
 			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen, e.agb_pdf_hochgeladen,
-			e.bestand_aktiv, e.bestand_ab, e.bestand_titel, e.bestand_text, e.bestand_leistungen, e.bestand_knoepfe
+			e.bestand_aktiv, e.bestand_ab, e.bestand_titel, e.bestand_text, e.bestand_leistungen, e.bestand_knoepfe,
+			(select l.zugangscode_hash is not null from app.portal_links l where l.id = ${p.linkId} and l.betrieb_id = be.id) as hat_code
 		from app.betriebe be
 		left join app.betrieb_profil pr on pr.betrieb_id = be.id
 		left join app.portal_einstellungen e on e.betrieb_id = be.id
@@ -349,7 +352,8 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		widerrufUrl: b.widerruf_url,
 		bestandskunde,
 		bestandskarte: bestandKarteFuer(bestand, bestandskunde),
-		auftraege
+		auftraege,
+		zugangscode: b.hat_code === true
 	};
 }
 
@@ -440,7 +444,7 @@ export async function portalDokument(token: unknown, art: unknown, id: unknown, 
 	});
 }
 
-export type Entscheidung = { entscheidung: unknown; name?: unknown; agb: unknown; grund?: unknown; termin?: unknown; terminWunsch?: unknown };
+export type Entscheidung = { entscheidung: unknown; name?: unknown; agb: unknown; grund?: unknown; termin?: unknown; terminWunsch?: unknown; zugangscode?: unknown };
 
 /**
  * Angebot annehmen oder ablehnen (Kunde, ohne Anmeldung). Annehmen: Name + Häkchen „AGB gelesen“ (Pflicht) nach einem
@@ -460,6 +464,14 @@ export async function entscheide(token: unknown, angebotId: unknown, e: Entschei
 	if (e.entscheidung === 'angenommen' && !agb) throw new ApiFehler(400, 'Bitte bestätigen Sie, dass Sie die AGB gelesen haben.');
 	const grund = typeof e.grund === 'string' && e.grund.trim() !== '' ? e.grund.replaceAll('\u0000', '').trim().slice(0, 1000) : null;
 	const nach: 'angenommen' | 'abgelehnt' = e.entscheidung;
+	// Annehmen nur mit dem Zugangscode des Links (Migration 128) – die PLZ allein reicht nicht; Ablehnen ohne Code
+	if (nach === 'angenommen') {
+		const { pruefeZugangscode, MELDUNG_CODE_FALSCH, MELDUNG_CODE_FEHLT, MELDUNG_CODE_GESPERRT } = await import('./portal-zugang');
+		const c = await pruefeZugangscode(p, e.zugangscode, ip);
+		if (c === 'fehlt') throw new ApiFehler(403, MELDUNG_CODE_FEHLT);
+		if (c === 'gesperrt') throw new ApiFehler(429, MELDUNG_CODE_GESPERRT);
+		if (c === 'falsch') throw new ApiFehler(400, MELDUNG_CODE_FALSCH);
+	}
 	const k: Kontext = { betriebId: p.betriebId, benutzerId: OEFFENTLICH };
 	const push: { benutzerId: string; titel: string; text: string; link: string }[] = [];
 	const ergebnis = await alsOeffentlich(p.betriebId, 'kundenportal', async () => {

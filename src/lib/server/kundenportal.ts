@@ -8,7 +8,7 @@ import { darf } from './tarif';
 import { istTag, tagesGrenzen } from '../zeit';
 import { bestandAusDatenbank, pruefeBestand, type BestandEinstellung } from '../bestandskunden';
 import type { PortalMarke } from '../portal-marke';
-import { entschluesseleToken, passwortStand, setzePortalPasswort, verschluesseleToken, type PortalPasswortStand } from './portal-zugang';
+import { entschluesseleToken, erzeugeZugangscode, hasheZugangscode, passwortStand, setzePortalPasswort, verschluesseleToken, type PortalPasswortStand } from './portal-zugang';
 
 /**
  * Kundenportal – Verwaltung im CRM (Jamil msgs 2770–2774 Punkt 4, 2778, 2793; Migrationen 082 + 085).
@@ -54,6 +54,8 @@ export type PortalLink = {
 	token: string | null;
 	/** Gültiger Link von vor dem Update (nur Hash gespeichert) – lässt sich nicht wieder öffnen. */
 	ohneKopie: boolean;
+	/** Hat der Link einen Zugangscode für „Angebot annehmen“ (Migration 128)? Der Code selbst ist nur gehasht gespeichert. */
+	hatCode: boolean;
 };
 export type PortalStand = {
 	/** wird der Auftrag im Portal gezeigt (Einstellung des Kunden, sonst Regel der Firma)? */
@@ -157,7 +159,7 @@ export async function kundenPortal(z: PortalZugriff, kundeId: unknown, jetzt = n
 		const istGueltig = (l: Record<string, any>) => !l.widerrufen_am && (!l.laeuft_ab || new Date(l.laeuft_ab) > jetzt);
 		const [fehl] = await tx`
 			select count(*)::int as n from app.portal_ereignisse e join app.portal_links l on l.id = e.link_id and l.betrieb_id = e.betrieb_id
-			where e.betrieb_id = ${z.k.betriebId} and l.kunde_id = ${id} and e.art = 'anmeldung_fehler' and e.zeit > now() - interval '7 days'`;
+			where e.betrieb_id = ${z.k.betriebId} and l.kunde_id = ${id} and e.art in ('anmeldung_fehler', 'code_fehler') and e.zeit > now() - interval '7 days'`;
 		const auftraege = await tx`
 			select a.id, a.nummer, a.titel, ${tx.unsafe(IM_PORTAL_SQL)} as im_portal
 			from app.auftraege a
@@ -172,7 +174,8 @@ export async function kundenPortal(z: PortalZugriff, kundeId: unknown, jetzt = n
 				zugriffe: l.zugriffe,
 				gueltig: istGueltig(l),
 				token: istGueltig(l) ? entschluesseleToken(l.token_geheim) : null,
-				ohneKopie: istGueltig(l) && !l.token_geheim
+				ohneKopie: istGueltig(l) && !l.token_geheim,
+				hatCode: !!l.zugangscode_hash
 			})),
 			auftraege: auftraege.filter((a) => sichtbare.has(a.id)).map((a) => ({ id: a.id, nummer: a.nummer, titel: a.titel, imPortal: a.im_portal === true })),
 			passwort: { ...(await passwortStand(tx, z.k, id)), fehlversuche: Number(fehl?.n ?? 0) },
@@ -186,7 +189,7 @@ export async function kundenPortal(z: PortalZugriff, kundeId: unknown, jetzt = n
  * optional (Tag, gilt bis Tagesende Berlin). Das Token wird nur hier zurückgegeben. Versendete/angenommene Angebote der
  * Aufträge im Portal werden freigegeben, wenn der Nutzer Preise sehen und Angebote bearbeiten darf.
  */
-export async function erzeugeLink(z: PortalZugriff, kundeId: unknown, laeuftAb?: unknown): Promise<{ token: string; id: string }> {
+export async function erzeugeLink(z: PortalZugriff, kundeId: unknown, laeuftAb?: unknown): Promise<{ token: string; id: string; code: string }> {
 	const { k } = z;
 	const id = await kundePruefen(z, kundeId);
 	let ablauf: Date | null = null;
@@ -196,15 +199,36 @@ export async function erzeugeLink(z: PortalZugriff, kundeId: unknown, laeuftAb?:
 		if (ablauf <= new Date()) throw new ApiFehler(400, 'Das Ablaufdatum liegt in der Vergangenheit.');
 	}
 	const token = randomBytes(32).toString('base64url');
+	// Zugangscode für „Angebot annehmen“ (Migration 128): nur jetzt im Klartext, gespeichert als Argon2id-Hash
+	const code = erzeugeZugangscode();
+	const codeHash = await hasheZugangscode(code);
 	const linkId = await mitBetrieb(k, async (tx) => {
 		await tx`update app.portal_links set widerrufen_am = now() where kunde_id = ${id} and betrieb_id = ${k.betriebId} and widerrufen_am is null`;
 		const [l] = await tx`
-			insert into app.portal_links (betrieb_id, kunde_id, token_hash, token_geheim, laeuft_ab, angelegt_von)
-			values (${k.betriebId}, ${id}, ${tokenHash(token)}, ${verschluesseleToken(token)}, ${ablauf}, ${k.benutzerId}) returning id`;
+			insert into app.portal_links (betrieb_id, kunde_id, token_hash, token_geheim, laeuft_ab, angelegt_von, zugangscode_hash, zugangscode_erzeugt)
+			values (${k.betriebId}, ${id}, ${tokenHash(token)}, ${verschluesseleToken(token)}, ${ablauf}, ${k.benutzerId}, ${codeHash}, now()) returning id`;
 		if (z.preise && z.sicht.alle) await teileAngeboteDesKunden(tx, k, id);
 		return l.id as string;
 	});
-	return { token, id: linkId };
+	return { token, id: linkId, code };
+}
+
+/**
+ * Neuer Zugangscode für den gültigen Link des Kunden (Link bleibt gleich): für alte Links ohne Code (Übergang,
+ * Migration 128) und wenn der Kunde den Code verloren hat. Der alte Code gilt sofort nicht mehr. Liefert den Code
+ * (nur jetzt sichtbar) und – wenn der Link wieder zu öffnen ist – das Token für die Portal-Mail.
+ */
+export async function neuerZugangscode(z: PortalZugriff, kundeId: unknown): Promise<{ code: string; token: string | null }> {
+	const { k } = z;
+	const id = await kundePruefen(z, kundeId);
+	const code = erzeugeZugangscode();
+	const codeHash = await hasheZugangscode(code);
+	const [l] = await mitBetrieb(k, (tx) => tx`
+		update app.portal_links set zugangscode_hash = ${codeHash}, zugangscode_erzeugt = now(), code_fehlversuche = 0, code_gesperrt_bis = null
+		where kunde_id = ${id} and betrieb_id = ${k.betriebId} and widerrufen_am is null and (laeuft_ab is null or laeuft_ab > now())
+		returning token_geheim`);
+	if (!l) throw new ApiFehler(404, 'Der Kunde hat keinen gültigen Portal-Link – bitte zuerst einen Link erzeugen.');
+	return { code, token: entschluesseleToken(l.token_geheim) };
 }
 
 /**

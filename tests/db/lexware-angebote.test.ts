@@ -252,7 +252,7 @@ describe('Lexware: Angebote, Auftragsbestätigung, Terminvorschläge', () => {
 		await root`insert into app.portal_einstellungen (betrieb_id, standard) values (${u.betriebA}, 'nur_markierte')`;
 		await root`insert into app.kunden_portal (kunde_id, betrieb_id, sichtbar) values (${u.kundeA}, ${u.betriebA}, true)`;
 		await speicherePortalEinstellungen(kA(), { agbUrl: 'https://a.test/agb', abAutomatisch: 'ja', standard: 'nur_markierte' });
-		const { token } = await erzeugeLink({ k: kA(), sicht: { alle: true, benutzerId: u.ids.chefA }, preise: true }, u.kundeA);
+		const { token, code } = await erzeugeLink({ k: kA(), sicht: { alle: true, benutzerId: u.ids.chefA }, preise: true }, u.kundeA);
 		const an = await neuesAngebot();
 		await setzeTerminvorschlaege(kA(), an.id, [{ beginn: morgen(10) }, { beginn: morgen(17) }, { beginn: morgen(24) }]);
 		await setzeAngebotStatus(kA(), an.id, 'versendet');
@@ -264,9 +264,9 @@ describe('Lexware: Angebote, Auftragsbestätigung, Terminvorschläge', () => {
 		const pdf = await portalDokument(token, 'angebot', an.id, '203.0.113.9');
 		expect(pdf.name).toMatch(/^Angebot_AG\d{4}\.pdf$/);
 		portalAktion.leeren();
-		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', agb: true }, '203.0.113.9')).rejects.toMatchObject({ status: 400 });
-		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', agb: true, termin: '4' }, '203.0.113.9')).rejects.toMatchObject({ status: 400 });
-		const r = await entscheide(token, an.id, { entscheidung: 'angenommen', agb: true, termin: portal[0].termine[0].id }, '203.0.113.9');
+		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', agb: true, zugangscode: code }, '203.0.113.9')).rejects.toMatchObject({ status: 400 });
+		await expect(entscheide(token, an.id, { entscheidung: 'angenommen', agb: true, termin: '4', zugangscode: code }, '203.0.113.9')).rejects.toMatchObject({ status: 400 });
+		const r = await entscheide(token, an.id, { entscheidung: 'angenommen', agb: true, termin: portal[0].termine[0].id, zugangscode: code }, '203.0.113.9');
 		expect(r.status).toBe('angenommen');
 		expect((await root`select to_char(termin_beginn, 'YYYY-MM-DD') as t from app.angebot_entscheidungen where angebot_id = ${an.id}`)[0].t).toBe(morgen(10));
 		await lauf();
@@ -276,7 +276,7 @@ describe('Lexware: Angebote, Auftragsbestätigung, Terminvorschläge', () => {
 		await setzeTerminvorschlaege(kA(), an2.id, [{ beginn: morgen(30) }]);
 		await setzeAngebotStatus(kA(), an2.id, 'versendet');
 		await lauf();
-		await entscheide(token, an2.id, { entscheidung: 'angenommen', agb: true, termin: 'keiner', terminWunsch: 'lieber im Mai' }, '203.0.113.9');
+		await entscheide(token, an2.id, { entscheidung: 'angenommen', agb: true, termin: 'keiner', terminWunsch: 'lieber im Mai', zugangscode: code }, '203.0.113.9');
 		expect(await root`select beschreibung from app.todos where titel = 'Kunden anrufen: kein Baubeginn-Termin passt'`).toEqual([{ beschreibung: expect.stringContaining('lieber im Mai') }]);
 	});
 

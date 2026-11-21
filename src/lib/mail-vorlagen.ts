@@ -56,6 +56,7 @@ export const PLATZHALTER_TEXTE: Record<string, string> = {
 	dienst: 'Name der gebuchten Terminart',
 	'buchung.link': 'Link zum Absagen/Verschieben des Termins',
 	'portal.link': 'Link zum Kundenportal',
+	'portal.zugangscode': 'Zugangscode zum Annehmen von Angeboten im Portal (nur beim Erzeugen bekannt)',
 	'bewertung.link': 'Link zur Bewertungsseite (Einstellungen → Firmenprofil: Website)',
 	link: 'Link (Website des Betriebs)',
 	'firma.name': 'Name des Betriebs',
@@ -84,7 +85,7 @@ export const PLATZHALTER_JE_ZWECK: Record<MailZweck, readonly string[]> = {
 	mahnung: [...GEMEINSAM, ...ANGEBOT, ...RECHNUNG, 'faellig_am', 'tage', 'zinsen', 'gebuehr', 'mahnstufe'],
 	auftragsbestaetigung: [...GEMEINSAM, ...ANGEBOT, 'ab.nummer'],
 	buchungsbestaetigung: [...GEMEINSAM, 'termin', 'dienst', 'buchung.link'],
-	portal_link: [...GEMEINSAM, 'portal.link'],
+	portal_link: [...GEMEINSAM, 'portal.link', 'portal.zugangscode'],
 	bewertung: [...GEMEINSAM, 'bewertung.link']
 };
 
@@ -109,6 +110,7 @@ export const BEISPIELE_ALLE: Record<string, string> = {
 	dienst: 'Besichtigung',
 	'buchung.link': 'https://crm.example.org/buchung/…',
 	'portal.link': 'https://crm.example.org/portal/…',
+	'portal.zugangscode': 'ABCD-EFGH',
 	'bewertung.link': 'https://www.example.org/bewertung',
 	'rechnung.nummer': 'RE0042',
 	'rechnung.datum': '20.11.2026',
@@ -179,7 +181,7 @@ export const STANDARD_MAIL_VORLAGEN: Record<MailZweck, StandardVorlage> = {
 		betreff: 'Ihr Kundenportal bei {{firma.name}}',
 		html:
 			'<p>{{kunde.anrede}},</p><p>über diesen persönlichen Link sehen Sie jederzeit den Stand Ihres Auftrags, Termine und Dokumente – und können Angebote direkt annehmen:</p>' +
-			`<p><a href="{{portal.link}}">{{portal.link}}</a></p><p>Bitte geben Sie den Link nicht weiter.</p>${gruss}`
+			`<p><a href="{{portal.link}}">{{portal.link}}</a></p><p>Ihr Zugangscode zum Annehmen von Angeboten: <strong>{{portal.zugangscode}}</strong></p><p>Bitte geben Sie Link und Code nicht weiter.</p>${gruss}`
 	},
 	bewertung: {
 		name: 'Bitte um Bewertung',

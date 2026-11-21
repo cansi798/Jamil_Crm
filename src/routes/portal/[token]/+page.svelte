@@ -200,11 +200,19 @@
 											<label>Ihr Wunsch (freiwillig) <input type="text" name="terminWunsch" maxlength="1000" placeholder="z. B. lieber ab Mai" /></label>
 										</fieldset>
 									{/if}
+									{#if s.zugangscode}
+										<!-- Zugangscode aus der Portal-Mail (Migration 128): die PLZ allein reicht zum Annehmen nicht -->
+										<label class="pt-code">Ihr Zugangscode (aus unserer E-Mail)
+											<input type="text" name="zugangscode" required maxlength="20" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="z. B. ABCD-EFGH" data-testid="portal-zugangscode" />
+										</label>
+									{:else}
+										<p class="pt-hinweis" role="note" data-testid="portal-ohne-code">Für die Online-Annahme brauchen Sie einen Zugangscode. Bitte fordern Sie ihn bei uns an – Ihr Angebot können Sie bis dahin in Ruhe ansehen.</p>
+									{/if}
 									<label class="pt-check"><input type="checkbox" name="agb" value="ja" required />
 										<span>Ich habe die {#if s.agbPdf}<a href={`/portal/${data.token}/agb`} target="_blank" rel="noopener noreferrer">AGB (PDF)</a>{:else if s.agbUrl}<a href={s.agbUrl} target="_blank" rel="noopener noreferrer">AGB</a>{:else}AGB{/if} gelesen und akzeptiere sie.{#if s.widerrufUrl} Hinweise zum <a href={s.widerrufUrl} target="_blank" rel="noopener noreferrer">Widerrufsrecht</a>.{/if}</span></label>
 									<div class="pt-knoepfe">
 										<button type="button" class="pt-knopf hell" onclick={() => (schritt = null)}>Zurück</button>
-										<button type="submit" class="pt-knopf" disabled={sendet}>Verbindlich annehmen</button>
+										<button type="submit" class="pt-knopf" disabled={sendet || !s.zugangscode}>Verbindlich annehmen</button>
 									</div>
 								</form>
 							{:else if schritt?.id === an.id && schritt.art === 'ablehnen'}

@@ -1,5 +1,5 @@
 import { portalLogo } from '../portal-kopf';
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { alsOeffentlich, mitBetrieb, OEFFENTLICH, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { erzeugeBegrenzung } from './auth/ratelimit';
@@ -270,4 +270,68 @@ export async function setzePortalPasswort(k: Kontext, kundeId: string, passwort:
 		insert into app.portal_passwoerter (kunde_id, betrieb_id, passwort_hash, geaendert_von)
 		values (${kundeId}, ${k.betriebId}, ${hash}, ${k.benutzerId})
 		on conflict (kunde_id) do update set passwort_hash = excluded.passwort_hash, geaendert = now(), geaendert_von = excluded.geaendert_von`);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Zugangscode für „Angebot annehmen“ (Prüfbericht 21.11.2026, Migration 128)
+
+/** Ohne verwechselbare Zeichen (0/O, 1/I/L): 31 Zeichen, 8 Stellen ≈ 40 Bit – mit 5 Versuchen je 15 Minuten nicht zu raten. */
+const CODE_ZEICHEN = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export const CODE_MAX_FEHLER = 5;
+export const CODE_SPERRE_MIN = 15;
+export const MELDUNG_CODE_FALSCH = 'Der Zugangscode stimmt nicht. Sie finden ihn in unserer E-Mail mit dem Link zum Kundenportal.';
+export const MELDUNG_CODE_GESPERRT = `Zu viele falsche Zugangscodes – bitte warten Sie ${CODE_SPERRE_MIN} Minuten und versuchen Sie es dann erneut.`;
+export const MELDUNG_CODE_FEHLT = 'Für die Online-Annahme brauchen Sie einen Zugangscode. Bitte fordern Sie ihn bei uns an – Ihr Angebot können Sie bis dahin in Ruhe ansehen.';
+
+/** Neuer Zugangscode „ABCD-EFGH“ (sicher zufällig, randomInt nutzt den Krypto-Zufall). */
+export function erzeugeZugangscode(): string {
+	let c = '';
+	for (let i = 0; i < 8; i++) c += CODE_ZEICHEN[randomInt(CODE_ZEICHEN.length)];
+	return `${c.slice(0, 4)}-${c.slice(4)}`;
+}
+
+/** Eingabe vergleichbar machen: Großbuchstaben, ohne Leerzeichen/Bindestriche; O→0 usw. gibt es im Code nicht. */
+export const normalCode = (s: unknown) => (typeof s === 'string' ? s.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20) : '');
+
+/** Argon2id-Hash des Codes (gespeichert wird nur der Hash). */
+export const hasheZugangscode = (code: string) => hashePasswort(normalCode(code));
+
+export type CodeErgebnis = 'ok' | 'falsch' | 'gesperrt' | 'fehlt';
+
+/**
+ * Zugangscode prüfen (eigene Transaktion, damit ein Fehlversuch auch gezählt bleibt, wenn danach etwas scheitert).
+ * Zählung in der Datenbank – gilt über alle Server-Prozesse; nach 5 Fehlern 15 Minuten Sperre, Erfolg setzt zurück.
+ */
+export async function pruefeZugangscode(p: { linkId: string; betriebId: string }, eingabe: unknown, ip: string): Promise<CodeErgebnis> {
+	const code = normalCode(eingabe);
+	const ergebnis = await alsOeffentlich(p.betriebId, 'kundenportal', () =>
+		mitBetrieb({ betriebId: p.betriebId, benutzerId: OEFFENTLICH }, async (tx): Promise<CodeErgebnis> => {
+			const [l] = await tx`
+				select zugangscode_hash, code_fehlversuche, code_gesperrt_bis > now() as gesperrt
+				from app.portal_links where id = ${p.linkId} and betrieb_id = ${p.betriebId} for update`;
+			if (!l?.zugangscode_hash) return 'fehlt';
+			if (l.gesperrt) return 'gesperrt';
+			const richtig = code.length === 8 && (await pruefePasswort(l.zugangscode_hash, code));
+			if (richtig) {
+				if (l.code_fehlversuche > 0) await tx`update app.portal_links set code_fehlversuche = 0, code_gesperrt_bis = null where id = ${p.linkId} and betrieb_id = ${p.betriebId}`;
+				return 'ok';
+			}
+			const n = Number(l.code_fehlversuche) + 1;
+			const sperren = n >= CODE_MAX_FEHLER;
+			await tx`update app.portal_links set code_fehlversuche = ${sperren ? 0 : n},
+				code_gesperrt_bis = case when ${sperren}::boolean then now() + make_interval(mins => ${CODE_SPERRE_MIN}) else code_gesperrt_bis end
+				where id = ${p.linkId} and betrieb_id = ${p.betriebId}`;
+			return sperren ? 'gesperrt' : 'falsch';
+		})
+	);
+	if (ergebnis === 'falsch' || ergebnis === 'gesperrt') {
+		console.warn(`Kundenportal: falscher Zugangscode (Link ${p.linkId.slice(0, 8)}…)${ergebnis === 'gesperrt' ? ' – gesperrt' : ''}`);
+		const { ipHash } = await import('./kundenportal-oeffentlich');
+		await alsOeffentlich(p.betriebId, 'kundenportal', () =>
+			mitBetrieb({ betriebId: p.betriebId, benutzerId: OEFFENTLICH }, (tx) => tx`
+				insert into app.portal_ereignisse (betrieb_id, link_id, art, text, ip_hash)
+				values (${p.betriebId}, ${p.linkId}, 'code_fehler', 'Falscher Zugangscode im Kundenportal', ${ipHash(ip)})`)
+		).catch(() => {});
+	}
+	return ergebnis;
 }
