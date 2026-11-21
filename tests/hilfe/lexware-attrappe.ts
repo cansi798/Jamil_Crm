@@ -247,7 +247,8 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 		};
 		const zahlPfad = /^\/v1\/payments\/([0-9a-f-]{36})$/.exec(pfad);
 		if (zahlPfad && req.method === 'GET') {
-			const b = a.verkaufsbelege.get(zahlPfad[1]);
+			// Zahlungen gibt es für jeden Beleg – auch für die, die nur in der Belegliste stehen (a.belege)
+			const b: Record<string, any> | undefined = a.verkaufsbelege.get(zahlPfad[1]) ?? a.belege.find((x) => x.id === zahlPfad[1]);
 			if (!b || b.voucherType === 'dunning') return fehler(res, 404, pfad, 'Not Found');
 			return antworte(200, {
 				openAmount: b.openAmount ?? 0,
