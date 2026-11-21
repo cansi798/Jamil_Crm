@@ -3,6 +3,7 @@ import { mitBetrieb, type Kontext } from '../db';
 import { UUID } from '../kunden';
 import { LexwareFehler, type LexwareClient } from './client';
 import { stelleEin, type Handler } from './warteschlange';
+import { landAusPlz, suchText } from './land';
 
 /**
  * Kunden ↔ Lexware-Kontakte (Plan Task T4; Migration 120). Felder nach https://developers.lexware.io/docs/ „Contacts“:
@@ -40,7 +41,7 @@ export function kontaktAusKunde(kd: KundeDaten, version = 0): Record<string, unk
 	const vorname = wert(kd.vorname, 255);
 	const nachname = wert(kd.nachname, 255);
 	const email = wert(kd.email, 255);
-	const telefon = wert(kd.telefon, 30);
+	const telefon = wert(kd.telefon, 50);
 	if (kd.art === 'firma') {
 		const company: Record<string, unknown> = { name: wert(kd.firma, 255) };
 		if (nachname) {
@@ -63,10 +64,12 @@ export function kontaktAusKunde(kd: KundeDaten, version = 0): Record<string, unk
 	}
 	if (kd.strasse || kd.plz || kd.ort) {
 		const a: Record<string, unknown> = {};
+		// Land aus dem Länder-Präfix der PLZ („AT-1010“), sonst DE (Doku „Contacts“ → Address: countryCode Pflicht)
+		const land = landAusPlz(kd.plz);
 		if (wert(kd.strasse, 255)) a.street = wert(kd.strasse, 255);
-		if (wert(kd.plz, 20)) a.zip = wert(kd.plz, 20);
+		if (wert(land.zip, 20)) a.zip = wert(land.zip, 20);
 		if (wert(kd.ort, 255)) a.city = wert(kd.ort, 255);
-		a.countryCode = 'DE';
+		a.countryCode = land.countryCode;
 		k.addresses = { billing: [a] };
 	}
 	const liste = kd.art === 'firma' ? 'business' : 'private';
@@ -115,7 +118,8 @@ export const kontaktAnlegen: Handler = {
 		const kd = await ladeKunde(k, n.kundeId);
 		if (!kd) return null;
 		const name = kd.art === 'firma' ? kd.firma : kd.nachname;
-		const filter = name && name.trim().length >= 3 ? `name=${encodeURIComponent(name.trim())}` : kd.email && kd.email.length >= 3 ? `email=${encodeURIComponent(kd.email)}` : null;
+		// Suchtext: &, <, > HTML-kodiert und URL-kodiert (Doku → FAQ „Search String Encoding“), sonst findet „Müller & Söhne“ nichts
+		const filter = name && name.trim().length >= 3 ? `name=${suchText(name.trim())}` : kd.email && kd.email.length >= 3 ? `email=${suchText(kd.email)}` : null;
 		if (!filter) return null;
 		for (let seite = 0; seite < 20; seite++) {
 			const r = await c.get<{ content: any[]; last: boolean }>(`/v1/contacts?${filter}&page=${seite}&size=100`);

@@ -256,7 +256,7 @@ export async function erstelleRechnung(k: Kontext, auftragIdRoh: string, e: Rech
 
 // ——— Handler der Warteschlange ———
 
-async function ladeRechnung(k: Kontext, id: string): Promise<Roh | undefined> {
+export async function ladeRechnung(k: Kontext, id: string): Promise<Roh | undefined> {
 	if (!UUID.test(String(id))) return undefined;
 	const [r] = await mitBetrieb(k, (tx) => tx`
 		select r.*, to_char(r.leistung_von, 'YYYY-MM-DD') as von, to_char(r.leistung_bis, 'YYYY-MM-DD') as bis
@@ -264,7 +264,7 @@ async function ladeRechnung(k: Kontext, id: string): Promise<Roh | undefined> {
 	return r;
 }
 
-async function rechnungsBeleg(k: Kontext, r: Roh, heute: string) {
+export async function rechnungsBeleg(k: Kontext, r: Roh, heute: string) {
 	if (!r.angebot_id) throw new LexwareFehler('Die Rechnung hat kein Angebot mehr (gelöscht).', null, 'daten', false);
 	const e = await belegEingabe(k, r.angebot_id);
 	const positionen = (r.positionen ?? []) as RechnungPosition[];

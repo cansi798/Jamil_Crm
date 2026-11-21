@@ -1,5 +1,6 @@
 import { positionsSumme, summen, type MwstSatz } from '../../geld';
 import { tagDeutsch, wochentag } from '../../zeit';
+import { landAusPlz } from './land';
 
 /**
  * Verkaufsbelege für Lexware bauen (rein, ohne Datenbank) – Angebot und Auftragsbestätigung (Plan Phase 2, Tasks T5,
@@ -125,10 +126,11 @@ function text35a(e: BelegEingabe, satz: number, warnungen: string[]): string | n
 function adresse(k: BelegKunde): Record<string, unknown> {
 	if (k.lexwareId) return { contactId: k.lexwareId };
 	const a: Record<string, unknown> = { name: kuerze(k.name || 'Kunde', 255) };
+	const land = landAusPlz(k.plz);
 	if (k.strasse) a.street = kuerze(k.strasse, 255);
-	if (k.plz) a.zip = kuerze(k.plz, 20);
+	if (land.zip) a.zip = kuerze(land.zip, 20);
 	if (k.ort) a.city = kuerze(k.ort, 255);
-	a.countryCode = 'DE';
+	a.countryCode = land.countryCode;
 	return a;
 }
 

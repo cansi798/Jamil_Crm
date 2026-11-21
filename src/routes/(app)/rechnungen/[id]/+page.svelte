@@ -48,6 +48,7 @@
 		{#snippet aktionen()}
 			{#if r.lexwareLink}<a class="kd-knopf hell" href={r.lexwareLink} target="_blank" rel="noopener" data-testid="rechnung-lexware">In Lexware öffnen</a>{/if}
 			{#if data.darf.preise && r.nummer && r.status !== 'entwurf'}<a class="kd-knopf hell" href={`/api/rechnungen/${r.id}/pdf`} target="_blank" rel="noopener">PDF</a>{/if}
+			{#if data.darf.preise && r.crm && r.angebotId}<a class="kd-knopf hell" href={`/api/rechnungen/${r.id}/lexware-json`} download title="Rechnung im Format der Lexware-Schnittstelle (nur zum Prüfen, ohne Verbindung)" data-testid="rechnung-lexware-json">Lexware-JSON</a>{/if}
 		{/snippet}
 		{#snippet zusatz()}<span class={`an-status ${ZAHL_STATUS_KLASSE[r.status]}`} data-testid="rechnung-status">{ZAHL_STATUS_NAMEN[r.status]}</span>{/snippet}
 	</SeitenKopf>

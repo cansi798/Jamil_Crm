@@ -665,6 +665,7 @@
 		<button type="button" class="kd-knopf hell" onclick={pdf} disabled={arbeitet}>
 			{lexware ? (angebot.lexware?.id ? 'PDF (Lexware) herunterladen' : 'Vorschau-PDF') : 'PDF herunterladen'}
 		</button>
+		<a class="kd-knopf hell" href={`/api/angebote/${angebot.id}/lexware-json`} download title="Angebot im Format der Lexware-Schnittstelle (nur zum Prüfen, ohne Verbindung)" data-testid="angebot-lexware-json">Lexware-JSON herunterladen</a>
 		{#if angebot.status === 'entwurf' && !angebot.altbeleg}
 			<button type="button" class="kd-knopf hell" onclick={versenden} disabled={arbeitet || zeilen.length === 0}>
 				{lexware ? 'Versenden (in Lexware festschreiben)' : 'Als versendet markieren'}
