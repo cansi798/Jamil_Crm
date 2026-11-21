@@ -296,6 +296,15 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     Migration 109 (Jamil msg 3521): Karte ab Auftragsstatus oder immer (`bestand_ab`), je Kunde an/aus (`kunden_portal.bestand`),
     Projektbegleiter mit ausblenden (`ap_ausblenden`, Firma und Kunde). „Auftragsbestätigung automatisch“ je Kunde steht in der
     Kundenakte unter „Automatik“ (Modul Angebote + „Aufträge bearbeiten“, auch ohne Kundenportal).
+27a. Zugangscode zum Annehmen (Migration 128, Prüfbericht 21.11.2026): Die PLZ öffnet das Portal (Ansehen), zum
+    verbindlichen **Annehmen** eines Angebots braucht der Kunde zusätzlich den Zugangscode seines Links (8 Zeichen,
+    `crypto.randomInt`, ohne verwechselbare Zeichen ≈ 40 Bit). Gespeichert nur als Argon2id-Hash
+    (`portal_links.zugangscode_hash`), sichtbar nur beim Erzeugen (Dialog + Portal-Mail `{{portal.zugangscode}}`);
+    Fehlversuche zählt die Datenbank (5 → 15 Minuten Sperre, gilt für alle Prozesse). Ablehnen braucht keinen Code.
+    **Übergangsregel:** Links von vor dem Update haben keinen Code – Ansehen, Dokumente und Ablehnen gehen weiter, „Annehmen“
+    zeigt „bitte Zugangscode anfordern“. Im CRM steht am Link „Zugangscode erzeugen“ (Link bleibt gleich); jeder neue Link
+    und jede neue Portal-Mail nach „Link erzeugen“ hat ihn automatisch. Gespeicherte Mail-Vorlagen „Kundenportal-Link“
+    wurden um den Platzhalter ergänzt.
 28. Kundenliste mit Zeilen-Infos (Jamil msg 3522, `src/lib/server/kunden-zeilen.ts`): EINE Abfrage je Seite (kein N+1), RLS +
     Betriebsfilter; Auftrags-/Angebotsinfos nur mit „Alle Aufträge ansehen“, Portal nur mit „Kundenportal verwalten“, keine Beträge.
     Portal-Öffnungen: vorhandene Zähler je Link (`portal_links.zugriffe`, `letzter_zugriff`) – keine neue Erfassung, keine IPs.
