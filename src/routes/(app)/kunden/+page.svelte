@@ -1,4 +1,5 @@
 <script lang="ts">
+	import KundenNummer from '$lib/components/ui/KundenNummer.svelte';
 	import Plus from '$lib/components/ui/Plus.svelte';
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import { mitEinstellungen } from '$lib/kennzahlen';
@@ -60,7 +61,7 @@
 
 	<FilterLeiste ansichten="kunden" label="Kunden filtern">
 		{#snippet suche()}
-			<SuchFeld wert={data.suche} label="Kunden suchen" placeholder="Name, Firma, Ort, Telefon oder E-Mail" />
+			<SuchFeld wert={data.suche} label="Kunden suchen" placeholder="Name, Firma, Ort, Telefon, E-Mail oder Kundennummer" />
 		{/snippet}
 		{#snippet filter()}
 			{#if data.sortierungen.length > 1}
@@ -101,7 +102,7 @@
 				<a href={`/kunden/${kunde.id}`} class="zeile-mit-avatar">
 					<Avatar name={kunde.name} groesse={34} />
 					<strong>{kunde.name}</strong>
-					{#if zeile(kunde)}<span class="kd-info">{zeile(kunde)}</span>{/if}
+					<span class="kd-info"><KundenNummer nummer={kunde.kundennummer} />{zeile(kunde) ? ` · ${zeile(kunde)}` : ''}</span>
 					{#if kunde.bevorzugter_kontakt}<span class="ah kl-kontakt"><KontaktwegChip weg={kunde.bevorzugter_kontakt} /></span>{/if}
 					<KundenHinweise info={kunde.info} />
 				</a>

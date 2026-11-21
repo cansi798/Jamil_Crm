@@ -48,6 +48,8 @@ export type Auftrag = {
 	kundeId: string | null;
 	/** Anzeigename: Kunde, Einmal-Kunde oder „Ohne Kunde“. */
 	kundeName: string;
+	/** Kundennummer aus Lexware (Can #6748); null = folgt bzw. Einmal-Kunde */
+	kundeNummer: number | null;
 	einmalKunde: EinmalKunde | null;
 	/** Telefon für „Anrufen“: Kunde bzw. Einmal-Kunde (Objekte haben keine eigene Nummer). */
 	telefon: string | null;
@@ -269,6 +271,7 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anla
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, k.telefon as kunde_telefon, k.bevorzugter_kontakt as kunde_kontaktweg,
+	k.lexware_kundennummer as kunde_nummer,
 	a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort, a.einmal_land,
 	(select coalesce(json_agg(json_build_object('id', b.id, 'name', b.name) order by public.unaccent(lower(b.name)), b.id), '[]')
 		from app.auftrag_zustaendige z join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
@@ -324,6 +327,7 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 		kundeArt: z.kunde_id ? 'kunde' : z.einmal_name ? 'einmal' : 'ohne',
 		kundeId: z.kunde_id ?? null,
 		kundeName: kundeNameAus(z),
+		kundeNummer: z.kunde_nummer ?? null,
 		einmalKunde: z.einmal_name
 			? { name: z.einmal_name, telefon: z.einmal_telefon, email: z.einmal_email, strasse: z.einmal_strasse, plz: z.einmal_plz, ort: z.einmal_ort, land: z.einmal_land ?? null }
 			: null,

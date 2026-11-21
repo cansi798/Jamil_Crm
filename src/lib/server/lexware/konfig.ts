@@ -127,6 +127,7 @@ export async function pruefeVerbindung(k: Kontext, client?: LexwareClient): Prom
 	try {
 		await mitBetrieb(k, (tx) => tx`
 			update app.lexware_konfig set status = 'verbunden', letzter_fehler = null, geprueft_am = now(), organisation_id = ${org},
+				kunden_auto_seit = coalesce(kunden_auto_seit, now()),
 				firmenname = ${typeof p.companyName === 'string' ? p.companyName.slice(0, 300) : null},
 				steuerart = ${typeof p.taxType === 'string' ? p.taxType.slice(0, 40) : null},
 				kleinunternehmer = ${typeof p.smallBusiness === 'boolean' ? p.smallBusiness : null}

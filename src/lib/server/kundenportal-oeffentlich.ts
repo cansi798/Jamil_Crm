@@ -125,6 +125,8 @@ export type PortalSeite = {
 	auftraege: PortalAuftrag[];
 	/** Hat der Link einen Zugangscode (Migration 128)? Ohne Code kann der Kunde nicht annehmen und muss ihn anfordern. */
 	zugangscode: boolean;
+	/** Kundennummer aus Lexware (Can #6748); im Portal nur, wenn es sie schon gibt */
+	kundennummer: number | null;
 };
 
 async function auftraegeImBereich(tx: TransactionSql, p: PortalKontext): Promise<string[]> {
@@ -182,7 +184,9 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			pr.dunkel_farbe, pr.hintergrund_farbe, pr.titel_schrift, pr.text_schrift, coalesce(pr.titel_gross, false) as titel_gross,
 			e.agb_url, e.widerruf_url, coalesce(e.team_namen, 'vorname') as team_namen, e.agb_pdf_hochgeladen,
 			e.bestand_aktiv, e.bestand_ab, e.bestand_titel, e.bestand_text, e.bestand_leistungen, e.bestand_knoepfe,
-			(select l.zugangscode_hash is not null from app.portal_links l where l.id = ${p.linkId} and l.betrieb_id = be.id) as hat_code
+			(select l.zugangscode_hash is not null from app.portal_links l where l.id = ${p.linkId} and l.betrieb_id = be.id) as hat_code,
+			(select kd.lexware_kundennummer from app.kunden kd where kd.betrieb_id = be.id
+				and kd.id = coalesce(${p.kundeId}::uuid, (select x.kunde_id from app.auftraege x where x.id = ${p.auftragId}::uuid and x.betrieb_id = be.id))) as kundennummer
 		from app.betriebe be
 		left join app.betrieb_profil pr on pr.betrieb_id = be.id
 		left join app.portal_einstellungen e on e.betrieb_id = be.id
@@ -353,7 +357,8 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 		bestandskunde,
 		bestandskarte: bestandKarteFuer(bestand, bestandskunde),
 		auftraege,
-		zugangscode: b.hat_code === true
+		zugangscode: b.hat_code === true,
+		kundennummer: b.kundennummer ?? null
 	};
 }
 

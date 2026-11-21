@@ -102,7 +102,9 @@ describe('Lexware: Kunden-Abgleich, Webhooks, Belege', () => {
 		a.kontakte.set(lxId, { id: lxId, version: 3, roles: { customer: {} }, person: { lastName: 'Musterfrau' }, emailAddresses: { private: ['ERIKA@beispiel.test'] } });
 		await starteKundenAbgleich(kA());
 		await lauf();
-		expect((await root`select lexware_id, lexware_version from app.kunden where id = ${k1.id}`)[0]).toMatchObject({ lexware_id: lxId, lexware_version: 3 });
+		// neu verknüpft → das CRM führt: CRM-Daten gehen gleich per PUT nach Lexware (Version 3 → 4)
+		expect((await root`select lexware_id, lexware_version from app.kunden where id = ${k1.id}`)[0]).toMatchObject({ lexware_id: lxId, lexware_version: 4 });
+		expect(a.kontakte.get(lxId)!.person).toMatchObject({ firstName: 'Erika', lastName: 'Musterfrau' });
 		expect((await root`select lexware_id from app.kunden where id = ${k2.id}`)[0].lexware_id).toBeNull();
 		expect(await root`select 1 from app.lexware_auftraege where nutzlast ->> 'kundeId' = ${k2.id}`).toHaveLength(0);
 		await setzeKundenAnlegen(kA(), true);

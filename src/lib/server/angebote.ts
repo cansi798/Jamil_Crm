@@ -69,6 +69,8 @@ export type Angebot = {
 	/** Kunde des Auftrags bzw. (ohne Auftrag) des Angebots; null bei Einmal-Kunden oder ohne Kunden. */
 	kundeId: string | null;
 	kundeName: string;
+	/** Kundennummer aus Lexware (Can #6748); null = folgt */
+	kundeNummer: number | null;
 	objektId: string | null;
 	status: AngebotStatus;
 	datum: string;
@@ -160,7 +162,7 @@ const KOPF = `an.id, an.nummer, an.auftrag_id, an.status, to_char(an.datum, 'YYY
 	an.angelegt, an.geaendert, a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.objekt_id,
 	coalesce(a.kunde_id, an.kunde_id) as kunde_id, an.beleg_quelle, an.lexware_id, an.lexware_nummer, an.lexware_status,
 	an.lexware_phase, an.lexware_fehler, an.versendet_am, app.lexware_beleg_modus(an.betrieb_id) as lexware_modus,
-	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
+	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname, k.lexware_kundennummer as kunde_nummer,
 	a.einmal_name, a.einmal_strasse, a.einmal_plz, a.einmal_ort`;
 
 const VON = `app.angebote an
@@ -206,6 +208,7 @@ function zuAngebot(z: Record<string, any>, positionen: AngebotPosition[], termin
 		auftragTitel: z.auftrag_titel,
 		kundeId: z.kunde_id ?? null,
 		kundeName: kundeNameAus(z),
+		kundeNummer: z.kunde_nummer ?? null,
 		objektId: z.objekt_id,
 		status: z.status,
 		datum: z.datum,

@@ -195,7 +195,9 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 		['Datum', deutschesDatum(a.datum)],
 		['Gültig bis', deutschesDatum(a.gueltigBis)],
 		// Angebote ohne Auftrag (Phase 4): Zeile „Auftrag“ entfällt
-		...(a.auftragNummer ? [['Auftrag', a.auftragNummer] as [string, string]] : [])
+		...(a.auftragNummer ? [['Auftrag', a.auftragNummer] as [string, string]] : []),
+		// Kundennummer aus Lexware (Can #6748) – auf dem Beleg nur, wenn es sie schon gibt
+		...(typeof a.kundeNummer === 'number' && a.kundeNummer > 0 ? [['Kundennr.', String(a.kundeNummer)] as [string, string]] : [])
 	];
 	let iy = mm(50);
 	for (const [titel, wert] of angaben) {

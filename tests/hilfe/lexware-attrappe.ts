@@ -7,7 +7,8 @@ import type { AddressInfo } from 'node:net';
  * https://developers.lexware.io/docs/ (gelesen 15.11.2026):
  * - Profil GET /v1/profile: organizationId, companyName, created{…}, connectionId, features, businessFeatures,
  *   subscriptionStatus, taxType, smallBusiness
- * - Kontakte GET/POST/PUT /v1/contacts: POST/PUT-Antwort {id, resourceUri, createdDate, updatedDate, version};
+ * - Kontakte GET/POST/PUT /v1/contacts: POST/PUT-Antwort {id, resourceUri, createdDate, updatedDate, version}; Kundennummer
+ *   roles.customer.number vergibt die Attrappe ab 10001 (nicht setz-/änderbar, nur per GET sichtbar);
  *   Liste paginiert {content, first, last, totalPages, totalElements, numberOfElements, size, number, sort};
  *   Filter email/name (≥ 3 Zeichen, enthält, ohne Groß/Klein), number, customer, vendor; PUT mit veralteter version → 409
  * - Belegliste GET /v1/voucherlist?voucherType=…&voucherStatus=…: Einträge {id, voucherType, voucherStatus, voucherNumber,
@@ -192,7 +193,10 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 			if (!body || !!body.person === !!body.company) return json(res, 400, { IssueList: [{ i18nKey: 'missing_entity', source: 'company.name', type: 'validation_failure', additionalData: null, args: null }] });
 			const id = randomUUID();
 			const t = jetzt();
-			a.kontakte.set(id, { ...body, id, organizationId: a.organisationId, version: 1, archived: false });
+			// Kundennummer vergibt Lexware für Kontakte mit Rolle „Kunde“ (Doku „Roles Details“: roles.customer.number,
+			// Integer, nicht setzbar) – die POST-Antwort enthält sie nicht, nur GET /v1/contacts/{id}
+			const roles = body.roles?.customer ? { ...body.roles, customer: { number: 10000 + [...a.kontakte.values()].filter((k) => k.roles?.customer?.number).length + 1 } } : body.roles;
+			a.kontakte.set(id, { ...body, roles, id, organizationId: a.organisationId, version: 1, archived: false });
 			return antworte(200, { id, resourceUri: `https://api.lexware.io/v1/contacts/${id}`, createdDate: t, updatedDate: t, version: 1 });
 		}
 		const kontaktPfad = /^\/v1\/contacts\/([0-9a-f-]{36})$/.exec(pfad);
@@ -202,7 +206,9 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 			if (req.method === 'GET') return antworte(200, k);
 			if (req.method === 'PUT') {
 				if (body?.version !== k.version) return fehler(res, 409, pfad, 'Conflict: version');
-				const neu = { ...body, id: k.id, organizationId: a.organisationId, version: k.version + 1, archived: false };
+				// Kundennummer lässt sich nicht ändern (Doku „Roles Details“) – bleibt wie vergeben
+				const roles = body.roles?.customer && k.roles?.customer?.number ? { ...body.roles, customer: { ...body.roles.customer, number: k.roles.customer.number } } : body.roles;
+				const neu = { ...body, roles, id: k.id, organizationId: a.organisationId, version: k.version + 1, archived: false };
 				a.kontakte.set(k.id, neu);
 				const t = jetzt();
 				return antworte(200, { id: k.id, resourceUri: `https://api.lexware.io/v1/contacts/${k.id}`, createdDate: t, updatedDate: t, version: neu.version });
@@ -284,17 +290,26 @@ export async function starteAttrappe(port = 0): Promise<Attrappe> {
 				const t = jetzt();
 				const nr = [...a.verkaufsbelege.values()].filter((x) => x.voucherType === art.typ && x.voucherNumber).length + 1;
 				// Summen je Steuersatz: Zeilen auf Cent, Steuer je Satz auf die Summe
+				// taxType „gross“: Positionen mit unitPrice.grossAmount, Steuer wird aus dem Brutto je Satz herausgerechnet
+				// (Doku „Unit Price“: grossAmount „Only relevant if taxConditions.taxType == gross is delivered“)
+				const brutto = body.taxConditions?.taxType === 'gross';
 				let netto = 0;
 				const jeSatz = new Map<number, number>();
 				for (const p of body.lineItems) {
 					if (p.type === 'text') continue;
-					const n = Math.round(Number(p.quantity) * Number(p.unitPrice?.netAmount ?? 0) * 100);
-					netto += n;
+					const n = Math.round(Number(p.quantity) * Number((brutto ? p.unitPrice?.grossAmount : p.unitPrice?.netAmount) ?? 0) * 100);
+					if (!brutto) netto += n;
 					const satz = Number(p.unitPrice?.taxRatePercentage ?? 0);
 					jeSatz.set(satz, (jeSatz.get(satz) ?? 0) + n);
 				}
 				let steuer = 0;
-				for (const [satz, n] of jeSatz) steuer += Math.round((n * satz) / 100);
+				for (const [satz, n] of jeSatz) {
+					if (brutto) {
+						const nt = Math.round((n * 100) / (100 + satz));
+						netto += nt;
+						steuer += n - nt;
+					} else steuer += Math.round((n * satz) / 100);
+				}
 				const beleg = {
 					...body,
 					id,

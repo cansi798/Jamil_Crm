@@ -60,6 +60,7 @@ function angebot(positionen: AngebotPosition[], mwstSatz: 0 | 7 | 19 = 19): Ange
 		auftragTitel: 'Badsanierung',
 		kundeId: 'k',
 		kundeName: 'Hans Müller',
+		kundeNummer: 10001,
 		objektId: null,
 		status: 'entwurf',
 		datum: '2026-10-17',

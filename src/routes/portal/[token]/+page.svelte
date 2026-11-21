@@ -292,6 +292,7 @@
 						{:else}
 							<p class="pt-person"><span><strong>{s.betrieb.name}</strong></span></p>
 						{/if}
+						{#if s.kundennummer}<p class="pt-kundennummer" data-testid="portal-kundennummer">Ihre Kundennummer: <strong>{s.kundennummer}</strong></p>{/if}
 						<div class="pt-knoepfe">
 							{#if telLink}<a class="pt-knopf" href={telLink}>Anrufen</a>{/if}
 							{#if mailLink(a.nummer)}<a class="pt-knopf hell" href={mailLink(a.nummer)}>E-Mail schreiben</a>{/if}
@@ -453,6 +454,10 @@
 		.pt-k-knopf {
 			font-size: var(--ui-schrift-s);
 		}
+	}
+	.pt-kundennummer {
+		margin: 0.25rem 0 0.75rem;
+		font-variant-numeric: tabular-nums;
 	}
 	/* Auftrag: am Handy untereinander, ab 900 px mit Kontaktspalte */
 	.pt-auftrag {

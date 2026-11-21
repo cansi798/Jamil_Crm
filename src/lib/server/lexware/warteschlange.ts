@@ -200,7 +200,9 @@ export async function arbeiteAb(
 /** „Erneut versuchen“ bzw. „Abbrechen“ (Einstellungsseite). */
 export async function auftragErneut(k: Kontext, id: string): Promise<void> {
 	await mitBetrieb(k, (tx) => tx`
-		update app.lexware_auftraege set status = case when status = 'pruefen' then 'ungewiss' else status end, naechster_versuch = now(), versuche = 0
+		update app.lexware_auftraege set status = case when status = 'pruefen' then 'ungewiss' else status end, naechster_versuch = now(), versuche = 0,
+			-- ein Mensch hat nachgesehen und „Erneut versuchen“ gewählt (z. B. Mahnung: in Lexware nicht suchbar)
+			nutzlast = nutzlast || '{"erneutVonHand": true}'::jsonb
 		where id = ${id} and betrieb_id = ${k.betriebId} and status in ('pruefen', 'wartet', 'ungewiss')`);
 }
 /**

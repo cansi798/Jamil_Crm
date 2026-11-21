@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { kundennummerText } from '$lib/kundennummer';
 	import { enhance } from '$app/forms';
 	import '$lib/stil/kunden.css';
 	import '$lib/stil/angebote.css';
@@ -27,7 +28,8 @@
 		fehler: 'Fehler (Lexware prüfen)'
 	};
 	const vorbereitetText = $derived(
-		r.positionen.map((p) => `${p.bezeichnung}: ${mengeText(p.menge)} ${p.einheit} × ${euro(p.einzelpreisCent)} netto`).join('\n') +
+		// Abschlag brutto (Prüfbericht 21.11.2026): in Lexware „Bruttopreise“ wählen – dann stimmt der Betrag auf den Cent
+		r.positionen.map((p) => p.einzelpreisBruttoCent ? `${p.bezeichnung}: ${mengeText(p.menge)} ${p.einheit} × ${euro(p.einzelpreisBruttoCent)} brutto (in Lexware „Bruttopreise“ wählen)` : `${p.bezeichnung}: ${mengeText(p.menge)} ${p.einheit} × ${euro(p.einzelpreisCent)} netto`).join('\n') +
 			(r.bruttoCent !== null ? `\nBetrag brutto: ${euro(r.bruttoCent)}` : '')
 	);
 	let kopiert = $state(false);
@@ -41,7 +43,7 @@
 	<SeitenKopf
 		titel={r.nummer ? `${RECHNUNG_ART_NAMEN[r.art]} ${r.nummer}` : RECHNUNG_ART_NAMEN[r.art]}
 		ueberzeile="Rechnung"
-		meta={[r.kunde?.name, r.auftrag ? `${r.auftrag.nummer} · ${r.auftrag.titel}` : null, `Datum ${tagDeutsch(r.datum)}`].filter(Boolean).join(' · ')}
+		meta={[r.kunde?.name ? `${r.kunde.name}${r.kunde.id ? ` (${kundennummerText(r.kunde.nummer)})` : ''}` : null, r.auftrag ? `${r.auftrag.nummer} · ${r.auftrag.titel}` : null, `Datum ${tagDeutsch(r.datum)}`].filter(Boolean).join(' · ')}
 		zurueck={r.auftrag ? { href: `/auftraege/${r.auftrag.id}#ausgangsbelege`, text: 'Zum Auftrag' } : { href: '/ausgangsbelege/rechnungen', text: 'Rechnungen' }}
 		info="rechnung.seite"
 	>

@@ -42,6 +42,18 @@ export type Funktion = {
 
 export const FUNKTIONEN: Funktion[] = [
 	{
+		id: 'lexware_kundennummer',
+		schritt: 'anfrage',
+		name: 'Kundennummer aus Lexware',
+		was: 'Neue Kunden legt das CRM selbst in Lexware an und übernimmt die Kundennummer, die Lexware vergibt – sie steht dann überall im CRM, auf Angeboten und im Kundenportal. Beim ersten Verbinden gleicht das CRM einmal alle vorhandenen Kunden ab. Ohne Lexware steht dort „Kundennummer folgt von Lexware“.',
+		wann: 'Nach dem Anlegen eines Kunden (Hintergrund, etwa jede Minute) und einmal nach dem Verbinden.',
+		href: '/einstellungen/lexware',
+		info: 'lexware.abgleich',
+		zustand: 'keiner',
+		modul: 'lexware',
+		recht: 'einstellungen'
+	},
+	{
 		id: 'lexware_angebote',
 		schritt: 'angebot',
 		name: 'Angebote und Auftragsbestätigungen über Lexware',

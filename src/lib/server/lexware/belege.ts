@@ -27,6 +27,13 @@ export type BelegPosition = {
 	einzelpreisCent: number;
 	/** Materialanteil je Einheit (null = unbekannt, z. B. freie Position) */
 	materialCent: number | null;
+	/**
+	 * Abschlag (Prüfbericht 21.11.2026): fester BRUTTO-Betrag je Einheit. Damit geht der Beleg mit `taxType: gross` und
+	 * `unitPrice.grossAmount` an Lexware – Lexware rechnet die Steuer aus dem Brutto heraus, der Betrag stimmt auf den Cent
+	 * (über Netto hin und zurück entstünden ±1 ct). Doku: „Unit Price“ → grossAmount „Only relevant if
+	 * taxConditions.taxType == gross is delivered“.
+	 */
+	einzelpreisBruttoCent?: number | null;
 };
 export type BelegKunde = {
 	lexwareId: string | null;
@@ -148,13 +155,15 @@ function adresse(k: BelegKunde): Record<string, unknown> {
 	return a;
 }
 
-function positionen(e: BelegEingabe, satz: number): Record<string, unknown>[] {
+function positionen(e: BelegEingabe, satz: number, brutto = false): Record<string, unknown>[] {
 	return e.positionen.slice(0, 300).map((p) => {
 		const z: Record<string, unknown> = { type: 'custom', name: kuerze(p.bezeichnung, 255) };
 		if (p.beschreibung) z.description = kuerze(p.beschreibung);
 		z.quantity = p.menge;
 		z.unitName = p.einheit;
-		z.unitPrice = { currency: 'EUR', netAmount: p.einzelpreisCent / 100, taxRatePercentage: satz };
+		z.unitPrice = brutto
+			? { currency: 'EUR', grossAmount: (p.einzelpreisBruttoCent ?? Math.round((p.einzelpreisCent * (100 + satz)) / 100)) / 100, taxRatePercentage: satz }
+			: { currency: 'EUR', netAmount: p.einzelpreisCent / 100, taxRatePercentage: satz };
 		z.discountPercentage = 0;
 		return z;
 	});
@@ -224,8 +233,10 @@ export type RechnungEingabe = {
 	leistungVon: string;
 	leistungBis: string;
 	zahlungszielTage: number;
-	titel: 'Rechnung' | 'Teilrechnung';
+	titel: 'Rechnung' | 'Teilrechnung' | 'Abschlagsrechnung';
 	bezug: string | null;
+	/** Abschlag: als Bruttobeleg (`taxType: gross`), wenn der Steuerfall sonst „net“ wäre – Betrag stimmt auf den Cent */
+	brutto?: boolean;
 };
 
 /** Pflichttexte nur für Privatkunden (Plan Abschnitt 2): Verzug § 286 Abs. 3 BGB, Aufbewahrung § 14 Abs. 4 Nr. 9 UStG. */
@@ -248,12 +259,14 @@ export function rechnungAlsLexware(e: RechnungEingabe): LexwareBeleg {
 	if (e.positionen.length === 0) warnungen.push('Keine Position ausgewählt.');
 	const be: BelegEingabe = { datum: e.heute, gueltigBis: e.heute, mwstSatz: e.mwstSatz, einleitung: null, schluss: null, positionen: e.positionen, kunde: e.kunde, kleinunternehmer: e.kleinunternehmer, termine: [] };
 	const privat = e.kunde.art === 'privat';
+	// Abschlag brutto: nur beim normalen Steuerfall (net → gross); vatfree/§ 13b haben 0 % und bleiben, wie sie sind
+	const brutto = e.brutto === true && steuer.taxType === 'net';
 	const body: Record<string, unknown> = {
 		voucherDate: lexwareDatum(e.heute),
 		address: adresse(e.kunde),
-		lineItems: positionen(be, steuer.satz),
+		lineItems: positionen(be, steuer.satz, brutto),
 		totalPrice: { currency: 'EUR' },
-		taxConditions: { taxType: steuer.taxType },
+		taxConditions: { taxType: brutto ? 'gross' : steuer.taxType },
 		paymentConditions: zahlungsBedingung(e.zahlungszielTage),
 		shippingConditions:
 			e.leistungVon === e.leistungBis

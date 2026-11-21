@@ -37,6 +37,11 @@ export type Kunde = {
 	geaendert: string;
 	/** Anzeigename: Firmenname bzw. „Vorname Nachname“. */
 	name: string;
+	/**
+	 * DIE Kundennummer (Can #6748): von Lexware vergeben (roles.customer.number), eindeutig je Betrieb; null = noch keine
+	 * („Kundennummer folgt von Lexware“). Die interne `id` bleibt der technische Schlüssel.
+	 */
+	kundennummer: number | null;
 };
 
 export type Objekt = {
@@ -195,7 +200,7 @@ export function sucheWoerter(suche: string | null | undefined): string[] {
 }
 
 const SPALTEN_KUNDE = `id, art, firma, anrede, vorname, nachname, email::text as email, telefon, strasse, plz, ort, land, ust_id,
-	steuernummer, notiz, bevorzugter_kontakt, angelegt, geaendert`;
+	steuernummer, notiz, bevorzugter_kontakt, angelegt, geaendert, lexware_kundennummer`;
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
 
@@ -218,7 +223,8 @@ function zuKunde(z: Record<string, any>): Kunde {
 		notiz: z.notiz,
 		bevorzugter_kontakt: z.bevorzugter_kontakt ?? null,
 		angelegt: iso(z.angelegt),
-		geaendert: iso(z.geaendert)
+		geaendert: iso(z.geaendert),
+		kundennummer: z.lexware_kundennummer ?? null
 	};
 	return { ...k, name: anzeigeName(k) };
 }
@@ -286,6 +292,8 @@ export function listeKunden(k: Kontext, suche?: string | null, o: KundenListeOpt
 						or lower(coalesce(telefon, '')) like lower(s.m)
 						or lower(coalesce(email::text, '')) like lower(s.m)
 						or (s.z <> '' and regexp_replace(coalesce(telefon, ''), '[^0-9]', '', 'g') like s.z)
+						-- Kundennummer aus Lexware (Can #6748)
+						or (s.z <> '' and coalesce(lexware_kundennummer::text, '') like s.z)
 					)
 				)
 				${o.nurIds ? tx`and id = any(${o.nurIds}::uuid[])` : tx``}

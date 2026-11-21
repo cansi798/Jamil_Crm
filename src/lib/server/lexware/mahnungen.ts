@@ -185,7 +185,11 @@ export const mahnungAnlegen: Handler = {
 		const l = await ladeLauf(k, n.laufId);
 		if (!l) return { ergebnis: { uebersprungen: 'Lauf fehlt' } };
 		if (l.mahnung_lexware_id) return { lexwareId: l.mahnung_lexware_id, ergebnis: { schonDa: true } };
-		if (l.status !== 'wartet') return { ergebnis: { uebersprungen: `Status ${l.status}` } };
+		// „Erneut versuchen“ nach einem Fehler (Prüfbericht 21.11.2026): wirklich neu anlegen, statt den Auftrag als
+		// erledigt abzuhaken und die Mahnung im Fehlerzustand zu lassen
+		if (l.status === 'fehler' && n.erneutVonHand === true)
+			await mitBetrieb(k, (tx) => tx`update app.nachfass_laeufe set status = 'wartet' where id = ${l.id} and betrieb_id = ${k.betriebId} and status = 'fehler' and mahnung_lexware_id is null`);
+		else if (l.status !== 'wartet') return { ergebnis: { uebersprungen: `Status ${l.status}` } };
 		const pfad = RECHNUNG_TYP_PFAD[(l.lexware_typ ?? 'invoice') as 'invoice'];
 		const inv = await c.get<Roh>(`/v1/${pfad}/${l.re_lexware_id}`);
 		// erneut prüfen: inzwischen bezahlt/storniert → keine Mahnung (Plan Entscheidung 7)
@@ -224,7 +228,9 @@ export const mahnungAnlegen: Handler = {
 		return { lexwareId: r.id };
 	},
 	// Mahnungen stehen laut Doku nicht in der Belegliste → nach Zeitüberschreitung nie blind neu anlegen
-	async vorhanden() {
+	async vorhanden(_c, n) {
+		// Ein Mensch hat in Lexware nachgesehen und „Erneut versuchen“ gewählt → anlegen
+		if (n.erneutVonHand === true) return null;
 		throw new LexwareFehler('Ob Lexware die Mahnung angelegt hat, ist unklar (Zeitüberschreitung oder Serverfehler). Bitte in Lexware unter der Rechnung nachsehen und hier „Erneut versuchen“ oder „Abbrechen“.', null, 'daten', false);
 	},
 	async nachher(k, n, r) {

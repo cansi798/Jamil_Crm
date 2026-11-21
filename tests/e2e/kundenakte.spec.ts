@@ -29,6 +29,8 @@ test('Kundenakte: Notiz schreiben, Dokument hochladen und herunterladen, lösche
 	const kunde = await api(page, 'POST', '/api/kunden', { art: 'privat', nachname: `E2E-Akte ${info.project.name} ${Date.now()}` });
 	try {
 		await page.goto(`/kunden/${kunde.id}`);
+		// Kundennummer kommt aus Lexware (Can #6748) – der Testserver ist nicht verbunden
+		await expect(page.getByTestId('kunde-kundennummer')).toContainText('Kundennummer folgt von Lexware');
 		// Notiz
 		const notiz = `Hund im Garten – bitte klingeln ${Date.now()}`;
 		// Formulare sind eingeklappt (AddPanel) und gehen nach dem Speichern wieder zu

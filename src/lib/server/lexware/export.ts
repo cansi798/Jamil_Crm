@@ -59,7 +59,10 @@ export async function rechnungLexwarePaket(k: Kontext, id: string): Promise<Lexw
 		beleg: rechnungZuLexwareInvoice(eingabe, { vorgaengerLexwareId: r.vorgaenger_id ?? null, festschreiben: r.festschreiben === true }),
 		hinweise: [
 			hinweis,
-			r.lexware_id ? `Diese Rechnung ist schon in Lexware angelegt (${r.lexware_id}) – Paket nur zur Ansicht.` : 'Ohne finalize legt Lexware einen Entwurf an; die Nummer wird trotzdem verbraucht.'
+			r.lexware_id ? `Diese Rechnung ist schon in Lexware angelegt (${r.lexware_id}) – Paket nur zur Ansicht.` : 'Ohne finalize legt Lexware einen Entwurf an; die Nummer wird trotzdem verbraucht.',
+			...(r.art === 'abschlag'
+				? ['Abschlag: Lexware legt Abschlagsrechnungen nicht per Schnittstelle an (nur lesbar) – Werte als BRUTTO (taxType gross, grossAmount) für „In Lexware fertigstellen“; so stimmt der Betrag auf den Cent.']
+				: [])
 		]
 	};
 }

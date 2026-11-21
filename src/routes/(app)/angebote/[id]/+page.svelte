@@ -1,4 +1,5 @@
 <script lang="ts">
+	import KundenNummer from '$lib/components/ui/KundenNummer.svelte';
 	import Plus from '$lib/components/ui/Plus.svelte';
 	import { page } from '$app/state';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
@@ -384,7 +385,7 @@
 				<h1>Angebot {angebot.nummer}</h1>
 				<span class={`an-status s-${angebot.status}`} data-testid="angebot-status">{ANGEBOT_STATUS_NAMEN[angebot.status]}</span>
 			</div>
-			<p class="seiten-meta">{angebot.kundeName} · {angebot.auftragTitel ?? 'ohne Auftrag'}{angebot.vorgaengerId ? ' · neue Version' : ''}</p>
+			<p class="seiten-meta">{angebot.kundeName}{#if angebot.kundeId} (<KundenNummer nummer={angebot.kundeNummer} />){/if} · {angebot.auftragTitel ?? 'ohne Auftrag'}{angebot.vorgaengerId ? ' · neue Version' : ''}</p>
 		</div>
 		{#if entwurf}
 			<div class="seiten-aktionen">

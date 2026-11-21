@@ -1,4 +1,5 @@
 <script lang="ts">
+	import KundenNummer from '$lib/components/ui/KundenNummer.svelte';
 	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
@@ -638,6 +639,7 @@
 						<dd>
 								{#if a.kundeArt === 'kunde'}
 									{#if data.kundeLesbar}<a href={`/kunden/${a.kundeId}`}>{a.kundeName}</a>{:else}{a.kundeName}{/if}
+									<div class="kd-info"><KundenNummer nummer={a.kundeNummer} /></div>
 									<!-- Bevorzugter Kontaktweg des Kunden – immer sichtbar, bei Recht direkt änderbar (Jamil msgs 4289/4291, 4337) -->
 									<div class="af-kontaktweg" data-testid="auftrag-kontaktweg">
 										{#if data.darfKontaktweg}

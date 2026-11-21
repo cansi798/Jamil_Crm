@@ -231,7 +231,7 @@ export async function erstelleRechnung(k: Kontext, auftragIdRoh: string, e: Rech
 		if (betrag <= 0 || betrag > v.gesamtBruttoCent) throw new ApiFehler(400, 'Abschlag: höchstens der Auftragswert.');
 		brutto = betrag;
 		netto = Math.round((betrag * 100) / (100 + v.mwstSatz));
-		positionen = [{ bezeichnung: `Abschlag ${v.ab ? `zur Auftragsbestätigung ${v.ab.nummer}` : `zum Angebot ${v.angebot!.nummer}`}`, beschreibung: null, menge: 1, einheit: 'pauschal', einzelpreisCent: netto, materialCent: null }];
+		positionen = [{ bezeichnung: `Abschlag ${v.ab ? `zur Auftragsbestätigung ${v.ab.nummer}` : `zum Angebot ${v.angebot!.nummer}`}`, beschreibung: null, menge: 1, einheit: 'pauschal', einzelpreisCent: netto, materialCent: null, einzelpreisBruttoCent: betrag }];
 	}
 	const phase = art === 'rechnung' ? 'wartet' : 'vorbereitet';
 	let id: string;
@@ -279,8 +279,10 @@ export async function rechnungsBeleg(k: Kontext, r: Roh, heute: string) {
 			leistungVon: r.von ?? heute,
 			leistungBis: r.bis ?? heute,
 			zahlungszielTage: r.zahlungsziel_tage ?? 14,
-			titel: (r.art === 'teil' ? 'Teilrechnung' : 'Rechnung') as 'Rechnung' | 'Teilrechnung',
-			bezug: e.angebotNummer ? `Angebot ${e.angebotNummer}` : null
+			titel: (r.art === 'teil' ? 'Teilrechnung' : r.art === 'abschlag' ? 'Abschlagsrechnung' : 'Rechnung') as 'Rechnung' | 'Teilrechnung' | 'Abschlagsrechnung',
+			bezug: e.angebotNummer ? `Angebot ${e.angebotNummer}` : null,
+			// Abschlag als Bruttobetrag (Prüfbericht 21.11.2026): keine ±1-ct-Abweichung zwischen CRM und Lexware
+			brutto: r.art === 'abschlag'
 		}
 	};
 }
@@ -451,7 +453,9 @@ export async function nachBelegabgleich(k: Kontext, liste: GeaenderterBeleg[]): 
 			[r] = await mitBetrieb(k, (tx) => tx`
 				update app.rechnungen set lexware_id = ${b.lexwareId}, phase = 'angelegt', lexware_typ = ${b.typ}
 				where id = (select id from app.rechnungen where betrieb_id = ${k.betriebId} and phase = 'vorbereitet' and kunde_id = ${b.kundeId}
-					and art = any(${art}) and abs(brutto_cent - ${b.neu.brutto}) <= 1 order by angelegt limit 1)
+					and art = any(${art}) and abs(brutto_cent - ${b.neu.brutto}) <= 1
+					-- genau gleicher Betrag zuerst (Abschlag wird brutto übergeben); ±1 ct nur noch für ältere Vorbereitungen
+					order by abs(brutto_cent - ${b.neu.brutto}), angelegt limit 1)
 					and betrieb_id = ${k.betriebId}
 				returning *`);
 		}
@@ -476,7 +480,8 @@ export type RechnungZeile = {
 	status: ZahlStatus;
 	nummer: string | null;
 	auftrag: { id: string; nummer: string; titel: string } | null;
-	kunde: { id: string; name: string } | null;
+	/** `nummer`: Kundennummer aus Lexware (Can #6748), null = folgt */
+	kunde: { id: string; name: string; nummer: number | null } | null;
 	datum: string;
 	faellig: string | null;
 	bruttoCent: number | null;
@@ -494,7 +499,7 @@ const SPALTEN = (tx: TransactionSql) => tx`
 	r.id, r.art, r.quelle, r.phase, r.lexware_id, r.lexware_typ, r.lexware_fehler, r.brutto_cent as vor_brutto,
 	to_char(r.mahnen_pausiert_bis, 'YYYY-MM-DD') as pausiert_bis, r.gesendet_am, r.angelegt,
 	a.id as auftrag_id, a.nummer as auftrag_nummer, a.titel as auftrag_titel, a.einmal_name,
-	k.id as kunde_id, k.art as kunde_art, k.firma, k.vorname, k.nachname,
+	k.id as kunde_id, k.art as kunde_art, k.firma, k.vorname, k.nachname, k.lexware_kundennummer as kunde_nummer,
 	b.nummer, b.status, to_char(b.datum, 'YYYY-MM-DD') as datum, to_char(b.faellig, 'YYYY-MM-DD') as faellig, b.brutto_cent, b.offen_cent,
 	to_char(b.bezahlt_am, 'YYYY-MM-DD') as bezahlt_am,
 	(select max(s.mahnstufe) from app.nachfass_laeufe l join app.nachfass_stufen s on s.id = l.stufe_id and s.betrieb_id = l.betrieb_id
@@ -512,7 +517,7 @@ function zuZeile(z: Roh, heute: string, preise: boolean): RechnungZeile {
 		status,
 		nummer: z.nummer ?? null,
 		auftrag: z.auftrag_id ? { id: z.auftrag_id, nummer: z.auftrag_nummer, titel: z.auftrag_titel } : null,
-		kunde: z.kunde_id ? { id: z.kunde_id, name: anzeigeName({ art: z.kunde_art, firma: z.firma, vorname: z.vorname, nachname: z.nachname }) } : z.einmal_name ? { id: '', name: z.einmal_name } : null,
+		kunde: z.kunde_id ? { id: z.kunde_id, name: anzeigeName({ art: z.kunde_art, firma: z.firma, vorname: z.vorname, nachname: z.nachname }), nummer: z.kunde_nummer ?? null } : z.einmal_name ? { id: '', name: z.einmal_name, nummer: null } : null,
 		datum: z.datum ?? berlinTag(new Date(z.angelegt)),
 		faellig: z.faellig ?? null,
 		bruttoCent: p(z.brutto_cent ?? z.vor_brutto),
@@ -557,7 +562,7 @@ export async function listeRechnungen(
 				: tx`
 				select b.lexware_id, b.typ, b.nummer, b.status, to_char(b.datum, 'YYYY-MM-DD') as datum, to_char(b.faellig, 'YYYY-MM-DD') as faellig,
 					b.brutto_cent, b.offen_cent, to_char(b.bezahlt_am, 'YYYY-MM-DD') as bezahlt_am, b.kontakt_name, b.stand,
-					k.id as kunde_id, k.art as kunde_art, k.firma, k.vorname, k.nachname
+					k.id as kunde_id, k.art as kunde_art, k.firma, k.vorname, k.nachname, k.lexware_kundennummer as kunde_nummer
 				from app.lexware_belege b left join app.kunden k on k.id = b.kunde_id and k.betrieb_id = b.betrieb_id
 				where b.betrieb_id = ${k.betriebId} and b.typ in ('invoice', 'downpaymentinvoice') and not b.archiviert
 					${kundeId ? tx`and b.kunde_id = ${kundeId}` : tx``}
@@ -569,7 +574,7 @@ export async function listeRechnungen(
 	for (const z of nurLexware) {
 		const zeile = zuZeile({ ...z, id: `lx-${z.lexware_id}`, art: z.typ === 'downpaymentinvoice' ? 'abschlag' : 'rechnung', quelle: 'lexware', phase: 'angelegt', lexware_typ: z.typ, angelegt: z.stand, mahnstufe: null }, heute, o.preise);
 		zeile.crm = false;
-		zeile.kunde ??= z.kontakt_name ? { id: '', name: z.kontakt_name } : null;
+		zeile.kunde ??= z.kontakt_name ? { id: '', name: z.kontakt_name, nummer: null } : null;
 		zeilen.push(zeile);
 	}
 	const filter = o.filter ?? 'alle';
@@ -638,7 +643,7 @@ export async function holeRechnung(k: Kontext, idRoh: string, preise: boolean, h
 	const zeile = zuZeile(z, heute, preise);
 	return {
 		...zeile,
-		positionen: ((z.positionen ?? []) as RechnungPosition[]).map((p) => (preise ? p : { ...p, einzelpreisCent: 0, materialCent: null })),
+		positionen: ((z.positionen ?? []) as RechnungPosition[]).map((p) => (preise ? p : { ...p, einzelpreisCent: 0, materialCent: null, einzelpreisBruttoCent: null })),
 		nettoCent: preise && z.netto_cent !== null ? Number(z.netto_cent) : null,
 		leistungVon: z.von ?? null,
 		leistungBis: z.bis ?? null,

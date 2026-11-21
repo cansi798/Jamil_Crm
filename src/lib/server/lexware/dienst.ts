@@ -2,7 +2,7 @@ import { systemAbfrage, type Kontext } from '../db';
 import type { LexwareClient } from './client';
 import { holeClient } from './konfig';
 import { arbeiteAb, type HandlerTabelle } from './warteschlange';
-import { kontaktAktualisieren, kontaktAnlegen, kontakteAbgleichen } from './kontakte';
+import { kontaktAktualisieren, kontaktAnlegen, kontakteAbgleichen, kundennummernPflege } from './kontakte';
 import { abosEinrichten, belegeAbgleichen, naechtlicherAbgleich } from './abgleich';
 import { verarbeiteEreignisse } from './ereignis';
 import { abAnlegen, abVersand, angebotFestschreiben, angebotVersand } from './angebote';
@@ -39,6 +39,8 @@ export async function laufFuerBetrieb(k: Kontext, o: { client?: LexwareClient; j
 	const nacht = await naechtlicherAbgleich(k, o.jetzt ?? new Date());
 	// Mahnstufen (Phase 3): höchstens stündlich, Basis gespiegelte Fälligkeit
 	if (!o.client) await pruefeMahnungenGedrosselt(k);
+	// Kundennummern aus Lexware (Can #6748): einmaliger Abgleich + neue Kunden in Lexware anlegen (Tests rufen es selbst auf)
+	if (!o.client) await kundennummernPflege(k);
 	const client = o.client ?? (await holeClient(k));
 	const warteschlange = await arbeiteAb(k, client, HANDLER, { max: o.max ?? 50 });
 	return { ereignisse, nacht, ...warteschlange };

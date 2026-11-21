@@ -7,6 +7,8 @@ import { _ratenlimitLeeren } from '../../src/lib/server/lexware/ratenlimit';
 import { holeClient, speichereLexwareSchluessel } from '../../src/lib/server/lexware/konfig';
 import { laufFuerBetrieb } from '../../src/lib/server/lexware/dienst';
 import { starteAbgleich } from '../../src/lib/server/lexware/abgleich';
+import { rechnungLexwarePaket } from '../../src/lib/server/lexware/export';
+import { auftragErneut } from '../../src/lib/server/lexware/warteschlange';
 import { legeAngebotAn, setzeAngebotStatus, speichereAngebot } from '../../src/lib/server/angebote';
 import {
 	erstelleRechnung,
@@ -247,6 +249,64 @@ describe('Lexware: Rechnungen, Zahlungsstand, Mahnungen', () => {
 		expect(d).toMatchObject({ art: 'abschlag', nummer: 'AR0001', status: expect.stringMatching(/offen|ueberfaellig/) });
 		const s = await erstelleRechnung(kA(), u.auftragA, { art: 'schluss' });
 		expect((await root`select brutto_cent from app.rechnungen where id = ${s.id}`)[0].brutto_cent).toBe(String(v.gesamtBruttoCent - brutto));
+	});
+
+	it('Mahnung: Serverfehler → unklar → „Erneut versuchen“ von Hand legt die Mahnung wirklich an (Prüfbericht 21.11.2026)', async () => {
+		await uebernimmMahnStandard(kA()).catch(() => undefined);
+		await angenommen();
+		const r = await erstelleRechnung(kA(), u.auftragA, { festschreiben: true });
+		await lauf();
+		const lx = await rechnungsId();
+		const faellig = (await root`select to_char(faellig, 'YYYY-MM-DD') as f from app.lexware_belege where lexware_id = ${lx}`)[0].f as string;
+		expect(await pruefeMahnungen(kA(), tagPlus(faellig, 4))).toBe(1);
+		await markiereLaufGesendet(kA(), (await mahnLaeufe(kA(), r.id))[0].id);
+		expect(await pruefeMahnungen(kA(), tagPlus(faellig, 18))).toBe(1);
+		// 503 beim Anlegen (Lexware hat nichts angelegt) → ungewiss → nicht suchbar → „prüfen“, Lauf im Fehler
+		a.stoerung({ status: 503, nurPfad: /^\/v1\/dunnings$/ });
+		await lauf();
+		await root`update app.lexware_auftraege set naechster_versuch = now() where art = 'mahnung_anlegen'`;
+		await lauf();
+		const [j] = await root`select id, status from app.lexware_auftraege where art = 'mahnung_anlegen'`;
+		expect(j.status).toBe('pruefen');
+		expect((await mahnLaeufe(kA(), r.id))[1].status).toBe('fehler');
+		expect(posts('/v1/dunnings').filter((x) => x.query.get('precedingSalesVoucherId') === lx)).toHaveLength(1);
+		// Büro hat in Lexware nachgesehen: keine Mahnung da → „Erneut versuchen“
+		await auftragErneut(kA(), j.id);
+		await lauf();
+		await lauf();
+		expect((await root`select status from app.lexware_auftraege where id = ${j.id}`)[0].status).toBe('erledigt');
+		expect(posts('/v1/dunnings').filter((x) => x.query.get('precedingSalesVoucherId') === lx)).toHaveLength(2);
+		expect((await mahnLaeufe(kA(), r.id))[1]).toMatchObject({ stufe: 1, status: 'bereit' });
+	});
+
+	it('Abschlag als Bruttobetrag (taxType gross): Lexware-Attrappe rechnet genau 300,04 € – über Netto wären es 300,03 €', async () => {
+		await angenommen();
+		const r = await erstelleRechnung(kA(), u.auftragA, { art: 'abschlag', abschlagBetrag: '300,04' });
+		const [z] = await root`select brutto_cent, positionen from app.rechnungen where id = ${r.id}`;
+		expect(Number(z.brutto_cent)).toBe(30004);
+		expect(z.positionen[0]).toMatchObject({ einzelpreisBruttoCent: 30004, einzelpreisCent: 25213 });
+		const paket = await rechnungLexwarePaket(kA(), r.id);
+		const body = paket.beleg.body as any;
+		expect(body.taxConditions.taxType).toBe('gross');
+		expect(body.title).toBe('Abschlagsrechnung');
+		expect(body.lineItems[0].unitPrice).toEqual({ currency: 'EUR', grossAmount: 300.04, taxRatePercentage: 19 });
+		expect(paket.hinweise.join(' ')).toMatch(/BRUTTO/);
+		// gegen die Attrappe (nie echtes Lexware): Brutto bleibt auf den Cent, Netto-Weg weicht um 1 ct ab
+		const sende = async (b: unknown) => {
+			const res = await fetch(`${a.url}/v1/invoices`, { method: 'POST', headers: { authorization: `Bearer ${a.schluessel}`, 'content-type': 'application/json' }, body: JSON.stringify(b) });
+			const { id } = (await res.json()) as { id: string };
+			return a.verkaufsbelege.get(id)!.totalPrice.totalGrossAmount as number;
+		};
+		expect(await sende(body)).toBe(300.04);
+		const netto = { ...body, taxConditions: { taxType: 'net' }, lineItems: [{ ...body.lineItems[0], unitPrice: { currency: 'EUR', netAmount: 252.13, taxRatePercentage: 19 } }] };
+		expect(await sende(netto)).toBe(300.03);
+		// Lexware-Abschlag mit genau diesem Betrag → Abgleich ordnet zu
+		const kontakt = (await root`select lexware_id from app.kunden where id = ${u.kundeA}`)[0].lexware_id;
+		const t = new Date().toISOString();
+		a.belege.push(beleg({ voucherType: 'downpaymentinvoice', voucherNumber: 'AR0777', contactId: kontakt, totalAmount: 300.04, openAmount: 300.04, createdDate: t, updatedDate: t }));
+		await starteAbgleich(kA());
+		await lauf();
+		expect((await holeRechnung(kA(), r.id, true))).toMatchObject({ art: 'abschlag', nummer: 'AR0777' });
 	});
 
 	it('Sprache: Rechnung erstellen (Rückfrage), offene Rechnungen, hat bezahlt?, Mahnung pausieren; Monteur ohne Rechte → kein Vorschlag', async () => {

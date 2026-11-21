@@ -1,4 +1,5 @@
 <script lang="ts">
+	import KundenNummer from '$lib/components/ui/KundenNummer.svelte';
 	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
@@ -88,7 +89,7 @@
 	<header class="seiten-kopf">
 		<div>
 			<h1>{k.name}</h1>
-			<p class="seiten-meta">{k.art === 'firma' ? 'Firmenkunde' : 'Privatkunde'}{adresse ? ` · ${adresse}` : ''}</p>
+			<p class="seiten-meta"><KundenNummer nummer={k.kundennummer} /> · {k.art === 'firma' ? 'Firmenkunde' : 'Privatkunde'}{adresse ? ` · ${adresse}` : ''}</p>
 		</div>
 		<div class="seiten-aktionen">
 			{#if data.darfBearbeiten}
@@ -115,6 +116,7 @@
 	<Abschnitt titel="Kontakt">
 		<dl class="kd-daten ka-kontakt">
 			<!-- Bevorzugter Kontaktweg (Jamil msgs 4289/4291) – als Abzeichen, beim passenden Feld zusätzlich „bevorzugt“ -->
+			<div data-testid="kunde-kundennummer"><dt>Kundennummer</dt><dd><KundenNummer nummer={k.kundennummer} kurz={false} /></dd></div>
 			<div data-testid="kontaktweg"><dt>Bevorzugter Kontaktweg</dt><dd><KontaktwegChip weg={k.bevorzugter_kontakt} kurz leer /></dd></div>
 			{#if k.art === 'firma' && ansprechpartner}
 				<div><dt>Ansprechpartner</dt><dd>{ansprechpartner}</dd></div>

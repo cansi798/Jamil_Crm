@@ -100,15 +100,38 @@ export function passtZuKunde(kontakt: any, kd: { id: string; email: string | nul
 async function ladeKunde(k: Kontext, id: string) {
 	const [z] = await mitBetrieb(k, (tx) => tx`
 		select id, art, firma, anrede, vorname, nachname, email::text, telefon, strasse, plz, ort, land, ust_id as "ustId", steuernummer,
-			lexware_id, lexware_version, geaendert, lexware_stand
+			lexware_id, lexware_version, geaendert, lexware_stand, lexware_kundennummer
 		from app.kunden where id = ${id} and betrieb_id = ${k.betriebId}`);
-	return z as (KundeDaten & { lexware_id: string | null; lexware_version: number | null; geaendert: Date; lexware_stand: Date | null }) | undefined;
+	return z as (KundeDaten & { lexware_id: string | null; lexware_version: number | null; geaendert: Date; lexware_stand: Date | null; lexware_kundennummer: number | null }) | undefined;
 }
 
-async function merkeVerknuepfung(k: Kontext, kundeId: string, lexwareId: string, version: number | null) {
+/**
+ * Kundennummer aus einem Lexware-Kontakt (Doku „Contacts“ → Roles Details: `roles.customer.number`, Integer, von Lexware
+ * vergeben, nicht setz- oder änderbar). Fehlt sie (z. B. Kontakt ohne Kundenrolle), → null.
+ */
+export function kundennummerAus(kontakt: unknown): number | null {
+	const n = (kontakt as { roles?: { customer?: { number?: unknown } } } | null)?.roles?.customer?.number;
+	return typeof n === 'number' && Number.isInteger(n) && n > 0 && n <= 2_147_483_647 ? n : null;
+}
+
+/** Lexware-Kundennummer am Kunden merken (eindeutig je Betrieb; Konflikt → Nummer nicht übernehmen, nur melden). */
+export async function merkeKundennummer(k: Kontext, kundeId: string, nummer: number | null): Promise<void> {
+	if (nummer === null) return;
+	try {
+		await mitBetrieb(k, (tx) => tx`
+			update app.kunden set lexware_kundennummer = ${nummer}
+			where id = ${kundeId} and betrieb_id = ${k.betriebId} and lexware_kundennummer is distinct from ${nummer}`);
+	} catch (e) {
+		if ((e as { code?: string }).code !== '23505') throw e;
+		console.warn(`Lexware: Kundennummer ${nummer} gehört im CRM schon einem anderen Kunden – nicht übernommen (Kunde ${kundeId.slice(0, 8)}…)`);
+	}
+}
+
+async function merkeVerknuepfung(k: Kontext, kundeId: string, lexwareId: string, version: number | null, nummer: number | null = null) {
 	await mitBetrieb(k, (tx) => tx`
 		update app.kunden set lexware_id = ${lexwareId}, lexware_version = ${version}, lexware_stand = now(), lexware_geaendert = false
 		where id = ${kundeId} and betrieb_id = ${k.betriebId}`);
+	await merkeKundennummer(k, kundeId, nummer);
 }
 
 type Antwort = { id: string; version?: number };
@@ -120,7 +143,9 @@ export const kontaktAnlegen: Handler = {
 		if (!kd) return { ergebnis: { uebersprungen: 'Kunde gelöscht' } };
 		if (kd.lexware_id) return { lexwareId: kd.lexware_id, ergebnis: { schonVerknuepft: true } };
 		const r = await c.post<Antwort>('/v1/contacts', kontaktAusKunde(kd));
-		return { lexwareId: r.id, ergebnis: { version: r.version ?? null } };
+		// Die Kundennummer steht nicht in der POST-Antwort (Doku „Create a Contact“), nur im Kontakt selbst → einmal lesen
+		const nummer = await c.get<unknown>(`/v1/contacts/${r.id}`).then(kundennummerAus, () => null);
+		return { lexwareId: r.id, ergebnis: { version: r.version ?? null, nummer } };
 	},
 	async vorhanden(c, n, k) {
 		const kd = await ladeKunde(k, n.kundeId);
@@ -140,7 +165,10 @@ export const kontaktAnlegen: Handler = {
 	async nachher(k, n, r) {
 		if (!r.lexwareId) return;
 		const version = typeof r.ergebnis?.version === 'number' ? (r.ergebnis.version as number) : null;
-		await merkeVerknuepfung(k, n.kundeId, r.lexwareId, version);
+		const nummer = typeof r.ergebnis?.nummer === 'number' ? (r.ergebnis.nummer as number) : null;
+		await merkeVerknuepfung(k, n.kundeId, r.lexwareId, version, nummer);
+		// nach Zeitüberschreitung gefunden (ohne Nummer): einmal lesen + CRM-Stand senden – dabei kommt die Nummer mit
+		if (nummer === null) await stelleEin(k, { art: 'kontakt_aktualisieren', nutzlast: { kundeId: n.kundeId }, idempotenz: `kontakt_aktualisieren:${n.kundeId}:nummer` });
 	}
 };
 
@@ -170,7 +198,7 @@ export const kontaktAktualisieren: Handler = {
 			const alt = await c.get<any>(`/v1/contacts/${kd.lexware_id}`);
 			try {
 				const r = await c.put<Antwort>(`/v1/contacts/${kd.lexware_id}`, zusammenfuehren(alt, kd));
-				return { lexwareId: kd.lexware_id, ergebnis: { version: r.version ?? null } };
+				return { lexwareId: kd.lexware_id, ergebnis: { version: r.version ?? null, nummer: kundennummerAus(alt) } };
 			} catch (e) {
 				// Versionskonflikt: jemand hat in Lexware gleichzeitig geändert → einmal neu lesen
 				if (e instanceof LexwareFehler && e.art === 'konflikt' && versuch === 0) continue;
@@ -180,7 +208,8 @@ export const kontaktAktualisieren: Handler = {
 	},
 	async nachher(k, n, r) {
 		if (!r.lexwareId) return;
-		await merkeVerknuepfung(k, n.kundeId, r.lexwareId, typeof r.ergebnis?.version === 'number' ? (r.ergebnis.version as number) : null);
+		await merkeVerknuepfung(k, n.kundeId, r.lexwareId, typeof r.ergebnis?.version === 'number' ? (r.ergebnis.version as number) : null,
+			typeof r.ergebnis?.nummer === 'number' ? (r.ergebnis.nummer as number) : null);
 	}
 };
 
@@ -192,9 +221,13 @@ export const kontaktAktualisieren: Handler = {
 export const kontakteAbgleichen: Handler = {
 	async ausfuehren(c, _n, k) {
 		const kunden = await mitBetrieb(k, (tx) => tx`
-			select id, email::text, lexware_id, geaendert, lexware_stand from app.kunden where betrieb_id = ${k.betriebId}`);
+			select id, email::text, lexware_id, geaendert, lexware_stand, lexware_kundennummer from app.kunden where betrieb_id = ${k.betriebId}`);
 		const offen = new Map(kunden.filter((x) => !x.lexware_id).map((x) => [x.id as string, x]));
 		const verknuepft = new Set(kunden.filter((x) => x.lexware_id).map((x) => x.lexware_id as string));
+		// Kundennummern (Can #6748): je verknüpftem Kontakt die Nummer aus Lexware übernehmen, wenn sie fehlt/abweicht
+		const kundeZuKontakt = new Map(kunden.filter((x) => x.lexware_id).map((x) => [x.lexware_id as string, x]));
+		const neueNummern: { kundeId: string; nummer: number }[] = [];
+		const neuVerknuepftIds: string[] = [];
 		const nachMail = new Map<string, string[]>();
 		for (const x of offen.values()) if (x.email) nachMail.set(x.email.toLowerCase(), [...(nachMail.get(x.email.toLowerCase()) ?? []), x.id]);
 		let gelesen = 0;
@@ -203,7 +236,13 @@ export const kontakteAbgleichen: Handler = {
 			const r = await c.get<{ content: any[]; last: boolean }>(`/v1/contacts?customer=true&page=${seite}&size=100`);
 			for (const kontakt of r.content) {
 				gelesen++;
-				if (typeof kontakt?.id !== 'string' || !UUID.test(kontakt.id) || verknuepft.has(kontakt.id)) continue;
+				if (typeof kontakt?.id !== 'string' || !UUID.test(kontakt.id)) continue;
+				if (verknuepft.has(kontakt.id)) {
+					const kd = kundeZuKontakt.get(kontakt.id);
+					const nr = kundennummerAus(kontakt);
+					if (kd && nr !== null && Number(kd.lexware_kundennummer ?? 0) !== nr) neueNummern.push({ kundeId: kd.id, nummer: nr });
+					continue;
+				}
 				const marke = typeof kontakt.note === 'string' ? /CRM-Kunde ([0-9a-f-]{36})/i.exec(kontakt.note)?.[1] : undefined;
 				let kundeId = marke && offen.has(marke) ? marke : null;
 				if (!kundeId) {
@@ -212,15 +251,21 @@ export const kontakteAbgleichen: Handler = {
 					if (kandidaten.length === 1) kundeId = kandidaten[0];
 				}
 				if (!kundeId) continue;
-				await merkeVerknuepfung(k, kundeId, kontakt.id, typeof kontakt.version === 'number' ? kontakt.version : null);
+				await merkeVerknuepfung(k, kundeId, kontakt.id, typeof kontakt.version === 'number' ? kontakt.version : null, kundennummerAus(kontakt));
 				offen.delete(kundeId);
 				verknuepft.add(kontakt.id);
+				neuVerknuepftIds.push(kundeId);
 				neuVerknuepft++;
 			}
 			if (r.last || r.content.length === 0) break;
 		}
+		for (const x of neueNummern) await merkeKundennummer(k, x.kundeId, x.nummer);
 		// geänderte, verknüpfte Kunden → aktualisieren
 		let aktualisieren = 0;
+		// Neu verknüpfte Kunden: das CRM führt – die CRM-Daten einmal nach Lexware übertragen (sonst gälten sie durch das
+		// Verknüpfen als „schon übertragen“, Prüfbericht 21.11.2026)
+		for (const id of neuVerknuepftIds)
+			if ((await stelleEin(k, { art: 'kontakt_aktualisieren', nutzlast: { kundeId: id }, idempotenz: `kontakt_aktualisieren:${id}:verknuepft` })).neu) aktualisieren++;
 		for (const x of kunden) {
 			if (!x.lexware_id || (x.lexware_stand && new Date(x.geaendert) <= new Date(x.lexware_stand))) continue;
 			if ((await stelleEin(k, { art: 'kontakt_aktualisieren', nutzlast: { kundeId: x.id }, idempotenz: `kontakt_aktualisieren:${x.id}:${new Date(x.geaendert).getTime()}` })).neu) aktualisieren++;
@@ -229,7 +274,7 @@ export const kontakteAbgleichen: Handler = {
 		const [cfg] = await mitBetrieb(k, (tx) => tx`select kunden_anlegen from app.lexware_konfig where betrieb_id = ${k.betriebId}`);
 		if (cfg?.kunden_anlegen)
 			for (const id of offen.keys()) if ((await stelleEin(k, { art: 'kontakt_anlegen', nutzlast: { kundeId: id }, idempotenz: `kontakt_anlegen:${id}` })).neu) anlegen++;
-		return { ergebnis: { gelesen, neuVerknuepft, aktualisieren, anlegen, ohneLexware: offen.size - anlegen } };
+		return { ergebnis: { gelesen, neuVerknuepft, aktualisieren, anlegen, ohneLexware: offen.size - anlegen, kundennummern: neueNummern.length } };
 	}
 };
 
@@ -290,4 +335,27 @@ export async function setze13b(k: Kontext, kundeId: unknown, e: { bauleister: un
 		if ((err as { code?: string }).code === '23514') throw new ApiFehler(400, '§ 13b gilt nur für Firmenkunden.');
 		throw err;
 	}
+}
+
+/**
+ * Lexware-Kundennummer als Kundennummer im CRM (Can #6748, Plan a + d), läuft im Hintergrund-Dienst:
+ * - einmaliger Abgleich aller Kunden, sobald die Verbindung steht (verknüpfen + Nummern holen; je Betrieb genau einmal
+ *   über den Idempotenz-Schlüssel),
+ * - neu angelegte Kunden (seit `kunden_auto_seit`) legt das CRM selbst in Lexware an und holt die Nummer zurück.
+ * Ältere Kunden ohne Treffer legt weiter nur der Schalter „fehlende Kunden in Lexware anlegen“ an (sonst Doppel in Lexware).
+ */
+export async function kundennummernPflege(k: Kontext, max = 20): Promise<{ abgleich: boolean; angelegt: number }> {
+	const [cfg] = await mitBetrieb(k, (tx) => tx`select status, kunden_auto_seit from app.lexware_konfig where betrieb_id = ${k.betriebId}`);
+	if (cfg?.status !== 'verbunden') return { abgleich: false, angelegt: 0 };
+	if (!cfg.kunden_auto_seit) await mitBetrieb(k, (tx) => tx`update app.lexware_konfig set kunden_auto_seit = now() where betrieb_id = ${k.betriebId} and kunden_auto_seit is null`);
+	const abgleich = (await stelleEin(k, { art: 'kontakte_abgleichen', idempotenz: 'kontakte_abgleichen:kundennummern' })).neu;
+	if (!cfg.kunden_auto_seit) return { abgleich, angelegt: 0 };
+	const neu = await mitBetrieb(k, (tx) => tx`
+		select kd.id from app.kunden kd
+		where kd.betrieb_id = ${k.betriebId} and kd.lexware_id is null and kd.angelegt >= ${cfg.kunden_auto_seit}
+			and not exists (select 1 from app.lexware_auftraege q where q.betrieb_id = kd.betrieb_id and q.idempotenz = 'kontakt_anlegen:' || kd.id::text)
+		order by kd.angelegt limit ${max}`);
+	let angelegt = 0;
+	for (const x of neu) if ((await stelleEin(k, { art: 'kontakt_anlegen', nutzlast: { kundeId: x.id }, idempotenz: `kontakt_anlegen:${x.id}` })).neu) angelegt++;
+	return { abgleich, angelegt };
 }
