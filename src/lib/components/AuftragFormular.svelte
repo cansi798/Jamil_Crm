@@ -8,6 +8,7 @@
 	import KundeWahl, { type KundeTreffer } from './ui/KundeWahl.svelte';
 	import PersonWahl from './ui/PersonWahl.svelte';
 	import Auswahl from './ui/Auswahl.svelte';
+	import { LAENDER } from '$lib/laender';
 	import FormFuss from './ui/FormFuss.svelte';
 	import Avatar from './ui/Avatar.svelte';
 
@@ -175,6 +176,12 @@
 					<label>PLZ <input type="text" name="einmalPlz" maxlength="20" value={werte.einmalPlz ?? ''} /></label>
 					<label>Ort <input type="text" name="einmalOrt" maxlength="200" value={werte.einmalOrt ?? ''} /></label>
 				</div>
+				<label>
+					Land
+					<Auswahl name="einmalLand" value={werte.einmalLand || 'DE'} data-testid="einmal-land">
+						{#each LAENDER as [code, name] (code)}<option value={code}>{name}</option>{/each}
+					</Auswahl>
+				</label>
 			</div>
 		{:else if kundeArt === 'ohne'}
 			<p class="kd-info">Der Auftrag bekommt keinen Kunden – z. B. für interne Arbeiten. Ein Kunde lässt sich später eintragen.</p>

@@ -2,6 +2,7 @@ import type { Kontaktweg } from '../kontaktweg';
 import { mitBetrieb, type Kontext, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
 import { anzeigeName, likeMuster, sucheWoerter, textFeld, UUID } from './kunden';
+import { istLand } from '../laender';
 import { hatRecht } from './rechte';
 import { darfEines } from './tarif';
 import { erlaubterWechsel, istStatus, STATUS, type AuftragStatus } from '../auftrag-status';
@@ -34,6 +35,8 @@ export type EinmalKunde = {
 	strasse: string | null;
 	plz: string | null;
 	ort: string | null;
+	/** Migration 125: Land (ISO alpha-2), null = Deutschland bzw. Länderkürzel der PLZ */
+	land: string | null;
 };
 
 export type Auftrag = {
@@ -115,7 +118,14 @@ export const MAX_AUFTRAEGE = 100;
 export const MAX_ZUSTAENDIGE = 20;
 
 /** Felder, die beim Anlegen/Ändern angenommen werden (Formular und JSON). Status/Nummer gehören nicht dazu. */
-export const EINMAL_FELDER = ['einmalName', 'einmalTelefon', 'einmalEmail', 'einmalStrasse', 'einmalPlz', 'einmalOrt'] as const;
+/** Land des Einmal-Kunden: leer → null (Deutschland), sonst ein Land aus $lib/laender. */
+function einmalLand(w: unknown): string | null {
+	if (w === undefined || w === null || w === '') return null;
+	if (!istLand(w)) throw new ApiFehler(400, 'Land: Bitte ein Land aus der Liste wählen.');
+	return w === 'DE' ? null : w;
+}
+
+export const EINMAL_FELDER = ['einmalName', 'einmalTelefon', 'einmalEmail', 'einmalStrasse', 'einmalPlz', 'einmalOrt', 'einmalLand'] as const;
 export const AUFTRAG_FELDER = ['titel', 'kundeArt', 'kundeId', 'objektId', 'anlageId', 'quelleId', 'beschreibung', 'geplantAb', ...EINMAL_FELDER] as const;
 /**
  * Felder der Auftrags-Formulare: ohne „Geplant ab“ (Wunsch Jamil, msgs 2525/2526 – dafür gibt es Termine). Die Spalte
@@ -168,7 +178,8 @@ export function pruefeAuftragEingabe(e: Record<string, unknown>): AuftragWerte {
 			email: textFeld(e.einmalEmail, 'E-Mail', 200),
 			strasse: textFeld(e.einmalStrasse, 'Straße', 200),
 			plz: textFeld(e.einmalPlz, 'PLZ', 20),
-			ort: textFeld(e.einmalOrt, 'Ort', 200)
+			ort: textFeld(e.einmalOrt, 'Ort', 200),
+			land: einmalLand(e.einmalLand)
 		};
 	}
 	const objektId = idFeld(e.objektId, 'Das Objekt ist ungültig.');
@@ -258,7 +269,7 @@ export const AUSWAHL = `a.id, a.nummer, a.titel, a.kunde_id, a.objekt_id, a.anla
 	k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
 	o.bezeichnung as objekt_bezeichnung, o.strasse as objekt_strasse, o.plz as objekt_plz, o.ort as objekt_ort,
 	k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, k.telefon as kunde_telefon, k.bevorzugter_kontakt as kunde_kontaktweg,
-	a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort,
+	a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort, a.einmal_land,
 	(select coalesce(json_agg(json_build_object('id', b.id, 'name', b.name) order by public.unaccent(lower(b.name)), b.id), '[]')
 		from app.auftrag_zustaendige z join app.benutzer b on b.id = z.benutzer_id and b.betrieb_id = z.betrieb_id
 		where z.auftrag_id = a.id and z.betrieb_id = a.betrieb_id) as zustaendige,
@@ -314,7 +325,7 @@ export function zuAuftrag(z: Record<string, any>): Auftrag {
 		kundeId: z.kunde_id ?? null,
 		kundeName: kundeNameAus(z),
 		einmalKunde: z.einmal_name
-			? { name: z.einmal_name, telefon: z.einmal_telefon, email: z.einmal_email, strasse: z.einmal_strasse, plz: z.einmal_plz, ort: z.einmal_ort }
+			? { name: z.einmal_name, telefon: z.einmal_telefon, email: z.einmal_email, strasse: z.einmal_strasse, plz: z.einmal_plz, ort: z.einmal_ort, land: z.einmal_land ?? null }
 			: null,
 		telefon: z.kunde_telefon ?? z.einmal_telefon ?? null,
 		kontaktweg: z.kunde_kontaktweg ?? null,
@@ -487,10 +498,10 @@ export async function legeAuftragAn(k: Kontext, e: Record<string, unknown>): Pro
 		const status = startStatus(await uebersprungeneSchritte(tx, k.betriebId, w.quelleId));
 		const [z] = await tx`
 			insert into app.auftraege (betrieb_id, titel, kunde_id, objekt_id, anlage_id, quelle_id, status, beschreibung, geplant_ab,
-				einmal_name, einmal_telefon, einmal_email, einmal_strasse, einmal_plz, einmal_ort)
+				einmal_name, einmal_telefon, einmal_email, einmal_strasse, einmal_plz, einmal_ort, einmal_land)
 			values (${k.betriebId}, ${w.titel}, ${w.kundeId}, ${w.objektId}, ${w.anlageId}, ${w.quelleId}, ${status}, ${w.beschreibung}, ${w.geplantAb},
 				${w.einmal?.name ?? null}, ${w.einmal?.telefon ?? null}, ${w.einmal?.email ?? null}, ${w.einmal?.strasse ?? null},
-				${w.einmal?.plz ?? null}, ${w.einmal?.ort ?? null})
+				${w.einmal?.plz ?? null}, ${w.einmal?.ort ?? null}, ${w.einmal?.land ?? null})
 			returning id`;
 		await setzeZustaendige(tx, k, z.id, zustaendige);
 		return ladeEinen(tx, k, ALLE(k.benutzerId), z.id);
@@ -516,7 +527,7 @@ export async function aendereAuftrag(
 	return mitBetrieb(k, async (tx) => {
 		const [alt] = await tx`
 			select a.titel, a.kunde_id, a.objekt_id, a.anlage_id, a.quelle_id, a.beschreibung, to_char(a.geplant_ab, 'YYYY-MM-DD') as geplant_ab,
-				a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort
+				a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort, a.einmal_land
 			from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
 		if (!alt) throw nichtGefunden();
@@ -529,6 +540,7 @@ export async function aendereAuftrag(
 			einmalStrasse: alt.einmal_strasse,
 			einmalPlz: alt.einmal_plz,
 			einmalOrt: alt.einmal_ort,
+			einmalLand: alt.einmal_land,
 			kundeId: alt.kunde_id,
 			objektId: alt.objekt_id,
 			anlageId: alt.anlage_id,
@@ -552,7 +564,7 @@ export async function aendereAuftrag(
 				beschreibung = ${w.beschreibung}, geplant_ab = ${w.geplantAb},
 				einmal_name = ${w.einmal?.name ?? null}, einmal_telefon = ${w.einmal?.telefon ?? null},
 				einmal_email = ${w.einmal?.email ?? null}, einmal_strasse = ${w.einmal?.strasse ?? null},
-				einmal_plz = ${w.einmal?.plz ?? null}, einmal_ort = ${w.einmal?.ort ?? null}
+				einmal_plz = ${w.einmal?.plz ?? null}, einmal_ort = ${w.einmal?.ort ?? null}, einmal_land = ${w.einmal?.land ?? null}
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		if (zustaendige) await setzeZustaendige(tx, k, id, zustaendige);
 		// Wer sich selbst als Zuständigen entfernt und den Auftrag sonst nicht sieht, bekommt ihn trotzdem zurück
@@ -568,19 +580,19 @@ export async function uebernimmEinmalKunde(k: Kontext, id: string, sicht: Sicht 
 	pruefeAuftragsId(id);
 	return mitBetrieb(k, async (tx) => {
 		const [a] = await tx`
-			select a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort
+			select a.einmal_name, a.einmal_telefon, a.einmal_email, a.einmal_strasse, a.einmal_plz, a.einmal_ort, a.einmal_land
 			from app.auftraege a
 			where a.id = ${id} and a.betrieb_id = ${k.betriebId} and ${sichtbar(tx, sicht)} for update of a`;
 		if (!a) throw nichtGefunden();
 		if (!a.einmal_name) throw new ApiFehler(409, 'Dieser Auftrag hat keinen Einmal-Kunden.');
 		const [kd] = await tx`
-			insert into app.kunden (betrieb_id, art, nachname, telefon, email, strasse, plz, ort)
+			insert into app.kunden (betrieb_id, art, nachname, telefon, email, strasse, plz, ort, land)
 			values (${k.betriebId}, 'privat', ${a.einmal_name}, ${a.einmal_telefon}, ${a.einmal_email}, ${a.einmal_strasse},
-				${a.einmal_plz}, ${a.einmal_ort})
+				${a.einmal_plz}, ${a.einmal_ort}, ${a.einmal_land ?? 'DE'})
 			returning id`;
 		await tx`
 			update app.auftraege set kunde_id = ${kd.id}, einmal_name = null, einmal_telefon = null, einmal_email = null,
-				einmal_strasse = null, einmal_plz = null, einmal_ort = null
+				einmal_strasse = null, einmal_plz = null, einmal_ort = null, einmal_land = null
 			where id = ${id} and betrieb_id = ${k.betriebId}`;
 		return ladeEinen(tx, k, ALLE(k.benutzerId), id);
 	});

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Segmente from '$lib/components/ui/Segmente.svelte';
 	import KontaktwegWahl from '$lib/components/KontaktwegWahl.svelte';
+	import Auswahl from '$lib/components/ui/Auswahl.svelte';
+	import { LAENDER } from '$lib/laender';
 	import { enhance } from '$app/forms';
 
 	/** Formular für Kunden (Neu und Bearbeiten). Die Seite liefert Werte und Fehler aus `load` bzw. der Aktion. */
@@ -93,6 +95,26 @@
 			<input type="text" name="ort" maxlength="200" value={werte.ort ?? ''} autocomplete="address-level2" />
 		</label>
 	</div>
+	<label>
+		Land
+		<Auswahl name="land" value={werte.land || 'DE'} data-testid="kunde-land">
+			{#each LAENDER as [code, name] (code)}<option value={code}>{name}</option>{/each}
+		</Auswahl>
+	</label>
+
+	{#if art === 'firma'}
+		<!-- Steuerdaten (Migration 125): USt-IdNr. für § 13b und Lexware, grobe Formatprüfung, keine Online-Prüfung -->
+		<div class="kd-zwei">
+			<label>
+				USt-IdNr.
+				<input type="text" name="ust_id" maxlength="30" value={werte.ust_id ?? ''} placeholder="z. B. DE123456789" autocapitalize="characters" spellcheck="false" />
+			</label>
+			<label>
+				Steuernummer
+				<input type="text" name="steuernummer" maxlength="30" value={werte.steuernummer ?? ''} placeholder="z. B. 12/345/67890" inputmode="numeric" />
+			</label>
+		</div>
+	{/if}
 
 	<label>
 		Notiz

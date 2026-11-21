@@ -113,8 +113,8 @@ describe('Lexware-Format: Angebot → POST /v1/quotations', () => {
 		expect(a.body.address).toMatchObject({ zip: '1010', city: 'Wien', countryCode: 'AT' });
 	});
 
-	it('§ 13b nur mit Lexware-Kontakt; mit Kontakt: constructionService13b und Satz 0', () => {
-		const firma = kunde({ art: 'firma', name: 'Bau GmbH', bauleister13b: true, bescheinigung13bBis: '2027-12-31' });
+	it('§ 13b nur mit Lexware-Kontakt und USt-IdNr.; dann constructionService13b und Satz 0', () => {
+		const firma = kunde({ art: 'firma', name: 'Bau GmbH', bauleister13b: true, bescheinigung13bBis: '2027-12-31', ustId: 'DE123456789' });
 		const mit = angebotZuLexwareQuotation(angebot({ kunde: firma }));
 		expect(mit.body.taxConditions.taxType).toBe('constructionService13b');
 		expect(mit.body.lineItems.every((p) => p.unitPrice!.taxRatePercentage === 0)).toBe(true);
@@ -122,6 +122,19 @@ describe('Lexware-Format: Angebot → POST /v1/quotations', () => {
 		expect(mit.erwartet).toMatchObject({ nettoCent: 159575, steuerCent: 0, bruttoCent: 159575 });
 		const ohne = angebotZuLexwareQuotation(angebot({ kunde: { ...firma, lexwareId: null } }));
 		expect(ohne.fehler).toContain('taxType constructionService13b geht nur mit einem Lexware-Kontakt (address.contactId)');
+		// ohne USt-IdNr.: Fehler (Lexware lehnt ab), nicht nur Warnung
+		const ohneUst = angebotZuLexwareQuotation(angebot({ kunde: { ...firma, ustId: null } }));
+		expect(ohneUst.fehler[0]).toMatch(/USt-IdNr\./);
+		expect(ohneUst.warnungen.join(' ')).not.toMatch(/USt-IdNr\./);
+	});
+
+	it('Land am Kunden geht vor dem PLZ-Kürzel; Kürzel bleibt Rückfall', () => {
+		const mitLand = angebotZuLexwareQuotation(angebot({ kunde: kunde({ lexwareId: null, land: 'CH', plz: '8001', ort: 'Zürich' }) }));
+		expect(mitLand.body.address).toMatchObject({ zip: '8001', countryCode: 'CH' });
+		const gleich = angebotZuLexwareQuotation(angebot({ kunde: kunde({ lexwareId: null, land: 'AT', plz: 'A-1010' }) }));
+		expect(gleich.body.address).toMatchObject({ zip: '1010', countryCode: 'AT' });
+		const ohneLand = angebotZuLexwareQuotation(angebot({ kunde: kunde({ lexwareId: null, land: null, plz: 'NL-1234 AB' }) }));
+		expect(ohneLand.body.address).toMatchObject({ zip: '1234 AB', countryCode: 'NL' });
 	});
 
 	it('Kleinunternehmer → vatfree, Steuersatz 0; 7 % wird übernommen', () => {
@@ -242,9 +255,13 @@ describe('Lexware-Format: Kunde → POST /v1/contacts', () => {
 	});
 
 	it('Firmenkunde mit USt-ID (für § 13b nötig) und Schweizer Adresse', () => {
-		const k = kontaktZuLexware(basis({ art: 'firma', firma: 'Bau AG', ustId: 'CHE-123.456.789', plz: 'CH-8001', ort: 'Zürich' }));
-		expect(k.body.company).toMatchObject({ name: 'Bau AG', vatRegistrationId: 'CHE-123.456.789' });
+		const k = kontaktZuLexware(basis({ art: 'firma', firma: 'Bau AG', ustId: 'CHE-123.456.789', steuernummer: '12/345/67890', plz: 'CH-8001', ort: 'Zürich' }));
+		expect(k.body.company).toMatchObject({ name: 'Bau AG', vatRegistrationId: 'CHE-123.456.789', taxNumber: '12/345/67890' });
 		expect(k.body.person).toBeUndefined();
+		// Land aus dem Kundenfeld (Migration 125)
+		expect(kontaktZuLexware(basis({ land: 'AT', plz: '1010', ort: 'Wien' })).body.addresses?.billing?.[0]).toMatchObject({ zip: '1010', countryCode: 'AT' });
+		// Privatkunden haben keine Firmen-Steuerdaten
+		expect(kontaktZuLexware(basis({ ustId: 'DE123456789' })).body.company).toBeUndefined();
 		expect(k.body.addresses?.billing?.[0]).toMatchObject({ zip: '8001', countryCode: 'CH' });
 		expect(k.fehler).toEqual([]);
 	});

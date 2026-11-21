@@ -36,3 +36,22 @@ export function landAusPlz(plz: string | null | undefined): LandErgebnis {
 export function suchText(s: string): string {
 	return encodeURIComponent(s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
 }
+
+/**
+ * Land für eine Lexware-Adresse (Migration 125): das Land am Kunden (`kunden.land`, beim Einmal-Kunden
+ * `auftraege.einmal_land`) gilt; fehlt es, bleibt das Länderkürzel der PLZ der Rückfall (`landAusPlz`). Trägt die PLZ
+ * ein Kürzel desselben Landes, wird es abgetrennt („AT-1010“ + Land AT → 1010); passt es nicht, bleibt die PLZ wie sie
+ * ist, mit Warnung.
+ */
+export function adresseLand(land: string | null | undefined, plz: string | null | undefined): LandErgebnis {
+	const ausPlz = landAusPlz(plz);
+	if (!land) return ausPlz;
+	const hatKuerzel = /^[A-Za-z]{1,2}\s*[- ]/.test((plz ?? '').trim());
+	if (!hatKuerzel) return { countryCode: land, zip: ausPlz.zip, warnung: null };
+	if (ausPlz.countryCode === land && !ausPlz.warnung) return { countryCode: land, zip: ausPlz.zip, warnung: null };
+	return {
+		countryCode: land,
+		zip: (plz ?? '').trim(),
+		warnung: `Das Kürzel in der PLZ „${(plz ?? '').trim()}“ passt nicht zum Land ${land} – Lexware erhält ${land}. Bitte Land oder PLZ prüfen.`
+	};
+}

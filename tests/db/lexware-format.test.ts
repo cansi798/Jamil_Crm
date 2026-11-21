@@ -15,7 +15,7 @@ describe('Lexware-Format: Export je Angebot', () => {
 		u = await baueUmgebung();
 		root = u.root;
 		await leereAngebote(root);
-		await root`update app.kunden set plz = 'A-1010', ort = 'Wien', strasse = 'Ring 1', email = 'kunde@a.test' where id = ${u.kundeA}`;
+		await root`update app.kunden set plz = 'A-1010', land = 'AT', ort = 'Wien', strasse = 'Ring 1', email = 'kunde@a.test' where id = ${u.kundeA}`;
 	});
 	afterAll(async () => {
 		await leereAngebote(root);

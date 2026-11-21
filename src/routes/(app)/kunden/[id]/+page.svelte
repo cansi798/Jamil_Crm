@@ -19,12 +19,16 @@
 	import BelegListe from '$lib/components/ausgangsbelege/BelegListe.svelte';
 	import { RECHNUNG_ART_NAMEN, ZAHL_STATUS_KLASSE, ZAHL_STATUS_NAMEN } from '$lib/rechnungen';
 	import { euro } from '$lib/geld';
+	import { landName } from '$lib/laender';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const k = $derived(data.kunde);
-	const adresse = $derived([k.strasse, [k.plz, k.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '));
+	// Land nur nennen, wenn es nicht Deutschland ist (Migration 125)
+	const adresse = $derived(
+		[k.strasse, [k.plz, k.ort].filter(Boolean).join(' '), k.land && k.land !== 'DE' ? landName(k.land) : null].filter(Boolean).join(', ')
+	);
 	const ansprechpartner = $derived([k.anrede, k.vorname, k.nachname].filter(Boolean).join(' '));
 
 	const wann = (iso: string) => {
@@ -124,6 +128,10 @@
 			{/if}
 			{#if adresse}
 				<div><dt>Adresse</dt><dd>{adresse}</dd></div>
+			{/if}
+			{#if k.art === 'firma'}
+				<div data-testid="kunde-ust-id"><dt>USt-IdNr.</dt><dd>{k.ust_id ?? '–'}</dd></div>
+				{#if k.steuernummer}<div><dt>Steuernummer</dt><dd>{k.steuernummer}</dd></div>{/if}
 			{/if}
 			{#if k.notiz}
 				<div class="ka-breit"><dt>Notiz</dt><dd>{k.notiz}</dd></div>
@@ -320,6 +328,9 @@
 							<label class="kp-haken"><input type="checkbox" name="bauleister" checked={data.lexware.bauleister13b} /> Bauleister nach § 13b UStG (Kunde schuldet die Umsatzsteuer)</label>
 						</InfoFeld>
 						<label>Bescheinigung des Finanzamts gültig bis<input type="date" name="bis" value={data.lexware.bis13b ?? ''} /></label>
+						{#if data.lexware.bauleister13b && !k.ust_id}
+							<p class="kd-fehler" data-testid="kunde-13b-ohne-ust">§ 13b braucht die USt-IdNr. des Kunden – Lexware lehnt den Beleg sonst ab. Bitte unter „Kunde bearbeiten“ eintragen.</p>
+						{/if}
 						<div><button type="submit" class="kd-knopf hell klein">§ 13b speichern</button></div>
 					</form>
 				{/if}

@@ -5,6 +5,7 @@ import type { Angebot, AngebotPosition } from '../angebote';
 import type { Profil } from '../betriebsprofil';
 import { pruefeBild } from '../bildpruefung';
 import { euro, mengeText } from '../../geld';
+import { landName } from '../../laender';
 
 /**
  * Angebots-PDF (A4) mit pdfkit und eingebetteter Schrift „Noto Sans“ (OFL, Umlaute und €).
@@ -17,7 +18,7 @@ import { euro, mengeText } from '../../geld';
  * auf die neue Seite.
  */
 
-export type PdfKunde = { name: string; ansprechpartner?: string | null; strasse: string | null; plz: string | null; ort: string | null };
+export type PdfKunde = { name: string; ansprechpartner?: string | null; strasse: string | null; plz: string | null; ort: string | null; land?: string | null };
 export type PdfObjekt = { bezeichnung: string; strasse: string | null; plz: string | null; ort: string | null };
 
 export type AngebotPdfDaten = {
@@ -175,7 +176,8 @@ export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: 
 		linie(LINKS, mm(57.5), LINKS + Math.min(mm(80), doc.widthOfString(absender)), FARBE_LEISE, 0.4);
 	}
 	schrift('normal', 10.5);
-	const empfaenger = nichtLeer(kunde.name, kunde.ansprechpartner, kunde.strasse, nichtLeer(kunde.plz, kunde.ort).join(' '));
+	// Auslandskunden (Migration 125): Land als letzte Zeile der Anschrift (DIN 5008)
+	const empfaenger = nichtLeer(kunde.name, kunde.ansprechpartner, kunde.strasse, nichtLeer(kunde.plz, kunde.ort).join(' '), kunde.land && kunde.land !== 'DE' ? landName(kunde.land).toUpperCase() : null);
 	empfaenger.forEach((t, i) => zeile(t, LINKS, mm(62.7) + i * mm(4.8), mm(80)));
 
 	// Angaben rechts

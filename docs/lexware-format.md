@@ -59,10 +59,10 @@ Beleg: D#contacts-endpoint-create-a-contact (Pflicht: `version` = 0, `roles`, `p
 | `vorname` / `nachname` | `person.firstName` / `person.lastName` | `lastName` Pflicht |
 | `art = firma`, `firma` | `company.name` | Pflicht (D#company-details) |
 | `anrede`, `vorname`, `nachname`, `email`, `telefon` (Firma) | `company.contactPersons[0]` mit `primary: true` | höchstens **eine** Ansprechperson per API (D#company-contact-person-details) |
-| *(fehlt im CRM)* USt-ID / Steuernummer | `company.vatRegistrationId` / `company.taxNumber` | in `format.ts` vorbereitet (`ustId`, `steuernummer`); für § 13b Pflicht (KR „FAQ und Hinweise“) – siehe Offene Punkte |
+| `ust_id` / `steuernummer` (Migration 125, nur Firmen) | `company.vatRegistrationId` / `company.taxNumber` | D#company-details; USt-ID für § 13b Pflicht (KR „FAQ und Hinweise“); Form grob je Länderpräfix geprüft (`src/lib/ust-id.ts`), keine Online-Prüfung |
 | `strasse` | `addresses.billing[0].street` | höchstens eine Rechnungsadresse per API (D#addresses-details) |
-| `plz` | `addresses.billing[0].zip` | Länderkürzel wird abgetrennt („AT-1010“ → `1010`) |
-| (aus `plz`) | `addresses.billing[0].countryCode` | **Pflicht**, ISO 3166 alpha-2 (D#address-details, D#faq-country-codes); ohne Kürzel `DE` |
+| `plz` | `addresses.billing[0].zip` | passendes Länderkürzel wird abgetrennt („AT-1010“ + Land AT → `1010`) |
+| `land` (Migration 125, Standard `DE`) | `addresses.billing[0].countryCode` | **Pflicht**, ISO 3166 alpha-2 (D#address-details, D#faq-country-codes); Rückfall ohne Land (Einmal-Kunde): Kürzel der PLZ, sonst `DE` (`adresseLand`) |
 | `ort` | `addresses.billing[0].city` | |
 | `email` | `emailAddresses.private[0]` (Privat) / `.business[0]` (Firma) | höchstens ein Eintrag je Liste (D#email-addresses-details) |
 | `telefon` | `phoneNumbers.private[0]` / `.business[0]` | höchstens ein Eintrag je Liste (D#phone-numbers-details) |
@@ -77,7 +77,7 @@ Beleg: D#invoices-endpoint-invoices-properties, D#invoices-address-details, D#in
 |---|---|---|
 | Datum (`angebote.datum`, Rechnung: heute) | `voucherDate` | Format `yyyy-MM-ddTHH:mm:ss.SSSXXX`, Millisekunden genau 3-stellig, Zone `Z` oder `+01:00` (D#faq-datetime-format); CRM schickt `T00:00:00.000` mit Berliner Versatz |
 | Kunde mit Lexware-ID | `address.contactId` | Kontakt braucht Rolle customer (D#invoices-address-details) |
-| Kunde ohne Lexware-ID / Einmal-Kunde | `address.name`, `street`, `zip`, `city`, `countryCode` | „Einmal-Adresse“, Lexware bucht auf den Sammelkunden (KR „Kundenangaben“); `name` + `countryCode` Pflicht |
+| Kunde ohne Lexware-ID / Einmal-Kunde (`einmal_land`) | `address.name`, `street`, `zip`, `city`, `countryCode` | „Einmal-Adresse“, Lexware bucht auf den Sammelkunden (KR „Kundenangaben“); `name` + `countryCode` Pflicht |
 | Position | `lineItems[]`, `type: "custom"` | manuelle Position ohne Lexware-Artikel; max. 300 (D#invoices-lineItems-details); CRM max. 200 |
 | `bezeichnung` | `lineItems[].name` | max. 255 (D#faq-texts-in-sales-vouchers); CRM max. 200 |
 | `beschreibung` | `lineItems[].description` | max. 2000; Markdown `**fett**`, `__kursiv__`, `- Liste` wird formatiert (D#faq-text-formatting) |
@@ -126,7 +126,8 @@ Beleg: D#invoices-endpoint-create-an-invoice (Pflicht zusätzlich `shippingCondi
 |---|---|---|---|
 | normal | `net` | `mwst_satz` | D#invoices-taxConditions-details |
 | `lexware_konfig.kleinunternehmer` | `vatfree` | 0 | Lexware-Konto muss „Kleinunternehmer/steuerfrei“ eingestellt sein (KR „Rechnungsarten“; D#profile-endpoint-profile-properties `smallBusiness`) |
-| Firmenkunde `bauleister_13b`, Bescheinigung gültig | `constructionService13b` | 0 | nur mit Kontakt (`contactId`), Firma mit gültiger USt-ID; kein Sammelkunde (D#invoices-endpoint-purpose, KR „FAQ“) |
+| Firmenkunde `bauleister_13b`, Bescheinigung gültig, `ust_id` vorhanden | `constructionService13b` | 0 | nur mit Kontakt (`contactId`), Firma mit gültiger USt-ID; kein Sammelkunde (D#invoices-endpoint-purpose, KR „FAQ“) |
+| dasselbe **ohne** `ust_id` | – | – | **Fehler** im Paket; die Warteschlange sendet nicht („§ 13b: Beim Kunden fehlt die USt-IdNr.“); Hinweis in der Kundenakte |
 | § 13b-Bescheinigung abgelaufen | `net` + Warnung | `mwst_satz` | CRM-Regel |
 | § 35a (Privatkunde) | Satz in `remark` | – | Lexware hat kein Feld |
 
@@ -184,7 +185,9 @@ Beleg: D#invoices-endpoint-create-an-invoice (Pflicht zusätzlich `shippingCondi
 4. § 13b mit Einmal-Adresse hätte Lexware abgelehnt, ohne dass das CRM es vorher merkt → `pruefeBeleg` meldet es.
 5. Keine Vorab-Prüfung/kein Vergleich der Summen → `pruefeBeleg`, `pruefeKontakt`, `erwarteteSummen`.
 
-**Lücken – offen (brauchen Entscheidung, siehe Bericht):** USt-ID/Steuernummer am Kunden fehlen (für § 13b nötig), kein Länderfeld (nur PLZ-Präfix), Leitweg-ID ohne Lieferantennummer, keine Rabatte, Einheiten als Kürzel.
+6. USt-IdNr., Steuernummer und Land am Kunden (Migration 125, Can #6739); Land auch am Einmal-Kunden; § 13b ohne USt-IdNr. = Fehler.
+
+**Lücken – offen:** Leitweg-ID ohne Lieferantennummer (XRechnung), keine Rabatte, Einheiten als Kürzel.
 
 ## 6. Hinweise für die spätere Supabase-Anbindung
 

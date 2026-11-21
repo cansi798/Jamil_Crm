@@ -1,6 +1,6 @@
 import { abAlsLexware, angebotAlsLexware, rechnungAlsLexware, type BelegEingabe, type RechnungEingabe } from './belege';
 import { kontaktAusKunde, type KundeDaten } from './kontakte';
-import { landAusPlz } from './land';
+import { adresseLand } from './land';
 
 /**
  * Lexware-Format: reine Abbildungsschicht CRM → Lexware Office Public API (ohne Netzwerk, ohne Datenbank, ohne
@@ -292,10 +292,8 @@ export function erwarteteSummen(b: Pick<BelegGemeinsam, 'lineItems' | 'taxCondit
 
 // ——— CRM → Lexware ———
 
+/** Kunde mit Land, USt-IdNr. und Steuernummer (Migration 125, in `KundeDaten`) plus XRechnung-Angaben. */
 export type KundeFuerLexware = KundeDaten & {
-	/** optional, sobald das CRM diese Felder führt (offene Punkte in docs/lexware-format.md) */
-	ustId?: string | null;
-	steuernummer?: string | null;
 	leitwegId?: string | null;
 	lieferantennummerBeimKunden?: string | null;
 };
@@ -304,12 +302,8 @@ export type KundeFuerLexware = KundeDaten & {
 export function kontaktZuLexware(kd: KundeFuerLexware): LexwareAnfrage<LexwareKontakt> {
 	const body = kontaktAusKunde(kd) as LexwareKontakt;
 	const warnungen: string[] = [];
-	const land = landAusPlz(kd.plz);
+	const land = adresseLand(kd.land, kd.plz);
 	if (land.warnung && (kd.strasse || kd.plz || kd.ort)) warnungen.push(land.warnung);
-	if (body.company) {
-		if (kd.ustId?.trim()) body.company.vatRegistrationId = kd.ustId.trim();
-		if (kd.steuernummer?.trim()) body.company.taxNumber = kd.steuernummer.trim();
-	}
 	if (kd.leitwegId?.trim()) {
 		if (kd.lieferantennummerBeimKunden?.trim()) body.xRechnung = { buyerReference: kd.leitwegId.trim(), vendorNumberAtCustomer: kd.lieferantennummerBeimKunden.trim() };
 		else warnungen.push('Leitweg-ID vorhanden, aber keine Lieferantennummer beim Kunden – Lexware verlangt beides für XRechnung; Leitweg-ID wird nicht übertragen.');
@@ -324,9 +318,15 @@ const mitQuery = (pfad: string, q: Record<string, string | boolean | null | unde
 	return teile.length ? `${pfad}?${teile.join('&')}` : pfad;
 };
 
-function belegAnfrage<T extends BelegGemeinsam>(art: 'quotation' | 'orderconfirmation' | 'invoice', pfad: string, body: T, warnungen: string[]): LexwareAnfrage<T> {
-	const fehler = pruefeBeleg(art, body as never);
-	const w = [...warnungen];
+function belegAnfrage<T extends BelegGemeinsam>(
+	art: 'quotation' | 'orderconfirmation' | 'invoice',
+	pfad: string,
+	body: T,
+	warnungen: string[],
+	steuerFehler: string | null | undefined
+): LexwareAnfrage<T> {
+	const fehler = [...(steuerFehler ? [steuerFehler] : []), ...pruefeBeleg(art, body as never)];
+	const w = warnungen.filter((x) => x !== steuerFehler);
 	if (!body.address.contactId) w.push('Kein Lexware-Kontakt: Lexware bucht den Beleg auf den Sammelkunden (Einmal-Adresse). Erst den Kontakt anlegen und die ID als address.contactId setzen.');
 	return { methode: 'POST', pfad, body, fehler, warnungen: w, erwartet: erwarteteSummen(body) };
 }
@@ -334,7 +334,7 @@ function belegAnfrage<T extends BelegGemeinsam>(art: 'quotation' | 'orderconfirm
 /** Angebot → POST /v1/quotations[?finalize=true] (ohne finalize = Entwurf in Lexware). */
 export function angebotZuLexwareQuotation(e: BelegEingabe, opt: { festschreiben?: boolean } = {}): LexwareAnfrage<LexwareQuotation> {
 	const b = angebotAlsLexware(e);
-	return belegAnfrage('quotation', mitQuery('/v1/quotations', { finalize: opt.festschreiben === true }), b.body as unknown as LexwareQuotation, b.warnungen);
+	return belegAnfrage('quotation', mitQuery('/v1/quotations', { finalize: opt.festschreiben === true }), b.body as unknown as LexwareQuotation, b.warnungen, b.steuer.fehler);
 }
 
 /** Auftragsbestätigung → POST /v1/order-confirmations?precedingSalesVoucherId={Angebot}[&finalize=true]. */
@@ -344,7 +344,7 @@ export function abZuLexwareOrderConfirmation(
 ): LexwareAnfrage<LexwareOrderConfirmation> {
 	const b = abAlsLexware(e);
 	const pfad = mitQuery('/v1/order-confirmations', { precedingSalesVoucherId: opt.angebotLexwareId ?? null, finalize: opt.festschreiben === true });
-	return belegAnfrage('orderconfirmation', pfad, b.body as unknown as LexwareOrderConfirmation, b.warnungen);
+	return belegAnfrage('orderconfirmation', pfad, b.body as unknown as LexwareOrderConfirmation, b.warnungen, b.steuer.fehler);
 }
 
 /**
@@ -355,5 +355,5 @@ export function abZuLexwareOrderConfirmation(
 export function rechnungZuLexwareInvoice(e: RechnungEingabe, opt: { vorgaengerLexwareId?: string | null; festschreiben?: boolean } = {}): LexwareAnfrage<LexwareInvoice> {
 	const b = rechnungAlsLexware(e);
 	const pfad = mitQuery('/v1/invoices', { precedingSalesVoucherId: opt.vorgaengerLexwareId ?? null, finalize: opt.festschreiben === true });
-	return belegAnfrage('invoice', pfad, b.body as unknown as LexwareInvoice, b.warnungen);
+	return belegAnfrage('invoice', pfad, b.body as unknown as LexwareInvoice, b.warnungen, b.steuer.fehler);
 }

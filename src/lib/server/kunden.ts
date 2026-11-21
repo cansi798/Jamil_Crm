@@ -1,6 +1,8 @@
 import { mitBetrieb, type Kontext } from './db';
 import { ApiFehler } from './fehler';
 import { istKontaktweg, type Kontaktweg, type KontaktwegFilter } from '../kontaktweg';
+import { istLand } from '../laender';
+import { pruefeSteuernummer, pruefeUstId } from '../ust-id';
 
 /**
  * Fachlogik für Kunden und Objekte, gemeinsam genutzt von der API (`/api/kunden`) und den Seiten unter `/kunden`.
@@ -23,6 +25,11 @@ export type Kunde = {
 	strasse: string | null;
 	plz: string | null;
 	ort: string | null;
+	/** Land (ISO 3166 alpha-2, Standard DE) – Migration 125, für Lexware Pflicht */
+	land: string;
+	/** USt-IdNr. (nur Firmen; für § 13b nötig) und Steuernummer – Migration 125 */
+	ust_id: string | null;
+	steuernummer: string | null;
 	notiz: string | null;
 	/** Bevorzugter Kommunikationsweg (Jamil msgs 4289/4291); null = keine Angabe. */
 	bevorzugter_kontakt: Kontaktweg | null;
@@ -69,10 +76,10 @@ const OBJEKT_TEXTE = {
 type KundeFeld = keyof typeof KUNDE_TEXTE;
 type ObjektFeld = keyof typeof OBJEKT_TEXTE;
 
-export type KundeWerte = { art: KundenArt; bevorzugter_kontakt: Kontaktweg | null } & Record<KundeFeld, string | null>;
+export type KundeWerte = { art: KundenArt; bevorzugter_kontakt: Kontaktweg | null; land: string; ust_id: string | null; steuernummer: string | null } & Record<KundeFeld, string | null>;
 export type ObjektWerte = Record<ObjektFeld, string | null>;
 
-export const KUNDE_FELDER = ['art', ...Object.keys(KUNDE_TEXTE), 'bevorzugter_kontakt'] as (keyof KundeWerte)[];
+export const KUNDE_FELDER = ['art', ...Object.keys(KUNDE_TEXTE), 'bevorzugter_kontakt', 'land', 'ust_id', 'steuernummer'] as (keyof KundeWerte)[];
 export const OBJEKT_FELDER = Object.keys(OBJEKT_TEXTE) as ObjektFeld[];
 
 export const SUCHE_MAX_ZEICHEN = 100;
@@ -141,7 +148,20 @@ export function pruefeKundeEingabe(eingabe: Record<string, unknown>): KundeWerte
 		throw new ApiFehler(400, 'Die E-Mail-Adresse ist ungültig.');
 	}
 	werte.bevorzugter_kontakt = kontaktwegFeld(eingabe.bevorzugter_kontakt);
+	// Land (Migration 125): fehlt/leer → DE; sonst ein Land aus der Liste ($lib/laender)
+	const land = eingabe.land === undefined || eingabe.land === null || eingabe.land === '' ? 'DE' : eingabe.land;
+	if (!istLand(land)) throw new ApiFehler(400, 'Land: Bitte ein Land aus der Liste wählen.');
+	werte.land = land;
+	// USt-IdNr. und Steuernummer: grobe Formatprüfung, keine Online-Prüfung (Can #6739); nur bei Firmen gespeichert
+	const ust = pruefeUstId(textFeld(eingabe.ust_id, 'USt-IdNr.', 30));
+	if (ust && !ust.ok) throw new ApiFehler(400, ust.fehler);
+	werte.ust_id = ust?.ok ? ust.wert : null;
+	const stnr = pruefeSteuernummer(textFeld(eingabe.steuernummer, 'Steuernummer', 30));
+	if (stnr && !stnr.ok) throw new ApiFehler(400, stnr.fehler);
+	werte.steuernummer = stnr?.ok ? stnr.wert : null;
 	if (art === 'privat') {
+		werte.ust_id = null;
+		werte.steuernummer = null;
 		werte.firma = null;
 		if (werte.nachname === null) throw new ApiFehler(400, 'Bei Privatkunden ist der Nachname erforderlich.');
 	} else if (werte.firma === null) {
@@ -174,8 +194,8 @@ export function sucheWoerter(suche: string | null | undefined): string[] {
 	return text.split(/\s+/).filter((w) => w !== '').slice(0, SUCHE_MAX_WOERTER);
 }
 
-const SPALTEN_KUNDE = `id, art, firma, anrede, vorname, nachname, email::text as email, telefon, strasse, plz, ort, notiz,
-	bevorzugter_kontakt, angelegt, geaendert`;
+const SPALTEN_KUNDE = `id, art, firma, anrede, vorname, nachname, email::text as email, telefon, strasse, plz, ort, land, ust_id,
+	steuernummer, notiz, bevorzugter_kontakt, angelegt, geaendert`;
 
 const iso = (d: unknown) => new Date(d as string | Date).toISOString();
 
@@ -192,6 +212,9 @@ function zuKunde(z: Record<string, any>): Kunde {
 		strasse: z.strasse,
 		plz: z.plz,
 		ort: z.ort,
+		land: z.land ?? 'DE',
+		ust_id: z.ust_id ?? null,
+		steuernummer: z.steuernummer ?? null,
 		notiz: z.notiz,
 		bevorzugter_kontakt: z.bevorzugter_kontakt ?? null,
 		angelegt: iso(z.angelegt),
@@ -289,9 +312,10 @@ export function legeKundeAn(k: Kontext, eingabe: Record<string, unknown>): Promi
 	return mitBetrieb(k, async (tx) => {
 		const [z] = await tx`
 			insert into app.kunden (betrieb_id, art, firma, anrede, vorname, nachname, email, telefon, strasse, plz, ort, notiz,
-				bevorzugter_kontakt)
+				bevorzugter_kontakt, land, ust_id, steuernummer)
 			values (${k.betriebId}, ${w.art}, ${w.firma}, ${w.anrede}, ${w.vorname}, ${w.nachname}, ${w.email},
-				${w.telefon}, ${w.strasse}, ${w.plz}, ${w.ort}, ${w.notiz}, ${w.bevorzugter_kontakt})
+				${w.telefon}, ${w.strasse}, ${w.plz}, ${w.ort}, ${w.notiz}, ${w.bevorzugter_kontakt}, ${w.land}, ${w.ust_id},
+				${w.steuernummer})
 			returning ${tx.unsafe(SPALTEN_KUNDE)}`;
 		return zuKunde(z);
 	});
@@ -310,7 +334,8 @@ export function aendereKunde(k: Kontext, id: string, eingabe: Record<string, unk
 		const [z] = await tx`
 			update app.kunden set art = ${w.art}, firma = ${w.firma}, anrede = ${w.anrede}, vorname = ${w.vorname},
 				nachname = ${w.nachname}, email = ${w.email}, telefon = ${w.telefon}, strasse = ${w.strasse},
-				plz = ${w.plz}, ort = ${w.ort}, notiz = ${w.notiz}, bevorzugter_kontakt = ${w.bevorzugter_kontakt}
+				plz = ${w.plz}, ort = ${w.ort}, notiz = ${w.notiz}, bevorzugter_kontakt = ${w.bevorzugter_kontakt},
+				land = ${w.land}, ust_id = ${w.ust_id}, steuernummer = ${w.steuernummer}
 			where id = ${id} and betrieb_id = ${k.betriebId}
 			returning ${tx.unsafe(SPALTEN_KUNDE)}`;
 		return zuKunde(z);

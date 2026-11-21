@@ -3,7 +3,7 @@ import { mitBetrieb, type Kontext } from '../db';
 import { UUID } from '../kunden';
 import { LexwareFehler, type LexwareClient } from './client';
 import { stelleEin, type Handler } from './warteschlange';
-import { landAusPlz, suchText } from './land';
+import { adresseLand, suchText } from './land';
 
 /**
  * Kunden ↔ Lexware-Kontakte (Plan Task T4; Migration 120). Felder nach https://developers.lexware.io/docs/ „Contacts“:
@@ -28,6 +28,10 @@ export type KundeDaten = {
 	strasse: string | null;
 	plz: string | null;
 	ort: string | null;
+	/** Migration 125: Land (ISO alpha-2), USt-IdNr., Steuernummer – optional, damit ältere Aufrufer weiter passen */
+	land?: string | null;
+	ustId?: string | null;
+	steuernummer?: string | null;
 };
 
 export const markeFuer = (kundeId: string) => `CRM-Kunde ${kundeId}`;
@@ -44,6 +48,9 @@ export function kontaktAusKunde(kd: KundeDaten, version = 0): Record<string, unk
 	const telefon = wert(kd.telefon, 50);
 	if (kd.art === 'firma') {
 		const company: Record<string, unknown> = { name: wert(kd.firma, 255) };
+		// Steuerdaten (Doku „Contacts“ → Company Details: vatRegistrationId, taxNumber); USt-ID ist für § 13b Pflicht
+		if (wert(kd.ustId, 30)) company.vatRegistrationId = wert(kd.ustId, 30);
+		if (wert(kd.steuernummer, 30)) company.taxNumber = wert(kd.steuernummer, 30);
 		if (nachname) {
 			const p: Record<string, unknown> = {};
 			if (wert(kd.anrede, 25)) p.salutation = wert(kd.anrede, 25);
@@ -64,8 +71,8 @@ export function kontaktAusKunde(kd: KundeDaten, version = 0): Record<string, unk
 	}
 	if (kd.strasse || kd.plz || kd.ort) {
 		const a: Record<string, unknown> = {};
-		// Land aus dem Länder-Präfix der PLZ („AT-1010“), sonst DE (Doku „Contacts“ → Address: countryCode Pflicht)
-		const land = landAusPlz(kd.plz);
+		// Land am Kunden (Migration 125), sonst Länder-Präfix der PLZ, sonst DE (Doku „Contacts“ → Address: countryCode Pflicht)
+		const land = adresseLand(kd.land, kd.plz);
 		if (wert(kd.strasse, 255)) a.street = wert(kd.strasse, 255);
 		if (wert(land.zip, 20)) a.zip = wert(land.zip, 20);
 		if (wert(kd.ort, 255)) a.city = wert(kd.ort, 255);
@@ -92,7 +99,8 @@ export function passtZuKunde(kontakt: any, kd: { id: string; email: string | nul
 
 async function ladeKunde(k: Kontext, id: string) {
 	const [z] = await mitBetrieb(k, (tx) => tx`
-		select id, art, firma, anrede, vorname, nachname, email::text, telefon, strasse, plz, ort, lexware_id, lexware_version, geaendert, lexware_stand
+		select id, art, firma, anrede, vorname, nachname, email::text, telefon, strasse, plz, ort, land, ust_id as "ustId", steuernummer,
+			lexware_id, lexware_version, geaendert, lexware_stand
 		from app.kunden where id = ${id} and betrieb_id = ${k.betriebId}`);
 	return z as (KundeDaten & { lexware_id: string | null; lexware_version: number | null; geaendert: Date; lexware_stand: Date | null }) | undefined;
 }
@@ -140,8 +148,13 @@ export const kontaktAnlegen: Handler = {
 function zusammenfuehren(alt: any, kd: KundeDaten): Record<string, unknown> {
 	const neu = kontaktAusKunde(kd, alt.version);
 	const ergebnis: Record<string, unknown> = { ...alt, ...neu, roles: { ...(alt.roles ?? {}), customer: alt.roles?.customer ?? {} } };
-	if (kd.art === 'firma') delete ergebnis.person;
-	else delete ergebnis.company;
+	if (kd.art === 'firma') {
+		delete ergebnis.person;
+		// Lexware-eigene Firmenfelder (z. B. allowTaxFreeInvoices) behalten; Name, Ansprechperson und Steuerdaten führt das CRM
+		const c: Record<string, unknown> = { ...(alt.company ?? {}), ...(neu.company as Record<string, unknown>) };
+		for (const f of ['vatRegistrationId', 'taxNumber']) if (!(f in (neu.company as Record<string, unknown>))) delete c[f];
+		ergebnis.company = c;
+	} else delete ergebnis.company;
 	const notiz = typeof alt.note === 'string' ? alt.note : '';
 	ergebnis.note = notiz.includes(markeFuer(kd.id)) ? notiz : [notiz, markeFuer(kd.id)].filter(Boolean).join('\n').slice(0, 1000);
 	for (const f of ['id', 'organizationId', 'archived']) delete ergebnis[f];

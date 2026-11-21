@@ -295,6 +295,8 @@ export const rechnungAnlegen: Handler = {
 		const { e, eingabe } = await rechnungsBeleg(k, r, berlinTag(new Date()));
 		eingabe.kunde.lexwareId = await sichereKontakt(c, k, e.kundeId);
 		const beleg = rechnungAlsLexware(eingabe);
+		// Lexware würde ablehnen (z. B. § 13b ohne USt-IdNr.) → nicht senden, Mensch muss nachtragen
+		if (beleg.steuer.fehler) throw new LexwareFehler(beleg.steuer.fehler, null, 'daten', false);
 		const q = [r.vorgaenger_id && UUID.test(r.vorgaenger_id) ? `precedingSalesVoucherId=${r.vorgaenger_id}` : null, r.festschreiben ? 'finalize=true' : null].filter(Boolean).join('&');
 		const antwort = await c.post<{ id: string }>(`/v1/invoices${q ? `?${q}` : ''}`, beleg.body);
 		if (typeof antwort?.id !== 'string' || !UUID.test(antwort.id)) throw new LexwareFehler('Lexware: unerwartete Antwort beim Anlegen der Rechnung.', null, 'daten', false);

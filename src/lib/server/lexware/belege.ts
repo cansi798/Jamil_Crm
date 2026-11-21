@@ -1,6 +1,6 @@
 import { positionsSumme, summen, type MwstSatz } from '../../geld';
 import { tagDeutsch, wochentag } from '../../zeit';
-import { landAusPlz } from './land';
+import { adresseLand } from './land';
 
 /**
  * Verkaufsbelege für Lexware bauen (rein, ohne Datenbank) – Angebot und Auftragsbestätigung (Plan Phase 2, Tasks T5,
@@ -37,6 +37,9 @@ export type BelegKunde = {
 	ort: string | null;
 	bauleister13b: boolean;
 	bescheinigung13bBis: string | null;
+	/** Migration 125: Land (ISO alpha-2; null = aus PLZ-Kürzel bzw. DE) und USt-IdNr. (für § 13b Pflicht) */
+	land?: string | null;
+	ustId?: string | null;
 };
 export type Terminvorschlag = { pos: number; beginn: string; hinweis: string | null };
 export type BelegEingabe = {
@@ -74,12 +77,19 @@ const WT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 export const tagMitWochentag = (tag: string) => `${WT[wochentag(tag)]} ${tagDeutsch(tag)}`;
 export const euro = (cent: number) => `${(cent / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
-export type SteuerFall = { taxType: 'net' | 'vatfree' | 'constructionService13b'; satz: number; warnung: string | null };
+/** `fehler`: Lexware würde den Beleg ablehnen – nicht senden (z. B. § 13b ohne USt-IdNr.). */
+export type SteuerFall = { taxType: 'net' | 'vatfree' | 'constructionService13b'; satz: number; warnung: string | null; fehler?: string | null };
+
+/** Kochbuch Rechnungen → „FAQ und Hinweise“: § 13b nur mit Firmenkontakt mit gültiger USt-ID. */
+export const FEHLER_13B_OHNE_UST = '§ 13b: Beim Kunden fehlt die USt-IdNr. – Lexware nimmt Belege nach § 13b nur mit USt-IdNr. an. Bitte beim Kunden eintragen.';
 
 export function steuerFall(e: { kunde: BelegKunde; kleinunternehmer: boolean; mwstSatz: MwstSatz; datum: string }): SteuerFall {
 	if (e.kleinunternehmer) return { taxType: 'vatfree', satz: 0, warnung: null };
 	if (e.kunde.art === 'firma' && e.kunde.bauleister13b) {
-		if (e.kunde.bescheinigung13bBis && e.kunde.bescheinigung13bBis >= e.datum) return { taxType: 'constructionService13b', satz: 0, warnung: null };
+		if (e.kunde.bescheinigung13bBis && e.kunde.bescheinigung13bBis >= e.datum)
+			return e.kunde.ustId?.trim()
+				? { taxType: 'constructionService13b', satz: 0, warnung: null }
+				: { taxType: 'constructionService13b', satz: 0, warnung: FEHLER_13B_OHNE_UST, fehler: FEHLER_13B_OHNE_UST };
 		return {
 			taxType: 'net',
 			satz: e.mwstSatz,
@@ -126,7 +136,7 @@ function text35a(e: BelegEingabe, satz: number, warnungen: string[]): string | n
 function adresse(k: BelegKunde): Record<string, unknown> {
 	if (k.lexwareId) return { contactId: k.lexwareId };
 	const a: Record<string, unknown> = { name: kuerze(k.name || 'Kunde', 255) };
-	const land = landAusPlz(k.plz);
+	const land = adresseLand(k.land, k.plz);
 	if (k.strasse) a.street = kuerze(k.strasse, 255);
 	if (land.zip) a.zip = kuerze(land.zip, 20);
 	if (k.ort) a.city = kuerze(k.ort, 255);

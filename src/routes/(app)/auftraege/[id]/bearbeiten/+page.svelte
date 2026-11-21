@@ -15,6 +15,7 @@
 			einmalStrasse: a.einmalKunde?.strasse ?? '',
 			einmalPlz: a.einmalKunde?.plz ?? '',
 			einmalOrt: a.einmalKunde?.ort ?? '',
+			einmalLand: a.einmalKunde?.land ?? '',
 			kundeId: a.kundeId ?? '',
 			objektId: a.objektId ?? '',
 			beschreibung: a.beschreibung ?? '',

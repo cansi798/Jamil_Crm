@@ -53,7 +53,7 @@ export async function belegEingabe(k: Kontext, angebotId: string): Promise<Beleg
 	const [[kd], [cfg]] = await mitBetrieb(k, (tx) =>
 		Promise.all([
 			a.kundeId
-				? tx`select art, lexware_id, bauleister_13b, to_char(bescheinigung_13b_bis, 'YYYY-MM-DD') as bis from app.kunden where id = ${a.kundeId} and betrieb_id = ${k.betriebId}`
+				? tx`select art, lexware_id, bauleister_13b, to_char(bescheinigung_13b_bis, 'YYYY-MM-DD') as bis, ust_id from app.kunden where id = ${a.kundeId} and betrieb_id = ${k.betriebId}`
 				: Promise.resolve([] as Roh[]),
 			tx`select kleinunternehmer from app.lexware_konfig where betrieb_id = ${k.betriebId}`
 		])
@@ -73,7 +73,9 @@ export async function belegEingabe(k: Kontext, angebotId: string): Promise<Beleg
 			plz: daten.kunde.plz,
 			ort: daten.kunde.ort,
 			bauleister13b: kd?.bauleister_13b === true,
-			bescheinigung13bBis: kd?.bis ?? null
+			bescheinigung13bBis: kd?.bis ?? null,
+			land: daten.kunde.land,
+			ustId: kd?.ust_id ?? null
 		},
 		kleinunternehmer: cfg?.kleinunternehmer === true,
 		termine: a.terminvorschlaege.map((t) => ({ pos: t.pos, beginn: t.beginn, hinweis: t.hinweis })),
@@ -153,6 +155,8 @@ export const angebotFestschreiben: Handler = {
 		const e = await belegEingabe(k, a.id);
 		e.kunde.lexwareId = await sichereKontakt(c, k, e.kundeId);
 		const beleg = angebotAlsLexware(e);
+		// Lexware würde ablehnen (z. B. § 13b ohne USt-IdNr.) → nicht senden, Mensch muss nachtragen
+		if (beleg.steuer.fehler) throw new LexwareFehler(beleg.steuer.fehler, null, 'daten', false);
 		const r = await c.post<{ id: string; version?: number }>('/v1/quotations?finalize=true', beleg.body);
 		if (typeof r?.id !== 'string' || !UUID.test(r.id)) throw new LexwareFehler('Lexware: unerwartete Antwort beim Anlegen des Angebots.', null, 'daten', false);
 		return { lexwareId: r.id, ergebnis: { version: r.version ?? null, warnungen: beleg.warnungen } };
@@ -256,6 +260,8 @@ export const abAnlegen: Handler = {
 		const termin = typeof n.termin === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(n.termin) ? n.termin : null;
 		const wunsch = typeof n.terminWunsch === 'string' ? n.terminWunsch.slice(0, 1000) : null;
 		const beleg = abAlsLexware({ ...e, angebotNummer: a.nummer ?? '', heute: berlinTag(new Date()), termin, terminWunsch: wunsch });
+		// Lexware würde ablehnen (z. B. § 13b ohne USt-IdNr.) → nicht senden, Mensch muss nachtragen
+		if (beleg.steuer.fehler) throw new LexwareFehler(beleg.steuer.fehler, null, 'daten', false);
 		const pfad = `/v1/order-confirmations?${a.lexware_id ? `precedingSalesVoucherId=${a.lexware_id}&` : ''}finalize=true`;
 		const r = await c.post<{ id: string }>(pfad, beleg.body);
 		if (typeof r?.id !== 'string' || !UUID.test(r.id)) throw new LexwareFehler('Lexware: unerwartete Antwort beim Anlegen der Auftragsbestätigung.', null, 'daten', false);

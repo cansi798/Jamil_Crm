@@ -23,7 +23,8 @@ import {
 async function kontaktFuer(k: Kontext, kundeId: string | null) {
 	if (!kundeId) return { kontakt: null, hinweis: 'Ohne Kunde: Einmal-Adresse (Sammelkunde in Lexware).' };
 	const [kd] = await mitBetrieb(k, (tx) => tx`
-		select id, art, firma, anrede, vorname, nachname, email::text, telefon, strasse, plz, ort, leitweg_id, lexware_id
+		select id, art, firma, anrede, vorname, nachname, email::text, telefon, strasse, plz, ort, land, ust_id as "ustId", steuernummer,
+			leitweg_id, lexware_id
 		from app.kunden where id = ${kundeId} and betrieb_id = ${k.betriebId}`);
 	if (!kd) return { kontakt: null, hinweis: 'Kunde nicht mehr vorhanden.' };
 	if (kd.lexware_id) return { kontakt: null, hinweis: `Kunde ist schon mit Lexware verknüpft (contactId ${kd.lexware_id}).` };

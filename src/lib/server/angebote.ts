@@ -872,7 +872,7 @@ export async function neueVersion(k: Kontext, id: string, zg: AngebotZugriff = v
 
 export type PdfDaten = {
 	angebot: Angebot;
-	kunde: { name: string; ansprechpartner: string | null; strasse: string | null; plz: string | null; ort: string | null };
+	kunde: { name: string; ansprechpartner: string | null; strasse: string | null; plz: string | null; ort: string | null; land: string | null };
 	objekt: { bezeichnung: string; strasse: string | null; plz: string | null; ort: string | null } | null;
 };
 
@@ -884,13 +884,13 @@ export async function ladePdfDaten(k: Kontext, id: string, zg: AngebotZugriff = 
 		// Anschrift: Kunde aus der Kundendatenbank, sonst Einmal-Kunde am Auftrag, sonst leer (Phase 3)
 		const [kunde] = angebot.kundeId
 			? await tx`
-				select art, firma, anrede, vorname, nachname, strasse, plz, ort from app.kunden
+				select art, firma, anrede, vorname, nachname, strasse, plz, ort, land from app.kunden
 				where id = ${angebot.kundeId} and betrieb_id = ${k.betriebId}`
 			: [];
 		const [einmal] = kunde || !angebot.auftragId
 			? []
 			: await tx`
-				select einmal_name, einmal_strasse, einmal_plz, einmal_ort from app.auftraege
+				select einmal_name, einmal_strasse, einmal_plz, einmal_ort, einmal_land from app.auftraege
 				where id = ${angebot.auftragId} and betrieb_id = ${k.betriebId}`;
 		const kd = kunde ?? {
 			art: 'privat',
@@ -900,7 +900,8 @@ export async function ladePdfDaten(k: Kontext, id: string, zg: AngebotZugriff = 
 			nachname: einmal?.einmal_name ?? '',
 			strasse: einmal?.einmal_strasse ?? null,
 			plz: einmal?.einmal_plz ?? null,
-			ort: einmal?.einmal_ort ?? null
+			ort: einmal?.einmal_ort ?? null,
+			land: einmal?.einmal_land ?? null
 		};
 		const person = [kd.anrede, kd.vorname, kd.nachname].filter(Boolean).join(' ');
 		const [ob] = angebot.objektId
@@ -914,7 +915,8 @@ export async function ladePdfDaten(k: Kontext, id: string, zg: AngebotZugriff = 
 				ansprechpartner: kd.art === 'firma' && (kd.vorname || kd.nachname) ? `z. Hd. ${person}` : null,
 				strasse: kd.strasse,
 				plz: kd.plz,
-				ort: kd.ort
+				ort: kd.ort,
+				land: kd.land ?? null
 			},
 			objekt: ob ? { bezeichnung: ob.bezeichnung, strasse: ob.strasse, plz: ob.plz, ort: ob.ort } : null
 		};
