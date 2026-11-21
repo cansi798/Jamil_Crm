@@ -126,7 +126,11 @@ describe('Leitfaden beim Termin', () => {
 		});
 		it('spätere Änderungen der Vorlage ändern einen laufenden Durchlauf nicht; „Meine Einsätze heute“ liefert ihn mit', async () => {
 			await einschalten();
-			await leitfadenZumTermin(k(monteur), monteur, terminId);
+			// Nur ansehen legt nichts an (Prüfbericht 21.11.2026): Vorschau folgt der Vorlage, Durchlauf erst bei der ersten Eingabe
+			expect((await leitfadenZumTermin(k(monteur), monteur, terminId))!.id).toBe('');
+			expect(await root`select 1 from app.leitfaden_durchlaeufe where einsatz_id = ${terminId}`).toHaveLength(0);
+			await speichereEingaben(k(monteur), monteur, terminId, [{ opId: uuid(), schrittId: 'email', wert: 'start@example.org', zeit: Z(1) }]);
+			expect(await root`select 1 from app.leitfaden_durchlaeufe where einsatz_id = ${terminId}`).toHaveLength(1);
 			await einschalten({ schritte: STARTVORLAGE.slice(0, 2) });
 			expect((await leitfadenZumTermin(k(monteur), monteur, terminId))!.schritte).toHaveLength(STARTVORLAGE.length);
 			const heute = await leitfaedenFuerTermine(k(monteur), monteur, [terminId, montageId]);
@@ -234,7 +238,7 @@ describe('Leitfaden beim Termin', () => {
 
 	it('Auftrag: Karte zeigt alle Leitfäden; Termin gelöscht → Leitfaden bleibt beim Auftrag', async () => {
 		await einschalten();
-		await leitfadenZumTermin(k(monteur), monteur, terminId);
+		await speichereEingaben(k(monteur), monteur, terminId, [{ opId: uuid(), schrittId: 'email', wert: 'start@example.org', zeit: Z(1) }]);
 		await root`delete from app.einsaetze where id = ${terminId}`;
 		const liste = await leitfaedenZumAuftrag(kA(), auftragId);
 		expect(liste).toHaveLength(1);
@@ -266,11 +270,16 @@ describe('Leitfaden beim Termin', () => {
 
 		it('beim Start entsteht das Protokoll aus der aktuellen Vorlage am Auftrag; Felder über die eine Fläche, spätere gewinnt, idempotent', async () => {
 			await mitProtokoll();
+			// Ansehen: leeres Formular als Vorschau, noch kein Protokoll in der Datenbank
 			const s = await leitfadenZumTermin(k(monteur), monteur, terminId);
-			const p = s!.protokolle.prot!;
+			expect(s!.protokolle.prot).toMatchObject({ id: '', titel: 'Besichtigungsprotokoll', status: 'entwurf' });
+			expect(s!.fehlend).toEqual(['prot']);
+			expect(await root`select 1 from app.protokolle where auftrag_id = ${auftragId}`).toHaveLength(0);
+			// erste Eingabe startet den Durchlauf: Protokoll aus der aktuellen Vorlage am Auftrag
+			const s1 = await speichereEingaben(k(monteur), monteur, terminId, [{ opId: uuid(), schrittId: 'notiz', wert: 'los', zeit: Z(1) }]);
+			const p = s1.protokolle.prot!;
 			expect(p).toMatchObject({ titel: 'Besichtigungsprotokoll', status: 'entwurf' });
 			expect((await root`select auftrag_id from app.protokolle where id = ${p.id}`)[0].auftrag_id).toBe(auftragId);
-			expect(s!.fehlend).toEqual(['prot']);
 			const op = uuid();
 			await speichereEingaben(k(monteur), monteur, terminId, [{ opId: op, schrittId: 'prot', wert: { feld: 'bereich', wert: 'Bad 1. OG' }, zeit: Z(10) }]);
 			await speichereEingaben(k(monteur), monteur, terminId, [{ opId: op, schrittId: 'prot', wert: { feld: 'bereich', wert: 'Bad 1. OG' }, zeit: Z(10) }]);
@@ -352,6 +361,8 @@ describe('Leitfaden beim Termin', () => {
 			const r = await sag(chef, 'Leitfaden fortsetzen für Becker');
 			expect(r.vorschlag).toBeNull();
 			expect(r.karte.antwort.oeffnen).toBe(`/leitfaden/${terminId}`);
+			// Stand gibt es erst, wenn der Leitfaden begonnen wurde (Öffnen allein legt nichts an)
+			await speichereEingaben(k(monteur), monteur, terminId, [{ opId: uuid(), schrittId: 'email', wert: 'becker@example.org', zeit: Z(1) }]);
 			const st = await sag(chef, 'Wie weit ist der Leitfaden bei Becker?');
 			expect(st.karte.fehler).toBeNull();
 			expect(st.karte.antwort.vorlesen).toMatch(/von \d+ erledigt/);

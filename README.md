@@ -232,7 +232,7 @@ npm run admin:anlegen -- --email admin@beispiel.de --name "Vorname Nachname"
     außen gehen nur Betrieb (Name, Kontakt, Logo, Farbe), Terminart und freie Anfangszeiten – Mitarbeiter höchstens mit
     Vornamen. Vom Verwaltungs-Token steht nur der SHA-256 in der Datenbank. Doppelbuchung: Sperre je Betrieb
     (`pg_advisory_xact_lock`) plus Ausschluss-Bedingung (`btree_gist`) auf `app.buchungen`. Spam-Schutz:
-    Begrenzung je IP/Link (im Speicher; hinter einem Proxy `ADDRESS_HEADER`/`XFF_DEPTH` setzen), Honigtopf-Feld,
+    Begrenzung je IP/Link (im Speicher; hinter einem Proxy `CRM_ADRESS_KOPF`/`CRM_ADRESS_TIEFE`; übernommen nur von Absendern aus `CRM_PROXY_VERTRAUEN`, Standard private Netze), Honigtopf-Feld,
     signierter Zeitstempel (mindestens 3 s). Einbetten nur auf den Domains aus Einstellungen → Online-Buchung bzw.
     `CRM_BUCHUNG_EINBETTEN` (CSP `frame-ancestors` je Seite, `X-Frame-Options` entfällt dort). Recht `buchung.verwalten`.
     Terminarten (Migration 106, Jamil msg 3074): Die früheren „Dienste“ (Tabelle `app.buchung_dienste`) sind die EINE

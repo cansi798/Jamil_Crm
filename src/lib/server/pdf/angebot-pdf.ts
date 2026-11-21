@@ -6,6 +6,7 @@ import type { Profil } from '../betriebsprofil';
 import { pruefeBild } from '../bildpruefung';
 import { euro, mengeText } from '../../geld';
 import { landName } from '../../laender';
+import { pdfFarben } from './farben';
 
 /**
  * Angebots-PDF (A4) mit pdfkit und eingebetteter Schrift „Noto Sans“ (OFL, Umlaute und €).
@@ -80,8 +81,6 @@ const FUSS_Y = mm(267);
 const FARBE_TEXT = '#1c1f23';
 const FARBE_LEISE = '#5b6168';
 const FARBE_LINIE = '#c9ced5';
-const FARBE_KOPF = '#eef1f5';
-const FARBE_PRIMAER = '#05346b';
 
 // Tabellenspalten: Pos | Bezeichnung | Menge | Einheit | Einzelpreis | Gesamt (Summe = 165 mm)
 const SPALTEN = [
@@ -105,6 +104,10 @@ const nichtLeer = (...teile: (string | null | undefined)[]) => teile.filter((t):
 
 export async function angebotPdf(daten: AngebotPdfDaten, opts: { komprimieren?: boolean } = {}): Promise<Uint8Array> {
 	const { profil, logo, angebot: a, kunde, objekt } = daten;
+	// Hausfarbe wie in der App (Logo-Beige bzw. Farbe des Betriebs), lesbar abgedunkelt für Schrift
+	const farben = pdfFarben(profil.farbe);
+	const FARBE_PRIMAER = farben.akzentText;
+	const FARBE_KOPF = farben.flaeche;
 	const doc = new PDFDocument({
 		size: 'A4',
 		margins: { top: 0, bottom: 0, left: 0, right: 0 },

@@ -1,18 +1,26 @@
+import { besucherIp } from './client-ip';
 import { ApiFehler } from './fehler';
 import { abfrageGrenze, buchenGrenzeIp } from './buchung-schutz';
 
 /**
  * Kleine Helfer für die öffentlichen Endpunkte der Online-Buchung: IP-Adresse (hinter einem Proxy mit
- * ADDRESS_HEADER/XFF_DEPTH von adapter-node), Begrenzung und Kopfzeilen (nie zwischenspeichern, nicht indexieren,
+ * CRM_ADRESS_KOPF, nur von vertrauenswürdigem Proxy – client-ip.ts), Begrenzung und Kopfzeilen (nie zwischenspeichern, nicht indexieren,
  * kein Referrer – der Link enthält ein Token).
  */
 
-export function ipVon(event: { getClientAddress: () => string }): string {
+/**
+ * Besucher-IP: X-Forwarded-For nur von einem vertrauenswürdigen Proxy (src/lib/server/client-ip.ts,
+ * CRM_ADRESS_KOPF/CRM_ADRESS_TIEFE/CRM_PROXY_VERTRAUEN). `getClientAddress` liefert dafür die Adresse der Verbindung
+ * (adapter-node OHNE ADDRESS_HEADER).
+ */
+export function ipVon(event: { getClientAddress: () => string; request?: Request }): string {
+	let peer: string | null = null;
 	try {
-		return event.getClientAddress() || 'unbekannt';
+		peer = event.getClientAddress() || null;
 	} catch {
-		return 'unbekannt';
+		peer = null;
 	}
+	return besucherIp(peer, event.request?.headers ?? null);
 }
 
 export const OEFFENTLICHE_KOPFZEILEN = {

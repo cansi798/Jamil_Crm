@@ -3,6 +3,7 @@
 	import type { HTMLSelectAttributes } from 'svelte/elements';
 	import { tick } from 'svelte';
 	import { overlayLage, zeigeOverlay, type OverlayLage } from '$lib/overlay';
+	import { page } from '$app/state';
 
 	/**
 	 * Auswahlfeld im App-Stil statt der Browser-Liste (docs/design-regeln.md). Ersetzt <select> 1:1:
@@ -58,6 +59,14 @@
 	});
 	$effect(() => {
 		void value;
+		tick().then(lesen);
+	});
+	// Ohne `value` (Optionen mit `selected={…}`): Ändern sich die Daten vom Server (Formular, invalidate), setzt Svelte
+	// nur `option.selected` – das löst keine Mutation aus. Deshalb nach jeder neuen Seiten-/Formularantwort neu lesen,
+	// damit das sichtbare Feld nie den alten Wert zeigt (Prüfbericht 21.11.2026, allgemein gelöst).
+	$effect(() => {
+		void page.data;
+		void page.form;
 		tick().then(lesen);
 	});
 

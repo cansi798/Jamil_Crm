@@ -122,9 +122,11 @@ services:
       NEXTCLOUD_DATEIEN_ORDNER: ${NEXTCLOUD_DATEIEN_ORDNER:-CRM}
       NEXTCLOUD_TALK: ${NEXTCLOUD_TALK:-nein}
       NEXTCLOUD_ABGLEICH_MINUTEN: ${NEXTCLOUD_ABGLEICH_MINUTEN:-5}
-      # adapter-node: Besucher-IP aus dem Kopf des Webservers (Spam-Schutz der Online-Buchung)
-      ADDRESS_HEADER: ${CRM_ADRESS_KOPF-X-Forwarded-For}
-      XFF_DEPTH: ${CRM_ADRESS_TIEFE-1}
+      # Besucher-IP aus dem Kopf des Webservers (Spam-Schutz, Anmelde-Begrenzung) – nur von vertrauenswürdigem Proxy
+      # (CRM_PROXY_VERTRAUEN, Standard „privat“ = lokale/private Netze wie der Caddy-Container); src/lib/server/client-ip.ts
+      CRM_ADRESS_KOPF: ${CRM_ADRESS_KOPF-X-Forwarded-For}
+      CRM_ADRESS_TIEFE: ${CRM_ADRESS_TIEFE-1}
+      CRM_PROXY_VERTRAUEN: ${CRM_PROXY_VERTRAUEN:-privat}
     ports:
       # Standard: nur lokal erreichbar (Caddy leitet weiter). Ohne Caddy: CRM_APP_BIND=0.0.0.0 setzen.
       - "${CRM_APP_BIND:-127.0.0.1}:${CRM_APP_PORT:-3000}:3000"

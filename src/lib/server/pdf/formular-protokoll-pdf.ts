@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import normalUrl from './schriften/NotoSans-Regular.ttf?url&inline';
 import fettUrl from './schriften/NotoSans-Bold.ttf?url&inline';
 import type { Profil } from '../betriebsprofil';
+import { pdfFarben } from './farben';
 import { pruefeBild } from '../bildpruefung';
 import { alleFelder, auswerten, dateiIds, hatWert, wertText, type Antworten, type Schema, type UnterschriftWert } from '../../protokoll-formular';
 
@@ -50,8 +51,6 @@ const LABEL_BREITE = mm(58);
 const FARBE_TEXT = '#1f2430';
 const FARBE_LEISE = '#646b7d';
 const FARBE_LINIE = '#cdd2de';
-const FARBE_PRIMAER = '#1e3a8a';
-const FARBE_BAND = '#f2f4f8';
 
 const zeitFormat = new Intl.DateTimeFormat('de-DE', {
 	timeZone: 'Europe/Berlin',
@@ -66,6 +65,10 @@ const zeitFormat = new Intl.DateTimeFormat('de-DE', {
 const nichtLeer = (...teile: (string | null | undefined)[]) => teile.filter((t): t is string => !!t && t.trim() !== '');
 
 export async function formularProtokollPdf(d: FormularPdfDaten): Promise<Uint8Array> {
+	// Hausfarbe wie in der App statt Blau (Schrift lesbar abgedunkelt, Band zart mit dunkler Schrift darauf)
+	const farben = pdfFarben(d.profil.farbe);
+	const FARBE_PRIMAER = farben.akzentText;
+	const FARBE_BAND = farben.flaeche;
 	const doc = new PDFDocument({
 		size: 'A4',
 		margins: { top: 0, bottom: 0, left: 0, right: 0 },

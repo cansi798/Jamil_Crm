@@ -63,14 +63,14 @@ echo "Starte Vorschau (ORIGIN $ORIGIN_VORSCHAU) …"
 # Die Anwendung läuft nie als Superuser: PGUSER/PGPASSWORD werden entfernt; die Verbindungen ergeben sich aus
 # DATABASE_URL_APP/ADMIN/AUTH bzw. PGHOST/PGPORT/PGDATABASE + CRM_*_PASSWORT (siehe src/lib/server/db.ts).
 # BODY_SIZE_LIMIT: 6 MB – Audio-Uploads (5 MB) + etwas Platz für JSON-Metadaten (Logo 1 MB).
-# ADDRESS_HEADER/XFF_DEPTH: echte Besucher-IP hinter dem Proxy (Spam-Schutz der Online-Buchung); ohne Kopfzeile
-# (direkt auf Port 8300) gilt „unbekannt“.
+# CRM_ADRESS_KOPF/CRM_ADRESS_TIEFE: echte Besucher-IP hinter dem Proxy (Spam-Schutz der Online-Buchung) – nur, wenn die
+# Anfrage vom Proxy (privates Netz, CRM_PROXY_VERTRAUEN) kommt; sonst gilt die Adresse der Verbindung.
 # CRM_TESTMODUS_ORIGIN: Der Testmodus (CRM_TESTMODUS=1, setzt die Vorschau-Wache) läuft sonst nur mit localhost-ORIGIN –
 # die Vorschau erlaubt ihn hier ausdrücklich für ihre eigene Adresse (z. B. https://crm.waybuild-software.de).
 # exec ersetzt die Hilfs-Shell durch node – so ist die notierte PID die des Servers.
 nohup setsid sh -c 'echo $$ > "$1"; exec env -u PGUSER -u PGPASSWORD \
 	NODE_ENV=production HOST=0.0.0.0 PORT=3000 ORIGIN="$2" BODY_SIZE_LIMIT=6M \
-	ADDRESS_HEADER=X-Forwarded-For XFF_DEPTH=1 CRM_TESTMODUS_ORIGIN="$2" node build' \
+	CRM_ADRESS_KOPF=X-Forwarded-For CRM_ADRESS_TIEFE=1 CRM_TESTMODUS_ORIGIN="$2" node build' \
 	vorschau "$PIDDATEI" "$ORIGIN_VORSCHAU" > "$LOG" 2>&1 < /dev/null &
 
 i=0

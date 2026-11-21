@@ -268,6 +268,44 @@ async function holeOderStarte(tx: TransactionSql, k: Kontext, t: Termin): Promis
 	return ladeStand(tx, k, { einsatzId: t.id });
 }
 
+/**
+ * Nur ansehen (Prüfbericht 21.11.2026): Gibt es noch keinen Durchlauf, liefert ein GET eine VORSCHAU aus der aktuellen
+ * Vorlage (`id` leer, Protokolle als leere Formulare) – angelegt wird der Durchlauf (samt Protokollen) erst bei der
+ * ersten Eingabe, dem ersten Foto, der Unterschrift oder dem Abschluss (`holeOderStarte`). So entstehen durch bloßes
+ * Öffnen der Startseite oder der Offline-Kopie keine leeren Durchläufe und Protokolle.
+ */
+async function holeOderVorschau(tx: TransactionSql, k: Kontext, t: Termin): Promise<LeitfadenStand | null> {
+	const da = await ladeStand(tx, k, { einsatzId: t.id });
+	if (da) return da;
+	if (!t.auftragId) return null;
+	const [v] = await tx`select aktiv, name, arten, terminarten, schritte from app.leitfaden_vorlagen where betrieb_id = ${k.betriebId}`;
+	if (!v || !giltFuer({ aktiv: v.aktiv, arten: v.arten, terminarten: v.terminarten.map(String) }, { art: t.art, terminartId: t.terminartId, mitAuftrag: true })) return null;
+	const [z] = await tx`
+		select '' as id, e.id as einsatz_id, a.id as auftrag_id, e.benutzer_id, ${v.name}::text as name, ${tx.json(v.schritte)}::jsonb as schritte,
+			'{}'::jsonb as antworten, 'offen' as status, null as begruendung, null as abgeschlossen_am, null as ergebnis,
+			a.nummer, a.titel, a.kunde_id, e.beginn as termin_beginn, b.name as benutzer_name, null as abgeschlossen_von_name,
+			k.art as kunde_art, k.firma as kunde_firma, k.vorname as kunde_vorname, k.nachname as kunde_nachname,
+			k.email::text as kunde_email, k.telefon as kunde_telefon, k.bevorzugter_kontakt as kunde_kontaktweg,
+			k.strasse as kunde_strasse, k.plz as kunde_plz, k.ort as kunde_ort, a.einmal_name
+		from app.einsaetze e
+		join app.auftraege a on a.id = e.auftrag_id and a.betrieb_id = e.betrieb_id
+		left join app.kunden k on k.id = a.kunde_id and k.betrieb_id = a.betrieb_id
+		left join app.benutzer b on b.id = e.benutzer_id and b.betrieb_id = e.betrieb_id
+		where e.id = ${t.id} and e.betrieb_id = ${k.betriebId}`;
+	if (!z) return null;
+	const protokolle: LeitfadenProtokolle = {};
+	for (const s of v.schritte as Schritt[]) {
+		if (s.typ !== 'protokoll') continue;
+		const [pv] = s.vorlageGruppe
+			? await tx`
+				select name, schema from app.protokoll_vorlagen
+				where betrieb_id = ${k.betriebId} and gruppe_id = ${s.vorlageGruppe} and aktuell and not archiviert and art = 'protokoll'`
+			: [];
+		protokolle[s.id] = pv ? ({ id: '', titel: pv.name, schema: pv.schema, antworten: {}, status: 'entwurf', pdfDateiId: null } as LeitfadenProtokoll) : null;
+	}
+	return zuStand(z, protokolle);
+}
+
 /** Leitfaden eines Termins für die ausfüllende Person (404 ohne Zugriff, `null` = für diesen Termin kein Leitfaden). */
 export async function leitfadenZumTermin(k: Kontext, nutzer: Nutzer, einsatzId: string): Promise<LeitfadenStand | null> {
 	await pruefeModulPlantafel(k);
@@ -275,7 +313,7 @@ export async function leitfadenZumTermin(k: Kontext, nutzer: Nutzer, einsatzId: 
 		mitBetrieb(k, async (tx) => {
 			const t = await ladeTermin(tx, k, einsatzId);
 			pruefeAusfuellen(nutzer, t);
-			return holeOderStarte(tx, k, t);
+			return holeOderVorschau(tx, k, t);
 		})
 	);
 }
@@ -289,7 +327,7 @@ export async function leitfaedenFuerTermine(k: Kontext, nutzer: Nutzer, einsatzI
 			for (const id of einsatzIds) {
 				const t = await ladeTermin(tx, k, id).catch(() => null);
 				if (!t || (t.benutzerId !== nutzer.id && !hatRecht(nutzer, 'plantafel.bearbeiten'))) continue;
-				const s = await holeOderStarte(tx, k, t);
+				const s = await holeOderVorschau(tx, k, t);
 				if (s) ergebnis.set(id, s);
 			}
 		})

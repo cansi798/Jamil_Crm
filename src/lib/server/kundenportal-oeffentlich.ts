@@ -198,21 +198,75 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 	const heute = berlinTag(jetzt);
 	const namen: TeamNamen = b.team_namen === 'voll' || b.team_namen === 'aus' ? b.team_namen : 'vorname';
 	const auftraege: PortalAuftrag[] = [];
-	for (const id of await auftraegeImBereich(tx, p)) {
-		const [a] = await tx`
-			select a.id, a.nummer, a.titel, a.status, ${tx.unsafe(freigabeSql('status'))} as f_status, ${tx.unsafe(freigabeSql('termine'))} as f_termine,
-				${tx.unsafe(freigabeSql('mitarbeiter'))} as f_mitarbeiter, ${tx.unsafe(freigabeSql('annahme'))} as f_annahme,
-				${tx.unsafe(AP_AUSBLENDEN_SQL)} as ap_ausblenden
-			from app.auftraege a
-			where a.id = ${id} and a.betrieb_id = ${p.betriebId}`;
+	// Gebündelt (Prüfbericht 21.11.2026): je Abschnitt EINE Abfrage für alle Aufträge des Portals statt ~8 je Auftrag
+	const ids = await auftraegeImBereich(tx, p);
+	const nachAuftrag = <T extends Record<string, any>>(zeilen: readonly T[]) => {
+		const m = new Map<string, T[]>();
+		for (const z of zeilen) m.set(z.auftrag_id, [...(m.get(z.auftrag_id) ?? []), z]);
+		return (id: string) => m.get(id) ?? [];
+	};
+	const [aZeilen, tZeilen, angZeilen, dZeilen, abZeilen, nZeilen, lZeilen, sZeilen] = ids.length
+		? await Promise.all([
+				tx`
+				select a.id, a.nummer, a.titel, a.status, ${tx.unsafe(freigabeSql('status'))} as f_status, ${tx.unsafe(freigabeSql('termine'))} as f_termine,
+					${tx.unsafe(freigabeSql('mitarbeiter'))} as f_mitarbeiter, ${tx.unsafe(freigabeSql('annahme'))} as f_annahme,
+					${tx.unsafe(AP_AUSBLENDEN_SQL)} as ap_ausblenden
+				from app.auftraege a where a.id = any(${ids}::uuid[]) and a.betrieb_id = ${p.betriebId}`,
+				tx`
+				select e.auftrag_id, e.beginn, e.ende, e.art, b.name from app.einsaetze e
+				join app.benutzer b on b.id = e.benutzer_id and b.betrieb_id = e.betrieb_id
+				where e.auftrag_id = any(${ids}::uuid[]) and e.betrieb_id = ${p.betriebId} and e.ende >= ${jetzt}
+				order by e.beginn`,
+				tx`
+				select an.auftrag_id, an.id, an.nummer, to_char(an.datum, 'YYYY-MM-DD') as datum, to_char(an.gueltig_bis, 'YYYY-MM-DD') as gueltig_bis,
+					an.status, an.mwst_satz,
+					(select coalesce(json_agg(json_build_object('menge', p.menge, 'einzelpreisCent', p.einzelpreis_cent)), '[]') from app.angebot_positionen p
+						where p.angebot_id = an.id and p.betrieb_id = an.betrieb_id) as positionen,
+					(select json_build_object('art', d.entscheidung, 'name', d.name, 'zeit', d.zeit, 'termin', d.termin_beginn) from app.angebot_entscheidungen d
+						where d.angebot_id = an.id and d.betrieb_id = an.betrieb_id order by d.zeit desc limit 1) as entscheidung,
+					(select coalesce(json_agg(json_build_object('id', t.id, 'pos', t.pos, 'beginn', t.beginn, 'hinweis', t.hinweis) order by t.pos), '[]')
+						from app.angebot_terminvorschlaege t where t.angebot_id = an.id and t.betrieb_id = an.betrieb_id) as termine
+				from app.angebote an
+				join app.portal_dokumente pd on pd.ref_id = an.id and pd.art = 'angebot' and pd.auftrag_id = an.auftrag_id and pd.betrieb_id = an.betrieb_id
+				where an.betrieb_id = ${p.betriebId} and an.auftrag_id = any(${ids}::uuid[]) and an.status <> 'entwurf'
+				order by an.angelegt`,
+				tx`
+				select d.auftrag_id, d.id, d.name, d.typ, d.angelegt,
+					exists (select 1 from app.protokolle pr where pr.betrieb_id = d.betrieb_id and pr.pdf_datei_id = d.id) as protokoll
+				from app.dateien d
+				join app.portal_dokumente pd on pd.ref_id = d.id and pd.art = 'datei' and pd.auftrag_id = d.auftrag_id and pd.betrieb_id = d.betrieb_id
+				where d.betrieb_id = ${p.betriebId} and d.auftrag_id = any(${ids}::uuid[]) order by d.angelegt`,
+				tx`select auftrag_id, id, nummer, angelegt from app.auftragsbestaetigungen where betrieb_id = ${p.betriebId} and auftrag_id = any(${ids}::uuid[]) order by angelegt`,
+				// Notizen nur mit ausdrücklicher Freigabe (portal_dokumente, Art „notiz“; msg 3070)
+				tx`
+				select n.auftrag_id, n.id, n.text, n.angelegt, b.name as von from app.notizen n
+				join app.portal_dokumente pd on pd.ref_id = n.id and pd.art = 'notiz' and pd.auftrag_id = n.auftrag_id and pd.betrieb_id = n.betrieb_id
+				left join app.benutzer b on b.id = n.von_benutzer_id and b.betrieb_id = n.betrieb_id
+				where n.betrieb_id = ${p.betriebId} and n.auftrag_id = any(${ids}::uuid[]) order by n.angelegt desc`,
+				tx`select auftrag_id, titel, url from app.auftrag_links where betrieb_id = ${p.betriebId} and auftrag_id = any(${ids}::uuid[]) and im_portal order by sortierung, angelegt, id`,
+				// Arbeitsschritte (msg 2848): nur Aufgaben mit Lautstärke oder Schmutz – das sind die Schritte, die der Betrieb
+				// für den Kunden einstuft; interne Aufgaben (Nachfassen, Material bestellen …) bleiben so unsichtbar.
+				tx`
+				select t.auftrag_id, t.titel, t.erledigt_am is not null as erledigt, to_char(t.faellig, 'YYYY-MM-DD') as tag, to_char(t.von_tag, 'YYYY-MM-DD') as von_tag, t.lautstaerke, t.schmutz
+				from app.todos t
+				where t.betrieb_id = ${p.betriebId} and t.auftrag_id = any(${ids}::uuid[]) and (t.lautstaerke is not null or t.schmutz is not null)
+				order by coalesce(t.von_tag, t.faellig) nulls last, t.faellig nulls last, t.angelegt, t.id`
+			])
+		: [[], [], [], [], [], [], [], []];
+	const aNach = new Map(aZeilen.map((z) => [z.id as string, z]));
+	const terminZeilen = nachAuftrag(tZeilen);
+	const angebotZeilen = nachAuftrag(angZeilen);
+	const dateiZeilen = nachAuftrag(dZeilen);
+	const abZeilenJe = nachAuftrag(abZeilen);
+	const notizZeilen = nachAuftrag(nZeilen);
+	const linkZeilen = nachAuftrag(lZeilen);
+	const schrittZeilen = nachAuftrag(sZeilen);
+	for (const id of ids) {
+		const a = aNach.get(id);
 		if (!a) continue;
 		let termine: PortalTermin[] | null = null;
 		if (a.f_termine) {
-			const t = await tx`
-				select e.beginn, e.ende, e.art, b.name from app.einsaetze e
-				join app.benutzer b on b.id = e.benutzer_id and b.betrieb_id = e.betrieb_id
-				where e.auftrag_id = ${id} and e.betrieb_id = ${p.betriebId} and e.ende >= ${jetzt}
-				order by e.beginn limit 30`;
+			const t = terminZeilen(id).slice(0, 30);
 			const je = new Map<string, PortalTermin>();
 			for (const r of t) {
 				const b0 = new Date(r.beginn);
@@ -225,48 +279,12 @@ async function baueSeite(tx: TransactionSql, p: PortalKontext, jetzt: Date): Pro
 			}
 			termine = [...je.values()].slice(0, 10);
 		}
-		const geteilt = await tx`select art, ref_id from app.portal_dokumente where auftrag_id = ${id} and betrieb_id = ${p.betriebId}`;
-		const angebotIds = geteilt.filter((g) => g.art === 'angebot').map((g) => g.ref_id as string);
-		const ang = angebotIds.length
-			? await tx`
-				select an.id, an.nummer, to_char(an.datum, 'YYYY-MM-DD') as datum, to_char(an.gueltig_bis, 'YYYY-MM-DD') as gueltig_bis,
-					an.status, an.mwst_satz,
-					(select coalesce(json_agg(json_build_object('menge', p.menge, 'einzelpreisCent', p.einzelpreis_cent)), '[]') from app.angebot_positionen p
-						where p.angebot_id = an.id and p.betrieb_id = an.betrieb_id) as positionen,
-					(select json_build_object('art', d.entscheidung, 'name', d.name, 'zeit', d.zeit, 'termin', d.termin_beginn) from app.angebot_entscheidungen d
-						where d.angebot_id = an.id and d.betrieb_id = an.betrieb_id order by d.zeit desc limit 1) as entscheidung,
-					(select coalesce(json_agg(json_build_object('id', t.id, 'pos', t.pos, 'beginn', t.beginn, 'hinweis', t.hinweis) order by t.pos), '[]')
-						from app.angebot_terminvorschlaege t where t.angebot_id = an.id and t.betrieb_id = an.betrieb_id) as termine
-				from app.angebote an
-				where an.betrieb_id = ${p.betriebId} and an.auftrag_id = ${id} and an.id = any(${angebotIds}::uuid[]) and an.status <> 'entwurf'
-				order by an.angelegt`
-			: [];
-		const dateiIds = geteilt.filter((g) => g.art === 'datei').map((g) => g.ref_id as string);
-		const dateien = dateiIds.length
-			? await tx`
-				select d.id, d.name, d.typ, d.angelegt,
-					exists (select 1 from app.protokolle pr where pr.betrieb_id = d.betrieb_id and pr.pdf_datei_id = d.id) as protokoll
-				from app.dateien d where d.betrieb_id = ${p.betriebId} and d.auftrag_id = ${id} and d.id = any(${dateiIds}::uuid[]) order by d.angelegt`
-			: [];
-		const abs = await tx`select id, nummer, angelegt from app.auftragsbestaetigungen where betrieb_id = ${p.betriebId} and auftrag_id = ${id} order by angelegt`;
-		// Notizen nur mit ausdrücklicher Freigabe (portal_dokumente, Art „notiz“; msg 3070)
-		const notizIds = geteilt.filter((g) => g.art === 'notiz').map((g) => g.ref_id as string);
-		const notizen = notizIds.length
-			? await tx`
-				select n.id, n.text, n.angelegt, b.name as von from app.notizen n
-				left join app.benutzer b on b.id = n.von_benutzer_id and b.betrieb_id = n.betrieb_id
-				where n.betrieb_id = ${p.betriebId} and n.auftrag_id = ${id} and n.id = any(${notizIds}::uuid[]) order by n.angelegt desc`
-			: [];
-		const links = await tx`select titel, url from app.auftrag_links where betrieb_id = ${p.betriebId} and auftrag_id = ${id} and im_portal order by sortierung, angelegt, id`;
-		// Arbeitsschritte (msg 2848): nur Aufgaben mit Lautstärke oder Schmutz – das sind die Schritte, die der Betrieb
-		// für den Kunden einstuft; interne Aufgaben (Nachfassen, Material bestellen …) bleiben so unsichtbar.
-		const schritte = a.f_status && MIT_SCHRITTEN.has(a.status)
-			? await tx`
-				select t.titel, t.erledigt_am is not null as erledigt, to_char(t.faellig, 'YYYY-MM-DD') as tag, to_char(t.von_tag, 'YYYY-MM-DD') as von_tag, t.lautstaerke, t.schmutz
-				from app.todos t
-				where t.betrieb_id = ${p.betriebId} and t.auftrag_id = ${id} and (t.lautstaerke is not null or t.schmutz is not null)
-				order by coalesce(t.von_tag, t.faellig) nulls last, t.faellig nulls last, t.angelegt, t.id limit 40`
-			: null;
+		const ang = angebotZeilen(id);
+		const dateien = dateiZeilen(id);
+		const abs = abZeilenJe(id);
+		const notizen = notizZeilen(id);
+		const links = linkZeilen(id);
+		const schritte = a.f_status && MIT_SCHRITTEN.has(a.status) ? schrittZeilen(id).slice(0, 40) : null;
 		// Ansprechpartner: Zuständige des Auftrags (sonst das Büro) – Team: Zuständige + Mitarbeiter kommender Termine
 		// Figuren (msg 3113): Projektbegleiter (msg 3120) immer als Büro-Figur, im Team nach Rolle (Monteur/Büro) – je nach Anrede.
 		let ansprechpartner: PortalPerson | null = null;

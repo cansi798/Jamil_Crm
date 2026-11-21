@@ -40,7 +40,7 @@ const html = (status: number, titel: string, text: string) =>
 			`content="width=device-width, initial-scale=1"><title>${titel}</title></head>` +
 			`<body style="font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem">` +
 			`<h1 style="font-size:1.4rem">${titel}</h1><p>${text}</p>` +
-			`<p><a href="/" style="color:#05346b">Zur Startseite</a></p></body></html>`,
+			`<p><a href="/" style="color:#7f6b48">Zur Startseite</a></p></body></html>`,
 		{ status, headers: { 'content-type': 'text/html; charset=utf-8' } }
 	);
 

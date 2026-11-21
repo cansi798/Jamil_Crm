@@ -24,13 +24,25 @@ const DATEIEN = [...build, ...files, ...prerendered].filter(
 );
 const ERLAUBT = new Set(DATEIEN);
 
+/**
+ * Installation (Prüfbericht 21.11.2026): nicht mehr die GANZE App vorladen (mobiles Datenvolumen), sondern nur die
+ * Hülle für „offline“: die Offline-Seite, Manifest/Symbole und genau die JS/CSS-Dateien, die die Offline-Seite selbst
+ * lädt (aus ihrem HTML gelesen). Alle anderen Hüllen-Dateien landen erst im Zwischenspeicher, wenn die App sie ohnehin
+ * lädt (siehe „fetch“).
+ */
+async function huelleVorladen(): Promise<void> {
+	const cache = await caches.open(CACHE);
+	const klein = DATEIEN.filter((p) => !build.includes(p));
+	await cache.addAll(klein);
+	const seite = await cache.match(OFFLINE);
+	if (!seite) return;
+	const html = await seite.clone().text();
+	const noetig = [...new Set([...html.matchAll(/["'(](\/_app\/[^"'()\s]+)/g)].map((m) => m[1]))].filter((p) => ERLAUBT.has(p));
+	await cache.addAll(noetig);
+}
+
 sw.addEventListener('install', (ereignis) => {
-	ereignis.waitUntil(
-		caches
-			.open(CACHE)
-			.then((cache) => cache.addAll(DATEIEN))
-			.then(() => sw.skipWaiting())
-	);
+	ereignis.waitUntil(huelleVorladen().then(() => sw.skipWaiting()));
 });
 
 sw.addEventListener('activate', (ereignis) => {
@@ -62,7 +74,14 @@ sw.addEventListener('fetch', (ereignis) => {
 	// Nur eigene, bekannte Hüllen-Dateien; alles andere (/api, Daten der Seiten) geht unverändert ans Netz.
 	if (!ERLAUBT.has(url.pathname)) return;
 	ereignis.respondWith(
-		caches.open(CACHE).then(async (cache) => (await cache.match(url.pathname)) ?? fetch(anfrage))
+		caches.open(CACHE).then(async (cache) => {
+			const da = await cache.match(url.pathname);
+			if (da) return da;
+			const antwort = await fetch(anfrage);
+			// beim ersten Gebrauch merken (unveränderliche Build-Dateien und statische Dateien der Hülle)
+			if (antwort.ok && antwort.type === 'basic') void cache.put(url.pathname, antwort.clone()).catch(() => undefined);
+			return antwort;
+		})
 	);
 });
 

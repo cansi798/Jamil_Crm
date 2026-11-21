@@ -90,6 +90,11 @@ html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-se
 	html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf):not(.klein) {
 		min-height: 44px;
 	}
+	/* Kleine Knöpfe am Handy: optisch klein, aber Tippziel mindestens 44 px (Prüfbericht 21.11.2026, vorher 40 px) */
+	html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf).klein {
+		min-height: 44px;
+		min-width: 44px;
+	}
 }
 html body :is(.knopf, .knopf-gefuellt, .kd-knopf):not(.hell, .gefahr) {
 	border-color: var(--ui-primaer);

@@ -31,6 +31,13 @@ test('Kundenakte: Notiz schreiben, Dokument hochladen und herunterladen, lösche
 		await page.goto(`/kunden/${kunde.id}`);
 		// Kundennummer kommt aus Lexware (Can #6748) – der Testserver ist nicht verbunden
 		await expect(page.getByTestId('kunde-kundennummer')).toContainText('Kundennummer folgt von Lexware');
+		// Kleine Knöpfe: am Handy (Touch) trotzdem ≥ 44 px Tippziel (Prüfbericht 21.11.2026)
+		if (info.project.name === 'mobil') {
+			for (const k of await page.locator('.kd-knopf.klein:visible').all()) {
+				const b = (await k.boundingBox())!;
+				expect(b.height, await k.innerText()).toBeGreaterThanOrEqual(44);
+			}
+		}
 		// Notiz
 		const notiz = `Hund im Garten – bitte klingeln ${Date.now()}`;
 		// Formulare sind eingeklappt (AddPanel) und gehen nach dem Speichern wieder zu

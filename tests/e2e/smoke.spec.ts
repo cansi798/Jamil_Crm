@@ -158,6 +158,7 @@ test('Service Worker speichert nur die App-Hülle, nie Seiten oder API', async (
 		return urls;
 	});
 	expect(inhalt).toContain('/manifest.webmanifest');
+	expect(inhalt).toContain('/offline');
 	expect(inhalt.some((u) => u.startsWith('/_app/'))).toBe(true);
 	expect(inhalt.filter((u) => u.startsWith('/api') || u === '/' || u.startsWith('/kunden'))).toEqual([]);
 });

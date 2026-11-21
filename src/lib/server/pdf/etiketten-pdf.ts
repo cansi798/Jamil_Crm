@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { pdfFarben } from './farben';
 import QRCode from 'qrcode';
 import normalUrl from './schriften/NotoSans-Regular.ttf?url&inline';
 import fettUrl from './schriften/NotoSans-Bold.ttf?url&inline';
@@ -14,6 +15,8 @@ export type Etikett = { url: string; bezeichnung: string; typName: string; serie
 export type EtikettenDaten = {
 	etiketten: Etikett[];
 	firmenname: string | null;
+	/** Hausfarbe des Betriebs (sonst Logo-Beige) – Schrift lesbar abgedunkelt (pdf/farben.ts) */
+	farbe?: string | null;
 	telefon: string | null;
 	logo: { bytes: Uint8Array; typ: string } | null;
 };
@@ -49,7 +52,7 @@ function zeichne(doc: PDFKit.PDFDocument, e: Etikett, qr: Buffer, d: EtikettenDa
 			// kaputtes Logo: Etikett trotzdem drucken
 		}
 	} else if (d.firmenname) {
-		doc.font('fett').fontSize(h > mm(45) ? 8 : 6.5).fillColor('#05346b');
+		doc.font('fett').fontSize(h > mm(45) ? 8 : 6.5).fillColor(pdfFarben(d.farbe).akzentText);
 		doc.text(d.firmenname, tx, ty, { width: tb, height: mm(4), ellipsis: true, lineBreak: false });
 		ty += mm(4);
 	}
@@ -66,7 +69,7 @@ function zeichne(doc: PDFKit.PDFDocument, e: Etikett, qr: Buffer, d: EtikettenDa
 	// Fußzeile: Hinweis + Telefon
 	const fuss = gross - 3;
 	const fy = y + h - rand - fuss * 1.3 * (d.telefon ? 2 : 1);
-	doc.font('fett').fontSize(fuss).fillColor('#05346b');
+	doc.font('fett').fontSize(fuss).fillColor(pdfFarben(d.farbe).akzentText);
 	doc.text('Störung? QR-Code scannen', tx, fy, { width: tb, lineBreak: false, ellipsis: true });
 	if (d.telefon) {
 		doc.font('normal').fillColor('#1c1f23');
