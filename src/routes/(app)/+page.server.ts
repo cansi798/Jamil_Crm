@@ -110,14 +110,17 @@ export const load: PageServerLoad = async ({ locals, parent, url }) => {
 			}
 			zeit = { laufend: lauf, auftraege };
 		}
-		if (siehtKennzahlen(nutzer, module) && layout.some((e) => COCKPIT_KACHELN.has(e.id) || e.id.startsWith('kz-'))) {
-			cockpit = await startCockpit(k, sichtVon(nutzer), { preise: hatRecht(nutzer, 'preise.sehen') && module.includes('angebote') }, jetzt);
-		}
+		// Unabhängige Kacheln gleichzeitig laden statt nacheinander (Startseite = meistbesuchte Seite)
+		[cockpit, buchungen, rechnungen, nachweise] = await Promise.all([
+			siehtKennzahlen(nutzer, module) && layout.some((e) => COCKPIT_KACHELN.has(e.id) || e.id.startsWith('kz-'))
+				? startCockpit(k, sichtVon(nutzer), { preise: hatRecht(nutzer, 'preise.sehen') && module.includes('angebote') }, jetzt)
+				: null,
+			brauche.has('buchungen') ? neueBuchungen(k, jetzt) : null,
+			// Kachel „Offene Rechnungen“ (Lexware Phase 3): Recht „Rechnungen sehen“ + „Preise sehen“ (erlaubteKacheln)
+			brauche.has('rechnungen') && hatRecht(nutzer, 'preise.sehen') && hatRecht(nutzer, 'rechnungen.sehen') ? offeneRechnungen(k, berlinTag(jetzt)) : null,
+			brauche.has('nachweise') && hatRecht(nutzer, 'partner.verwalten') ? ablaufendeNachweise(k, berlinTag(jetzt)) : null
+		]);
 		// Kachel „Heute“ (Wunsch Jamil msg 2647): Termine, Aufgaben, Nachfassen – Chef/Büro mit Personenwahl
-		if (brauche.has('buchungen')) buchungen = await neueBuchungen(k, jetzt);
-		// Kachel „Offene Rechnungen“ (Lexware Phase 3): Recht „Rechnungen sehen“ + „Preise sehen“ (erlaubteKacheln)
-		if (brauche.has('rechnungen') && hatRecht(nutzer, 'preise.sehen') && hatRecht(nutzer, 'rechnungen.sehen')) rechnungen = await offeneRechnungen(k, berlinTag(jetzt));
-		if (brauche.has('nachweise') && hatRecht(nutzer, 'partner.verwalten')) nachweise = await ablaufendeNachweise(k, berlinTag(jetzt));
 		if (brauche.has('heute') && module.includes('auftraege')) {
 			personen = await planPersonen(k, nutzer);
 			const gewaehlt = url.searchParams.get('person');

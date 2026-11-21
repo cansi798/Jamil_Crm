@@ -17,6 +17,7 @@ import { starteNextcloudDienst, stoppeNextcloudDienst } from '$lib/server/nextcl
 import { PORTAL_COOKIE, sitzungGueltig } from '$lib/server/portal-zugang';
 import { starteLexwareDienst, stoppeLexwareDienst } from '$lib/server/lexware/dienst';
 import { ipVon } from '$lib/server/buchung-anfrage';
+import { mitAnfrageSpeicher } from '$lib/server/anfrage-speicher';
 
 /** Beim Start: Schriften fürs Angebots-PDF müssen da sein – sonst startet der Server nicht (lauter Fehler statt 500 später). */
 export const init: ServerInit = () => {
@@ -138,7 +139,10 @@ const pruefePortal: Handle = async ({ event, resolve }) => {
 };
 
 export const handle: Handle = async (eingabe) => {
-	const antwort = await (istPortal(eingabe.event) ? pruefePortal(eingabe) : pruefeZugang(eingabe));
+	// Lesende Anfragen bekommen einen kurzlebigen Speicher (z. B. Tarif-Module nur einmal je Seitenaufruf laden)
+	const antwort = await mitAnfrageSpeicher(eingabe.event.request.method, () =>
+		istPortal(eingabe.event) ? pruefePortal(eingabe) : pruefeZugang(eingabe)
+	);
 	// Online-Buchung: die Seite (load) legt fest, wo sie eingebettet werden darf (CSP frame-ancestors)
 	return mitSicherheitsKopfzeilen(antwort, eingabe.event.locals.einbettenErlaubt);
 };

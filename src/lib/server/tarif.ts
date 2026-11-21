@@ -1,5 +1,6 @@
 import { mitBetrieb, type TransactionSql } from './db';
 import { ApiFehler } from './fehler';
+import { ausAnfrageSpeicher } from './anfrage-speicher';
 import { betriebKontext, pruefeRecht, type Recht } from './rechte';
 import { istModul, MODULE, sortiereTarifSchluessel, type Modul, type TarifInfo } from '../tarife';
 
@@ -21,17 +22,24 @@ function pruefeModulName(modul: string): asserts modul is Modul {
 	if (!istModul(modul)) throw new Error(`Unbekanntes Modul: ${modul}`);
 }
 
+/**
+ * Module des Tarifs eines Betriebs – innerhalb einer lesenden Anfrage nur einmal aus der Datenbank (`anfrage-speicher`):
+ * Layout, Seite und Helfer fragen sie sonst ein Dutzend Mal je Seitenaufruf ab.
+ */
+function moduleVon(betriebId: string): Promise<string[]> {
+	return ausAnfrageSpeicher(`tarif-module:${betriebId}`, () =>
+		mitBetrieb(kontextFuer(betriebId), async (tx) => {
+			const [z] = await tx<{ module: string[] }[]>`
+				select t.module from app.betriebe b join app.tarife t on t.id = b.tarif_id where b.id = ${betriebId}`;
+			return z?.module ?? [];
+		})
+	);
+}
+
 /** Hat der Tarif des Betriebs dieses Modul? */
 export async function hatModul(betriebId: string, modul: Modul): Promise<boolean> {
 	pruefeModulName(modul);
-	return mitBetrieb(kontextFuer(betriebId), async (tx) => {
-		const [z] = await tx`
-			select (${modul}::text = any(t.module)) as drin
-			from app.betriebe b
-			join app.tarife t on t.id = b.tarif_id
-			where b.id = ${betriebId}`;
-		return z?.drin === true;
-	});
+	return (await moduleVon(betriebId)).includes(modul);
 }
 
 /**
@@ -42,13 +50,8 @@ export async function hatModul(betriebId: string, modul: Modul): Promise<boolean
 export async function pruefeModul(locals: { nutzer: Nutzer | null }, modul: Modul): Promise<void> {
 	pruefeModulName(modul);
 	const k = betriebKontext(locals);
+	if ((await moduleVon(k.betriebId)).includes(modul)) return;
 	const tarifMit = await mitBetrieb(k, async (tx) => {
-		const [z] = await tx`
-			select (${modul}::text = any(t.module)) as drin
-			from app.betriebe b
-			join app.tarife t on t.id = b.tarif_id
-			where b.id = ${k.betriebId}`;
-		if (z?.drin === true) return null;
 		const mit = await tx<{ schluessel: string }[]>`
 			select schluessel from app.tarife where ${modul}::text = any(module)`;
 		return sortiereTarifSchluessel(mit.map((t) => t.schluessel));
@@ -125,11 +128,8 @@ export async function darfEines(
 
 /** Module des Tarifs, den der Betrieb des Kontexts hat (z. B. für die Navigation). */
 export async function moduleDesBetriebs(k: { betriebId: string; benutzerId: string }): Promise<string[]> {
-	return mitBetrieb(k, async (tx) => {
-		const [z] = await tx<{ module: string[] }[]>`
-			select t.module from app.betriebe b join app.tarife t on t.id = b.tarif_id where b.id = ${k.betriebId}`;
-		return z?.module ?? [];
-	});
+	// Kopie: Aufrufer dürfen die Liste verändern, ohne den Anfrage-Speicher zu verfälschen
+	return [...(await moduleVon(k.betriebId))];
 }
 
 /** Alle Tarife (für Oberflächen, z. B. `TarifHinweis`). */

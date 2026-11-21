@@ -26,28 +26,31 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	);
 	// „+ Aus Vorlage“ gibt es nur im Entwurf
 	// Ampel/Gewinn (msg 2476): Stundensätze aus der Kalkulation – keine Gehälter, nur mit „Preise sehen“ (oben geprüft)
+	// Alle Teile hängen nur am Angebot – gleichzeitig laden statt nacheinander
+	const lx = angebot.belegQuelle === 'lexware';
+	const [vorlagen, satz, nachfassen, nachweise, mail, hinweise, schritte] = await Promise.all([
+		angebot.status === 'entwurf' ? listeAngebotVorlagen(k) : [],
+		ladeFirmensatz(k),
+		// Automatisches Nachfassen (Jamil msgs 2633/2636): Läufe mit fertigem Mailtext, Pause
+		nachfassenZumAngebot(k, angebot.id),
+		// Nachweis der Online-Annahme mit bestätigter AGB-Fassung (msg 3030)
+		angebot.status === 'angenommen' || angebot.status === 'abgelehnt' ? nachweiseZumAngebot(k, angebot.id) : [],
+		// „Mail an Kunden“ zum Angebot (Vorlagen-Bibliothek, msg 2789) – nicht für Entwürfe
+		angebot.status !== 'entwurf'
+			? mailVorbereitung(k, { angebotId: angebot.id }, lx && angebot.lexware?.phase === 'pdf' ? ['angebot', 'nachfassen_angebot', 'allgemein'] : ['nachfassen_angebot', 'allgemein'], { preise: true })
+			: null,
+		// Lexware (Plan Phase 2): Hinweise vor dem Versand (§ 35a, § 13b), offene Schritte
+		lx && angebot.status === 'entwurf' ? lexwareHinweise(k, angebot.id) : [],
+		lx ? lexwareSchritte(k, angebot.id) : null
+	]);
 	return {
 		angebot,
-		vorlagen: angebot.status === 'entwurf' ? await listeAngebotVorlagen(k) : [],
-		satz: await ladeFirmensatz(k),
-		// Automatisches Nachfassen (Jamil msgs 2633/2636): Läufe mit fertigem Mailtext, Pause
-		nachfassen: await nachfassenZumAngebot(k, angebot.id),
-		// „Mail an Kunden“ zum Angebot (Vorlagen-Bibliothek, msg 2789) – nicht für Entwürfe
-		// Nachweis der Online-Annahme mit bestätigter AGB-Fassung (msg 3030)
-		nachweise: angebot.status === 'angenommen' || angebot.status === 'abgelehnt' ? await nachweiseZumAngebot(k, angebot.id) : [],
-		mail:
-			angebot.status !== 'entwurf'
-				? await mailVorbereitung(k, { angebotId: angebot.id }, angebot.belegQuelle === 'lexware' && angebot.lexware?.phase === 'pdf' ? ['angebot', 'nachfassen_angebot', 'allgemein'] : ['nachfassen_angebot', 'allgemein'], { preise: true })
-				: null,
-		// Lexware (Plan Phase 2): Hinweise vor dem Versand (§ 35a, § 13b), offene Schritte, Link nach Lexware
-		lexware:
-			angebot.belegQuelle === 'lexware'
-				? {
-						hinweise: angebot.status === 'entwurf' ? await lexwareHinweise(k, angebot.id) : [],
-						schritte: await lexwareSchritte(k, angebot.id),
-						link: angebot.lexware?.id ? deeplink('quotations', angebot.lexware.id) : null
-					}
-				: null
+		vorlagen,
+		satz,
+		nachfassen,
+		nachweise,
+		mail,
+		lexware: lx ? { hinweise, schritte: schritte!, link: angebot.lexware?.id ? deeplink('quotations', angebot.lexware.id) : null } : null
 	};
 };
 

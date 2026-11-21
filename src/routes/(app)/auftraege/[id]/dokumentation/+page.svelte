@@ -7,13 +7,20 @@
 	import AddPanel from '$lib/components/AddPanel.svelte';
 	import Unterschrift from '$lib/components/Unterschrift.svelte';
 	import { enhance } from '$app/forms';
+	import { untrack } from 'svelte';
 
 	let { data, form } = $props();
 	const imPortal = (id: string) => data.portalDateien?.includes(id) ?? false;
 
 	let tab = $state<'fotos' | 'notizen' | 'protokolle'>('fotos');
-	let dateien = $state.raw(data.dateien);
-	let protokolle = $state.raw(data.protokolle);
+	// Lokale Kopien (Upload/neues Protokoll ergänzen sie sofort); bei neuen Daten (anderer Auftrag, invalidateAll) neu
+	// übernehmen – sonst zeigte die Seite nach einem Wechsel zu einem anderen Auftrag noch die Dateien des vorigen
+	let dateien = $state.raw(untrack(() => data.dateien));
+	let protokolle = $state.raw(untrack(() => data.protokolle));
+	$effect.pre(() => {
+		dateien = data.dateien;
+		protokolle = data.protokolle;
+	});
 
 	// Notizen
 	let notizen = $state.raw<any[]>([]);

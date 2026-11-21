@@ -36,13 +36,19 @@ export const load: LayoutServerLoad = async ({ locals, route }) => {
 	// Schnellzugriff unten rechts (msgs 3078/3079): Sprache, neuer Kunde/Auftrag/Termin/Aufgabe – je nach Modul und Recht
 	// Erinnerungen (Wunsch Jamil msg 2679): Glocke mit Zahl der ungelesenen Benachrichtigungen
 	const erinnern = !!nutzer.betriebId && hatRecht(nutzer, 'erinnerungen.nutzen');
-	const ungelesen = nutzer.betriebId ? (await benachrichtigungen({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }, 1)).ungelesen : 0;
 	// Zeiterfassung: laufende Zeit oben anzeigen (je Person höchstens eine)
 	const zeiten = !!nutzer.betriebId && module.includes('zeiterfassung') && (hatRecht(nutzer, 'zeiterfassung.nutzen') || hatRecht(nutzer, 'zeiterfassung.alle_sehen'));
-	const laufendeZeit = zeiten ? await laufend({ betriebId: nutzer.betriebId!, benutzerId: nutzer.id }, nutzer.id) : null;
-	// Hausfarbe des Betriebs (Briefkopf) als Akzent der ganzen App; ohne Angabe Gold (Theme „Handwerk“)
-	const farbe = nutzer.betriebId ? await hausfarbe({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }).catch(() => null) : null;
-	// Logo des Betriebs oben links (msg 3014): nur, welche Varianten es gibt (Bilder kommen über /api/marke/logo)
-	const marke = nutzer.betriebId ? await markenLogos({ betriebId: nutzer.betriebId, benutzerId: nutzer.id }).catch(() => null) : null;
+	const k = nutzer.betriebId ? { betriebId: nutzer.betriebId, benutzerId: nutzer.id } : null;
+	// Die vier Abfragen hängen nicht voneinander ab – gleichzeitig statt nacheinander (läuft bei jedem vollen Seitenaufruf
+	// und nach jeder Formular-Aktion)
+	const [ungelesen, laufendeZeit, farbe, marke] = await Promise.all([
+		// Erinnerungen (Wunsch Jamil msg 2679): Glocke mit Zahl der ungelesenen Benachrichtigungen
+		k ? benachrichtigungen(k, 1).then((b) => b.ungelesen) : 0,
+		zeiten && k ? laufend(k, nutzer.id) : null,
+		// Hausfarbe des Betriebs (Briefkopf) als Akzent der ganzen App; ohne Angabe Gold (Theme „Handwerk“)
+		k ? hausfarbe(k).catch(() => null) : null,
+		// Logo des Betriebs oben links (msg 3014): nur, welche Varianten es gibt (Bilder kommen über /api/marke/logo)
+		k ? markenLogos(k).catch(() => null) : null
+	]);
 	return { marke, navigation: baueNavigation(nutzer, module, { nextcloud: !!nextcloud() }), benutzerId: nutzer.id, sprache: module.includes('sprache') && hatRecht(nutzer, 'sprache.nutzen'), schnell: schnellzugriff(nutzer, module), erinnern, ungelesen, laufendeZeit, farbStil: farbStil(farbe), ansichtenTeilen: hatRecht(nutzer, 'auftraege.alle_lesen') };
 };
