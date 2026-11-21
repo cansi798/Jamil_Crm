@@ -1,3 +1,4 @@
+import { parallel } from '$lib/server/parallel';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { alsFormFehler, ApiFehler } from '$lib/server/fehler';
@@ -127,26 +128,68 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			preise && hatRecht(nutzer, 'auftraege.alle_lesen') && (await hatModul(k.betriebId, 'zeiterfassung'))
 				? await nachkalkulationAuftrag(k, auftrag.id, sicht)
 				: null;
+		// Alle übrigen Teile hängen nur am Auftrag und den Rechten – gleichzeitig laden statt ~20 Abfragen nacheinander
+		// (meistbesuchte Detailseite; jede Formular-Aktion lädt sie neu)
+		const [modulPlantafel, rechnungenSichtbar] = await Promise.all([hatModul(k.betriebId, 'plantafel'), siehtRechnungen(nutzer)]);
+		const p = await parallel({
+			// Partner (Jamil msg 2856): Auftraggeber, Subunternehmer, Fremdleistungen (Beträge nur mit Preisen)
+			partner: auftragPartner(k, sicht, auftrag.id, preise),
+			partnerAuswahl: darfBearbeiten ? partnerAuswahl(k) : [],
+			// „Mail an Kunden“ (Vorlagen-Bibliothek, msg 2789): wer den Auftrag bearbeiten darf
+			mail: darfBearbeiten && (auftrag.kundeId || auftrag.einmalKunde) ? mailVorbereitung(k, { auftragId: auftrag.id }, ['allgemein', 'bewertung'], { preise }) : null,
+			// Dokumente & Notizen direkt im Auftrag (msg 3070)
+			unterlagen: auftragUnterlagen(k, auftrag.id),
+			// Vorlagen-Auswahl für noch nicht gesendete Auftragsbestätigungen (Bibliothek, msg 2789)
+			abVorlagen: auftragsbestaetigungen.some((x) => x.versandStatus === 'bereit') ? listeMailVorlagen(k).then(alsWahl) : [],
+			// wird beim KUNDEN eingestellt (msgs 3439, 3521 E): hier nur der wirksame Wert
+			abAn: darfBearbeiten && angeboteSichtbar ? abWirksam(k, auftrag.id) : null,
+			// „Aufgaben aus Vorlage“ (Jamil msg 2975): Vorlagen mit Aufgaben für Auswahl und Vorschau
+			aufgabenVorlagen: darfBearbeiten ? listeVorlagenMitAufgaben(k).then((l) => l.filter((v) => v.todos.length > 0)) : [],
+			// Leitfaden beim Termin (Jamil msgs 4302/4304, 4340) – nur lesen
+			leitfaeden: modulPlantafel ? leitfaedenZumAuftrag(k, auftrag.id) : [],
+			// Objekte des Kunden für die Auswahl direkt im Auftrag
+			objekte: darfBearbeiten && auftrag.kundeId ? ladeKundenAuswahl(k, auftrag.kundeId).then((x) => x.objekte) : [],
+			// Anlagen des Objekts für die Auswahl „Anlage“ (Wunsch Jamil, msg 2505)
+			anlagen: darfBearbeiten ? anlagenAuswahl(k, auftrag.objektId) : [],
+			quellen: darfBearbeiten ? listeQuellen(k).then((l) => l.map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv, farbe: q.farbe }))) : [],
+			// Kolonne zuweisen (Wunsch Jamil msg 2510): alle Mitglieder werden Zuständige
+			kolonnen: darfBearbeiten && modulPlantafel ? listeKolonnen(k, true).then((l) => l.map((x) => ({ id: x.id, name: x.name, mitglieder: x.mitglieder }))) : [],
+			modulKunden: hatModul(k.betriebId, 'kunden'),
+			modulKi: hatModul(k.betriebId, 'ki_angebote'),
+			// „Angebot zuordnen“: noch nicht zugeordnete Angebote dieses Kunden oder ohne Kunden (nur wer sie sehen darf)
+			zuordenbareAngebote:
+				angeboteSichtbar && preise && darfBearbeiten
+					? listeAngebote(k, { ohneAuftrag: true }, { sicht, auftragAendern: darfBearbeiten }).then((l) =>
+							l.filter((an) => an.kundeId === null || an.kundeId === auftrag.kundeId)
+						)
+					: [],
+			// Auswahl „Vorlage“ beim „Angebot erstellen“ (Vorlagen enthalten Preise: nur mit beiden Rechten)
+			angebotVorlagen: angeboteSichtbar && preise ? listeAngebotVorlagen(k) : [],
+			// Rechnungen über Lexware (Phase 3): Liste mit Zahlstatus; Dialog „Rechnung erstellen“ nur mit Recht + Preisen
+			rechnungen: rechnungenSichtbar ? listeRechnungen(k, { auftragId: auftrag.id, preise }) : null,
+			rechnungVorschlag:
+				preise && hatRecht(nutzer, 'rechnungen.erstellen') && rechnungenSichtbar ? rechnungsVorschlag(k, auftrag.id).catch(() => null) : null
+		});
 		return {
 			auftrag,
 			links,
 			// Partner (Jamil msg 2856): Auftraggeber, Subunternehmer, Fremdleistungen (Beträge nur mit Preisen)
-			partner: await auftragPartner(k, sicht, auftrag.id, preise),
-			partnerAuswahl: darfBearbeiten ? await partnerAuswahl(k) : [],
+			partner: p.partner,
+			partnerAuswahl: p.partnerAuswahl,
 			// „Mail an Kunden“ (Vorlagen-Bibliothek, msg 2789): wer den Auftrag bearbeiten darf
-			mail: darfBearbeiten && (auftrag.kundeId || auftrag.einmalKunde) ? await mailVorbereitung(k, { auftragId: auftrag.id }, ['allgemein', 'bewertung'], { preise }) : null,
+			mail: p.mail,
 			darfLinkPortal: darfBearbeiten && darfPortal,
 			// Dokumente & Notizen direkt im Auftrag (msg 3070)
-			unterlagen: await auftragUnterlagen(k, auftrag.id),
+			unterlagen: p.unterlagen,
 			darfUnterlagenPortal: darfPortal,
 			darfAlleUnterlagenLoeschen: hatRecht(nutzer, 'einstellungen'),
 			nachkalkulation,
 			portal,
 			auftragsbestaetigungen,
 			// Vorlagen-Auswahl für noch nicht gesendete Auftragsbestätigungen (Bibliothek, msg 2789)
-			abVorlagen: auftragsbestaetigungen.some((x) => x.versandStatus === 'bereit') ? alsWahl(await listeMailVorlagen(k)) : [],
+			abVorlagen: p.abVorlagen,
 			// wird beim KUNDEN eingestellt (msgs 3439, 3521 E: Kundenakte → „Automatik“, wer Aufträge bearbeiten darf): hier nur der wirksame Wert
-			abHinweis: darfBearbeiten && angeboteSichtbar ? { an: await abWirksam(k, auftrag.id), kundeId: auftrag.kundeId } : null,
+			abHinweis: p.abAn === null ? null : { an: p.abAn, kundeId: auftrag.kundeId },
 			kundeEinstellbar,
 			zeit: zg ? { laufend: zeitLaufend, summe: zeitSumme!, verwalten: zg.verwalten } : null,
 			material,
@@ -158,7 +201,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			todos,
 			mitarbeiter,
 			// „Aufgaben aus Vorlage“ (Jamil msg 2975): Vorlagen mit Aufgaben für Auswahl und Vorschau
-			aufgabenVorlagen: darfBearbeiten ? (await listeVorlagenMitAufgaben(k)).filter((v) => v.todos.length > 0) : [],
+			aufgabenVorlagen: p.aufgabenVorlagen,
 			einsaetze,
 			heute: berlinTag(new Date()),
 			benutzerId: nutzer.id,
@@ -167,39 +210,32 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			darfBearbeiten,
 			darfTermine,
 			// Leitfaden beim Termin (Jamil msgs 4302/4304, 4340) – nur lesen
-			leitfaeden: (await hatModul(k.betriebId, 'plantafel')) ? await leitfaedenZumAuftrag(k, auftrag.id) : [],
+			leitfaeden: p.leitfaeden,
 			// Objekte des Kunden für die Auswahl direkt im Auftrag
-			objekte: darfBearbeiten && auftrag.kundeId ? (await ladeKundenAuswahl(k, auftrag.kundeId)).objekte : [],
+			objekte: p.objekte,
 			// Anlagen des Objekts für die Auswahl „Anlage“ (Wunsch Jamil, msg 2505)
-			anlagen: darfBearbeiten ? await anlagenAuswahl(k, auftrag.objektId) : [],
-			quellen: darfBearbeiten ? (await listeQuellen(k)).map((q) => ({ id: q.id, name: q.name, aktiv: q.aktiv, farbe: q.farbe })) : [],
+			anlagen: p.anlagen,
+			quellen: p.quellen,
 			// Kolonne zuweisen (Wunsch Jamil msg 2510): alle Mitglieder werden Zuständige
-			kolonnen: darfBearbeiten && (await hatModul(k.betriebId, 'plantafel')) ? (await listeKolonnen(k, true)).map((x) => ({ id: x.id, name: x.name, mitglieder: x.mitglieder })) : [],
+			kolonnen: p.kolonnen,
 			// Einmal-Kunde → Kundendatenbank: Aufträge bearbeiten UND Kunden bearbeiten
-			darfKundeUebernehmen:
-				auftrag.kundeArt === 'einmal' && darfBearbeiten && hatRecht(nutzer, 'kunden.bearbeiten') && (await hatModul(k.betriebId, 'kunden')),
+			darfKundeUebernehmen: auftrag.kundeArt === 'einmal' && darfBearbeiten && hatRecht(nutzer, 'kunden.bearbeiten') && p.modulKunden,
 			kundenHinweise: kunde ? { notiz: kunde.notiz ?? null, notizen: kundenNotizen.slice(0, 3), weitere: Math.max(0, kundenNotizen.length - 3) } : null,
 			kundeLesbar: hatRecht(nutzer, 'kunden.lesen'),
 			// Kontaktweg des Kunden direkt im Auftrag festlegen (Jamil msg 4337) – wer Kunden bearbeiten darf
-			darfKontaktweg: auftrag.kundeArt === 'kunde' && hatRecht(nutzer, 'kunden.bearbeiten') && (await hatModul(k.betriebId, 'kunden')),
+			darfKontaktweg: auftrag.kundeArt === 'kunde' && hatRecht(nutzer, 'kunden.bearbeiten') && p.modulKunden,
 			// Preisschutz: Beträge nur mit `preise.sehen`
 			angebote: angebote && (preise ? angebote : ohnePreise(angebote)),
 			darfAngebote: angeboteSichtbar && preise,
 			// „Angebot zuordnen“: noch nicht zugeordnete Angebote dieses Kunden oder ohne Kunden (nur wer sie sehen darf)
-			zuordenbareAngebote:
-				angeboteSichtbar && preise && darfBearbeiten
-					? (await listeAngebote(k, { ohneAuftrag: true }, { sicht, auftragAendern: darfBearbeiten })).filter(
-							(an) => an.kundeId === null || an.kundeId === auftrag.kundeId
-						)
-					: [],
+			zuordenbareAngebote: p.zuordenbareAngebote,
 			// Auswahl „Vorlage“ beim „Angebot erstellen“ (Vorlagen enthalten Preise: nur mit beiden Rechten)
-			angebotVorlagen: angeboteSichtbar && preise ? await listeAngebotVorlagen(k) : [],
+			angebotVorlagen: p.angebotVorlagen,
 			// „KI-Entwurf“: zusätzlich Modul ki_angebote (Stichworte/Foto → Entwurf nur aus dem Katalog)
-			darfKiEntwurf: angeboteSichtbar && preise && (await hatModul(k.betriebId, 'ki_angebote')),
+			darfKiEntwurf: angeboteSichtbar && preise && p.modulKi,
 			// Rechnungen über Lexware (Phase 3): Liste mit Zahlstatus; Dialog „Rechnung erstellen“ nur mit Recht + Preisen
-			rechnungen: (await siehtRechnungen(nutzer)) ? await listeRechnungen(k, { auftragId: auftrag.id, preise }) : null,
-			rechnungVorschlag:
-				preise && hatRecht(nutzer, 'rechnungen.erstellen') && (await siehtRechnungen(nutzer)) ? await rechnungsVorschlag(k, auftrag.id).catch(() => null) : null
+			rechnungen: p.rechnungen,
+			rechnungVorschlag: p.rechnungVorschlag
 		};
 	});
 };
