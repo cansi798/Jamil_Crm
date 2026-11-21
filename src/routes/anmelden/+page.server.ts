@@ -3,7 +3,8 @@ import { randomBytes } from 'node:crypto';
 import type { Actions, PageServerLoad } from './$types';
 import { systemAbfrage } from '$lib/server/db';
 import { hashePasswort, pruefePasswort } from '$lib/server/auth/passwort';
-import { pruefeVersuch, zuruecksetzen } from '$lib/server/auth/ratelimit';
+import { ipGesperrt, pruefeVersuch, zaehleIpFehlversuch, zuruecksetzen } from '$lib/server/auth/ratelimit';
+import { ipVon } from '$lib/server/buchung-anfrage';
 import { COOKIE_NAME, loescheSitzung, setzeSitzungsCookie } from '$lib/server/auth/sitzung';
 import {
 	loescheVorsitzungsCookie,
@@ -52,7 +53,9 @@ export const load: PageServerLoad = ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	default: async (event) => {
+		const { request, cookies } = event;
+		const ip = ipVon(event);
 		const form = await request.formData();
 		const emailRoh = form.get('email');
 		const passwort = form.get('passwort') ?? '';
@@ -91,14 +94,17 @@ export const actions: Actions = {
 		}
 		const email = emailRoh.trim().toLowerCase();
 
-		if (!pruefeVersuch(email).erlaubt) return fail(429, { fehler: ZU_OFT, email });
+		if (ipGesperrt(ip) || !pruefeVersuch(email).erlaubt) return fail(429, { fehler: ZU_OFT, email });
 
 		const [konto] = await systemAbfrage(
 			(sql) => sql`select * from app.anmeldung_finden(${email}::public.citext)`
 		);
 		// Bei unbekannter E-Mail trotzdem einen Hash prüfen (gleicher Aufwand, gleiche Antwort).
 		const passt = await pruefePasswort(konto ? konto.passwort_hash : await dummyHash, passwort);
-		if (!konto || !passt || !konto.aktiv) return fail(400, { fehler: FALSCH, email });
+		if (!konto || !passt || !konto.aktiv) {
+			zaehleIpFehlversuch(ip);
+			return fail(400, { fehler: FALSCH, email });
+		}
 
 		// Die Datenbank entscheidet: volle Sitzung, oder – bei Pflicht-2FA bzw. aktivem TOTP – nur eine Vor-Sitzung,
 		// die erst nach gültigem Code zur Sitzung wird. Gesperrter Betrieb/inaktives Konto: dieselbe neutrale Meldung.

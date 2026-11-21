@@ -38,6 +38,10 @@ export function erzeugeBegrenzung(opts: BegrenzungOptionen = {}) {
 			versuche.set(schluessel, aktuell);
 			return { erlaubt: true };
 		},
+		/** Ist der Schlüssel zurzeit gesperrt? Zählt NICHT mit (für „nur Fehlversuche zählen“). */
+		gesperrt(schluessel: string, jetzt: number = Date.now()): boolean {
+			return (versuche.get(schluessel) ?? []).filter((t) => jetzt - t < fensterMs).length >= max;
+		},
 		/** Nach erfolgreicher Anmeldung. */
 		zuruecksetzen(schluessel: string): void {
 			versuche.delete(schluessel);
@@ -57,3 +61,13 @@ const standard = erzeugeBegrenzung();
 export const pruefeVersuch = standard.pruefeVersuch;
 export const zuruecksetzen = standard.zuruecksetzen;
 export const leereVersuche = standard.leeren;
+
+/**
+ * Zweite Grenze je IP-Adresse gegen „Passwort-Sprühen“ (wenige Passwörter über sehr viele E-Mail-Adressen – die Grenze
+ * je E-Mail greift dabei nie). Gezählt werden nur FEHLversuche: 50 je IP in 15 Minuten. Ein Büro hinter einer
+ * gemeinsamen Adresse merkt davon nichts, erfolgreiche Anmeldungen zählen nicht.
+ */
+const jeIp = erzeugeBegrenzung({ max: 50 });
+export const ipGesperrt = (ip: string) => jeIp.gesperrt(ip);
+export const zaehleIpFehlversuch = (ip: string) => void jeIp.pruefeVersuch(ip);
+export const leereIpVersuche = jeIp.leeren;

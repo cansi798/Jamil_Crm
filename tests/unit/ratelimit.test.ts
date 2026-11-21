@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { erzeugeBegrenzung, leereVersuche, pruefeVersuch, zuruecksetzen } from '../../src/lib/server/auth/ratelimit';
+import { erzeugeBegrenzung, ipGesperrt, leereIpVersuche, leereVersuche, pruefeVersuch, zaehleIpFehlversuch, zuruecksetzen } from '../../src/lib/server/auth/ratelimit';
 
 const MINUTE = 60_000;
 
@@ -56,5 +56,22 @@ describe('Begrenzung von Anmeldeversuchen', () => {
 		expect(eigene.groesse()).toBe(50);
 		eigene.pruefeVersuch('neu', 2 * MINUTE);
 		expect(eigene.groesse()).toBe(1);
+	});
+
+	it('gesperrt() fragt nur ab und zählt nicht mit; IP-Grenze zählt nur Fehlversuche (50 je 15 Min.)', () => {
+		const eigene = erzeugeBegrenzung({ max: 2, fensterMs: MINUTE });
+		expect(eigene.gesperrt('ip', 0)).toBe(false);
+		eigene.pruefeVersuch('ip', 0);
+		expect(eigene.gesperrt('ip', 1)).toBe(false);
+		eigene.pruefeVersuch('ip', 1);
+		expect(eigene.gesperrt('ip', 2)).toBe(true);
+		expect(eigene.gesperrt('ip', MINUTE + 2)).toBe(false);
+		leereIpVersuche();
+		for (let i = 0; i < 49; i++) zaehleIpFehlversuch('1.2.3.4');
+		expect(ipGesperrt('1.2.3.4')).toBe(false);
+		zaehleIpFehlversuch('1.2.3.4');
+		expect(ipGesperrt('1.2.3.4')).toBe(true);
+		expect(ipGesperrt('5.6.7.8')).toBe(false);
+		leereIpVersuche();
 	});
 });
