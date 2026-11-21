@@ -23,6 +23,9 @@ describe('Statuskette der Aufträge', () => {
 		expect(erlaubterWechsel('abgerechnet', 'anfrage')).toBe(false);
 		expect(erlaubterWechsel('abgerechnet', 'abgerechnet')).toBe(false);
 		expect(erlaubterWechsel('anfrage', 'anfrage')).toBe(false);
+		// Unbekannte Werte (z. B. aus einer manipulierten Anfrage) sind nie ein erlaubter Wechsel
+		expect(erlaubterWechsel('anfrage', 'xyz' as never)).toBe(false);
+		expect(erlaubterWechsel('xyz' as never, 'anfrage')).toBe(false);
 	});
 
 	it('istStatus erkennt nur bekannte Schlüssel', () => {

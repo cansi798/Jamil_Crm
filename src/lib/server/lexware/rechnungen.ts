@@ -291,7 +291,10 @@ export const rechnungAnlegen: Handler = {
 		const r = await ladeRechnung(k, n.rechnungId);
 		if (!r) return { ergebnis: { uebersprungen: 'Rechnung gelöscht' } };
 		if (r.lexware_id) return { lexwareId: r.lexware_id, ergebnis: { schonDa: true } };
-		if (r.phase !== 'wartet') return { ergebnis: { uebersprungen: `Phase ${r.phase}` } };
+		// „fehler“: „Erneut versuchen“ in der Warteschlange (Einstellungen → Lexware) soll wirklich neu anlegen, statt den
+		// Auftrag als erledigt abzuhaken und die Rechnung im Fehlerzustand zu lassen
+		if (r.phase === 'fehler') await mitBetrieb(k, (tx) => tx`update app.rechnungen set phase = 'wartet', lexware_fehler = null where id = ${r.id} and betrieb_id = ${k.betriebId} and phase = 'fehler' and lexware_id is null`);
+		else if (r.phase !== 'wartet') return { ergebnis: { uebersprungen: `Phase ${r.phase}` } };
 		const { e, eingabe } = await rechnungsBeleg(k, r, berlinTag(new Date()));
 		eingabe.kunde.lexwareId = await sichereKontakt(c, k, e.kundeId);
 		const beleg = rechnungAlsLexware(eingabe);
@@ -745,7 +748,14 @@ export async function rechnungErneut(k: Kontext, idRoh: string): Promise<void> {
 	const id = pruefeRechnungId(idRoh);
 	const z = await mitBetrieb(k, (tx) => tx`update app.rechnungen set phase = 'wartet', lexware_fehler = null where id = ${id} and betrieb_id = ${k.betriebId} and phase = 'fehler' and lexware_id is null returning id`);
 	if (z.length === 0) throw new ApiFehler(409, 'Die Rechnung ist nicht im Fehlerzustand.');
-	await stelleEin(k, { art: 'rechnung_anlegen', nutzlast: { rechnungId: id, seit: new Date().toISOString() }, idempotenz: `rechnung_anlegen:${id}:${Date.now()}` });
+	// Frühere Versuche könnten die Rechnung in Lexware schon angelegt haben (Zeitüberschreitung, Serverfehler): ab dem
+	// ERSTEN Versuch suchen („seit“) und vor dem Anlegen erst nachsehen (Status „ungewiss“) – sonst doppelte Rechnung
+	const [frueher] = await mitBetrieb(k, (tx) => tx`
+		select min(nutzlast ->> 'seit') as seit from app.lexware_auftraege
+		where betrieb_id = ${k.betriebId} and art = 'rechnung_anlegen' and nutzlast ->> 'rechnungId' = ${id}`);
+	const seit = typeof frueher?.seit === 'string' && !Number.isNaN(Date.parse(frueher.seit)) ? frueher.seit : new Date().toISOString();
+	const neu = await stelleEin(k, { art: 'rechnung_anlegen', nutzlast: { rechnungId: id, seit }, idempotenz: `rechnung_anlegen:${id}:${Date.now()}` });
+	if (frueher?.seit) await mitBetrieb(k, (tx) => tx`update app.lexware_auftraege set status = 'ungewiss' where id = ${neu.id} and betrieb_id = ${k.betriebId} and status = 'wartet'`);
 	stosseLexwareAn(k);
 }
 

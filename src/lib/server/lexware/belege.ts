@@ -1,5 +1,5 @@
 import { positionsSumme, summen, type MwstSatz } from '../../geld';
-import { tagDeutsch, wochentag } from '../../zeit';
+import { berlinZeitpunkt, tagDeutsch, wochentag } from '../../zeit';
 import { adresseLand } from './land';
 
 /**
@@ -58,9 +58,13 @@ export type LexwareBeleg = { body: Record<string, unknown>; warnungen: string[];
 const TEXT_MAX = 2000;
 const kuerze = (s: string, n = TEXT_MAX) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-/** Berliner Versatz eines Tages (+01:00 bzw. +02:00). */
+/**
+ * Berliner Versatz um Mitternacht dieses Tages (+01:00 bzw. +02:00). Maßgeblich ist 00:00 Uhr Ortszeit, nicht der
+ * Mittag: An den Umstelltagen (letzter Sonntag im März/Oktober) gilt um Mitternacht noch der alte Versatz – sonst
+ * läge das Belegdatum eine Stunde früher, also am Vortag.
+ */
 function versatz(tag: string): string {
-	const d = new Date(`${tag}T12:00:00Z`);
+	const d = berlinZeitpunkt(tag);
 	const teil = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Berlin', timeZoneName: 'longOffset' })
 		.formatToParts(d)
 		.find((p) => p.type === 'timeZoneName')?.value;

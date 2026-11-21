@@ -21,9 +21,9 @@ export function istStatus(w: unknown): w is AuftragStatus {
 	return typeof w === 'string' && (STATUS as readonly string[]).includes(w);
 }
 
-/** Nur ein Schritt vor oder zurück; „bleibt gleich“ ist kein Wechsel. */
+/** Nur ein Schritt vor oder zurück; „bleibt gleich“ ist kein Wechsel; unbekannte Werte nie (indexOf = −1). */
 export function erlaubterWechsel(von: AuftragStatus, nach: AuftragStatus): boolean {
-	return Math.abs(STATUS.indexOf(von) - STATUS.indexOf(nach)) === 1;
+	return istStatus(von) && istStatus(nach) && Math.abs(STATUS.indexOf(von) - STATUS.indexOf(nach)) === 1;
 }
 
 /** Nächster bzw. vorheriger Status (oder `null` am Ende der Kette). */

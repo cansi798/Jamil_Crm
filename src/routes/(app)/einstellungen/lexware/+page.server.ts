@@ -9,7 +9,7 @@ import { UUID } from '$lib/server/kunden';
 import { pruefeVerbindung, setzeBelegeInLexware, setzeKundenAnlegen, speichereLexwareSchluessel, trenneLexware } from '$lib/server/lexware/konfig';
 import { auftragAbbrechen, auftragErneut, listeAuftraege } from '$lib/server/lexware/warteschlange';
 import { starteAboEinrichtung, starteAbgleich } from '$lib/server/lexware/abgleich';
-import { laufFuerBetrieb } from '$lib/server/lexware/dienst';
+import { HANDLER, laufFuerBetrieb } from '$lib/server/lexware/dienst';
 import { lexwareStatus } from '$lib/server/lexware/status';
 
 /** Einstellungen → Lexware verbinden (Recht „Einstellungen“, Modul „lexware“; Plan Phase 1). */
@@ -126,7 +126,7 @@ export const actions: Actions = {
 	abbrechen: async ({ locals, request }) => {
 		const f = await request.formData();
 		try {
-			await auftragAbbrechen(await zugriff(locals), id(f));
+			await auftragAbbrechen(await zugriff(locals), id(f), HANDLER);
 			return { aktion: 'abbrechen', ergebnis: 'abgebrochen' };
 		} catch (e) {
 			return alsFormFehler(e, { aktion: 'abbrechen' });

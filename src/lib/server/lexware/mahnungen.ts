@@ -225,7 +225,7 @@ export const mahnungAnlegen: Handler = {
 	},
 	// Mahnungen stehen laut Doku nicht in der Belegliste → nach Zeitüberschreitung nie blind neu anlegen
 	async vorhanden() {
-		throw new LexwareFehler('Ob Lexware die Mahnung angelegt hat, ist unklar (Zeitüberschreitung). Bitte in Lexware unter der Rechnung nachsehen und hier „Erneut versuchen“ oder „Abbrechen“.', null, 'daten', false);
+		throw new LexwareFehler('Ob Lexware die Mahnung angelegt hat, ist unklar (Zeitüberschreitung oder Serverfehler). Bitte in Lexware unter der Rechnung nachsehen und hier „Erneut versuchen“ oder „Abbrechen“.', null, 'daten', false);
 	},
 	async nachher(k, n, r) {
 		if (!r.lexwareId) return;

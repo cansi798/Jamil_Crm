@@ -90,6 +90,11 @@ export async function meldeProblem(k: Kontext, titel: string, text: string): Pro
 
 type Geholt = { id: string; art: LexwareArt; nutzlast: any; versuche: number; vorher: string };
 
+/**
+ * Holt den nächsten fälligen Auftrag und sperrt ihn. Die Sperre (20 Minuten) muss länger sein als der längste Lauf eines
+ * Handlers (z. B. Belegabgleich: bis zu 40 Abrufe à 20 s Zeitlimit) – sonst holte ein zweiter Lauf denselben Auftrag,
+ * während der erste noch arbeitet (Gefahr doppelter Belege).
+ */
 async function holeNaechsten(k: Kontext): Promise<Geholt | null> {
 	const [z] = await mitBetrieb(k, (tx) => tx`
 		with n as (
@@ -97,7 +102,7 @@ async function holeNaechsten(k: Kontext): Promise<Geholt | null> {
 			where betrieb_id = ${k.betriebId}
 				and ((status in ('wartet', 'ungewiss') and naechster_versuch <= now()) or (status = 'laeuft' and gesperrt_bis < now()))
 			order by naechster_versuch, angelegt limit 1 for update skip locked)
-		update app.lexware_auftraege a set status = 'laeuft', versuche = a.versuche + 1, gesperrt_bis = now() + interval '5 minutes'
+		update app.lexware_auftraege a set status = 'laeuft', versuche = a.versuche + 1, gesperrt_bis = now() + interval '20 minutes'
 		from n where a.id = n.id and a.betrieb_id = ${k.betriebId}
 		returning a.id, a.art, a.nutzlast, a.versuche, n.status as vorher`);
 	return (z as unknown as Geholt) ?? null;
@@ -132,7 +137,10 @@ async function fehlgeschlagen(k: Kontext, g: Geholt, h: Handler, e: unknown) {
 	const text = (lf ? lf.message : 'Unerwarteter Fehler bei der Verarbeitung.').slice(0, 1000);
 	if (!lf) console.error('Lexware-Warteschlange:', e);
 	if (lf?.wiederholbar && g.versuche < MAX_VERSUCHE) {
-		const ungewiss = !!h.anlegend && (lf.art === 'zeit' || lf.art === 'netz');
+		// Anlegen (Rechnung, Angebot, Kontakt …): Bei Zeitüberschreitung, Netzfehler UND Serverfehler (5xx) ist unklar, ob
+		// Lexware den Beleg schon angelegt hat (z. B. 502/504 vom Gateway nach erfolgreichem Anlegen) → vor dem nächsten
+		// Versuch erst nachsehen („ungewiss“), nie blind ein zweites Mal anlegen
+		const ungewiss = !!h.anlegend && (lf.art === 'zeit' || lf.art === 'netz' || lf.art === 'server');
 		const nach = lf.nachSekunden ?? abstandSekunden(g.versuche);
 		await mitBetrieb(k, (tx) => tx`
 			update app.lexware_auftraege set status = ${ungewiss || g.vorher === 'ungewiss' ? 'ungewiss' : 'wartet'}, gesperrt_bis = null,
@@ -195,10 +203,17 @@ export async function auftragErneut(k: Kontext, id: string): Promise<void> {
 		update app.lexware_auftraege set status = case when status = 'pruefen' then 'ungewiss' else status end, naechster_versuch = now(), versuche = 0
 		where id = ${id} and betrieb_id = ${k.betriebId} and status in ('pruefen', 'wartet', 'ungewiss')`);
 }
-export async function auftragAbbrechen(k: Kontext, id: string): Promise<void> {
-	await mitBetrieb(k, (tx) => tx`
+/**
+ * Abbrechen. Mit `handler` bekommt der Vorgang dahinter Bescheid (`beiFehler`, z. B. Rechnung → Phase „fehler“) –
+ * sonst bliebe etwa eine Rechnung für immer „wartet“ und ließe sich weder neu anlegen noch verwerfen.
+ */
+export async function auftragAbbrechen(k: Kontext, id: string, handler?: HandlerTabelle): Promise<void> {
+	const [z] = await mitBetrieb(k, (tx) => tx`
 		update app.lexware_auftraege set status = 'abgebrochen', erledigt_am = now(), letzter_fehler = coalesce(letzter_fehler, 'abgebrochen')
-		where id = ${id} and betrieb_id = ${k.betriebId} and status in ('pruefen', 'wartet', 'ungewiss')`);
+		where id = ${id} and betrieb_id = ${k.betriebId} and status in ('pruefen', 'wartet', 'ungewiss')
+		returning art, nutzlast`);
+	if (!z) return;
+	await handler?.[z.art as LexwareArt]?.beiFehler?.(k, z.nutzlast, 'Abgebrochen').catch((err) => console.error('Lexware-Warteschlange (beiFehler):', (err as Error).message));
 }
 
 export type AuftragZeile = { id: string; art: LexwareArt; name: string; status: string; versuche: number; letzterFehler: string | null; naechsterVersuch: string; angelegt: string };

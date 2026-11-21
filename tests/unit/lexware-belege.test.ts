@@ -29,6 +29,10 @@ describe('Lexware-Belege: Daten für Angebot und Auftragsbestätigung', () => {
 	it('Datum im Lexware-Format mit Berliner Versatz (Winter +01:00, Sommer +02:00)', () => {
 		expect(lexwareDatum('2026-11-15')).toBe('2026-11-15T00:00:00.000+01:00');
 		expect(lexwareDatum('2027-07-01')).toBe('2027-07-01T00:00:00.000+02:00');
+		// Umstelltage: um Mitternacht gilt noch der alte Versatz (sonst wäre es 23:00 Uhr am Vortag)
+		expect(lexwareDatum('2026-03-29')).toBe('2026-03-29T00:00:00.000+01:00');
+		expect(lexwareDatum('2026-10-25')).toBe('2026-10-25T00:00:00.000+02:00');
+		expect(lexwareDatum('2026-03-30')).toBe('2026-03-30T00:00:00.000+02:00');
 	});
 
 	it('Steuerfall: net mit Satz; Kleinunternehmer → vatfree 0; § 13b nur Firma mit gültiger Bescheinigung', () => {

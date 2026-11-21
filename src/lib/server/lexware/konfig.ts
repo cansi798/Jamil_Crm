@@ -162,6 +162,9 @@ export async function trenneLexware(k: Kontext): Promise<void> {
 	await mitBetrieb(k, async (tx) => {
 		await tx`update app.lexware_auftraege set status = 'abgebrochen', letzter_fehler = 'Verbindung getrennt', erledigt_am = now()
 			where betrieb_id = ${k.betriebId} and status in ('wartet', 'ungewiss', 'pruefen', 'laeuft')`;
+		// Rechnungen, die noch auf Lexware warteten, wären sonst für immer „wartet“ (weder neu anlegen noch verwerfen)
+		await tx`update app.rechnungen set phase = 'fehler', lexware_fehler = 'Lexware-Verbindung getrennt'
+			where betrieb_id = ${k.betriebId} and phase = 'wartet' and lexware_id is null`;
 		await tx`delete from app.lexware_abos where betrieb_id = ${k.betriebId}`;
 		await tx`delete from app.lexware_konfig where betrieb_id = ${k.betriebId}`;
 	});
