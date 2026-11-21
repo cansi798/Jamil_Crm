@@ -39,12 +39,22 @@ export CRM_KI_ANBIETER="${TESTSERVER_KI:-fake}"
 if [ -n "${TESTSERVER_LEXWARE_URL:-}" ]; then export CRM_LEXWARE_URL="$TESTSERVER_LEXWARE_URL"; fi
 ORIGIN_TEST="${TESTSERVER_ORIGIN:-http://127.0.0.1:8310}"
 
-echo "Datenbank „$DB“ anlegen (falls nötig) …"
-node --input-type=module -e "
+# Aufräumen: Standardmäßig startet der Testserver mit FRISCHER Datenbank – bricht ein E2E-Lauf ab, bleiben sonst
+# Testdaten liegen (gespeicherte Ansichten, „Material holen (E2E)“ …) und stören den nächsten Lauf.
+# TESTSERVER_BEHALTEN=1 behält die vorhandenen Daten. Die Vorschau-Datenbank „crm“ ist oben ausgeschlossen.
+if [ "${TESTSERVER_BEHALTEN:-0}" = "1" ]; then
+	echo "Datenbank „$DB“ anlegen (falls nötig) …"
+else
+	echo "Datenbank „$DB“ frisch anlegen (alte Testdaten weg; behalten mit TESTSERVER_BEHALTEN=1) …"
+fi
+TESTSERVER_FRISCH=$([ "${TESTSERVER_BEHALTEN:-0}" = "1" ] && echo 0 || echo 1) node --input-type=module -e "
 import postgres from 'postgres';
+const name = process.env.PGDATABASE.replace(/[^a-z0-9_]/g, '');
+if (!name || name === 'crm') throw new Error('Nie die Vorschau-Datenbank anfassen');
 const sql = postgres({ database: 'postgres', max: 1, onnotice: () => {} });
-const [d] = await sql\`select 1 from pg_database where datname = \${process.env.PGDATABASE}\`;
-if (!d) await sql.unsafe('create database ' + process.env.PGDATABASE.replace(/[^a-z0-9_]/g, ''));
+if (process.env.TESTSERVER_FRISCH === '1') await sql.unsafe('drop database if exists ' + name + ' with (force)');
+const [d] = await sql\`select 1 from pg_database where datname = \${name}\`;
+if (!d) await sql.unsafe('create database ' + name);
 await sql.end();
 "
 

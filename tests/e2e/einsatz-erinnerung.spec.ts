@@ -12,7 +12,7 @@ test('Einsatz ohne Erinnerung anlegen', async ({ page }, info) => {
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
-	await expect(page).not.toHaveURL(/anmelden/);
+	await expect(page).not.toHaveURL(/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	const angelegt: string[] = [];
 	page.on('response', async (r) => {
 		if (r.request().method() === 'POST' && r.url().endsWith('/api/einsaetze') && r.status() === 201) angelegt.push((await r.json()).id);
@@ -62,7 +62,7 @@ test('Auswahl-Liste öffnet sich nach oben, wenn unten kein Platz ist', async ({
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
-	await expect(page).not.toHaveURL(/anmelden/);
+	await expect(page).not.toHaveURL(/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	await page.setViewportSize({ width: 1280, height: 560 });
 	await page.goto('/plantafel');
 	await page.goto('/plantafel?neu=1');

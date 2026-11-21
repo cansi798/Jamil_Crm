@@ -13,7 +13,7 @@ test('Chef: Auswertung Nachkalkulation und Plan/Ist im Auftrag; Monteur ohne Zug
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	await page.goto('/auswertung/nachkalkulation');
 	await expect(page.getByRole('heading', { name: 'Nachkalkulation' })).toBeVisible();
 	await page.locator('select[name="gruppe"]').selectOption('mitarbeiter');
@@ -34,7 +34,7 @@ test('Chef: Auswertung Nachkalkulation und Plan/Ist im Auftrag; Monteur ohne Zug
 	await mp.goto('/anmelden');
 	await mp.getByLabel('Benutzername').fill('jamil.monteur');
 	await mp.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(mp).not.toHaveURL(/\/anmelden/);
+	await expect(mp).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	const r = await mp.goto('/auswertung/nachkalkulation');
 	expect(r?.status()).toBe(403);
 	await m.close();

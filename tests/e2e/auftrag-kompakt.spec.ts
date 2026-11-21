@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { anmelden } from './hilfe';
+import { anmelden, bestaetigen } from './hilfe';
 
 /** Auftrag „aufgeräumt“ (Jamil msgs 2579/2581): eingeklappte Formulare, schmale Statusleiste mit Sprung und Rückfrage. */
 const BUERO = 'buero@bauwelt.test';
@@ -40,12 +40,12 @@ test('Statusleiste: schmal, Sprung per Klick, zurück nur nach Rückfrage; Formu
 			await leiste.getByRole('button', { name: 'Beauftragt' }).click();
 			await expect(aktuell).toHaveText('Beauftragt');
 			// zurück: Rückfrage abbrechen → bleibt
-			page.once('dialog', (d) => d.dismiss());
 			await leiste.getByRole('button', { name: 'Anfrage' }).click();
+			await page.getByTestId('rueckfrage').getByRole('button', { name: 'Abbrechen' }).click();
 			await expect(aktuell).toHaveText('Beauftragt');
-			// zurück bestätigen
-			page.once('dialog', (d) => d.accept());
+			// zurück bestätigen (gemeinsame Rückfrage-Blase statt confirm())
 			await leiste.getByRole('button', { name: 'Anfrage' }).click();
+			await bestaetigen(page, 'Zurücksetzen');
 			await expect(aktuell).toHaveText('Anfrage');
 			await leiste.getByRole('button', { name: 'Weiter →' }).click();
 			await expect(aktuell).toHaveText('Angebot');
@@ -54,8 +54,8 @@ test('Statusleiste: schmal, Sprung per Klick, zurück nur nach Rückfrage; Formu
 			await expect(chip).toBeVisible();
 			await page.getByRole('button', { name: 'Weiter → Angebot' }).click();
 			await expect(chip).toHaveValue('angebot');
-			page.once('dialog', (d) => d.accept());
 			await chip.selectOption('anfrage');
+			await bestaetigen(page, 'Zurücksetzen');
 			await expect(chip).toHaveValue('anfrage');
 			await expect(aktuell).toHaveText('Anfrage');
 		}

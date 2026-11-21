@@ -24,7 +24,7 @@ test('Einstellung „überspringen“ wirkt auf neuen Auftrag, Statusleiste und 
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	const name = `E2E Ablauf ${info.project.name} ${Date.now() % 100000}`;
 	let auftragId: string | null = null;
 	try {

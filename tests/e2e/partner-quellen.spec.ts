@@ -14,7 +14,7 @@ test('Auftraggeber-Partner → Auftragsquelle (aus, nicht löschbar); Partner l�
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	const name = `E2E Baumarkt ${info.project.name} ${Date.now() % 100000}`;
 
 	await page.goto('/partner/neu?art=auftraggeber');

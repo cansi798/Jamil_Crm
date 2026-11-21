@@ -14,7 +14,7 @@ test('Aufträge: Status-Kacheln zeigen Euro und Anzahl, nichts abgeschnitten', a
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('jamil.chef');
 	await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
-	await expect(page).not.toHaveURL(/anmelden/);
+	await expect(page).not.toHaveURL(/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 
 	await page.goto('/auftraege?ansicht=liste&zeitraum=alle');
 	const gruppe = page.getByRole('group', { name: 'Aufträge: Kennzahlen' });

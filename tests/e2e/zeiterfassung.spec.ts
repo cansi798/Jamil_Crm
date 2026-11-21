@@ -14,7 +14,7 @@ async function alsTestzugang(browser: Browser, name: string, viewport: { width: 
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill(name);
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	return page;
 }
 

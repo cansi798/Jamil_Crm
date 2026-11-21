@@ -13,7 +13,7 @@ test('Ausgangsbelege: Umleitung, einheitliche Reiter, Suche überall, AB-Liste m
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	const reiter = page.getByRole('navigation', { name: 'Ausgangsbelege' });
 
 	// alte Adresse mit Filter → neuer Reiter, Filter bleibt

@@ -15,7 +15,7 @@ test('ⓘ erklärt die Einstellung, Funktionen-Übersicht, Was ist neu', async (
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 
 	// Info-Fenster: Tipp öffnet, Esc schließt und gibt den Fokus zurück
 	await page.goto('/einstellungen/kundenportal');

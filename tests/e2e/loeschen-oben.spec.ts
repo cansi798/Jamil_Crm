@@ -92,7 +92,7 @@ test('Rolle mit Benutzern: Fehler bleibt in der offenen Rückfrage stehen', asyn
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	await page.goto('/einstellungen/rollen');
 	// Eine Rolle, die noch Benutzer hat (z. B. „Inhaber“) – Löschen schlägt fehl, es wird nichts gelöscht
 	// Nur eine Rolle wählen, die laut Liste mindestens einen Benutzer hat (sonst würde wirklich gelöscht)

@@ -11,7 +11,7 @@ async function alsChef(page: Page) {
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('jamil.chef');
 	await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
-	await expect(page).not.toHaveURL(/anmelden/);
+	await expect(page).not.toHaveURL(/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 }
 
 test('Kacheln: Zeitraum und Klick-Filter auf Angebote, Aufträge, Kunden', async ({ page }, info) => {

@@ -9,7 +9,7 @@ async function chef(page: Page) {
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 }
 
 test('Mail-Vorlage: Live-Vorschau mit Betreff, Beispieldaten, Handy-Breite, Klartext; Vorlage kann kein Skript ausführen', async ({ page }) => {

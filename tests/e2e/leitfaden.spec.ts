@@ -46,7 +46,7 @@ test('Einstellungen: Leitfaden an, Besichtigung angehakt, Schritt hinzufügen un
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur mit Testmodus (Chef ohne Zwei-Faktor)');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	await page.goto('/einstellungen/leitfaden');
 	await expect(page.getByRole('heading', { name: 'Leitfaden beim Termin' })).toBeVisible();
 	await expect(page.getByRole('group', { name: 'Termin-Arten' }).getByLabel('Besichtigung')).toBeChecked();

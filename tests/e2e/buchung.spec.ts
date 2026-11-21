@@ -26,7 +26,7 @@ test.afterAll(async ({ browser }) => {
 		await page.goto('/anmelden');
 		await page.getByLabel('Benutzername').fill('can.chef');
 		await page.getByRole('button', { name: 'Anmelden' }).click();
-		await expect(page).not.toHaveURL(/\/anmelden/);
+		await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 		for (const kennung of kennungen.splice(0)) {
 			// über fetch im Browser (das Sitzungs-Cookie ist „Secure“ und geht über http nur im Browser auf 127.0.0.1 mit)
 			const r = await page.evaluate(async (k) => {
@@ -52,7 +52,7 @@ async function alsChef(page: Page) {
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 }
 
 async function arbeitszeiten(page: Page, person: string) {

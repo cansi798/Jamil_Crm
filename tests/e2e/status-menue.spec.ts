@@ -11,7 +11,7 @@ test('Status-Menü: Overlay, alle Status, Wechsel klappt', async ({ page }, info
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
-	await expect(page).not.toHaveURL(/anmelden/);
+	await expect(page).not.toHaveURL(/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	await page.goto('/auftraege?ansicht=board&alle=1');
 	// erste Spalte mit einer Karte (nicht die letzte: dann gibt es einen nächsten Schritt)
 	const STATI = ['anfrage', 'angebot', 'beauftragt', 'in_arbeit', 'abgenommen'];

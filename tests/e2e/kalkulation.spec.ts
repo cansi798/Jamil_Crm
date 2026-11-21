@@ -13,7 +13,7 @@ test('Kalkulation v2: Kostenzeile und Mitarbeiter erfassen, Rechenweg, wieder en
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus (Chef ohne Zwei-Faktor)');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	await page.goto('/kalkulation');
 	await expect(page.getByRole('heading', { name: 'Kalkulation / Stundensatz' })).toBeVisible();
 	await expect(page.getByLabel('Verrechnungssatz')).toBeVisible();

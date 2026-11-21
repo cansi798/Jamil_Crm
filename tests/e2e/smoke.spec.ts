@@ -60,7 +60,7 @@ test('Manifest: 200, display standalone, Symbole erreichbar', async ({ request }
 	expect(antwort.status()).toBe(200);
 	const manifest = await antwort.json();
 	expect(manifest).toMatchObject({ name: 'CRM System', display: 'standalone', start_url: '/' });
-	expect(manifest.theme_color.toLowerCase()).toBe('#05346b');
+	expect(manifest.theme_color.toLowerCase()).toBe('#ffffff'); // hell wie Kopfleiste und Seitenleiste (seit 21.11.)
 	for (const groesse of ['192x192', '512x512']) {
 		const icon = manifest.icons.find((i: { sizes: string }) => i.sizes === groesse);
 		expect(icon, `Symbol ${groesse}`).toBeTruthy();

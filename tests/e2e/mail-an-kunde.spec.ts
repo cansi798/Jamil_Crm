@@ -13,7 +13,7 @@ test('Kunde: Mail an Kunden mit Vorlage öffnen und Vorlage wechseln', async ({ 
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	await page.goto('/kunden');
 	const href = await page.locator('a[href^="/kunden/"]').evaluateAll((l) => l.map((a) => a.getAttribute('href')).find((h) => /^\/kunden\/[0-9a-f-]{36}$/.test(h ?? '')));
 	await page.goto(href!);

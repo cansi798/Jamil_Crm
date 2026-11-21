@@ -14,7 +14,7 @@ test('Kundenakte: Portal-Einstellungen des Kunden; Auftrag zeigt nur den Hinweis
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 
 	// Auftrag „Ladenumbau Trockenbau“ (Seed): nur Hinweis, keine Portal-Schalter
 	await page.goto('/auftraege?ansicht=liste&suche=Ladenumbau');

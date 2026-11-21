@@ -43,7 +43,7 @@ for (const [art, viewport] of [
 		test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur in der Vorschau mit Testmodus');
 		await page.getByLabel('Benutzername').fill('jamil.chef');
 		await page.getByRole('button', { name: 'Anmelden', exact: true }).click();
-		await expect(page).not.toHaveURL(/anmelden/);
+		await expect(page).not.toHaveURL(/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 
 		const masse: Mass[] = [];
 		for (const pfad of SEITEN) masse.push(await messen(page, pfad));

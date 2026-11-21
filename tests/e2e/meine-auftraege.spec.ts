@@ -30,7 +30,7 @@ async function alsTestzugang(browser: Browser, name: string): Promise<Page> {
 	await p.goto('/anmelden');
 	await p.getByLabel('Benutzername').fill(name);
 	await p.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(p).not.toHaveURL(/\/anmelden/);
+	await expect(p).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 	return p;
 }
 

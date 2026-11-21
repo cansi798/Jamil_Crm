@@ -8,7 +8,7 @@ test('Board: Untergruppen in Anfrage, Angebot, Beauftragt und In Arbeit; Liste m
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 
 	await page.goto('/auftraege?ansicht=board');
 	await expect(page.locator('[data-spalte="anfrage"]')).toBeVisible();
@@ -54,7 +54,7 @@ test('Auftrag „In Arbeit“: Arbeitsstand unter der Statusleiste setzen und zu
 	test.skip(!(await page.getByText('Testmodus:').isVisible()), 'nur mit Testmodus');
 	await page.getByLabel('Benutzername').fill('can.chef');
 	await page.getByRole('button', { name: 'Anmelden' }).click();
-	await expect(page).not.toHaveURL(/\/anmelden/);
+	await expect(page).not.toHaveURL(/\/anmelden/, { timeout: 20_000 }); // Anmeldung unter Last (wie hilfe.ts)
 
 	await page.goto('/auftraege?ansicht=liste&status=in_arbeit');
 	const erster = page.locator('.kd-liste li a').first();
