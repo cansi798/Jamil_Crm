@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { erwarteKeinQuerScrollen } from './hilfe';
+import { bestaetigen, erwarteKeinQuerScrollen } from './hilfe';
 
 /**
  * Kalkulation v2 (Wünsche Jamil, msgs 2515/2516): eine Kostenzeile und einen Mitarbeiter erfassen, in Liste und
@@ -60,14 +60,16 @@ test('Kalkulation v2: Kostenzeile und Mitarbeiter erfassen, Rechenweg, wieder en
 		await expect(page.getByRole('cell', { name: '= Kosten-Stundensatz' })).toBeVisible();
 		await erwarteKeinQuerScrollen(page, page.viewportSize()!.width);
 	} finally {
-		for (const [liste, text, knopf] of [
-			['Mitarbeiter', name, 'Mitarbeiter entfernen'],
-			['Kostenzeilen', `${name} Transporter`, 'Zeile löschen']
+		// Entfernen fragt vorher nach (Jamil msg 3091)
+		for (const [liste, text, knopf, ja] of [
+			['Mitarbeiter', name, 'Mitarbeiter entfernen', 'Entfernen'],
+			['Kostenzeilen', `${name} Transporter`, 'Zeile löschen', 'Löschen']
 		] as const) {
 			const li = page.getByRole('list', { name: liste, exact: true }).locator('li', { hasText: text });
 			if (await li.count()) {
 				await li.locator('summary').click();
 				await li.getByRole('button', { name: knopf }).click();
+				await bestaetigen(page, ja);
 				await expect(li).toHaveCount(0);
 			}
 		}

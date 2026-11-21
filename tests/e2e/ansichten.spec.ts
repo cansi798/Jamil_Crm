@@ -64,7 +64,11 @@ for (const [seite, pfad, filter] of [
 		// Papierkorb direkt an der Zeile (Jamil msg 3062), danach die Rückfrage (msg 3091)
 		await m.getByRole('button', { name: `Ansicht „${name}“ löschen`, exact: true }).click();
 		await bestaetigen(page);
+		// Menü bleibt offen (Klick in der Rückfrage ist kein Klick „außerhalb“) und die Ansicht ist wirklich gelöscht
+		await expect(m).toBeVisible();
 		await expect(m.getByRole('button', { name: new RegExp(`^${name}`) })).toHaveCount(0);
+		const uebrig = await page.evaluate(async (s) => (await (await fetch(`/api/ansichten?seite=${s}`)).json()) as { name: string }[], pfad.slice(1));
+		expect(uebrig.map((a) => a.name)).not.toContain(name);
 		await ctx.close();
 	});
 }

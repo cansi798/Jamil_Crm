@@ -56,7 +56,10 @@ export function frage(anker: HTMLElement, o?: RueckfrageOptionen | string): Prom
 		jaKnopf.textContent = ja;
 		knoepfe.append(nein, jaKnopf);
 		blase.append(p, knoepfe);
-		(anker.closest('dialog[open]') ?? document.body).append(blase);
+		// In den Dialog bzw. das schwebende Panel (Popover) des Knopfs hängen, nicht an <body>: Menüs wie „Gespeicherte
+		// Ansichten“ schließen bei Klick außerhalb – ein Klick in der Blase zählte sonst als „außerhalb“, das Menü schloss,
+		// der Knopf war weg und „Löschen“ lief ins Leere (Ansicht blieb gespeichert).
+		(anker.closest('dialog[open], [popover]') ?? document.body).append(blase);
 		if (kannPopover) blase.showPopover();
 
 		const platzieren = () => {

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { anmelden, erwarteKeinQuerScrollen } from './hilfe';
+import { anmelden, erwarteKeinQuerScrollen, personenWaehlen } from './hilfe';
 import { berlinTag, berlinZeitpunkt, tagPlus } from '../../src/lib/zeit';
 import { monatName } from '../../src/lib/kalender';
 
@@ -54,11 +54,15 @@ test('Kalender: Monat mit Balken, Tag antippen, Filter-Chips, Ansichten; am PC v
 		const liste = page.getByRole('region', { name: /^Termine / });
 		await expect(liste.getByRole('link', { name: new RegExp(titel) })).toHaveAttribute('href', `/auftraege/${auftrag.id}`);
 
-		// Filter-Chip Murat → nur seine Termine, Adresse merkt es; „Alle“ hebt auf
-		await page.getByRole('group', { name: 'Filter Mitarbeiter und Kolonnen' }).getByRole('button', { name: 'Murat Öztürk' }).click();
+		// Filter Murat (eine Personenauswahl für Mitarbeiter und Kolonnen, Jamil msg 2921) → nur seine Termine,
+		// Adresse merkt es; Haken weg hebt auf
+		await personenWaehlen(page, 'Mitarbeiter und Kolonnen', ['Murat Öztürk']);
 		await expect(page).toHaveURL(new RegExp(`ma=${monteur.id}`));
 		await expect(page.locator(`.kal-balken[title*="${titel}"]`)).toBeVisible();
-		await page.getByRole('button', { name: 'Alle', exact: true }).click();
+		await page.getByRole('button', { name: /^Mitarbeiter und Kolonnen: Murat Öztürk/ }).click();
+		const wahl = page.getByRole('dialog', { name: 'Mitarbeiter und Kolonnen' });
+		await wahl.getByRole('checkbox', { name: 'Murat Öztürk', exact: true }).uncheck();
+		await wahl.getByRole('button', { name: 'Fertig' }).click();
 		await expect(page).not.toHaveURL(/ma=/);
 
 		// „Neuer Termin“ (Schnellmenü → ?neu=1) öffnet den Dialog für den gewählten Tag
