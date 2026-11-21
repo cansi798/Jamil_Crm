@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deflateSync } from 'node:zlib';
-import { dominanteFarbe, farbStil, farbTokens, kontrast, lesbareFuellung, STANDARD_FARBE } from '../../src/lib/farbe';
+import { dominanteFarbe, farbStil, farbTokens, kontrast, lesbareFuellung, primaerFuellung, STANDARD_FARBE } from '../../src/lib/farbe';
 import { farbeAusLogo } from '../../src/lib/server/logo-farbe';
 
 describe('farbTokens', () => {
@@ -74,5 +74,22 @@ describe('Akzentfarbe aus dem Logo (msg 3016)', () => {
 		expect(farbeAusLogo(png(40, 40, logo, 1))).toBe('#c3a56f');
 		expect(farbeAusLogo(png(20, 20, () => [255, 255, 255, 255]))).toBeNull();
 		expect(farbeAusLogo(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]))).toBeNull();
+	});
+});
+
+describe('primaerFuellung (Hauptknöpfe, Jamil msg 6656)', () => {
+	it('weiße Schrift mit Kontrast ≥ 4,5 : 1; zu helle Hausfarben werden abgedunkelt', () => {
+		for (const f of ['#c3a56f', '#1d4ed8', '#0e700e', '#e11d48', '#ffd400', '#7dd3fc']) {
+			const t = farbTokens(f);
+			expect(kontrast(t['--ui-primaer'], t['--ui-primaer-auf'])).toBeGreaterThanOrEqual(4.5);
+		}
+		expect(farbTokens('#c3a56f')['--ui-primaer-auf']).toBe('#ffffff');
+		expect(farbTokens('#c3a56f')['--ui-primaer']).toBe('#89734e');
+		expect(farbTokens('#1d4ed8')['--ui-primaer']).toBe('#1d4ed8');
+	});
+	it('sehr helle Farbe, die zu stark abgedunkelt werden müsste: Hausfarbe bleibt, Schrift dunkel', () => {
+		const t = primaerFuellung('#fff59d');
+		expect(t.auf).toBe('#1f1e20');
+		expect(kontrast(t.fuellung, t.auf)).toBeGreaterThanOrEqual(4.5);
 	});
 });

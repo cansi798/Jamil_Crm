@@ -114,13 +114,28 @@
 	.al-be {
 		margin: 1rem 0;
 		padding: 0.85rem 1rem;
-		border: 1px solid var(--m365-rand);
-		border-left: 6px solid #c50f1f;
-		border-radius: var(--m365-radius);
+		position: relative;
+		padding-right: 2rem;
+		border: 1px solid var(--ui-haarlinie);
+		border-radius: var(--ui-radius-karte);
+		box-shadow: var(--ui-schatten);
+		--ampel-oben: 1rem;
+		--ampel-rechts: 1rem;
 		background: var(--m365-flaeche);
 	}
-	.al-be.erreicht {
-		border-left-color: #107c10;
+	/* Status als Punkt oben rechts statt Strich links (msg 6655) */
+	.al-be::after {
+		content: '';
+		position: absolute;
+		top: var(--ampel-oben);
+		right: var(--ampel-rechts);
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: 50%;
+		background: var(--ui-rot);
+	}
+	.al-be.erreicht::after {
+		background: var(--ui-gruen);
 	}
 	.al-be h2 {
 		margin: 0;

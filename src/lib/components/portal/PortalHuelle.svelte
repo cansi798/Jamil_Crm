@@ -159,8 +159,8 @@
 		padding: 0 1.25rem;
 		border: 0;
 		border-radius: var(--ui-knopf-radius);
-		background: var(--ui-akzent);
-		color: var(--ui-akzent-auf);
+		background: var(--ui-primaer); /* Hauptknopf flach in der Hausfarbe, weiße Schrift (Jamil msg 6656) */
+		color: var(--ui-primaer-auf);
 		font: inherit;
 		font-family: var(--pt-titel);
 		font-weight: 700;
@@ -177,7 +177,7 @@
 		font-size: 0.875rem;
 	}
 	:where(.pt) :global(.pt-knopf:hover) {
-		background: var(--ui-akzent-hover);
+		background: var(--ui-primaer-hover);
 	}
 	:where(.pt) :global(.pt-knopf.hell) {
 		background: var(--ui-flaeche);

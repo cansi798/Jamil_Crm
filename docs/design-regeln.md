@@ -14,7 +14,7 @@ jede Änderung. Was hier steht, ist in gemeinsamen Bausteinen umgesetzt – **Ba
 | `--ui-akzent-hell` / `-zart` / `-rand` | Tönungen (gewählte Zeile, Hover, Rahmen) |
 | `--ui-nav`, `--ui-anthrazit-*` | Seitenleiste, Kopfleiste (inkl. Logo-Feld) und Leiste unten – alle mit `--ui-nav` im selben Anthrazit (Jamil msg 3319), `--ui-anthrazit-*` nur für Abstufungen |
 | `--ui-hintergrund`, `--ui-flaeche`, `--ui-band`, `--ui-rand` | Seite (warmes Off-White), Karten (weiß), Kopfband, Linien |
-| `--ui-gruen/-orange/-rot/-blau/-lila/-grau` (+ `-hell`) | Statusfarben (Pills, farbiger Rand in Listen) |
+| `--ui-gruen/-orange/-rot/-blau/-lila/-grau` (+ `-hell`) | Statusfarben (Pills, Status-Punkte – keine Striche links) |
 
 - **Hausfarbe je Betrieb:** Einstellungen → Briefkopf → „Hausfarbe“. Die App-Hülle leitet daraus alle
   `--ui-akzent*`-Tokens ab (`src/lib/farbe.ts`). Nie Farben fest einbauen – immer Tokens.
@@ -46,6 +46,21 @@ Portal in `portal/PortalHuelle.svelte`.
   dezente Fläche in der Hausfarbe (`--ui-akzent-hell`). Logo: Briefkopf-Logo ohne Feld; gibt es nur die helle Variante,
   zeigt die App sie per CSS-Filter dunkel (`.logo-abdunkeln`). Kundenportal: Standard-Kopf weiß (Migration 124 setzt das
   alte Standard-Anthrazit zurück, eigene Kopffarben bleiben).
+
+### 1b. Kacheln, Knöpfe, Plus (Jamil msgs 6655/6656, 21.11.2026)
+
+- **Keine farbigen Striche links** an Kacheln, Karten, Hinweisen oder Listenzeilen („altmodisch“). Status-Farbe nur
+  als kleiner Punkt oben rechts (`.ui-kachel-punkt` / `AmpelPunkt`, gleiche Größe und Stelle) oder als Status-Pille;
+  Hinweise = getönte Fläche mit feiner Linie rundum (`.ui-hinweis` bzw. `color-mix(… 28 %)`).
+- **Kachel = `.ui-kachel`** (stil/apple.css): weiß, 1-px-Haarlinie, weicher Schatten, 14 px Radius, Zahl
+  `.ui-kachel-wert` (groß, halbfett), Bezeichnung `.ui-kachel-titel` (grau), Ton über `.ui-ton-*`; `0` → `.null`
+  (grauer Punkt, Zahl bleibt gut lesbar). Kennzahl-Streifen (`KennzahlKacheln`) sehen gleich aus.
+- **Hauptknopf und schwebendes Plus** in `--ui-primaer` (Hausfarbe flach, weiße Schrift; `farbe.ts primaerFuellung`
+  dunkelt zu helle Hausfarben ab, bis 4,5 : 1 erreicht ist – Standard-Gold wird Bronze `#89734e`; extrem helle Farben
+  behalten den Ton mit dunkler Schrift). 10 px Radius, 40 px (Touch 44 px), mittleres Gewicht. Einträge im
+  Schnellzugriff: heller Knopf mit Symbol in der Hausfarbe.
+- **„+“ nie als Text:** `<Knopf symbol="plus">` bzw. in Altbestand `<Plus />` (`ui/Plus.svelte`, unsichtbares „+ “
+  für Screenreader/Tests).
 
 ## 2. Knöpfe – EIN System
 

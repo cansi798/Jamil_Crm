@@ -174,16 +174,17 @@
 		height: 3.25rem;
 		padding: 0;
 		/* Jamil msg 3107: weißer Rand dünner */
-		border: 1.5px solid var(--ui-flaeche);
+		/* Hausfarbe wie die Hauptknöpfe, weißes Plus (Jamil msg 6655: nicht Anthrazit) */
+		border: 0;
 		border-radius: 50%;
-		background: var(--ui-anthrazit-800);
-		color: var(--ui-akzent);
-		box-shadow: 0 6px 18px rgba(31, 30, 32, 0.35);
+		background: var(--ui-primaer);
+		color: var(--ui-primaer-auf);
+		box-shadow: 0 8px 24px rgba(31, 30, 32, 0.18), 0 2px 6px rgba(31, 30, 32, 0.12);
 		cursor: pointer;
 		transition: transform 150ms, background 150ms;
 	}
 	.sz-haupt:hover {
-		background: var(--ui-anthrazit-900);
+		background: var(--ui-primaer-hover);
 		transform: translateY(-1px);
 	}
 	.sz-haupt:focus-visible,
@@ -260,15 +261,16 @@
 		justify-content: center;
 		width: 2.75rem;
 		height: 2.75rem;
-		border: 1px solid var(--ui-flaeche);
+		/* Einträge: heller Knopf mit Symbol in der Hausfarbe */
+		border: 1px solid var(--ui-haarlinie);
 		border-radius: 50%;
-		background: var(--ui-anthrazit-800);
-		color: var(--ui-akzent);
-		box-shadow: 0 4px 12px rgba(31, 30, 32, 0.3);
+		background: var(--ui-flaeche);
+		color: var(--ui-akzent-text);
+		box-shadow: 0 4px 14px rgba(31, 30, 32, 0.12);
 		transition: background 150ms;
 	}
 	.sz-eintrag:hover .sz-rund {
-		background: var(--ui-anthrazit-900);
+		background: var(--ui-akzent-hell);
 	}
 	.sz-eintrag:hover .sz-text {
 		background: var(--ui-akzent-hell);

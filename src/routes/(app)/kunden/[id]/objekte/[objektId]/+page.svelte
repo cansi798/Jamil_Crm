@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import type { ActionData, PageData } from './$types';
 	import ObjektFormular from '$lib/components/ObjektFormular.svelte';
 	import AnlageFormular from '$lib/components/AnlageFormular.svelte';
@@ -66,7 +67,7 @@
 		{/if}
 		{#if data.darfBearbeiten}
 			<details class="an-neu" open={!!form?.anlageWerte}>
-				<summary class="kd-knopf hell">+ Anlage</summary>
+				<summary class="kd-knopf hell"><Plus />Anlage</summary>
 				<AnlageFormular aktion="?/anlageAnlegen" werte={form?.anlageWerte ?? {}} fehler={form?.anlageWerte ? (form?.fehler ?? null) : null} knopf="Anlage anlegen" />
 			</details>
 		{/if}

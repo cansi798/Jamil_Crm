@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import type { Snippet } from 'svelte';
 	import { enhance } from '$app/forms';
 	import SeitenKopf from '$lib/components/ui/SeitenKopf.svelte';
@@ -30,10 +31,10 @@
 	{#snippet aktionen()}
 		{#if weitere}{@render weitere()}{/if}
 		{#if neu && 'href' in neu}
-			<a href={neu.href} class="kd-knopf" data-testid="vorlage-neu">+ Neue Vorlage</a>
+			<a href={neu.href} class="kd-knopf" data-testid="vorlage-neu"><Plus />Neue Vorlage</a>
 		{:else if neu}
 			<form method="POST" action={neu.aktion} use:enhance>
-				<button type="submit" class="kd-knopf" data-testid="vorlage-neu">+ Neue Vorlage</button>
+				<button type="submit" class="kd-knopf" data-testid="vorlage-neu"><Plus />Neue Vorlage</button>
 			</form>
 		{/if}
 	{/snippet}

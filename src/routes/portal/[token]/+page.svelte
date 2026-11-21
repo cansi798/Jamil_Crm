@@ -367,8 +367,7 @@
 		gap: 0.15rem;
 		min-width: 0;
 		padding: 0.55rem 0.6rem;
-		border: 1px solid var(--ui-haarlinie);
-		border-top: 3px solid var(--ui-akzent);
+		border: 1px solid var(--ui-haarlinie); /* ohne Akzentstrich oben (msg 6655) */
 		border-radius: var(--ui-radius-karte);
 		background: var(--ui-flaeche);
 		box-shadow: var(--ui-schatten);
@@ -389,7 +388,7 @@
 		background: var(--ui-akzent-hell);
 	}
 	.pt-kachel.ok {
-		border-top-color: var(--ui-gruen);
+		border-color: color-mix(in srgb, var(--ui-gruen) 35%, transparent);
 	}
 	.pt-kachel .pt-eyebrow {
 		font-size: 0.5625rem;
@@ -558,8 +557,8 @@
 	}
 	.pt-hinweis {
 		padding: 0.75rem 0.9rem;
-		border-left: 3px solid var(--ui-akzent);
-		border-radius: 8px;
+		border: 1px solid var(--ui-akzent-rand, #e4d7be);
+		border-radius: 12px;
 		background: var(--ui-akzent-zart, #faf7f0);
 	}
 	.pt-hinweis-text {

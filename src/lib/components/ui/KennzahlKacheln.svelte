@@ -7,7 +7,7 @@
 		info?: string | null;
 		/** Klick filtert die Liste (Link mit Filter in der Adresse) */
 		href?: string | null;
-		/** Farbe des Randes (Status) */
+		/** Status-Farbe: kleiner Punkt oben rechts (früher farbiger Rand links, Jamil msg 6655) */
 		ton?: 'gruen' | 'orange' | 'rot' | 'blau' | 'lila' | 'grau' | 'akzent' | null;
 	};
 </script>
@@ -99,13 +99,15 @@
 		{#each kacheln as k (k.id)}
 			<div class="kz-zelle" class:zahl={istZahl(k)}>
 				{#if k.href}
-					<a href={k.href} class={`kz-kachel ton-${k.ton ?? 'akzent'}`} class:aktiv={aktiv === k.id} aria-current={aktiv === k.id ? 'true' : undefined} data-sveltekit-noscroll title={k.info ? `${k.titel}: ${k.info}` : k.titel}>
+					<a href={k.href} class={`kz-kachel ui-ton-${k.ton ?? 'akzent'}`} class:aktiv={aktiv === k.id} class:null={k.wert === '0'} aria-current={aktiv === k.id ? 'true' : undefined} data-sveltekit-noscroll title={k.info ? `${k.titel}: ${k.info}` : k.titel}>
+						{#if k.ton && k.ton !== 'akzent'}<span class="ui-kachel-punkt" aria-hidden="true"></span>{/if}
 						<strong class="kz-wert">{k.wert}</strong>
 						<span class="kz-titel">{k.titel}</span>
 						{#if k.info}<span class="kz-info">{k.info}</span>{/if}
 					</a>
 				{:else}
-					<div class={`kz-kachel ton-${k.ton ?? 'akzent'}`} title={k.info ? `${k.titel}: ${k.info}` : k.titel}>
+					<div class={`kz-kachel ui-ton-${k.ton ?? 'akzent'}`} class:null={k.wert === '0'} title={k.info ? `${k.titel}: ${k.info}` : k.titel}>
+						{#if k.ton && k.ton !== 'akzent'}<span class="ui-kachel-punkt" aria-hidden="true"></span>{/if}
 						<strong class="kz-wert">{k.wert}</strong>
 						<span class="kz-titel">{k.titel}</span>
 						{#if k.info}<span class="kz-info">{k.info}</span>{/if}
@@ -246,19 +248,24 @@
 		align-items: center;
 		align-content: center; /* neben höheren Kacheln (umbrochener Titel) bleibt der Inhalt kompakt in der Mitte */
 		column-gap: 0.55rem;
+		position: relative;
 		height: 100%;
 		min-width: 0;
-		padding: 0.4rem 0.6rem;
-		border: 1px solid var(--ui-rand);
-		border-left: 3px solid var(--kz-ton);
-		border-radius: var(--ui-radius);
+		/* Aussehen wie die gemeinsame .ui-kachel (stil/apple.css): weiß, Haarlinie, weicher Schatten, Punkt oben rechts */
+		padding: 0.6rem 1.5rem 0.6rem 0.8rem;
+		border: 1px solid var(--ui-haarlinie);
+		border-radius: var(--ui-radius-karte);
 		background: var(--ui-flaeche);
+		box-shadow: var(--ui-schatten);
 		color: var(--ui-text);
 		text-decoration: none;
 		transition: box-shadow 150ms, border-color 150ms;
+		--ampel-oben: 0.7rem;
+		--ampel-rechts: 0.7rem;
 	}
 	a.kz-kachel:hover {
-		box-shadow: var(--ui-schatten-hoch);
+		border-color: var(--ui-haarlinie-stark);
+		box-shadow: 0 1px 2px rgba(45, 44, 46, 0.05), 0 8px 24px rgba(45, 44, 46, 0.08);
 	}
 	a.kz-kachel:focus-visible {
 		outline: none;
@@ -271,9 +278,10 @@
 	}
 	.kz-wert {
 		grid-row: 1 / span 2;
-		font-family: var(--ui-schrift-titel);
+		font-family: var(--m365-schrift);
 		font-size: 1.375rem;
-		font-weight: 800;
+		font-weight: 600;
+		letter-spacing: -0.02em;
 		line-height: 1.1;
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
@@ -289,9 +297,9 @@
 	}
 
 	.kz-titel {
-		color: var(--ui-text);
-		font-size: var(--ui-schrift-xs);
-		font-weight: 700;
+		color: var(--ui-text-leise);
+		font-size: 0.8125rem;
+		font-weight: 500;
 	}
 	.kz-info {
 		color: var(--ui-text-leise);
@@ -300,13 +308,6 @@
 	.kz-titel:last-child {
 		grid-row: 1 / span 2;
 	}
-	.ton-akzent { --kz-ton: var(--ui-akzent); }
-	.ton-gruen { --kz-ton: var(--ui-gruen); }
-	.ton-orange { --kz-ton: var(--ui-orange); }
-	.ton-rot { --kz-ton: var(--ui-rot); }
-	.ton-blau { --kz-ton: var(--ui-blau); }
-	.ton-lila { --kz-ton: var(--ui-lila); }
-	.ton-grau { --kz-ton: var(--ui-grau); }
 	/* Handy: Zählkacheln zu dritt, Wertkacheln zu zweit; Zahl über dem Titel */
 	@media (max-width: 40rem) {
 		.kz-reihe {
@@ -321,7 +322,7 @@
 		}
 		.kz-kachel {
 			grid-template-columns: minmax(0, 1fr);
-			padding: 0.35rem 0.5rem;
+			padding: 0.5rem 1.4rem 0.5rem 0.65rem;
 		}
 		.kz-wert {
 			grid-row: auto;

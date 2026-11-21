@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	/**
 	 * Schritt-für-Schritt-Assistent eines Protokolls (Monteur, Handy zuerst) – auch die Live-Vorschau im Baukasten.
@@ -104,7 +105,7 @@
 			{#if a.wdh && a.wdh.nr === a.wdh.anzahl && !gesperrt}
 				{@const w = a.wdh}
 				<div class="pa-wdh">
-					<button type="button" class="kd-knopf hell" onclick={() => onwert(anzahlSchluessel(w.basis), w.anzahl + 1)}>+ {w.name}</button>
+					<button type="button" class="kd-knopf hell" onclick={() => onwert(anzahlSchluessel(w.basis), w.anzahl + 1)}><Plus />{w.name}</button>
 					{#if w.anzahl > 1}
 						<button
 							type="button"

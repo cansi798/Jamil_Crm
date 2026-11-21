@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { page } from '$app/state';
 	import MailAnKunde from '$lib/components/MailAnKunde.svelte';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
@@ -526,8 +527,8 @@
 
 	{#if entwurf}
 		<div class="an-hinzu">
-			<button type="button" class="kd-knopf hell" onclick={() => (katalogOffen = !katalogOffen)} aria-expanded={katalogOffen}>+ Aus Katalog</button>
-			<button type="button" class="kd-knopf hell" onclick={freiePosition}>+ Freie Position</button>
+			<button type="button" class="kd-knopf hell" onclick={() => (katalogOffen = !katalogOffen)} aria-expanded={katalogOffen}><Plus />Aus Katalog</button>
+			<button type="button" class="kd-knopf hell" onclick={freiePosition}><Plus />Freie Position</button>
 			{#if data.vorlagen.length > 0}
 				<button type="button" class="kd-knopf hell" onclick={() => (vorlageOffen = !vorlageOffen)} aria-expanded={vorlageOffen}>
 					+ Aus Vorlage
@@ -759,9 +760,9 @@
 	.an-ampel {
 		margin: 1rem 0;
 		padding: 0.75rem 1rem;
-		border: 1px solid var(--m365-rand);
-		border-left: 6px solid var(--ampel, var(--m365-rand-stark));
-		border-radius: var(--m365-radius);
+		border: 1px solid color-mix(in srgb, var(--ampel, var(--ui-grau)) 30%, transparent);
+		border-radius: var(--ui-radius-karte);
+		background: color-mix(in srgb, var(--ampel, var(--ui-grau)) 6%, var(--ui-flaeche));
 		background: var(--m365-flaeche);
 	}
 	.ampel-gruen {

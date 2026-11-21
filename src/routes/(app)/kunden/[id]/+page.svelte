@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import { STATUS_NAMEN } from '$lib/auftrag-status';
@@ -92,7 +93,7 @@
 				<LoeschenKnopf ding="Kunde" bind:offen={loeschenOffen} />
 			{/if}
 			{#if data.auftraege && data.darfAuftragAnlegen}
-				<a href={`/auftraege/neu?kunde=${k.id}`} class="kd-knopf">+ Auftrag</a>
+				<a href={`/auftraege/neu?kunde=${k.id}`} class="kd-knopf"><Plus />Auftrag</a>
 			{/if}
 		</div>
 	</header>
@@ -141,7 +142,7 @@
 	<Abschnitt titel="Objekte" anzahl={data.objekte.length}>
 		{#snippet aktionen()}
 			{#if data.darfBearbeiten}
-				<a href={`/kunden/${k.id}/objekte/neu`} class="kd-knopf hell">+ Objekt</a>
+				<a href={`/kunden/${k.id}/objekte/neu`} class="kd-knopf hell"><Plus />Objekt</a>
 			{/if}
 		{/snippet}
 		<ul class="kd-liste">
@@ -490,7 +491,7 @@
 		{#snippet aktionen()}
 			{#if data.darfAngebotAnlegen}
 				<form method="POST" action="?/angebotErstellen" use:enhance>
-					<button type="submit" class="kd-knopf hell">+ Angebot ohne Auftrag</button>
+					<button type="submit" class="kd-knopf hell"><Plus />Angebot ohne Auftrag</button>
 				</form>
 			{/if}
 		{/snippet}

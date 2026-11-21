@@ -51,7 +51,26 @@ export type FarbTokens = {
 	'--ui-akzent-zart': string;
 	'--ui-akzent-rand': string;
 	'--ui-fokus-ring': string;
+	'--ui-primaer': string;
+	'--ui-primaer-hover': string;
+	'--ui-primaer-auf': string;
 };
+
+/**
+ * Füllung der Hauptknöpfe und des schwebenden Plus (Jamil msgs 6655/6656, 21.11.2026: flach in der Hausfarbe mit
+ * weißer Schrift statt Gold mit dunkler Schrift). Weiß muss WCAG AA (≥ 4,5 : 1) erreichen – sonst wird die Hausfarbe
+ * schrittweise abgedunkelt. Bräuchte das mehr als 45 % Schwarz (sehr helle Farben wie Gelb würden schlammig), bleibt die
+ * Hausfarbe und die Schrift wird dunkel (ebenfalls ≥ 4,5 : 1, siehe `lesbareFuellung`).
+ */
+export function primaerFuellung(hex: string): { fuellung: string; auf: string } {
+	if (kontrast(hex, WEISS) >= 4.5) return { fuellung: hex, auf: WEISS };
+	const rgb = zuRgb(hex);
+	for (let i = 1; i <= 9; i++) {
+		const f = zuHex(mische(rgb, SCHWARZ, i * 0.05));
+		if (kontrast(f, WEISS) >= 4.5) return { fuellung: f, auf: WEISS };
+	}
+	return lesbareFuellung(hex);
+}
 
 /**
  * Füllfarbe lesbar machen (msg 3016): Text auf der Füllung (dunkel oder weiß, das Bessere) muss WCAG AA erreichen
@@ -109,6 +128,7 @@ export function farbTokens(farbe: string | null | undefined): FarbTokens {
 	let text = hex;
 	for (let i = 1; i <= 20 && kontrast(text, WEISS) < 4.6; i++) text = zuHex(mische(rgb, SCHWARZ, i * 0.05));
 	const hover = zuHex(mische(rgb, SCHWARZ, 0.1));
+	const primaer = primaerFuellung(hex);
 	const [r, g, b] = rgb;
 	return {
 		'--ui-akzent': hex,
@@ -118,7 +138,10 @@ export function farbTokens(farbe: string | null | undefined): FarbTokens {
 		'--ui-akzent-hell': zuHex(mische(rgb, WEISS_RGB, 0.84)),
 		'--ui-akzent-zart': zuHex(mische(rgb, WEISS_RGB, 0.93)),
 		'--ui-akzent-rand': zuHex(mische(rgb, WEISS_RGB, 0.55)),
-		'--ui-fokus-ring': `0 0 0 3px rgba(${r}, ${g}, ${b}, 0.35)`
+		'--ui-fokus-ring': `0 0 0 3px rgba(${r}, ${g}, ${b}, 0.35)`,
+		'--ui-primaer': primaer.fuellung,
+		'--ui-primaer-hover': zuHex(mische(zuRgb(primaer.fuellung), SCHWARZ, 0.1)),
+		'--ui-primaer-auf': primaer.auf
 	};
 }
 

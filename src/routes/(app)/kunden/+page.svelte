@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import KennzahlKacheln, { type Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import { mitEinstellungen } from '$lib/kennzahlen';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
@@ -53,7 +54,7 @@
 	<header class="seiten-kopf">
 		<h1>Kunden</h1>
 		{#if data.darfBearbeiten}
-			<div class="seiten-aktionen"><a href="/kunden/neu" class="kd-knopf">+ Kunde</a></div>
+			<div class="seiten-aktionen"><a href="/kunden/neu" class="kd-knopf"><Plus />Kunde</a></div>
 		{/if}
 	</header>
 
@@ -108,7 +109,7 @@
 		{:else}
 			<li class="kd-leer">
 				<span>{data.suche || data.kontakt ? 'Keine Kunden gefunden. Anders schreiben oder nur einen Teil des Namens suchen.' : 'Noch keine Kunden angelegt.'}</span>
-				{#if data.darfBearbeiten}<a href="/kunden/neu" class="kd-knopf hell">+ Kunde anlegen</a>{/if}
+				{#if data.darfBearbeiten}<a href="/kunden/neu" class="kd-knopf hell"><Plus />Kunde anlegen</a>{/if}
 			</li>
 		{/each}
 	</ul>

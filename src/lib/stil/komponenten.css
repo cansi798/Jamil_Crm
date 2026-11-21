@@ -533,23 +533,14 @@ html .kd-liste {
 	border-radius: var(--ui-radius-karte);
 	box-shadow: var(--ui-schatten);
 }
-/* Zeilen wie in modernen Boards: ruhig, beim Überfahren getönt, farbiger Rand links je Status */
+/* Zeilen wie in modernen Boards: ruhig, beim Überfahren getönt. Kein farbiger Rand links mehr (Jamil msg 6655:
+   „altmodisch“) – den Status zeigt die Status-Pille in der Zeile. */
 html .kd-liste > li > a {
 	transition: background 120ms, box-shadow 120ms;
 }
 html .kd-liste > li > a:hover {
 	background: var(--ui-akzent-zart);
 }
-html .kd-liste > li:has(.s-anfrage) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-grau); }
-html .kd-liste > li:has(.s-angebot) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-lila); }
-html .kd-liste > li:has(.s-beauftragt) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-blau); }
-html .kd-liste > li:has(.s-in_arbeit) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-orange); }
-html .kd-liste > li:has(.s-abgenommen) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-gruen); }
-html .kd-liste > li:has(.s-abgerechnet) > a:first-child { box-shadow: inset 4px 0 0 #5c6370; }
-html .kd-liste > li:has(.an-status.s-versendet) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-blau); }
-html .kd-liste > li:has(.an-status.s-angenommen) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-gruen); }
-html .kd-liste > li:has(.an-status.s-abgelehnt) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-rot); }
-html .kd-liste > li:has(.an-status.s-entwurf) > a:first-child { box-shadow: inset 4px 0 0 var(--ui-grau); }
 
 /* Listenzeile mit Avatar links (Kunden, Benutzer) */
 html .kd-liste a.zeile-mit-avatar {
@@ -690,14 +681,7 @@ html :is(.karte-titel, .abschnitt-titel, .kd-seite h2:not([class])) {
 	text-transform: uppercase;
 	color: var(--ui-text);
 }
-html :is(.karte-titel, .abschnitt-titel, .kd-seite h2:not([class]))::before {
-	content: '';
-	flex: none;
-	width: 4px;
-	height: 1rem;
-	border-radius: 2px;
-	background: var(--ui-akzent);
-}
+/* früher ein farbiger Strich vor dem Titel – entfernt (Jamil msg 6655, keine Akzentstriche mehr) */
 
 /* ── Überschriften: nie unterstrichen, keine Linie darunter (Jamil msg 2597) ─────────────────────────── */
 

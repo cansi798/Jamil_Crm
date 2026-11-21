@@ -405,9 +405,8 @@
 		min-height: 2.75rem;
 		margin: 0 0 0.25rem;
 		padding: 0.3rem 0.4rem;
-		border: 1px solid #9fb3cc;
-		border-left: 4px solid var(--primaer);
-		border-radius: 0.35rem;
+		border: 1px solid #b9c9dd;
+		border-radius: 8px;
 		background: #eef3fa;
 		color: var(--text);
 		font: inherit;
@@ -446,7 +445,7 @@
 		width: calc(100% + 0.3rem);
 	}
 	.pt-karte.ko {
-		border-left-color: #6b4fbb;
+		border-color: #c8bbe8;
 		background: #efeafb;
 	}
 	.pt-griff {
@@ -493,8 +492,7 @@
 		cursor: grab;
 	}
 	.pt-karte.warn {
-		border: 2px solid #d9a400;
-		border-left-width: 5px;
+		border: 1px solid #d9a400;
 		background: #fff7e0;
 	}
 	.pt-karte.gezogen {

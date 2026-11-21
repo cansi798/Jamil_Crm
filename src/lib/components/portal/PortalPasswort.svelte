@@ -85,9 +85,9 @@
 	.pp-knopf {
 		min-height: 48px;
 		border: 0;
-		border-radius: 999px;
-		background: var(--ui-akzent);
-		color: var(--ui-akzent-auf);
+		border-radius: var(--ui-knopf-radius, 10px);
+		background: var(--ui-primaer); /* wie die Hauptknöpfe (Jamil msg 6656) */
+		color: var(--ui-primaer-auf);
 		font-family: 'Montserrat', 'Inter', system-ui, sans-serif;
 		font-weight: 700;
 		font-size: 1rem;

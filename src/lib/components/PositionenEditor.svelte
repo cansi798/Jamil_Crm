@@ -153,7 +153,7 @@
 	/* KI-Vorschlag, bei dem die KI unsicher war: gelb, bis die Beschreibung angepasst ist */
 	.pe-zeile.pe-pruefen {
 		background: #fff6d6;
-		box-shadow: inset 4px 0 0 #e0b100;
+		box-shadow: inset 0 0 0 1px rgba(224, 177, 0, 0.45);
 	}
 	.pe-ki {
 		display: inline-block;

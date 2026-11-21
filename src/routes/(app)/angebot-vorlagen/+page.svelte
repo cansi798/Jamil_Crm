@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import VorlagenKopf from '$lib/components/vorlagen/VorlagenKopf.svelte';
 	import VorlagenListe from '$lib/components/vorlagen/VorlagenListe.svelte';
 	import type { PageData } from './$types';
@@ -27,6 +28,6 @@
 		neu={{ href: '/angebot-vorlagen/neu' }}
 	/>
 	<VorlagenListe {eintraege} leer="Noch keine Angebots-Vorlagen. Häufige Angebote einmal anlegen und immer wieder verwenden.">
-		{#snippet leerAktion()}<a href="/angebot-vorlagen/neu" class="kd-knopf hell">+ Erste Vorlage anlegen</a>{/snippet}
+		{#snippet leerAktion()}<a href="/angebot-vorlagen/neu" class="kd-knopf hell"><Plus />Erste Vorlage anlegen</a>{/snippet}
 	</VorlagenListe>
 </main>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import AmpelPunkt from '$lib/components/ui/AmpelPunkt.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
@@ -107,7 +108,8 @@
 		{:else}{@render leer('Zeiterfassung ist hier nicht verfügbar.')}{/if}
 	{:else if id === 'monat'}
 		{#if data.monat}
-			<a href={data.monat.link} class="heute-karte monat-kachel" class:erreicht={data.monat.erreicht} aria-label={`Diesen Monat: ${data.monat.satz} – Auslastung öffnen`}>
+			<a href={data.monat.link} class={`heute-karte monat-kachel ${data.monat.erreicht ? 'ui-ton-gruen' : 'ui-ton-rot'}`} class:erreicht={data.monat.erreicht} aria-label={`Diesen Monat: ${data.monat.satz} – Auslastung öffnen`}>
+				<span class="ui-kachel-punkt" aria-hidden="true"></span>
 				<span class="monat-titel">Diesen Monat</span>
 				<!-- Jamil msg 3083: Stand als Balken statt nur als Satz -->
 				{#if data.monat.deckungProzent !== null}
@@ -191,22 +193,22 @@
 			</div>
 			<ul class="st-kz-liste">
 				{#each data.cockpit.kennzahlen as kz (kz.id)}
-					<li class={`st-kz ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
+					<li class={`ui-kachel st-kz ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
 						{#if kz.ampel}<AmpelPunkt ampel={kz.ampel} text={kz.ampelText} />{/if}
-						<strong>{kz.fehlt ? '–' : kennzahlText(kz.info.einheit, kz.wert)}</strong>
-						<span class="st-kz-titel">{kz.info.titel}</span>
-						<small>{kz.fehlt ?? (kz.ampel ? 'Dieser Monat' : kz.info.richtwert ?? '')}{kz.seit ? ` · ${kz.seit}` : ''}</small>
+						<strong class="ui-kachel-wert">{kz.fehlt ? '–' : kennzahlText(kz.info.einheit, kz.wert)}</strong>
+						<span class="ui-kachel-titel st-kz-titel">{kz.info.titel}</span>
+						<small class="ui-kachel-info">{kz.fehlt ?? (kz.ampel ? 'Dieser Monat' : kz.info.richtwert ?? '')}{kz.seit ? ` · ${kz.seit}` : ''}</small>
 					</li>
 				{/each}
 			</ul>
 		</section>
 	{:else if id.startsWith('kz-') && kennzahl(id)}
 		{@const kz = kennzahl(id)!}
-		<a href="/auswertung/kennzahlen" class={`heute-karte st-kz einzeln ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
+		<a href="/auswertung/kennzahlen" class={`ui-kachel st-kz einzeln ampel-${kz.ampel ?? 'keine'}`} title={kz.info.formel}>
 			{#if kz.ampel}<AmpelPunkt ampel={kz.ampel} text={kz.ampelText} />{/if}
-			<strong>{kz.fehlt ? '–' : kennzahlText(kz.info.einheit, kz.wert)}</strong>
-			<span class="st-kz-titel">{kz.info.titel}</span>
-			<small>{kz.fehlt ?? 'Dieser Monat'}{kz.seit ? ` · ${kz.seit}` : ''}</small>
+			<strong class="ui-kachel-wert">{kz.fehlt ? '–' : kennzahlText(kz.info.einheit, kz.wert)}</strong>
+			<span class="ui-kachel-titel st-kz-titel">{kz.info.titel}</span>
+			<small class="ui-kachel-info">{kz.fehlt ?? 'Dieser Monat'}{kz.seit ? ` · ${kz.seit}` : ''}</small>
 		</a>
 	{:else if id === 'handlung' && data.cockpit}
 		<section class="heute-karte" aria-labelledby="st-hb">
@@ -214,18 +216,20 @@
 			<ul class="st-handlung">
 				{#each data.cockpit.handlung as h (h.id)}
 					<li>
-						<a href={h.href} class={`st-h ton-${h.ton}`} class:null={h.anzahl === 0}>
-							<strong>{h.anzahl}</strong><span>{h.titel}</span>
+						<a href={h.href} class={`ui-kachel st-h ui-ton-${h.ton}`} class:null={h.anzahl === 0}>
+							<span class="ui-kachel-punkt" aria-hidden="true"></span>
+							<strong class="ui-kachel-wert">{h.anzahl}</strong><span class="ui-kachel-titel">{h.titel}</span>
 						</a>
 					</li>
 				{/each}
 			</ul>
 		</section>
 	{:else if id === 'nachfassen' && nachfassen}
-		<a href={nachfassen.href} class="heute-karte st-kz einzeln ampel-{nachfassen.anzahl > 0 ? 'rot' : 'gruen'}">
-			<strong>{nachfassen.anzahl}</strong>
-			<span class="st-kz-titel">Nachfassen fällig</span>
-			<small>{nachfassen.anzahl > 0 ? 'Aufträge ansehen' : 'Alles erledigt'}</small>
+		<a href={nachfassen.href} class="ui-kachel st-kz einzeln ui-ton-{nachfassen.anzahl > 0 ? 'rot' : 'gruen'}" class:null={nachfassen.anzahl === 0}>
+			<span class="ui-kachel-punkt" aria-hidden="true"></span>
+			<strong class="ui-kachel-wert">{nachfassen.anzahl}</strong>
+			<span class="ui-kachel-titel st-kz-titel">Nachfassen fällig</span>
+			<small class="ui-kachel-info">{nachfassen.anzahl > 0 ? 'Aufträge ansehen' : 'Alles erledigt'}</small>
 		</a>
 	{:else if id === 'auslastung' && data.cockpit}
 		<section class="heute-karte" aria-labelledby="st-al">
@@ -354,7 +358,7 @@
 			<p class="kd-info">Ziehen am Griff <span aria-hidden="true">⠿</span> oder mit ↑ ↓ verschieben, Größe S/M/L/Breit und Höhe wählen. Gilt für Sie auf allen Geräten.</p>
 			{#if form?.layoutFehler}<p role="alert" class="kd-fehler">{form.layoutFehler}</p>{/if}
 			<div class="st-leiste-knoepfe">
-				<button type="button" class="knopf-ghost" aria-expanded={katalogOffen} onclick={() => (katalogOffen = !katalogOffen)}>+ Kachel hinzufügen</button>
+				<button type="button" class="knopf-ghost" aria-expanded={katalogOffen} onclick={() => (katalogOffen = !katalogOffen)}><Plus />Kachel hinzufügen</button>
 				<form method="POST" action="?/standard" use:enhance={() => async ({ result, update }) => { await update(); if (result.type === 'success') abbrechen(); }}>
 					<button type="submit" class="knopf-ghost">Standard wiederherstellen</button>
 				</form>
@@ -592,88 +596,22 @@
 		font-family: var(--ui-schrift-titel);
 		font-size: 1.375rem;
 	}
+	/* Kennzahl- und Handlungsbedarf-Kacheln: Aussehen aus der gemeinsamen .ui-kachel (stil/apple.css, msg 6655) */
 	.st-kz.einzeln {
-		display: grid;
 		align-content: center;
-		gap: 0.05rem;
-		color: var(--ui-text);
-		text-decoration: none;
 	}
-	.st-kz.einzeln strong {
-		font-size: 1.375rem;
-	}
-	.st-kz-liste {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
-		gap: 0.5rem;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-	.st-kz {
-		position: relative; /* Ampel-Punkt immer oben rechts (msg 3093) */
-		display: grid;
-		gap: 0.05rem;
-		padding: 0.45rem 1.5rem 0.45rem 0.6rem;
-		border: 1px solid var(--ui-rand);
-		border-left: 4px solid var(--ui-grau);
-		border-radius: var(--ui-radius);
-	}
-	.st-kz.ampel-gruen { border-left-color: var(--ui-gruen); }
-	.st-kz.ampel-gelb { border-left-color: var(--ui-orange); }
-	.st-kz.ampel-rot { border-left-color: var(--ui-rot); }
-	.st-kz-titel {
-		color: var(--ui-text-leise);
-		font-size: var(--ui-schrift-xs);
-		font-weight: 600;
-	}
-	.st-kz strong {
-		font-family: var(--ui-schrift-titel);
-		font-size: 1.2rem;
-		line-height: 1.15;
-	}
-	.st-kz small {
-		color: var(--ui-text-leise);
-		font-size: 0.6875rem;
-		line-height: 1.3;
-	}
+	.st-kz-liste,
 	.st-handlung {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr));
-		gap: 0.5rem;
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+		gap: 0.6rem;
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
-	.st-h {
+	.st-handlung li {
 		display: grid;
-		gap: 0.05rem;
-		padding: 0.4rem 0.6rem;
-		border-radius: var(--ui-radius);
-		background: var(--ui-band);
-		border-left: 4px solid var(--st-ton);
-		color: var(--ui-text);
-		text-decoration: none;
 	}
-	.st-h:hover {
-		background: var(--ui-akzent-zart);
-	}
-	.st-h strong {
-		font-family: var(--ui-schrift-titel);
-		font-size: 1.2rem;
-		line-height: 1.15;
-	}
-	.st-h span {
-		font-size: var(--ui-schrift-s);
-		color: var(--ui-text-leise);
-	}
-	.st-h.null {
-		opacity: 0.55;
-	}
-	.ton-rot { --st-ton: var(--ui-rot); }
-	.ton-orange { --st-ton: var(--ui-orange); }
-	.ton-blau { --st-ton: var(--ui-blau); }
-	.ton-grau { --st-ton: var(--ui-grau); }
 	.st-balken {
 		display: grid;
 		gap: 0.4rem;
@@ -719,12 +657,12 @@
 		display: grid;
 		align-content: start;
 		gap: 0.2rem;
+		position: relative;
+		padding-right: 1.75rem;
 		color: inherit;
 		text-decoration: none;
-		border-left: 6px solid var(--m365-fehler);
-	}
-	.monat-kachel.erreicht {
-		border-left-color: #107c10;
+		--ampel-oben: 0.95rem;
+		--ampel-rechts: 0.9rem;
 	}
 	.monat-kachel:hover .monat-satz,
 	.monat-kachel:focus-visible .monat-satz {
@@ -842,7 +780,8 @@
 	/* Einsätze als Karte */
 	.heute-karte {
 		background: var(--m365-flaeche);
-		border-radius: var(--m365-radius-karte);
+		border: 1px solid var(--ui-haarlinie);
+		border-radius: var(--ui-radius-karte);
 		box-shadow: var(--m365-schatten);
 		padding: 0.8rem 1rem;
 		margin-bottom: 0;

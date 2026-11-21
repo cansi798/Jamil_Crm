@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import { enhance } from '$app/forms';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -76,7 +77,7 @@
 				</li>
 			{/each}
 		</ol>
-		<button type="button" class="kd-knopf hell" onclick={() => todos.push(leer())}>+ Aufgabe hinzufügen</button>
+		<button type="button" class="kd-knopf hell" onclick={() => todos.push(leer())}><Plus />Aufgabe hinzufügen</button>
 	</Abschnitt>
 
 	<FormFuss>

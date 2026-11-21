@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { mitEinstellungen } from '$lib/kennzahlen';
 	import type { Kachel } from '$lib/components/ui/KennzahlKacheln.svelte';
 	import BelegSeite, { type BelegZeile } from '$lib/components/ausgangsbelege/BelegSeite.svelte';
@@ -63,7 +64,7 @@
 	{#snippet aktionen()}
 		{#if data.darfOhneAuftrag}
 			<form method="POST" action="?/neu" use:enhance class="seiten-aktionen">
-				<button type="submit" class="kd-knopf" aria-label="+ Angebot ohne Auftrag">+ Angebot</button>
+				<button type="submit" class="kd-knopf" aria-label="+ Angebot ohne Auftrag"><Plus />Angebot</button>
 			</form>
 		{/if}
 	{/snippet}

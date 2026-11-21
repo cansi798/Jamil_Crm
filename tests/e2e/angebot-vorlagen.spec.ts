@@ -77,7 +77,7 @@ test('Angebots-Vorlage anlegen, beim Erstellen wählen und im Entwurf einfügen'
 		await expect(page.getByLabel('Einzelpreis Position 10')).toHaveValue('25,00');
 		// danach normal änderbar
 		await page.getByLabel('Menge Position 10').fill('2');
-		await page.getByRole('button', { name: 'Speichern' }).click();
+		await page.getByRole('button', { name: 'Speichern', exact: true }).click();
 		await expect(page.getByRole('status').filter({ hasText: 'Gespeichert.' })).toBeVisible();
 		const gespeichert = await api(page, 'GET', `/api/angebote/${angebotId}`);
 		expect(gespeichert.positionen[9]).toMatchObject({ bezeichnung: 'Kleinmaterial', menge: 2, einzelpreisCent: 2500 });

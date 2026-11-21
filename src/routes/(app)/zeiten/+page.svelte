@@ -369,16 +369,28 @@
 		display: grid;
 		gap: var(--ui-a1);
 		padding: var(--ui-a3);
-		border: 1px solid var(--ui-rand);
-		border-left: 4px solid var(--ui-gruen);
-		border-radius: var(--ui-radius);
+		position: relative;
+		padding-right: 1.75rem;
+		border: 1px solid var(--ui-haarlinie);
+		border-radius: var(--ui-radius-karte);
 		background: var(--ui-flaeche);
 	}
-	.zt-e.pause {
-		border-left-color: var(--ui-orange);
+	/* Art als kleiner Punkt oben rechts statt Strich links (msg 6655): Arbeit grün, Pause orange, Fahrt blau */
+	.zt-e::after {
+		content: '';
+		position: absolute;
+		top: 0.95rem;
+		right: 0.9rem;
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: 50%;
+		background: var(--ui-gruen);
 	}
-	.zt-e.fahrt {
-		border-left-color: var(--ui-blau);
+	.zt-e.pause::after {
+		background: var(--ui-orange);
+	}
+	.zt-e.fahrt::after {
+		background: var(--ui-blau);
 	}
 	.zt-e-kopf {
 		display: flex;

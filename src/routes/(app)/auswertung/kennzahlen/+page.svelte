@@ -104,21 +104,12 @@
 		align-content: start;
 		gap: 0.4rem;
 		padding: var(--ui-a3);
-		border: 1px solid var(--ui-rand);
-		border-top: 4px solid var(--ui-grau);
+		border: 1px solid var(--ui-haarlinie);
 		border-radius: var(--ui-radius-karte);
 		background: var(--ui-flaeche);
+		box-shadow: var(--ui-schatten); /* keine farbigen Striche mehr – die Ampel zeigt der Punkt oben rechts (msg 6655) */
 		min-width: 0;
 		position: relative; /* Ampel-Punkt immer oben rechts (msg 3093) */
-	}
-	.kzc-karte.ampel-gruen {
-		border-top-color: var(--ui-gruen);
-	}
-	.kzc-karte.ampel-gelb {
-		border-top-color: var(--ui-orange);
-	}
-	.kzc-karte.ampel-rot {
-		border-top-color: var(--ui-rot);
 	}
 	.kzc-kopf {
 		display: flex;

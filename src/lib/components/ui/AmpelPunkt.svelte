@@ -16,8 +16,8 @@
 		position: absolute;
 		top: var(--ampel-oben, 0.7rem);
 		right: var(--ampel-rechts, 0.7rem);
-		width: 0.75rem;
-		height: 0.75rem;
+		width: 0.625rem; /* gleich wie .ui-kachel-punkt (stil/apple.css) */
+		height: 0.625rem;
 		border-radius: 50%;
 		background: var(--ui-grau);
 		box-shadow: 0 0 0 2px var(--ui-flaeche);

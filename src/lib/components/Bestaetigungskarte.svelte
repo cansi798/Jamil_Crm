@@ -509,16 +509,16 @@
 	.bk-warnungen {
 		margin: 0;
 		padding: 0.6rem 0.75rem 0.6rem 1.75rem;
-		border-left: 4px solid var(--ui-orange);
-		border-radius: var(--ui-radius);
+		border: 1px solid color-mix(in srgb, var(--ui-orange) 28%, transparent);
+		border-radius: 12px;
 		background: var(--ui-orange-hell);
 		color: #5c3d0c;
 	}
 	.bk-fehler {
 		margin: 0;
 		padding: 0.6rem 0.75rem;
-		border-left: 4px solid var(--ui-gefahr);
-		border-radius: var(--ui-radius);
+		border: 1px solid color-mix(in srgb, var(--ui-gefahr) 28%, transparent);
+		border-radius: 12px;
 		background: var(--ui-gefahr-hell);
 		color: var(--ui-gefahr);
 		font-weight: 600;

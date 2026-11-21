@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import Segmente from '$lib/components/ui/Segmente.svelte';
@@ -101,7 +102,7 @@
 								<span class="kd-info">nicht buchbar</span>
 							{/each}
 						</div>
-						<button type="button" class="knopf-subtil klein" onclick={() => zeiten.push({ wochentag: wt, von: '08:00', bis: '12:00' })} aria-label={`${name}: Zeit hinzufügen`}>+ Zeit</button>
+						<button type="button" class="knopf-subtil klein" onclick={() => zeiten.push({ wochentag: wt, von: '08:00', bis: '12:00' })} aria-label={`${name}: Zeit hinzufügen`}><Plus />Zeit</button>
 					</div>
 				{/each}
 				{#if fehlerIn('zeiten')}<p class="kd-fehler" role="alert">{fehlerIn('zeiten')}</p>{:else if form && form.bereich === 'zeiten' && 'gespeichert' in form && !geaendert}<p class="oz-ok" role="status">Gespeichert.</p>{/if}

@@ -465,16 +465,17 @@
 		display: grid;
 		gap: 0.5rem;
 		padding: 0.8rem 0.9rem;
-		border: 1px solid var(--ui-rand, #e2ddd3);
-		border-left: 4px solid var(--ui-rand-stark, #c9c4ba);
+		position: relative;
+		border: 1px solid var(--ui-haarlinie, #e2ddd3);
 		border-radius: var(--ui-radius-karte, 12px);
 		background: var(--ui-flaeche, #fff);
 	}
+	/* Stand als Rahmenton statt Strich links (msg 6655) */
 	.lf-schritt.erledigt {
-		border-left-color: var(--ui-gruen, #0e700e);
+		border-color: color-mix(in srgb, var(--ui-gruen, #0e700e) 35%, transparent);
 	}
 	.lf-schritt.pflicht-offen {
-		border-left-color: #c48a00;
+		border-color: color-mix(in srgb, #c48a00 45%, transparent);
 	}
 	.lf-schritt-kopf {
 		display: grid;

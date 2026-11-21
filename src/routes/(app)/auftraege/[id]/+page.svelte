@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -240,7 +241,7 @@
 							{#if data.darfBearbeiten}<button type="button" class="knopf-ghost klein" aria-label="Beschreibung bearbeiten" onclick={() => (beschreibungBearbeiten = true)}>Bearbeiten</button>{/if}
 						</div>
 					{:else if data.darfBearbeiten}
-						<button type="button" class="knopf-ghost" onclick={() => (beschreibungBearbeiten = true)}>+ Beschreibung</button>
+						<button type="button" class="knopf-ghost" onclick={() => (beschreibungBearbeiten = true)}><Plus />Beschreibung</button>
 					{:else}
 						<p class="kd-info af-beschreibung-text">Keine Beschreibung.</p>
 					{/if}
@@ -1079,13 +1080,11 @@
 	.af-beschreibung {
 		margin-bottom: 1rem;
 		padding: 0.75rem 1rem;
-		border: 1px solid var(--ui-rand);
-		border-left: 4px solid var(--ui-akzent);
+		border: 1px solid var(--ui-haarlinie);
 		border-radius: var(--ui-radius-karte);
 		background: var(--ui-flaeche);
 	}
 	.af-beschreibung.leer {
-		border-left-color: var(--ui-rand-stark);
 		padding: 0.4rem 0.6rem;
 	}
 	.af-beschreibung-text {
@@ -1253,8 +1252,8 @@
 	.af-hinweise {
 		margin: 1rem 0 0;
 		padding: 0.75rem 1rem;
-		border-left: 4px solid var(--ui-orange);
-		border-radius: var(--ui-radius);
+		border: 1px solid color-mix(in srgb, var(--ui-orange) 28%, transparent);
+		border-radius: 12px;
 		background: var(--ui-orange-hell);
 	}
 	.af-hinweise ul {

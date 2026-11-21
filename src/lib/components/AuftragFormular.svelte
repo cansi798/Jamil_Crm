@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
@@ -294,10 +295,10 @@
 					</div>
 				</div>
 			{/each}
-			<button type="button" onclick={todoHinzufuegen} class="kd-knopf hell af-todo-hinzufuegen">+ Aufgabe hinzufügen</button>
+			<button type="button" onclick={todoHinzufuegen} class="kd-knopf hell af-todo-hinzufuegen"><Plus />Aufgabe hinzufügen</button>
 		</div>
 	{:else if todosGeladen}
-		<button type="button" onclick={todoHinzufuegen} class="kd-knopf hell af-todo-hinzufuegen">+ Aufgabe hinzufügen</button>
+		<button type="button" onclick={todoHinzufuegen} class="kd-knopf hell af-todo-hinzufuegen"><Plus />Aufgabe hinzufügen</button>
 	{/if}
 
 	<FormFuss>

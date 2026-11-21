@@ -176,9 +176,8 @@
 	.testmodus {
 		margin: 0;
 		padding: 0.75rem 0.9rem;
-		border: none;
-		border-left: 4px solid var(--m365-warnung);
-		border-radius: var(--m365-radius);
+		border: 1px solid color-mix(in srgb, var(--m365-warnung) 35%, transparent);
+		border-radius: 12px;
 		background: var(--m365-warnung-hell);
 		font-size: 0.8125rem;
 		line-height: 1.5;

@@ -264,7 +264,8 @@
 	gap: 0.75rem;
 }
 .kd-verlauf li {
-	border-left: 3px solid var(--m365-rand);
+	/* ruhige Zeitleiste: feine graue Linie statt Strich je Eintrag (msg 6655) */
+	border-left: 1px solid var(--ui-haarlinie-stark);
 	padding-left: 0.75rem;
 	font-size: 0.875rem;
 }

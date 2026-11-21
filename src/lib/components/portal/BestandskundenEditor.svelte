@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import InfoFeld from '$lib/components/ui/InfoFeld.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	/**
@@ -128,7 +129,7 @@
 						{/each}
 					</ol>
 					<div>
-						<button type="button" class="kd-knopf hell" disabled={leistungen.length >= G.leistungen} onclick={neueLeistung}>+ Leistung hinzufügen</button>
+						<button type="button" class="kd-knopf hell" disabled={leistungen.length >= G.leistungen} onclick={neueLeistung}><Plus />Leistung hinzufügen</button>
 						{#if leistungen.length >= G.leistungen}<span class="kd-info"> Höchstens {G.leistungen} Leistungen.</span>{/if}
 					</div>
 				</Abschnitt>
@@ -156,7 +157,7 @@
 						{/each}
 					</ol>
 					<div>
-						<button type="button" class="kd-knopf hell" disabled={knoepfe.length >= G.knoepfe} onclick={neuerKnopf}>+ Knopf hinzufügen</button>
+						<button type="button" class="kd-knopf hell" disabled={knoepfe.length >= G.knoepfe} onclick={neuerKnopf}><Plus />Knopf hinzufügen</button>
 						{#if knoepfe.length >= G.knoepfe}<span class="kd-info"> Höchstens {G.knoepfe} Knöpfe.</span>{/if}
 					</div>
 				</Abschnitt>

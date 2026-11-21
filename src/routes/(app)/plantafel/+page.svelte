@@ -359,8 +359,8 @@
 	.pt-meldung {
 		margin: 0 0 0.75rem;
 		padding: 0.6rem 0.75rem;
-		border-radius: 0.4rem;
-		border-left: 5px solid;
+		border-radius: 12px;
+		border: 1px solid; /* Farbe je Art unten; kein Strich links (msg 6655) */
 	}
 	.pt-meldung.ok {
 		background: #e2f3ec;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	/**
 	 * Leitfaden beim Termin – Einstellungen (Jamil msgs 4302/4304; 4340: 1c je Terminart, 3a einer je Firma).
 	 * Ein/aus, bei welchen Terminen er erscheint, Schritte bearbeiten (Reihenfolge, Pflicht, Art). Gespeichert wird alles
@@ -169,7 +170,7 @@
 						{#each SCHRITT_TYPEN as t (t)}<option value={t} selected={neuerTyp === t}>{SCHRITT_TYP_NAMEN[t]}</option>{/each}
 					</Auswahl>
 				</label>
-				<button type="button" class="kd-knopf hell" onclick={hinzufuegen}>+ Schritt hinzufügen</button>
+				<button type="button" class="kd-knopf hell" onclick={hinzufuegen}><Plus />Schritt hinzufügen</button>
 			</div>
 		</Abschnitt>
 

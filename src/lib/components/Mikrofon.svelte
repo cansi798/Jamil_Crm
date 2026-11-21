@@ -498,11 +498,12 @@
 		/* gleiche Größe wie der Schnellzugriff (Jamil msg 3521 G) */
 		width: 3.25rem;
 		height: 3.25rem;
-		border: 1.5px solid var(--ui-flaeche);
+		/* wie der Schnellzugriff: Hausfarbe, weißes Symbol (Jamil msg 6655: nicht Anthrazit) */
+		border: 0;
 		border-radius: 50%;
-		background: var(--ui-anthrazit-800);
-		color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
-		box-shadow: 0 6px 18px rgba(31, 30, 32, 0.35);
+		background: var(--ui-primaer);
+		color: var(--ui-primaer-auf);
+		box-shadow: 0 8px 24px rgba(31, 30, 32, 0.18), 0 2px 6px rgba(31, 30, 32, 0.12);
 		cursor: pointer;
 		touch-action: none;
 		-webkit-user-select: none;
@@ -510,7 +511,7 @@
 		transition: transform 150ms, background 150ms;
 	}
 	.mikro:hover {
-		background: var(--ui-anthrazit-900);
+		background: var(--ui-primaer-hover);
 		transform: translateY(-1px);
 	}
 	.mikro.aktiv {
@@ -642,8 +643,8 @@
 	.mk-hinweis {
 		margin: 0;
 		padding: 0.65rem 0.85rem;
-		border-left: 4px solid var(--ui-orange);
-		border-radius: var(--ui-radius);
+		border: 1px solid color-mix(in srgb, var(--ui-orange) 28%, transparent);
+		border-radius: 12px;
 		background: var(--ui-orange-hell);
 		color: #5c3d0c;
 	}
@@ -723,8 +724,8 @@
 	.mk-warnungen {
 		margin: 0;
 		padding: 0.6rem 0.75rem 0.6rem 1.75rem;
-		border-left: 4px solid var(--ui-orange);
-		border-radius: var(--ui-radius);
+		border: 1px solid color-mix(in srgb, var(--ui-orange) 28%, transparent);
+		border-radius: 12px;
 		background: var(--ui-orange-hell);
 		text-align: left;
 	}

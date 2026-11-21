@@ -81,9 +81,8 @@
 		display: grid;
 		gap: 0.2rem;
 		padding: 0.65rem 0.8rem;
-		border: 1px solid var(--rand);
-		border-left: 5px solid var(--primaer);
-		border-radius: 0.5rem;
+		border: 1px solid var(--ui-haarlinie, var(--rand));
+		border-radius: var(--ui-radius-karte, 14px);
 		background: var(--flaeche);
 	}
 	.heute-leitfaden {

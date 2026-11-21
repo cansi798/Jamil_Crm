@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import InfoFenster from '$lib/components/ui/InfoFenster.svelte';
 	import { UEBERSPRUNGEN_TITEL, UNTERGRUPPE_TITEL, schrittUebersprungen, untergruppe, untergruppeErledigt } from '$lib/auftrag-board';
 	import { mitEinstellungen } from '$lib/kennzahlen';
@@ -92,7 +93,7 @@
 	<header class="seiten-kopf">
 		<div><h1>{data.alle && !data.meine ? 'Aufträge' : 'Meine Aufträge'}</h1></div>
 		{#if data.darfBearbeiten}
-			<div class="seiten-aktionen"><a href="/auftraege/neu" class="kd-knopf">+ Auftrag</a></div>
+			<div class="seiten-aktionen"><a href="/auftraege/neu" class="kd-knopf"><Plus />Auftrag</a></div>
 		{/if}
 	</header>
 

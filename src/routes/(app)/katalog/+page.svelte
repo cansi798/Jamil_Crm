@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import Umschalter from '$lib/components/ui/Umschalter.svelte';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
@@ -32,7 +33,7 @@
 		</div>
 		{#if data.darfBearbeiten}
 			<div class="seiten-aktionen">
-				<a href={data.gewerk ? `/katalog/neu?gewerk=${data.gewerk}` : '/katalog/neu'} class="kd-knopf">+ Position</a>
+				<a href={data.gewerk ? `/katalog/neu?gewerk=${data.gewerk}` : '/katalog/neu'} class="kd-knopf"><Plus />Position</a>
 			</div>
 		{/if}
 	</header>

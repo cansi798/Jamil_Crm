@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
 	/**
@@ -481,11 +482,11 @@
 					</ol>
 				</div>
 			{/each}
-			<button type="button" class="knopf-subtil klein" onclick={() => abschnittDazu(s)}>+ Abschnitt</button>
+			<button type="button" class="knopf-subtil klein" onclick={() => abschnittDazu(s)}><Plus />Abschnitt</button>
 		</section>
 	{/each}
 	{#if mehrereSchritte}
-		<button type="button" class="kd-knopf hell" onclick={seiteDazu} data-testid="schritt-dazu">+ Schritt</button>
+		<button type="button" class="kd-knopf hell" onclick={seiteDazu} data-testid="schritt-dazu"><Plus />Schritt</button>
 	{/if}
 </div>
 

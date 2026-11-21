@@ -43,6 +43,11 @@
 	--ui-akzent-zart: #fbf9f5;
 	--ui-akzent-rand: #e4d7be;
 	--ui-akzent-dunkel: var(--ui-akzent-text);
+	/* Hauptknöpfe + schwebendes Plus (Jamil 6655/6656): Hausfarbe flach mit weißer Schrift, bei zu heller Hausfarbe
+	   abgedunkelt bis Kontrast ≥ 4,5 : 1 (src/lib/farbe.ts primaerFuellung; Standard-Gold → Bronze) */
+	--ui-primaer: #89734e;
+	--ui-primaer-hover: #7b6846;
+	--ui-primaer-auf: #ffffff;
 	--ui-fokus-ring: 0 0 0 4px rgba(195, 165, 111, 0.35);
 
 	/* ── Anthrazit (Navigation, Kopfleiste, Text) ──────────────────────────────────────────────────── */

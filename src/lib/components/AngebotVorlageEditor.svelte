@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import Abschnitt from '$lib/components/Abschnitt.svelte';
@@ -130,8 +131,8 @@
 		<PositionenEditor bind:zeilen katalogPreisFest />
 
 		<div class="av-hinzu">
-			<button type="button" class="kd-knopf hell" onclick={() => (katalogOffen = !katalogOffen)} aria-expanded={katalogOffen}>+ Aus Katalog</button>
-			<button type="button" class="kd-knopf hell" onclick={freiePosition}>+ Freie Position</button>
+			<button type="button" class="kd-knopf hell" onclick={() => (katalogOffen = !katalogOffen)} aria-expanded={katalogOffen}><Plus />Aus Katalog</button>
+			<button type="button" class="kd-knopf hell" onclick={freiePosition}><Plus />Freie Position</button>
 		</div>
 		{#if katalogOffen}
 			<section class="an-katalog" aria-label="Aus Katalog wählen">

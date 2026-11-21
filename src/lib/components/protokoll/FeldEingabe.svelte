@@ -220,8 +220,8 @@
 	}
 	.pf-hinweis {
 		padding: var(--ui-a3) var(--ui-a4);
-		border-left: 3px solid var(--ui-akzent);
-		border-radius: var(--ui-radius);
+		border: 1px solid var(--ui-akzent-rand);
+		border-radius: 12px;
 		background: var(--ui-akzent-zart);
 	}
 	.pf-hinweis p {

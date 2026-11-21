@@ -281,7 +281,7 @@
 		padding: 0 0.35rem;
 		border-radius: 4px;
 		background: color-mix(in srgb, var(--farbe) 18%, #fff);
-		border-left: 4px solid var(--farbe);
+		border: 1px solid color-mix(in srgb, var(--farbe) 40%, transparent);
 		color: #1c1f23;
 		font-size: 0.75rem;
 		line-height: 1.2;
@@ -357,14 +357,22 @@
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.25rem 0.5rem 0.25rem 0;
-		border: 1px solid var(--m365-rand, #e1dfdd);
-		border-left: 6px solid var(--farbe);
-		border-radius: var(--m365-radius, 4px);
+		padding-left: 0.6rem;
+		border: 1px solid var(--ui-haarlinie, #e1dfdd);
+		border-radius: 12px;
 		background: var(--m365-flaeche, #fff);
+	}
+	/* Farbe des Termins als Punkt statt Strich links (msg 6655) */
+	.kal-liste li::before {
+		content: '';
+		flex: none;
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: 50%;
+		background: var(--farbe);
 	}
 	.kal-liste li.warnung {
 		border-color: #d9a400;
-		border-left-color: var(--farbe);
 	}
 	.kal-eintrag {
 		flex: 1;
@@ -394,7 +402,6 @@
 			margin: 0 1px;
 			padding: 0 0.2rem;
 			font-size: 0.6875rem;
-			border-left-width: 3px;
 		}
 		.kal-woche.hoch {
 			grid-template-rows: 2.25rem repeat(var(--spuren), 3.2rem) minmax(3rem, 1fr);

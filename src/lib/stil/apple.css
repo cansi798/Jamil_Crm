@@ -19,17 +19,12 @@ html body .seiten-kopf .seiten-meta {
 	font-size: 0.875rem;
 }
 
-/* Abschnitts-Überschriften: Headline (15 px, halbfett, normale Schreibweise) statt Versalien; schmaler Akzentstrich bleibt */
+/* Abschnitts-Überschriften: Headline (15 px, halbfett, normale Schreibweise) statt Versalien; ohne Akzentstrich (msg 6655) */
 html body :is(.karte-titel, .abschnitt-titel, .kd-seite h2:not([class])) {
 	font-size: 0.9375rem;
 	font-weight: 600;
 	letter-spacing: -0.01em;
 	text-transform: none;
-}
-html body :is(.karte-titel, .abschnitt-titel, .kd-seite h2:not([class]))::before {
-	width: 3px;
-	height: 0.9rem;
-	border-radius: 2px;
 }
 html body .ui-eyebrow {
 	letter-spacing: 0.06em;
@@ -73,29 +68,65 @@ html body .listen-eintrag {
 	border-bottom-color: var(--ui-haarlinie);
 }
 
-/* ── Knöpfe: abgerundetes Rechteck (10 px), Systemschrift halbfett, sanftes Drücken ───────────────────── */
+/* ── Knöpfe (Jamil msg 6656, 21.11.2026: Gold-Pille mit dunkler Schrift „zu altmodisch“) ────────────────────
+   EIN System für alle Knöpfe: Primär flach in der Hausfarbe (--ui-primaer, weiße Schrift, AA-geprüft in farbe.ts),
+   Sekundär weiß mit feiner Linie, Ghost leise getönt, Gefahr rot umrandet. 10 px Radius (keine Pille), 40 px hoch
+   (Touch 44 px), mittleres Gewicht, „+“ als Linien-Symbol (ui/Plus.svelte bzw. Knopf symbol="plus"). */
 html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf) {
+	gap: 0.4rem;
+	min-height: 40px;
+	padding: 0.375rem 1rem;
 	border-radius: var(--ui-knopf-radius);
 	border-width: 1px;
 	font-family: var(--m365-schrift);
 	font-size: 0.875rem;
-	font-weight: 600;
+	font-weight: 500;
 	letter-spacing: -0.01em;
+	box-shadow: none;
 	transition: background var(--ui-uebergang), border-color var(--ui-uebergang), color var(--ui-uebergang),
 		box-shadow var(--ui-uebergang), transform 150ms ease, opacity var(--ui-uebergang);
 }
+@media (pointer: coarse) {
+	html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf):not(.klein) {
+		min-height: 44px;
+	}
+}
+html body :is(.knopf, .knopf-gefuellt, .kd-knopf):not(.hell, .gefahr) {
+	border-color: var(--ui-primaer);
+	background: var(--ui-primaer);
+	color: var(--ui-primaer-auf);
+	box-shadow: 0 1px 2px rgba(31, 30, 32, 0.12);
+}
 html body :is(.knopf, .knopf-gefuellt, .kd-knopf):not(.hell, .gefahr):hover {
-	box-shadow: 0 2px 8px rgba(45, 44, 46, 0.1);
+	border-color: var(--ui-primaer-hover);
+	background: var(--ui-primaer-hover);
+	color: var(--ui-primaer-auf);
+	box-shadow: 0 2px 6px rgba(31, 30, 32, 0.14);
+}
+html body :is(.knopf.hell, .kd-knopf.hell, .knopf-sekundaer) {
+	border-color: var(--ui-haarlinie-stark);
+	background: var(--ui-flaeche);
+	color: var(--ui-text);
+	box-shadow: 0 1px 2px rgba(31, 30, 32, 0.05);
+}
+html body :is(.knopf.hell, .kd-knopf.hell, .knopf-sekundaer):hover {
+	border-color: var(--ui-haarlinie-stark);
+	background: var(--ui-grau-hell);
+	color: var(--ui-text);
+}
+html body :is(.knopf-subtil, .knopf-tertiaer, .knopf-ghost):hover {
+	color: var(--ui-text);
 }
 html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf):active {
 	transform: scale(0.98);
 	box-shadow: none;
 }
-html body :is(.knopf.hell, .kd-knopf.hell, .knopf-sekundaer) {
-	border-color: var(--ui-haarlinie-stark);
-}
-html body :is(.kd-knopf, .knopf, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr).klein {
+html body :is(.kd-knopf, .knopf, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost).klein {
 	border-radius: 8px;
+}
+html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf) .knopf-symbol {
+	width: 1rem;
+	height: 1rem;
 }
 html body :is(.knopf, .knopf-gefuellt, .knopf-subtil, .knopf-tertiaer, .knopf-sekundaer, .knopf-gefahr, .knopf-ghost, .kd-knopf):focus-visible {
 	outline: 2px solid var(--ui-akzent-text);
@@ -195,6 +226,103 @@ html body :is(.ui-popover, .ui-schwebend, .rf-blase) {
 	border-radius: 12px;
 	border-color: var(--ui-haarlinie);
 	box-shadow: var(--m365-schatten-pop);
+}
+
+/* ── Kacheln (Jamil msg 6655, 21.11.2026): keine farbigen Striche links mehr ───────────────────────────────
+   EINE Kachel für Kennzahlen und Handlungsbedarf überall (Start, Kennzahl-Streifen der Listen, Auswertungen):
+   weiße Fläche, 1-px-Haarlinie, sehr weicher Schatten, 14 px Radius; Zahl groß und halbfett, Bezeichnung grau.
+   Die Status-Farbe steht nur noch als kleiner Punkt oben rechts (.ui-kachel-punkt, Ton über .ui-ton-*; gleiche Stelle
+   und Größe wie der Ampel-Punkt der Kennzahlen, Jamil msg 3093); eine 0 bleibt ruhig (grauer Punkt), wird aber nicht
+   verwaschen. Markup:
+     <a class="ui-kachel ui-ton-rot"><span class="ui-kachel-punkt" aria-hidden="true"></span>
+        <strong class="ui-kachel-wert">3</strong><span class="ui-kachel-titel">Nachfassen fällig</span></a> */
+html body .ui-kachel {
+	position: relative;
+	display: grid;
+	align-content: start;
+	gap: 0.2rem;
+	min-width: 0;
+	padding: 0.85rem 1.75rem 0.85rem 1rem;
+	border: 1px solid var(--ui-haarlinie);
+	border-radius: var(--ui-radius-karte);
+	--ampel-oben: 0.95rem;
+	--ampel-rechts: 0.9rem;
+	background: var(--ui-flaeche);
+	box-shadow: var(--ui-schatten);
+	color: var(--ui-text);
+	text-decoration: none;
+	transition: box-shadow var(--ui-uebergang), border-color var(--ui-uebergang), transform 150ms ease;
+}
+html body a.ui-kachel:hover {
+	border-color: var(--ui-haarlinie-stark);
+	box-shadow: 0 1px 2px rgba(45, 44, 46, 0.05), 0 8px 24px rgba(45, 44, 46, 0.08);
+}
+html body a.ui-kachel:active {
+	transform: scale(0.99);
+}
+html body a.ui-kachel:focus-visible {
+	outline: 2px solid var(--ui-akzent-text);
+	outline-offset: 2px;
+}
+html body .ui-kachel-wert {
+	font-family: var(--m365-schrift);
+	font-size: 1.625rem;
+	font-weight: 600;
+	letter-spacing: -0.025em;
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+	color: var(--ui-text);
+}
+html body .ui-kachel-titel {
+	min-width: 0;
+	color: var(--ui-text-leise);
+	font-size: 0.8125rem;
+	font-weight: 500;
+	line-height: 1.3;
+	overflow-wrap: break-word;
+	hyphens: auto;
+}
+html body .ui-kachel-info {
+	color: var(--ui-text-leise);
+	font-size: 0.75rem;
+	line-height: 1.3;
+}
+html body .ui-kachel-punkt {
+	position: absolute;
+	top: var(--ampel-oben);
+	right: var(--ampel-rechts);
+	width: 0.625rem;
+	height: 0.625rem;
+	border-radius: 50%;
+	background: var(--ui-ton, var(--ui-akzent));
+}
+html body :is(.ui-kachel, .kz-kachel).null .ui-kachel-punkt {
+	background: var(--ui-haarlinie-stark);
+}
+/* Symbol im Tönungskreis (für Kacheln mit Symbol statt Punkt) */
+html body .ui-ton-kreis {
+	display: inline-grid;
+	place-items: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--ui-ton, var(--ui-akzent)) 14%, transparent);
+	color: var(--ui-ton, var(--ui-akzent-text));
+}
+html body .ui-ton-gruen { --ui-ton: var(--ui-gruen); }
+html body .ui-ton-orange { --ui-ton: var(--ui-orange); }
+html body .ui-ton-rot { --ui-ton: var(--ui-rot); }
+html body .ui-ton-blau { --ui-ton: var(--ui-blau); }
+html body .ui-ton-lila { --ui-ton: var(--ui-lila); }
+html body .ui-ton-grau { --ui-ton: var(--ui-grau); }
+html body .ui-ton-akzent { --ui-ton: var(--ui-akzent); }
+
+/* ── Hinweise (Warnung, Fehler, Info): getönte Fläche mit feiner Linie rundum statt Strich links (msg 6655) ── */
+html body .ui-hinweis {
+	padding: 0.7rem 0.9rem;
+	border: 1px solid color-mix(in srgb, var(--ui-ton, var(--ui-akzent)) 28%, transparent);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--ui-ton, var(--ui-akzent)) 8%, var(--ui-flaeche));
 }
 
 /* Brotkrume: wie ein iOS-Zurück-Link */

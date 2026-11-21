@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import { rueckfrage } from '$lib/rueckfrage';
 	import PersonWahl from '$lib/components/ui/PersonWahl.svelte';
 	import Auswahl from '$lib/components/ui/Auswahl.svelte';
@@ -95,7 +96,7 @@
 			</form>
 		</details>
 		{#if data.darfAuftrag}
-			<a class="kd-knopf hell" href={auftragLink}>+ Auftrag zu dieser Anlage</a>
+			<a class="kd-knopf hell" href={auftragLink}><Plus />Auftrag zu dieser Anlage</a>
 		{/if}
 	</div>
 

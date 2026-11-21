@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import '$lib/stil/kunden.css';
 	import VorlagenKopf from '$lib/components/vorlagen/VorlagenKopf.svelte';
 	import VorlagenListe from '$lib/components/vorlagen/VorlagenListe.svelte';
@@ -29,7 +30,7 @@
 	/>
 	<VorlagenListe {eintraege} leer="Noch keine Vorlagen. Eine Vorlage spart Tipparbeit: Ihre Aufgaben stehen beim nächsten Auftrag sofort bereit.">
 		{#snippet leerAktion()}
-			{#if data.darfBearbeiten}<a href="/auftrag-vorlagen/neu" class="kd-knopf hell">+ Erste Vorlage anlegen</a>{/if}
+			{#if data.darfBearbeiten}<a href="/auftrag-vorlagen/neu" class="kd-knopf hell"><Plus />Erste Vorlage anlegen</a>{/if}
 		{/snippet}
 	</VorlagenListe>
 </main>

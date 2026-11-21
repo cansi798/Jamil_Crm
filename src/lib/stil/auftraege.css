@@ -206,9 +206,7 @@
 	color: var(--m365-text-leise);
 }
 .td-eintrag.ueberfaellig {
-	border-color: var(--m365-fehler);
-	border-left-width: 4px;
-	padding-left: calc(0.75rem - 4px);
+	border-color: color-mix(in srgb, var(--m365-fehler) 45%, transparent);
 }
 .td-ueberfaellig {
 	color: var(--m365-fehler);

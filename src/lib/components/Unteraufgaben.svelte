@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	/**
 	 * Unteraufgaben einer Aufgabe (Jamil, Talk msg 3530): Haken, Titel, optional Person; neue Unteraufgabe unten anfügen,
 	 * Entfernen mit Rückfrage. EIN Baustein für Aufgabenliste (Liste und Board) und Aufgaben im Auftrag.
@@ -68,7 +69,7 @@
 						{#each personen as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
 					</Auswahl>
 				{/if}
-				<button type="submit" class="kd-knopf hell klein">+ Hinzufügen</button>
+				<button type="submit" class="kd-knopf hell klein"><Plus />Hinzufügen</button>
 			</form>
 		{/if}
 	</div>

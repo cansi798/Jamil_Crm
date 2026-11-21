@@ -208,9 +208,9 @@
 		height: 2.5rem;
 		padding: 0 0.9rem;
 		border: 0;
-		border-radius: var(--m365-radius);
-		background: var(--m365-primaer);
-		color: var(--ui-akzent-auf);
+		border-radius: var(--ui-knopf-radius);
+		background: var(--ui-primaer); /* wie alle Hauptknöpfe (Jamil msg 6656) */
+		color: var(--ui-primaer-auf);
 		font: inherit;
 		font-size: 0.875rem;
 		font-weight: 600;

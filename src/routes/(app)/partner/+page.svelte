@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Plus from '$lib/components/ui/Plus.svelte';
 	import '$lib/stil/kunden.css';
 	import FilterLeiste from '$lib/components/ui/FilterLeiste.svelte';
 	import SuchFeld from '$lib/components/ui/SuchFeld.svelte';
@@ -26,7 +27,7 @@
 			<h1>Partner</h1>
 			<p class="seiten-meta">Auftraggeber (Baumärkte, Plattformen), Subunternehmer und Lieferanten – mit Konditionen und Nachweisen.</p>
 		</div>
-		<div class="seiten-aktionen"><a href="/partner/neu" class="kd-knopf">+ Partner</a></div>
+		<div class="seiten-aktionen"><a href="/partner/neu" class="kd-knopf"><Plus />Partner</a></div>
 	</header>
 
 	<FilterLeiste label="Partner filtern">
@@ -54,7 +55,7 @@
 		{:else}
 			<li class="kd-leer">
 				<span>{data.suche || data.art ? 'Keine Partner gefunden.' : 'Noch keine Partner angelegt.'}</span>
-				<a href="/partner/neu" class="kd-knopf hell">+ Partner anlegen</a>
+				<a href="/partner/neu" class="kd-knopf hell"><Plus />Partner anlegen</a>
 			</li>
 		{/each}
 	</ul>

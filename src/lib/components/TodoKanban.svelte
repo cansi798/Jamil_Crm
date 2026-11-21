@@ -252,9 +252,9 @@
 		opacity: 0.7;
 	}
 	.kanban-karte.ueberfaellig {
-		border-left: 3px solid var(--m365-fehler);
-		margin-left: -0.7rem;
-		padding-left: calc(0.7rem - 3px);
+		/* überfällig: feine rote Linie rundum statt Strich links (msg 6655) */
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m365-fehler) 45%, transparent);
+		border-radius: 10px;
 	}
 	.td-kopf {
 		display: flex;

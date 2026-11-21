@@ -356,7 +356,7 @@
 		background: var(--m365-flaeche-hover);
 		border-radius: var(--m365-radius-karte);
 		padding: 0.5rem 0.5rem 0.75rem;
-		border-top: 3px solid var(--farbe);
+		/* Spaltenfarbe nur als Punkt im Kopf, kein Strich (msg 6655) */
 		outline: 2px solid transparent;
 		outline-offset: -2px;
 		transition: background 120ms, outline-color 120ms, opacity 120ms;
