@@ -45,9 +45,13 @@ test('Anlage am Objekt anlegen, QR-Seite als Gast zeigt nur Typ und Firmenkontak
 		await expect(page.locator('dl')).toContainText('jährlich');
 
 		// Etikett-PDF
-		const etikett = await page.request.get(`${page.url()}/etikett`);
-		expect(etikett.headers()['content-type']).toBe('application/pdf');
-		expect((await etikett.body()).subarray(0, 5).toString()).toBe('%PDF-');
+		// Im Browser abrufen (wie ein Klick auf „Etikett“), nicht über page.request: Das Sitzungs-Cookie ist `Secure`,
+		// und Playwrights Anfrage-Kontext schickt es über http://127.0.0.1 (eigener Testserver) nicht mit → 401-JSON.
+		const etikett = await page.evaluate(async (u) => {
+			const a = await fetch(u);
+			return { status: a.status, typ: a.headers.get('content-type'), kopf: new TextDecoder().decode((await a.arrayBuffer()).slice(0, 5)) };
+		}, `${page.url()}/etikett`);
+		expect(etikett).toEqual({ status: 200, typ: 'application/pdf', kopf: '%PDF-' });
 
 		// QR: Bild + Link mit zufälligem Kürzel (nicht die ID)
 		expect(await page.locator('.an-qr img').getAttribute('src')).toMatch(/^data:image\/png;base64,/);
