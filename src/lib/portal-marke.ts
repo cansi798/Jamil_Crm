@@ -6,7 +6,7 @@ const SCHRIFT = { montserrat: "'Montserrat', 'Inter', system-ui, sans-serif", in
 /** CSS-Variablen des Portals (Farben, Schriften) – gleich im Portal und in der Vorschau der Einstellungen. */
 export function portalMarkeStil(m: PortalMarke): string[] {
 	return [
-		`--pt-dunkel: ${m.dunkel ?? '#2d2c2e'}`,
+		`--pt-dunkel: ${m.dunkel ?? '#ffffff'}`,
 		`--pt-grund: ${m.hintergrund ?? '#f6f4f0'}`,
 		`--pt-titel: ${SCHRIFT[m.titelSchrift]}`,
 		`--pt-text: ${SCHRIFT[m.textSchrift]}`,

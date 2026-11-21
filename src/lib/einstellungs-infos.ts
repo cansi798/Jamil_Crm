@@ -200,7 +200,7 @@ export const INFOS: Record<string, Info> = {
 		titel: 'Erscheinungsbild des Kundenportals',
 		was: 'Farben und Schriften des Portals, damit es wie Ihre Internetseite aussieht.',
 		wirkt: 'Das Kundenportal aller Kunden und immer auch die Online-Buchungsseiten (gleicher Kopf, gleiche Farben, Schriften, Karten und Knöpfe) – plus die Vorschau in den Einstellungen.',
-		standard: 'Anthrazit-Kopf, helle Seite, Schrift Montserrat/Inter.',
+		standard: 'Weißer Kopf mit feiner Linie, helle Seite, Schrift Montserrat/Inter.',
 		beispiel: 'Dunkelblauer Kopf und Ihre Hausfarbe als Akzent.'
 	},
 

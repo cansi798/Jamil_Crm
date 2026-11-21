@@ -42,7 +42,7 @@
 
 <style>
 	.pk {
-		background: var(--pt-dunkel, #2d2c2e);
+		background: var(--pt-dunkel, #ffffff);
 		color: #fff;
 	}
 	.pk-innen {
@@ -122,6 +122,19 @@
 	}
 	.pk.hell .pk-portal {
 		border-left-color: rgb(0 0 0 / 0.15);
+	}
+	/* heller Kopf (Standard seit Jamil msg 6546): feine Trennlinie statt Farbfläche; gibt es nur die helle Logo-Variante,
+	   wird sie dunkel gezeigt – ohne dunklen Kasten */
+	.pk.hell {
+		border-bottom: 1px solid rgb(0 0 0 / 0.08);
+	}
+	.pk.hell .pk-logo.feld-dunkel {
+		padding: 0;
+		background: none;
+	}
+	.pk.hell .pk-logo.feld-dunkel img {
+		filter: brightness(0) saturate(100%);
+		opacity: 0.88;
 	}
 	@media (min-width: 641px) {
 		.pk-innen {
