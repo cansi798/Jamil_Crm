@@ -53,11 +53,12 @@
 		{/snippet}
 	</DateiFeld>
 
-	<h2 id="logo-dunkel-titel">Helle Variante für dunklen Hintergrund</h2>
+	<h2 id="logo-dunkel-titel">Helle Variante für dunklen Hintergrund (App)</h2>
 	<p class="kd-info">
-		Die App ist hell (Seitenleiste und Kopf) und zeigt oben links das normale Logo von oben. Die helle Variante (z. B. weiße
-		Schrift, am besten PNG mit transparentem Hintergrund) braucht es nur, wenn Sie unten eine dunkle Kopffarbe fürs Portal
-		wählen. Gibt es nur die helle Variante, zeigt die App sie automatisch dunkel.
+		Für die dunkle Seitenleiste der App am Computer (oben links): eine helle Variante (z. B. weiße Schrift, am besten PNG mit
+		transparentem Hintergrund). Ohne helle Variante steht das normale Logo dort auf einem weißen Feld. Am Handy (heller
+		Hintergrund) erscheint in der App das Logo von oben. Im Kundenportal wird das normale Logo verwendet – die helle Variante
+		nur, wenn Sie unten eine dunkle Kopffarbe fürs Portal wählen.
 	</p>
 	<DateiFeld
 		id="logo-dunkel"
@@ -70,7 +71,7 @@
 		entfernenAktion="?/logoDunkelLoeschen"
 		entfernenText="Helle Variante entfernen"
 		ding="Helle Variante"
-		warnung="Die helle Variante wird entfernt. Bei dunkler Portal-Kopffarbe steht das normale Logo dann auf einem weißen Feld."
+		warnung="Die helle Variante wird entfernt. Die Seitenleiste der App zeigt dann das normale Logo auf einem weißen Feld."
 		fehler={logoDunkelFehler}
 		meldung={form && 'logoGespeichert' in form && form.logoGespeichert === 'dunkel' ? 'Helle Variante gespeichert.' : null}
 	>
@@ -146,7 +147,7 @@
 				stehen in der Kontakt-Karte darunter.
 			</p>
 			<div class="kd-zwei">
-				<label class="bk-farbe">Farbe des Kopfs <input type="color" name="dunkelFarbe" value={werte.dunkelFarbe || '#ffffff'} /></label>
+				<label class="bk-farbe">Farbe des Kopfs <input type="color" name="dunkelFarbe" value={werte.dunkelFarbe || '#2d2c2e'} /></label>
 				<label class="bk-farbe">Hintergrund <input type="color" name="hintergrundFarbe" value={werte.hintergrundFarbe || '#f6f4f0'} /></label>
 			</div>
 			<div class="kd-zwei">

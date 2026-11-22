@@ -29,12 +29,11 @@
 	// Am Handy gibt es keine Kopfleiste – dort bleibt die h1 sichtbar. Detailseiten (/auftraege/<id>) behalten ihren Titel.
 	// Reiter eines Bereichs (Ausgangsbelege → Angebote/ABs/Rechnungen) sind ebenfalls dessen Startseite (msgs 3054–3060)
 	const bereichsStart = $derived(!!bereich?.href && (istBereichsStart(bereich.href, pfad) || BELEG_ARTEN.some((a) => belegPfad(a.wert) === pfad)));
-	// Logo oben links (msg 3014): Seitenleiste und Kopf sind seit Jamil msg 6546 hell → überall das Briefkopf-Logo ohne Feld.
-	// Gibt es nur die helle Variante (für dunklen Grund), wird sie per CSS-Filter dunkel gezeigt (`.logo-abdunkeln`).
+	// Logo oben links (msg 3014): Seitenleiste (dunkel) bevorzugt die helle Variante, das Handy (hell) das Briefkopf-Logo
 	const markeName = $derived(data.marke?.name ?? 'CRM System');
 	const logoUrl = (variante: 'dunkel' | 'briefkopf', v: string) => `/api/marke/logo?variante=${variante}&v=${encodeURIComponent(v)}`;
+	const logoDunkel = $derived(data.marke?.dunkel ? logoUrl('dunkel', data.marke.dunkel) : data.marke?.hell ? logoUrl('briefkopf', data.marke.hell) : null);
 	const logoHell = $derived(data.marke?.hell ? logoUrl('briefkopf', data.marke.hell) : data.marke?.dunkel ? logoUrl('dunkel', data.marke.dunkel) : null);
-	const logoAbdunkeln = $derived(!data.marke?.hell && !!data.marke?.dunkel);
 	const mitSuche = $derived((data.navigation?.haupt ?? []).some((e) => e.href === '/kunden'));
 	const mehrAktiv = $derived(
 		pfad === '/mehr' || [...(data.navigation?.haupt ?? []).slice(MOBIL_HAUPT), ...(data.navigation?.mehr ?? [])].some((e) => istAktiv(e.href, pfad))
@@ -64,10 +63,10 @@
 		<LadeBalken />
 		<!-- Unter 900 px: Leiste unten (Start, Kunden, Plantafel, Mehr); ab 900 px: Seitenleiste mit allen Einträgen. -->
 		<nav class="hauptnav" aria-label="Hauptnavigation">
-			{#if logoHell}
-				<!-- Logo des Betriebs (msg 3014): helle Seitenleiste (msg 6546) → Briefkopf-Logo ohne Feld -->
+			{#if logoDunkel}
+				<!-- Logo des Betriebs (msg 3014): Seitenleiste dunkel → helle Variante, sonst Briefkopf-Logo auf weißem Feld -->
 				<a href="/" class="marke marke-mit-logo nur-breit" aria-label={`Zur Startseite – ${markeName}`}>
-					<span class="marke-logo" class:logo-abdunkeln={logoAbdunkeln}><img src={logoHell} alt={markeName} height="40" /></span>
+					<span class="marke-logo" class:auf-weiss={!data.marke?.dunkel}><img src={logoDunkel} alt={markeName} height="40" /></span>
 				</a>
 			{:else}
 			<a href="/" class="marke nur-breit">
@@ -146,10 +145,10 @@
 			</header>
 			{#if data.laufendeZeit}<div class="nur-schmal-zeit"><LaufendeZeit laufend={data.laufendeZeit} schmal /></div>{/if}
 			{#if logoHell}
-				<!-- Handy: Logo oben links auf hellem Grund (Briefkopf-Logo, sonst helle Variante abgedunkelt), Glocke rechts -->
+				<!-- Handy: Logo oben links auf hellem Grund (Briefkopf-Logo, sonst helle Variante auf dunklem Feld), Glocke rechts -->
 				<div class="kopf-schmal">
 					<a href="/" class="marke-schmal" aria-label={`Zur Startseite – ${markeName}`}>
-						<span class="marke-logo" class:logo-abdunkeln={logoAbdunkeln}><img src={logoHell} alt={markeName} height="32" /></span>
+						<span class="marke-logo" class:auf-dunkel={!data.marke?.hell}><img src={logoHell} alt={markeName} height="32" /></span>
 					</a>
 					{#if data.erinnern}<div class="nur-schmal-glocke"><Glocke start={data.ungelesen} schmal /></div>{/if}
 				</div>
@@ -194,10 +193,13 @@
 		max-width: min(60vw, 220px);
 		object-fit: contain;
 	}
-	/* nur helle Logo-Variante vorhanden: auf hellem Grund dunkel zeigen (msg 6546) – ohne dunklen Kasten */
-	.marke-logo.logo-abdunkeln img {
-		filter: brightness(0) saturate(100%);
-		opacity: 0.88;
+	.marke-logo.auf-dunkel {
+		padding: 3px 8px;
+		border-radius: 8px;
+		background: var(--ui-nav); /* gleiches Anthrazit wie Kopfleiste und Seitenleiste (msg 3319) */
+	}
+	.marke-logo.auf-dunkel img {
+		height: 26px;
 	}
 	.nur-schmal-zeit {
 		position: sticky;
@@ -211,14 +213,15 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		background: var(--ui-kopf);
-		border-top: 1px solid var(--ui-nav-linie);
+		background: var(--ui-nav);
+		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		box-shadow: 0 -1px 0 rgba(31, 30, 32, 0.08);
 		padding-bottom: env(safe-area-inset-bottom);
 	}
 	/* Apple-Schliff: Milchglas für Leiste unten und Kopfleiste – gleiche Anthrazit-Farbe, leicht durchscheinend */
 	@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
 		.hauptnav {
-			background: rgba(255, 255, 255, 0.86);
+			background: rgba(45, 44, 46, 0.95);
 			-webkit-backdrop-filter: saturate(180%) blur(20px);
 			backdrop-filter: saturate(180%) blur(20px);
 		}
@@ -263,15 +266,15 @@
 		transition: color var(--ui-uebergang), background var(--ui-uebergang);
 	}
 	.eintrag[aria-current='page'] {
-		color: var(--ui-akzent-text); /* auf Weiß: Akzent als lesbarer Text */
+		color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 		font-weight: 600;
 	}
 	.eintrag:hover:not(.aus) {
-		color: var(--ui-nav-text);
+		color: #fff;
 		background: var(--ui-nav-hover);
 	}
 	.eintrag.aus {
-		color: var(--ui-nav-leise);
+		color: var(--ui-anthrazit-600);
 		cursor: default;
 	}
 	.text {
@@ -319,8 +322,7 @@
 			background: var(--ui-nav);
 			overflow-y: auto;
 			scrollbar-width: thin;
-			scrollbar-color: var(--ui-anthrazit-200) transparent;
-			border-right: 1px solid var(--ui-nav-linie);
+			scrollbar-color: var(--ui-anthrazit-600) transparent;
 		}
 		.nur-breit {
 			display: block;
@@ -338,13 +340,13 @@
 			gap: 1rem;
 			height: 3.5rem;
 			padding: 0 1.5rem;
-			background: var(--ui-kopf); /* hell (Jamil msg 6546) */
-			border-bottom: 1px solid var(--ui-nav-linie);
+			background: var(--ui-nav); /* Jamil msg 3319: gleiches Anthrazit wie die Seitenleiste */
+			border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 			color: var(--ui-nav-text);
 		}
 		@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
 			.kopfleiste {
-				background: rgba(255, 255, 255, 0.85);
+				background: rgba(45, 44, 46, 0.97);
 				-webkit-backdrop-filter: saturate(180%) blur(20px);
 				backdrop-filter: saturate(180%) blur(20px);
 			}
@@ -363,14 +365,14 @@
 		.kopf-bereich :global(.nav-symbol) {
 			width: 18px;
 			height: 18px;
-			color: var(--ui-akzent-text);
+			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 		}
 		.kopf-bereich a {
 			color: inherit;
 			text-decoration: none;
 		}
 		.kopf-bereich a:hover {
-			color: var(--ui-akzent-text);
+			color: #fff;
 		}
 		.kopf-suche {
 			position: relative;
@@ -391,30 +393,30 @@
 			width: 100%;
 			min-height: 2.25rem;
 			padding-left: 2.25rem;
-			border: 1px solid transparent;
+			border: 1px solid rgba(255, 255, 255, 0.1);
 			border-radius: 10px;
-			background: rgba(118, 118, 128, 0.12); /* helles Suchfeld wie bei Apple */
-			color: var(--ui-nav-text);
+			background: rgba(255, 255, 255, 0.08);
+			color: #fff;
 		}
 		.kopf-suche input::placeholder {
 			color: var(--ui-nav-leise);
 		}
 		.kopf-suche input:focus {
 			border-color: var(--ui-akzent);
-			background: #fff;
+			background: rgba(255, 255, 255, 0.12);
 		}
-		/* Glocke in der hellen Kopfleiste (nur der Auslöser, nicht das aufklappende Feld) */
+		/* Glocke auf dunklem Grund hell (nur der Auslöser, nicht das aufklappende Feld) */
 		.kopf-glocke :global(.gl-knopf) {
 			color: var(--ui-nav-text);
 		}
 		.kopf-glocke :global(.gl-knopf:hover) {
-			color: var(--ui-nav-text);
+			color: #fff;
 			background: var(--ui-nav-hover);
 		}
 		.gruppe {
 			margin: 1.25rem 0 0.3rem;
 			padding: 0 1.4rem;
-			color: var(--ui-nav-leise); /* Abschnittsname der Seitenleiste wie bei macOS: leises Grau */
+			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 			font-family: var(--ui-schrift-titel);
 			font-size: 0.75rem;
 			font-weight: 600;
@@ -468,8 +470,8 @@
 			min-height: 3.5rem;
 			padding: 0 1.25rem;
 			margin-bottom: 0.5rem;
-			background: transparent; /* Logo-Feld auf der hellen Seitenleiste (msg 6546) */
-			color: var(--ui-nav-text);
+			background: var(--ui-nav); /* Logo-Feld gehört zur Kopfleiste – gleiches Anthrazit (msg 3319) */
+			color: #fff;
 			text-decoration: none;
 		}
 		.marke-mit-logo {
@@ -481,6 +483,14 @@
 			width: auto;
 			max-width: calc(var(--seitenleiste) - 2.5rem);
 			object-fit: contain;
+		}
+		.marke-logo.auf-weiss {
+			padding: 3px 8px;
+			border-radius: 8px;
+			background: #fff;
+		}
+		.marke-logo.auf-weiss img {
+			height: 34px;
 		}
 		.kopf-schmal {
 			display: none !important;
@@ -495,7 +505,7 @@
 			text-transform: uppercase;
 		}
 		.marke-klein {
-			color: var(--ui-akzent-text);
+			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 			font-size: 0.625rem;
 			font-weight: 700;
 			letter-spacing: 0.16em;
@@ -536,14 +546,13 @@
 		}
 		.eintrag[aria-current='page'] {
 			position: relative;
-			/* dezente Akzentfläche in der Hausfarbe (msg 6546); Text bleibt fast schwarz (Kontrast ≥ 4,5 : 1) */
-			background: var(--ui-akzent-hell);
-			box-shadow: inset 0 0 0 1px var(--ui-akzent-rand);
+			background: var(--ui-nav-aktiv);
+			box-shadow: none;
 			font-weight: 600;
-			color: var(--ui-nav-text);
+			color: #fff;
 		}
 		.eintrag[aria-current='page'] :global(.nav-symbol) {
-			color: var(--ui-akzent-text);
+			color: var(--ui-akzent); /* auf Anthrazit: helle Akzentfarbe */
 		}
 		/* Apple-Seitenleiste: aktiver Eintrag nur als getönte, gerundete Fläche (ohne Balken links) */
 		.eintrag[aria-current='page']::before {
@@ -557,7 +566,7 @@
 		}
 		.eintrag:not(.aus):hover {
 			background: var(--ui-nav-hover);
-			color: var(--ui-nav-text);
+			color: #fff;
 		}
 		.eintrag.aus {
 			font-size: 0.875rem;
@@ -568,7 +577,7 @@
 		.abmelden {
 			margin-top: auto;
 			padding: 0.75rem 0.6rem 0;
-			border-top: 1px solid var(--ui-nav-linie);
+			border-top: 1px solid rgba(255, 255, 255, 0.08);
 		}
 		.abmelden .eintrag {
 			width: 100%;

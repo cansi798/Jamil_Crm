@@ -41,11 +41,6 @@ Portal in `portal/PortalHuelle.svelte`.
 - Übergänge `--ui-uebergang` (200 ms), Knöpfe geben beim Drücken nach (`scale(0.98)`); `prefers-reduced-motion` schaltet ab.
 - Fokus immer sichtbar: Rahmen in `--ui-akzent-text` + Ring `--ui-fokus-ring`. Linien-Symbole einheitlich 1,6 px.
 - Löschen oben rechts, einheitliche Bausteine und alle Abläufe bleiben unverändert.
-- **Hell statt Anthrazit (Jamil msg 6546):** Seitenleiste `--ui-nav` #F5F5F7 (wie macOS), Kopfleiste `--ui-kopf` und
-  Inhaltsfläche weiß, Trennlinie `--ui-nav-linie`; Text/Symbole #1D1D1F, Gruppennamen leises Grau, aktiver Eintrag als
-  dezente Fläche in der Hausfarbe (`--ui-akzent-hell`). Logo: Briefkopf-Logo ohne Feld; gibt es nur die helle Variante,
-  zeigt die App sie per CSS-Filter dunkel (`.logo-abdunkeln`). Kundenportal: Standard-Kopf weiß (Migration 124 setzt das
-  alte Standard-Anthrazit zurück, eigene Kopffarben bleiben).
 
 ### 1b. Kacheln, Knöpfe, Plus (Jamil msgs 6655/6656, 21.11.2026)
 

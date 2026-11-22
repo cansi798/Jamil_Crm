@@ -8,8 +8,7 @@ import { kontrast } from './farbe';
  */
 export type PortalLogo = { variante: 'briefkopf' | 'dunkel'; feld: 'weiss' | 'dunkel' | null };
 
-/** Standard seit Jamil msg 6546 (21.11.2026): heller (weißer) Kopf statt Anthrazit. */
-export const STANDARD_KOPF = '#ffffff';
+export const STANDARD_KOPF = '#2d2c2e';
 
 /** Heller Kopf = weiße Schrift wäre schlecht lesbar (Kontrast unter 3 : 1). */
 export const kopfIstHell = (farbe: string | null | undefined) => kontrast(farbe || STANDARD_KOPF, '#ffffff') < 3;
