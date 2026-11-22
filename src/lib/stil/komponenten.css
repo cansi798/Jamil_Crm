@@ -369,7 +369,7 @@ html textarea {
 html select {
 	appearance: none;
 	padding-right: 2.25rem;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%236b6a6d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23646b7d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 	background-repeat: no-repeat;
 	background-position: right 0.7rem center;
 	background-size: 14px 14px;
@@ -377,17 +377,17 @@ html select {
 }
 /* Seitenregeln setzen „background“ als Kurzform – Pfeil der Auswahlfelder dort wiederherstellen */
 html :is(.kd-seite, .kd-formular, main) select {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%236b6a6d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23646b7d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 	background-repeat: no-repeat;
 	background-position: right 0.7rem center;
 	background-size: 14px 14px;
 	padding-right: 2.25rem;
 }
 html :is(input, select, textarea):hover:not(:focus, :disabled) {
-	border-color: var(--ui-feld-rand-hover);
+	border-color: #b3bacb;
 }
 html :is(input, textarea)::placeholder {
-	color: var(--ui-platzhalter);
+	color: #9aa1b1;
 }
 html :is(input, select, textarea):disabled {
 	background-color: var(--ui-grau-hell);
@@ -457,7 +457,7 @@ html .ui-feld {
 	transition: border-color 120ms, background 120ms, box-shadow 120ms;
 }
 .ui-chip:hover {
-	border-color: var(--ui-feld-rand-hover);
+	border-color: #b3bacb;
 	background: var(--ui-akzent-zart);
 }
 .ui-chip:focus-visible {
@@ -466,7 +466,7 @@ html .ui-feld {
 	box-shadow: var(--ui-fokus-ring);
 }
 .ui-chip.gesetzt {
-	border-color: var(--ui-akzent-rand);
+	border-color: #bcd0f7;
 	background: var(--ui-akzent-zart);
 }
 .ui-popover {
@@ -501,14 +501,14 @@ html .ui-feld {
 	line-height: 1;
 	white-space: nowrap;
 	color: #fff;
-	background: var(--ui-grau-text);
+	background: var(--ui-grau);
 }
 .ui-pill.gruen { background: var(--ui-gruen); }
-.ui-pill.orange { background: var(--ui-orange-text); }
+.ui-pill.orange { background: var(--ui-orange); }
 .ui-pill.rot { background: var(--ui-rot); }
 .ui-pill.lila { background: var(--ui-lila); }
 .ui-pill.blau { background: var(--ui-blau); }
-.ui-pill.grau { background: var(--ui-grau-text); }
+.ui-pill.grau { background: var(--ui-grau); }
 
 /* ── Listen-Zeilen ───────────────────────────────────────────────────────────────────────────────────── */
 
@@ -566,12 +566,12 @@ html :is(.af-status, .an-status) {
 	font-size: var(--ui-schrift-xs);
 	font-weight: 600;
 	line-height: 1;
-	background: var(--ui-grau-text);
+	background: var(--ui-grau);
 }
-html .af-status.s-anfrage { background: var(--ui-grau-text); color: #fff; }
+html .af-status.s-anfrage { background: var(--ui-grau); color: #fff; }
 html .af-status.s-angebot { background: var(--ui-lila); color: #fff; }
 html .af-status.s-beauftragt { background: var(--ui-blau); color: #fff; }
-html .af-status.s-in_arbeit { background: var(--ui-orange-text); color: #fff; }
+html .af-status.s-in_arbeit { background: var(--ui-orange); color: #fff; }
 html .af-status.s-abgenommen { background: var(--ui-gruen); color: #fff; }
 html .af-status.s-abgerechnet { background: #5c6370; color: #fff; }
 html .an-status.s-versendet { background: var(--ui-blau); color: #fff; }

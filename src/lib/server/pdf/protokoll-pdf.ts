@@ -2,7 +2,6 @@ import PDFDocument from 'pdfkit';
 import normalUrl from './schriften/NotoSans-Regular.ttf?url&inline';
 import fettUrl from './schriften/NotoSans-Bold.ttf?url&inline';
 import type { Profil } from '../betriebsprofil';
-import { pdfFarben } from './farben';
 
 /**
  * Protokoll-PDF (A4) mit pdfkit und eingebetteter Schrift „Noto Sans" (OFL, Umlaute und €).
@@ -62,6 +61,7 @@ const FUSS_Y = mm(267);
 const FARBE_TEXT = '#1c1f23';
 const FARBE_LEISE = '#5b6168';
 const FARBE_LINIE = '#c9ced5';
+const FARBE_PRIMAER = '#05346b';
 
 const deutschesDatum = (tag: string) => {
 	const [j, m, t] = tag.split('-');
@@ -79,8 +79,6 @@ const TITEL_MAP: Record<string, string> = {
 
 export async function protokollPdf(daten: ProtokollPdfDaten): Promise<Uint8Array> {
 	const { profil, protokoll: p, unterschrift } = daten;
-	// Hausfarbe wie in der App statt Navy (lesbar abgedunkelt für Schrift)
-	const FARBE_PRIMAER = pdfFarben(profil.farbe).akzentText;
 	const doc = new PDFDocument({
 		size: 'A4',
 		margins: { top: 0, bottom: 0, left: 0, right: 0 },

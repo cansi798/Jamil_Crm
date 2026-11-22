@@ -242,7 +242,7 @@
 		border-radius: 999px;
 	}
 	.aw-anzeige.leer .aw-text {
-		color: var(--ui-platzhalter, #8a8885);
+		color: #9a958c;
 	}
 	.aw-text {
 		flex: 1;

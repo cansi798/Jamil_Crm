@@ -9,7 +9,7 @@ export async function etikettenAntwort(k: Kontext, origin: string, anlagen: Anla
 	const etiketten = anlagen.flatMap((a) =>
 		Array.from({ length: kopien }, () => ({ url: `${origin}/a/${a.qrToken}`, bezeichnung: a.bezeichnung, typName: a.typName, seriennummer: a.seriennummer }))
 	);
-	const pdf = await etikettenPdf({ etiketten, firmenname: profil.firmenname, telefon: profil.telefon, logo, farbe: profil.farbe }, format);
+	const pdf = await etikettenPdf({ etiketten, firmenname: profil.firmenname, telefon: profil.telefon, logo }, format);
 	return new Response(Buffer.from(pdf), {
 		headers: {
 			'content-type': 'application/pdf',
