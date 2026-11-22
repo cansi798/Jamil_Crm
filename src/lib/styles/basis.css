@@ -57,14 +57,18 @@
 	--ui-anthrazit-600: #6b6a6d;
 	--ui-anthrazit-400: #a3a2a5;
 	--ui-anthrazit-200: #d6d5d7;
-	--ui-nav: var(--ui-anthrazit-800);
-	--ui-nav-text: #d9d6d0;
-	--ui-nav-leise: #9c9a96;
-	--ui-nav-hover: rgba(255, 255, 255, 0.07);
+	/* Seitenleiste und Kopfleiste hell (Jamil msg 6546, 21.11.2026: „Hintergrund nicht anthrazit, sondern weiß, Header
+	   auch“): Seitenleiste System-Grau wie macOS, Kopfleiste weiß, Text/Symbole fast schwarz, feine Trennlinie */
+	--ui-nav: #f5f5f7;
+	--ui-kopf: #ffffff;
+	--ui-nav-text: #1d1d1f;
+	--ui-nav-leise: #6e6e73; /* Kontrast auf #f5f5f7 ≥ 4,5 : 1 */
+	--ui-nav-hover: rgba(0, 0, 0, 0.05);
 	--ui-nav-aktiv: rgba(195, 165, 111, 0.16);
+	--ui-nav-linie: rgba(0, 0, 0, 0.08);
 
 	/* ── Flächen und Linien (warm) ─────────────────────────────────────────────────────────────────── */
-	--ui-hintergrund: #f6f4f0;
+	--ui-hintergrund: #ffffff; /* Inhaltsfläche weiß (Jamil msg 6546); Karten heben sich über Haarlinie + Schatten ab */
 	--ui-flaeche: #ffffff;
 	--ui-band: #faf8f4; /* Kopfband von Abschnitten/Karten */
 	--ui-rand: #e6e1d8;
