@@ -147,7 +147,7 @@
 			</p>
 			<div class="kd-zwei">
 				<label class="bk-farbe">Farbe des Kopfs <input type="color" name="dunkelFarbe" value={werte.dunkelFarbe || '#ffffff'} /></label>
-				<label class="bk-farbe">Hintergrund <input type="color" name="hintergrundFarbe" value={werte.hintergrundFarbe || '#f6f4f0'} /></label>
+				<label class="bk-farbe">Hintergrund <input type="color" name="hintergrundFarbe" value={werte.hintergrundFarbe || '#ffffff'} /></label>
 			</div>
 			<div class="kd-zwei">
 				<label>Schrift für Überschriften

@@ -23,7 +23,7 @@
 		fehlt: 'Der Zugang ist noch nicht eingerichtet – bitte wenden Sie sich an Ihren Handwerksbetrieb.'
 	} as const;
 	const stil = $derived(
-		[farbStil(aussehen.farbe ?? '#c3a56f'), `--pt-dunkel: ${aussehen.dunkel ?? '#ffffff'}`, `--pt-grund: ${aussehen.hintergrund ?? '#f6f4f0'}`].join('; ')
+		[farbStil(aussehen.farbe ?? '#c3a56f'), `--pt-dunkel: ${aussehen.dunkel ?? '#ffffff'}`, `--pt-grund: ${aussehen.hintergrund ?? '#ffffff'}`].join('; ')
 	);
 </script>
 
