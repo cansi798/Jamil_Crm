@@ -26,8 +26,8 @@
 		</ul>
 	{/if}
 	{#each gruppen as g (g.id)}
-		<h2 class="gruppe">{g.titel}</h2>
-		<ul class="zeilen">
+		<h2 class="unsichtbar">{g.titel}</h2>
+		<ul class="zeilen" class:mit-trennlinie={g.id !== 'operativ'} aria-label={g.titel}>
 			{#each g.eintraege as e (e.name)}
 				<li><a href={e.href} class="zeile"><NavSymbol symbol={e.symbol} /><span>{e.name}</span></a></li>
 			{/each}
@@ -48,12 +48,11 @@
 		margin: 0 auto;
 		padding: 1rem;
 	}
-	.gruppe {
-		margin: 1rem 0 0.5rem;
-		font-size: var(--ui-schrift-s);
-		color: var(--ui-text-leise);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
+	/* Blöcke ohne sichtbaren Titel (Jamil #7191): nur eine feine Trennlinie zwischen den Blöcken */
+	.zeilen.mit-trennlinie {
+		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--ui-nav-linie, var(--rand));
 	}
 	h1 {
 		font-size: 1.5rem;

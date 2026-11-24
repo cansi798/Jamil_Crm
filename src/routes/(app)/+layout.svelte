@@ -39,24 +39,6 @@
 	const mehrAktiv = $derived(
 		pfad === '/mehr' || [...(data.navigation?.haupt ?? []).slice(MOBIL_HAUPT), ...(data.navigation?.mehr ?? [])].some((e) => istAktiv(e.href, pfad))
 	);
-	// Gruppen einklappbar; Zustand je Benutzer auf diesem Gerät (msg 2826). Die Gruppe der aktuellen Seite ist immer offen.
-	let zu = $state<Record<string, boolean>>({});
-	const schluessel = $derived(`crm-nav-zu:${data.benutzerId ?? ''}`);
-	$effect(() => {
-		try {
-			zu = JSON.parse(localStorage.getItem(schluessel) ?? '{}');
-		} catch {
-			zu = {};
-		}
-	});
-	function umschalten(id: string, offen: boolean) {
-		zu = { ...zu, [id]: !offen };
-		try {
-			localStorage.setItem(schluessel, JSON.stringify(zu));
-		} catch {
-			/* ohne Speicher bleibt es für diese Sitzung */
-		}
-	}
 </script>
 
 {#if data.navigation}
@@ -104,11 +86,11 @@
 					</a>
 				</li>
 			</ul>
+			<!-- Vier Blöcke OHNE sichtbare Überschrift (Jamil #7191): getrennt nur durch eine feine Trennlinie; der Titel
+			     steht als Screenreader-Label (aria-label) am Block. „Operativ“ schließt ohne Linie an den Hauptbereich an. -->
 			{#each data.navigation.gruppen as g (g.id)}
-				{@const aktiv = g.eintraege.some((e) => markiert(e))}
-				<details class="nav-gruppe nur-breit" open={aktiv || !zu[g.id]} ontoggle={(ev) => umschalten(g.id, (ev.currentTarget as HTMLDetailsElement).open)}>
-					<summary class="gruppe">{g.titel}</summary>
-					<ul class="liste verwaltung">
+				<div class="nav-gruppe nur-breit" class:mit-trennlinie={g.id !== 'operativ'} role="group" aria-label={g.titel}>
+					<ul class="liste">
 						{#each g.eintraege as e (e.name)}
 							<li>
 								<a href={e.href} class="eintrag" aria-current={markiert(e)}>
@@ -118,7 +100,7 @@
 							</li>
 						{/each}
 					</ul>
-				</details>
+				</div>
 			{/each}
 			<form method="POST" action="/api/abmelden" onsubmit={() => loesche()} class="abmelden nur-breit">
 				<button type="submit" class="eintrag">
@@ -411,45 +393,15 @@
 			color: var(--ui-nav-text);
 			background: var(--ui-nav-hover);
 		}
-		.gruppe {
-			margin: 1.25rem 0 0.3rem;
-			padding: 0 1.4rem;
-			color: var(--ui-nav-leise); /* Abschnittsname der Seitenleiste wie bei macOS: leises Grau */
-			font-family: var(--ui-schrift-titel);
-			font-size: 0.75rem;
-			font-weight: 600;
-			letter-spacing: 0.01em;
-		}
 		.nur-schmal {
 			display: none;
 		}
-		.nav-gruppe summary {
-			cursor: pointer;
-			list-style: none;
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-		}
-		.nav-gruppe summary::-webkit-details-marker {
-			display: none;
-		}
-		/* Pfeil der Menügruppe: gut sichtbar (Jamil msg 3044), mittig zur Gruppenüberschrift */
-		.nav-gruppe summary::after {
-			content: '▾';
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			flex: none;
-			width: 1.5rem;
-			height: 1.5rem;
-			margin-right: -0.25rem;
-			font-size: 1rem;
-			line-height: 1;
-			opacity: 0.8;
-			transition: transform var(--ui-uebergang);
-		}
-		.nav-gruppe:not([open]) summary::after {
-			transform: rotate(-90deg);
+		/* Blöcke ohne sichtbaren Titel (Jamil #7191): eine feine Trennlinie zwischen den Blöcken, dezenter Abstand.
+		   „Operativ“ (erster Block) hat keine Linie – es schließt direkt an den Hauptbereich an. */
+		.nav-gruppe.mit-trennlinie {
+			margin-top: 0.55rem;
+			padding-top: 0.55rem;
+			border-top: 1px solid var(--ui-nav-linie);
 		}
 		.nur-breit-li {
 			display: list-item !important;

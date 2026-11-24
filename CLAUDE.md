@@ -32,17 +32,27 @@ Deshalb gilt für **jede** neue Funktion bzw. jeden Commit:
 
 Skripte, Kommentare und `ANLEITUNG.md` bleiben auf Deutsch und in einfacher Sprache (Can ist kein Techniker).
 
-## Menü-Gruppen (Regel von Jamil, Talk msg 2860)
+## Menü-Blöcke (Regel von Jamil, Talk msgs 2860, #7191)
 
-Jede neue Seite bzw. jeder neue Bereich kommt in die passende Gruppe der Navigation (`src/lib/navigation.ts`):
-**Hauptbereich** (Start, Kunden, Aufträge, Ausgangsbelege, Plantafel, Karte, Aufgaben), dann der **Weg des Kunden**
-(Jamil msg 3423): **Anfrage**, **Angebot**, **Auftrag**, **Abschluss & danach** – dort stehen die Einstellungen, wo der Kunde sie
-erlebt; leere Gruppen erscheinen nicht (alles zum Kundenportal steht seit msg 3534 unter „Kundenportal & Auftragsbestätigung“) –,
-dann **Vorlagen** (Protokoll- und Aufmaß-Vorlagen sind ein Punkt mit zwei Reitern, msg 3535), **Team & Partner** (Zeiten, Abwesenheiten, Kolonnen, Partner – Jamil msg 3089),
-**Auswertungen**, **Allgemein** (Funktionen & Automatisierungen, Briefkopf, Erinnerungen, Handy, Was ist neu),
-**Benutzeradministration**. Neue Einstellung → in die Gruppe des Kundenwegs, zu der sie gehört. Einträge
-erscheinen nur mit Modul und Recht. Passt keine Gruppe, eine sinnvolle neue Gruppe anlegen bzw. die Reihenfolge
-anpassen – und in der Talk-Notiz an Jamil IMMER sagen, was im Menü dazugekommen oder verschoben ist und warum.
+Die Navigation (`src/lib/navigation.ts`) ist in **vier Blöcke OHNE sichtbare Überschrift** (Jamil #7191) gegliedert; die
+Blöcke werden optisch nur durch eine feine Trennlinie getrennt, der Blockname steht ausschließlich als Screenreader-Label
+(`aria-label`). Jede neue Seite bzw. jeder neue Bereich kommt in den passenden Block:
+
+1. **Operativ** – das tägliche Arbeiten: der immer sichtbare **Hauptbereich** (Start, Kunden, Aufträge, Ausgangsbelege,
+   Plantafel, Karte, Aufgaben – feste Reihenfolge Jamil msg 2815, zugleich die mobile Leiste unten) und darunter die
+   eigene Arbeitszeit (Zeiten).
+2. **Verwaltung** – Vorlagen (Auftrag/Angebot, Protokoll- & Aufmaß als EIN Punkt mit zwei Reitern msg 3535, E-Mail),
+   Katalog, Kalkulation sowie die nachgelagerten Belegprozesse (Nachfassen, Mahnungen, Erinnerung Rechnung) und Partner.
+3. **Administrativ** – Auswertungen (Kennzahlen, Nachkalkulation, Auslastung, Auswertung Auftragsquellen, Kennzahlen
+   einstellen) sowie Personal/Organisation (Abwesenheiten, Kolonnen).
+4. **Konfiguration** – Kundenweg-Einstellungen (Auftragsquellen, Terminarten, Online-Buchung, Leitfaden beim Termin,
+   Kundenportal & Auftragsbestätigung), Firmenprofil/Technik (Funktionen & Automatisierungen, Briefkopf, E-Mail-Versand,
+   Lexware), persönliche Punkte (Erinnerungen, Handy, Was ist neu) und Benutzer/Rollen/Nextcloud.
+
+Neue Seite → in den fachlich passenden Block (eine neue Einstellung meist in **Konfiguration** zum jeweiligen Schritt,
+eine Auswertung in **Administrativ**). Einträge erscheinen nur mit Modul UND Recht; leere Blöcke erscheinen nicht. Die
+Blocktitel bleiben unsichtbar (nur `aria-label`) – kein sichtbarer Überschriftstext. Passt kein Block, Reihenfolge/Block
+sinnvoll anpassen – und in der Talk-Notiz an Jamil IMMER sagen, was im Menü dazugekommen oder verschoben ist und warum.
 `tests/unit/navigation.test.ts` mitziehen. Seiten ohne eigenes Menü (z. B. „Gespeicherte Ansichten“) bekommen keinen Eintrag.
 Menü-Links haben nie einen Suchteil (`?…`) – jede Seite braucht einen eigenen Pfad, sonst sind zwei Einträge markiert
 (msg 3085); markiert wird immer nur der genaueste Eintrag (`aktiverEintrag`).

@@ -56,8 +56,8 @@ test('Menü: Protokoll- & Aufmaß-Vorlagen sind EIN Punkt, auf beiden Reitern ge
 	await page.goto('/einstellungen/protokoll-vorlagen');
 	await expect(markiert).toHaveCount(1);
 	await expect(markiert).toHaveText(/Protokoll- & Aufmaß-Vorlagen/);
-	// Partner jetzt in „Team & Partner“ (msg 3089)
-	await expect(page.locator('.nav-gruppe', { hasText: 'Team & Partner' }).getByRole('link', { name: 'Partner' })).toBeAttached();
+	// Partner jetzt im Block „Verwaltung“ (Jamil #7191; Titel unsichtbar, nur aria-label)
+	await expect(page.getByRole('group', { name: 'Verwaltung' }).getByRole('link', { name: 'Partner' })).toBeAttached();
 });
 
 test('Protokoll-Vorlage: Detailseite wie alle Vorlagen, Löschen oben rechts erst nach Rückfrage', async ({ page }) => {

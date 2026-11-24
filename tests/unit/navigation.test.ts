@@ -10,26 +10,22 @@ const namen = (eintraege: { name: string }[]) => eintraege.map((e) => e.name);
 const gruppen = (nav: ReturnType<typeof baueNavigation>) =>
 	Object.fromEntries(nav.gruppen.map((g) => [g.titel, namen(g.eintraege).filter((n) => n !== 'Was ist neu')]).filter(([, e]) => e.length > 0));
 
-describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
-	it('Chef: Hauptbereich in fester Reihenfolge, Gruppen mit Einträgen; „Weitere Bereiche“ gibt es nicht mehr', () => {
+describe('baueNavigation – vier Blöcke ohne sichtbare Überschrift (Jamil #7191)', () => {
+	it('Chef: Hauptbereich (Operativ) in fester Reihenfolge, dann Verwaltung/Administrativ/Konfiguration', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE, { nextcloud: true });
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
-		// Einstellungen nach dem Weg des Kunden (Jamil msg 3423): Anfrage → Angebot → Auftrag; „Leistungen für Bestandskunden“ steht
-		// seit msg 3534 in „Kundenportal & Auftragsbestätigung“ (Gruppe „Abschluss & danach“ ohne Einträge → nicht im Menü)
+		// Vier Blöcke in fester Reihenfolge; die Titel sind nur Screenreader-Label, nicht sichtbar
+		expect(nav.gruppen.map((g) => g.titel)).toEqual(['Operativ', 'Verwaltung', 'Administrativ', 'Konfiguration']);
 		expect(gruppen(nav)).toEqual({
-			Anfrage: ['Auftragsquellen', 'Terminarten', 'Online-Buchung', 'Leitfaden beim Termin'],
-			Angebot: ['Katalog', 'Kalkulation', 'Nachfassen'],
-			Auftrag: ['Kundenportal & Auftragsbestätigung'],
-			// Lexware Phase 3: Mahnstufen für Rechnungen (Recht mahnungen.verwalten, Modul lexware);
-			// Erinnerung „Rechnung erstellen“ bei Abnahme – wer sie bekommt (Jamil msg 6530, Recht einstellungen)
-			'Abschluss & danach': ['Mahnungen', 'Erinnerung Rechnung'],
-			Vorlagen: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll- & Aufmaß-Vorlagen', 'E-Mail-Vorlagen'],
-			'Team & Partner': ['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner'],
-			Auswertungen: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen'],
-			Allgemein: ['Funktionen & Automatisierungen', 'Briefkopf / Firmenprofil', 'E-Mail-Versand', 'Lexware verbinden', 'Erinnerungen', 'Handy verbinden'],
-			Benutzeradministration: ['Benutzer', 'Nextcloud', 'Rollen']
+			// Operativ = Hauptbereich oben + die eigene Arbeitszeit
+			Operativ: ['Zeiten'],
+			// Verwaltung = Vorlagen, Katalog/Kalkulation, nachgelagerte Belege, Partner
+			Verwaltung: ['Auftrags-Vorlagen', 'Angebots-Vorlagen', 'Protokoll- & Aufmaß-Vorlagen', 'E-Mail-Vorlagen', 'Katalog', 'Kalkulation', 'Nachfassen', 'Mahnungen', 'Erinnerung Rechnung', 'Partner'],
+			// Administrativ = Auswertungen, dann Personal/Organisation
+			Administrativ: ['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Auswertung Auftragsquellen', 'Kennzahlen einstellen', 'Abwesenheiten', 'Kolonnen'],
+			// Konfiguration = Kundenweg-Einstellungen, Firmenprofil/Technik, Benutzer/Rollen (ohne „Was ist neu“, s. Helfer)
+			Konfiguration: ['Auftragsquellen', 'Terminarten', 'Online-Buchung', 'Leitfaden beim Termin', 'Kundenportal & Auftragsbestätigung', 'Funktionen & Automatisierungen', 'Briefkopf / Firmenprofil', 'E-Mail-Versand', 'Lexware verbinden', 'Erinnerungen', 'Handy verbinden', 'Benutzer', 'Nextcloud', 'Rollen']
 		});
-		expect(nav.gruppen.map((g) => g.titel).slice(0, 5)).toEqual(['Anfrage', 'Angebot', 'Auftrag', 'Abschluss & danach', 'Vorlagen']);
 		expect(namen(nav.mehr)).not.toContain('Leistungen für Bestandskunden');
 		expect(nav.mehr).toEqual(nav.gruppen.flatMap((g) => g.eintraege));
 		expect(nav.haupt[1]).toMatchObject({ href: '/kunden' });
@@ -40,42 +36,46 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.buero), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Ausgangsbelege', 'Plantafel', 'Karte', 'Aufgaben']);
 		const g = gruppen(nav);
-		expect(g['Benutzeradministration']).toBeUndefined();
-		expect(g['Angebot']).toEqual(['Katalog']);
-		expect(g['Anfrage']).toBeUndefined();
-		expect(g['Team & Partner']).toEqual(['Zeiten', 'Abwesenheiten', 'Kolonnen', 'Partner']);
+		expect(g['Operativ']).toEqual(['Zeiten']);
+		// Büro hat keine „einstellungen“/„buchung.verwalten“ → in Konfiguration bleiben nur persönliche Punkte
+		expect(g['Konfiguration']).toEqual(['Erinnerungen', 'Handy verbinden']);
+		expect(g['Administrativ']).toEqual(['Kennzahlen', 'Nachkalkulation', 'Auslastung', 'Abwesenheiten', 'Kolonnen']);
+		expect(g['Verwaltung']).toContain('Partner');
 		expect(namen(nav.mehr)).not.toContain('Kalkulation');
 		expect(namen(nav.mehr)).not.toContain('Online-Buchung');
 		expect(namen(nav.mehr)).not.toContain('Terminarten');
+		expect(namen(nav.mehr)).not.toContain('Rollen');
+		expect(namen(nav.mehr)).not.toContain('Benutzer');
 	});
 
-	it('Monteur: Start, Kunden, Aufträge, Karte, Aufgaben; nur Auftrags-Vorlagen, Zeiten, Erinnerungen; nie Preise', () => {
+	it('Monteur: Start, Kunden, Aufträge, Karte, Aufgaben; nur Operativ (Zeiten), Verwaltung (Auftrags-Vorlagen), Konfiguration (persönlich); nie Preise', () => {
 		const nav = baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE);
 		expect(namen(nav.haupt)).toEqual(['Start', 'Kunden', 'Aufträge', 'Karte', 'Aufgaben']);
-		expect(gruppen(nav)).toEqual({ Vorlagen: ['Auftrags-Vorlagen'], 'Team & Partner': ['Zeiten'], Allgemein: ['Erinnerungen', 'Handy verbinden'] });
+		expect(gruppen(nav)).toEqual({ Operativ: ['Zeiten'], Verwaltung: ['Auftrags-Vorlagen'], Konfiguration: ['Erinnerungen', 'Handy verbinden'] });
 		for (const name of ['Ausgangsbelege', 'Katalog', 'Briefkopf / Firmenprofil', 'Kalkulation', 'Nachkalkulation']) {
 			expect(namen([...nav.haupt, ...nav.mehr]), name).not.toContain(name);
 		}
 	});
 
-	it('Handy verbinden (CalDAV, msgs 2964/2980) für alle, die Aufgaben sehen – nur mit Modul Aufträge', () => {
-		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE))['Allgemein']).toEqual(['Handy verbinden']);
+	it('Handy verbinden (CalDAV, msgs 2964/2980) für alle, die Aufgaben sehen – in „Konfiguration“, nur mit Modul Aufträge', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE))['Konfiguration']).toEqual(['Handy verbinden']);
 		expect(namen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE.filter((m) => m !== 'auftraege')).mehr)).not.toContain('Handy verbinden');
 		expect(namen(baueNavigation(betriebsNutzer(['kunden.lesen']), ALLE_MODULE).mehr)).not.toContain('Handy verbinden');
 	});
 
-	it('Benutzeradministration nur mit Rechten: benutzer.verwalten → Benutzer, einstellungen → Rollen', () => {
-		expect(gruppen(baueNavigation(betriebsNutzer(['benutzer.verwalten']), ALLE_MODULE))).toEqual({ Benutzeradministration: ['Benutzer'] });
-		expect(gruppen(baueNavigation(betriebsNutzer(['einstellungen']), ALLE_MODULE))['Benutzeradministration']).toEqual(['Rollen']);
+	it('Benutzer/Rollen in „Konfiguration“: benutzer.verwalten → Benutzer, einstellungen → Rollen', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['benutzer.verwalten']), ALLE_MODULE))).toEqual({ Konfiguration: ['Benutzer'] });
+		expect(gruppen(baueNavigation(betriebsNutzer(['einstellungen']), ALLE_MODULE))['Konfiguration']).toContain('Rollen');
+		expect(namen(baueNavigation(betriebsNutzer(['benutzer.verwalten']), ALLE_MODULE).mehr)).not.toContain('Rollen');
 	});
 
-	it('Kennzahlen (msg 2858) zuerst in „Auswertungen“, nur mit „Alle Aufträge ansehen“', () => {
-		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE))['Auswertungen']).toEqual(['Kennzahlen', 'Auslastung']);
-		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE))['Auswertungen']).toBeUndefined();
+	it('Kennzahlen (msg 2858) zuerst in „Administrativ“, nur mit „Alle Aufträge ansehen“', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE))['Administrativ']).toEqual(['Kennzahlen', 'Auslastung']);
+		expect(gruppen(baueNavigation(betriebsNutzer(['auftraege.lesen']), ALLE_MODULE))['Administrativ']).toBeUndefined();
 	});
 
-	it('E-Mail-Vorlagen (msg 2789) nur mit vorlagen.verwalten, in der Gruppe „Vorlagen“', () => {
-		expect(gruppen(baueNavigation(betriebsNutzer(['vorlagen.verwalten']), ALLE_MODULE))).toEqual({ Vorlagen: ['E-Mail-Vorlagen'] });
+	it('E-Mail-Vorlagen (msg 2789) nur mit vorlagen.verwalten, in „Verwaltung“', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['vorlagen.verwalten']), ALLE_MODULE))).toEqual({ Verwaltung: ['E-Mail-Vorlagen'] });
 		expect(namen(baueNavigation(betriebsNutzer(VORLAGEN.monteur), ALLE_MODULE).mehr)).not.toContain('E-Mail-Vorlagen');
 	});
 
@@ -91,11 +91,11 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(namen(mit(['preise.sehen', 'einstellungen'], ALLE_MODULE.filter((m) => m !== 'katalog')).mehr)).not.toContain('Kalkulation');
 	});
 
-	it('Plantafel nur mit plantafel.bearbeiten oder auftraege.alle_lesen; Abwesenheiten/Kolonnen nur mit plantafel.bearbeiten', () => {
+	it('Plantafel nur mit plantafel.bearbeiten oder auftraege.alle_lesen; Abwesenheiten/Kolonnen (Administrativ) nur mit plantafel.bearbeiten', () => {
 		expect(namen(baueNavigation(betriebsNutzer(['auftraege.alle_lesen']), ALLE_MODULE).haupt)).toEqual(['Start', 'Aufträge', 'Plantafel', 'Karte', 'Aufgaben']);
 		const planer = baueNavigation(betriebsNutzer(['plantafel.bearbeiten']), ALLE_MODULE);
 		expect(namen(planer.haupt)).toEqual(['Start', 'Plantafel']);
-		expect(gruppen(planer)['Team & Partner']).toEqual(['Abwesenheiten', 'Kolonnen']);
+		expect(gruppen(planer)['Administrativ']).toEqual(['Auslastung', 'Abwesenheiten', 'Kolonnen']);
 		const ohnePlantafel = baueNavigation(betriebsNutzer(VORLAGEN.chef), ALLE_MODULE.filter((m) => m !== 'plantafel'));
 		expect(namen(ohnePlantafel.haupt)).not.toContain('Plantafel');
 		expect(namen(ohnePlantafel.mehr)).not.toContain('Abwesenheiten');
@@ -127,8 +127,8 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(istAktiv('/auftraege', '/angebote/abc')).toBe(false);
 	});
 
-	it('Partner (msg 3089) in „Team & Partner“, nur mit Modul Aufträge und partner.verwalten', () => {
-		expect(gruppen(baueNavigation(betriebsNutzer(['partner.verwalten']), ALLE_MODULE))).toEqual({ 'Team & Partner': ['Partner'] });
+	it('Partner (msg 3089) in „Verwaltung“, nur mit Modul Aufträge und partner.verwalten', () => {
+		expect(gruppen(baueNavigation(betriebsNutzer(['partner.verwalten']), ALLE_MODULE))).toEqual({ Verwaltung: ['Partner'] });
 		expect(namen(baueNavigation(betriebsNutzer(['partner.verwalten']), ALLE_MODULE.filter((m) => m !== 'auftraege')).mehr)).not.toContain('Partner');
 	});
 
@@ -168,7 +168,7 @@ describe('baueNavigation (Jamil msgs 2815, 2819, 2826)', () => {
 		expect(aktiverEintrag(alle, '/unbekannt')).toBeNull();
 	});
 
-	it('Was ist neu (msg 3423): für jeden Benutzer eines Betriebs, nicht für die Plattform-Verwaltung', () => {
+	it('Was ist neu (msg 3423): für jeden Benutzer eines Betriebs (in „Konfiguration“), nicht für die Plattform-Verwaltung', () => {
 		expect(namen(baueNavigation(betriebsNutzer([]), ALLE_MODULE).mehr)).toContain('Was ist neu');
 		expect(namen(baueNavigation({ istAdmin: true, betriebId: null, rechte: [] }, ALLE_MODULE).mehr)).not.toContain('Was ist neu');
 	});

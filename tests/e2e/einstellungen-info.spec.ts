@@ -79,12 +79,15 @@ test('ⓘ erklärt die Einstellung, Funktionen-Übersicht, Was ist neu', async (
 	await expect(page.getByTestId('neuigkeit').first()).toContainText('Zu finden');
 	await erwarteKeinQuerScrollen(page, breite);
 
-	// Menü nach dem Weg des Kunden (Seitenleiste am Desktop)
+	// Menü in vier Blöcken OHNE sichtbare Überschrift (Jamil #7191): Titel nur als Screenreader-Label (aria-label),
+	// nicht als sichtbarer Text; die Einträge selbst bleiben sichtbar (Seitenleiste am Desktop)
 	if (!mobil) {
 		const nav = page.getByRole('navigation').first();
-		for (const t of ['Anfrage', 'Angebot', 'Auftrag']) await expect(nav.getByText(t, { exact: true })).toBeVisible();
-		// „Abschluss & danach“ hat seit Lexware Phase 3 wieder Einträge (Erinnerung Rechnung, Jamil msg 6530; Mahnungen)
-		await expect(nav.getByText('Abschluss & danach', { exact: true })).toBeVisible();
+		for (const t of ['Operativ', 'Verwaltung', 'Administrativ', 'Konfiguration']) {
+			await expect(nav.getByText(t, { exact: true })).toHaveCount(0); // kein sichtbarer Titel
+			await expect(nav.getByRole('group', { name: t })).toBeAttached(); // aber als Block für Screenreader benannt
+		}
+		// Erinnerung Rechnung steht jetzt im Block „Verwaltung“ (Jamil msg 6530; Mahnungen); „Leistungen für Bestandskunden“ gibt es nicht als eigenen Link
 		await expect(nav.getByRole('link', { name: 'Erinnerung Rechnung' })).toBeVisible();
 		await expect(nav.getByRole('link', { name: 'Leistungen für Bestandskunden' })).toHaveCount(0);
 		await expect(nav.getByRole('link', { name: 'Protokoll- & Aufmaß-Vorlagen' })).toBeVisible();
